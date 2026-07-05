@@ -1,0 +1,1905 @@
+event_date,ab_group,avg_completions_7d_bucket,source_detail,resource,unit,segment_players,gain_players,gain_player_rate_pct,total_amount,avg_amount_per_segment_player,avg_amount_per_gain_player
+2026-06-02,Control,A. 0,dreamheist_event,Chuck,count,10416,1,0.01,1.0,0.0001,1.0
+2026-06-02,Control,A. 0,dreamheist_event,HC Free,HC,10416,3,0.03,30.0,0.0029,10.0
+2026-06-02,Control,A. 0,dreamheist_event,HC Total,HC,10416,3,0.03,30.0,0.0029,10.0
+2026-06-02,Control,A. 0,dreamheist_event,Slingshot,count,10416,1,0.01,1.0,0.0001,1.0
+2026-06-02,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,10416,2,0.02,40.0,0.0038,20.0
+2026-06-02,Control,B. 1-9,dreamheist_event,HC Free,HC,23861,16,0.07,115.0,0.0048,7.1875
+2026-06-02,Control,B. 1-9,dreamheist_event,HC Total,HC,23861,16,0.07,115.0,0.0048,7.1875
+2026-06-02,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,23861,16,0.07,320.0,0.0134,20.0
+2026-06-02,Control,C. 10-19,dreamheist_event,HC Free,HC,16448,9,0.05,70.0,0.0043,7.7778
+2026-06-02,Control,C. 10-19,dreamheist_event,HC Total,HC,16448,9,0.05,70.0,0.0043,7.7778
+2026-06-02,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,16448,9,0.05,180.0,0.0109,20.0
+2026-06-02,Control,D. 20-39,dreamheist_event,HC Free,HC,9086,3,0.03,15.0,0.0017,5.0
+2026-06-02,Control,D. 20-39,dreamheist_event,HC Total,HC,9086,3,0.03,15.0,0.0017,5.0
+2026-06-02,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9086,3,0.03,60.0,0.0066,20.0
+2026-06-02,Variant,A. 0,dreamheist_event,HC Free,HC,10277,2,0.02,15.0,0.0015,7.5
+2026-06-02,Variant,A. 0,dreamheist_event,HC Total,HC,10277,2,0.02,15.0,0.0015,7.5
+2026-06-02,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,10277,2,0.02,40.0,0.0039,20.0
+2026-06-02,Variant,B. 1-9,dreamheist_event,Chuck,count,23582,1,0.0,1.0,0.0,1.0
+2026-06-02,Variant,B. 1-9,dreamheist_event,HC Free,HC,23582,10,0.04,85.0,0.0036,8.5
+2026-06-02,Variant,B. 1-9,dreamheist_event,HC Total,HC,23582,10,0.04,85.0,0.0036,8.5
+2026-06-02,Variant,B. 1-9,dreamheist_event,Slingshot,count,23582,2,0.01,2.0,0.0001,1.0
+2026-06-02,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,23582,9,0.04,180.0,0.0076,20.0
+2026-06-02,Variant,B. 1-9,treasure_dive_event,Slingshot,count,23582,1,0.0,1.0,0.0,1.0
+2026-06-02,Variant,C. 10-19,dreamheist_event,HC Free,HC,16522,7,0.04,65.0,0.0039,9.2857
+2026-06-02,Variant,C. 10-19,dreamheist_event,HC Total,HC,16522,7,0.04,65.0,0.0039,9.2857
+2026-06-02,Variant,C. 10-19,dreamheist_event,Red,count,16522,1,0.01,2.0,0.0001,2.0
+2026-06-02,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,16522,6,0.04,120.0,0.0073,20.0
+2026-06-02,Variant,E. 40-99,dreamheist_event,HC Free,HC,3539,1,0.03,5.0,0.0014,5.0
+2026-06-02,Variant,E. 40-99,dreamheist_event,HC Total,HC,3539,1,0.03,5.0,0.0014,5.0
+2026-06-02,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,3539,1,0.03,20.0,0.0057,20.0
+2026-06-03,Control,A. 0,dreamheist_event,HC Free,HC,16724,4,0.02,40.0,0.0024,10.0
+2026-06-03,Control,A. 0,dreamheist_event,HC Total,HC,16724,4,0.02,40.0,0.0024,10.0
+2026-06-03,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16724,4,0.02,80.0,0.0048,20.0
+2026-06-03,Control,B. 1-9,dreamheist_event,Chuck,count,32756,1,0.0,1.0,0.0,1.0
+2026-06-03,Control,B. 1-9,dreamheist_event,HC Free,HC,32756,20,0.06,195.0,0.006,9.75
+2026-06-03,Control,B. 1-9,dreamheist_event,HC Total,HC,32756,20,0.06,195.0,0.006,9.75
+2026-06-03,Control,B. 1-9,dreamheist_event,Red,count,32756,4,0.01,4.0,0.0001,1.0
+2026-06-03,Control,B. 1-9,dreamheist_event,Slingshot,count,32756,1,0.0,1.0,0.0,1.0
+2026-06-03,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32756,15,0.05,300.0,0.0092,20.0
+2026-06-03,Control,C. 10-19,dreamheist_event,Chuck,count,19999,1,0.01,1.0,0.0001,1.0
+2026-06-03,Control,C. 10-19,dreamheist_event,HC Free,HC,19999,13,0.07,195.0,0.0098,15.0
+2026-06-03,Control,C. 10-19,dreamheist_event,HC Total,HC,19999,13,0.07,195.0,0.0098,15.0
+2026-06-03,Control,C. 10-19,dreamheist_event,Red,count,19999,3,0.02,3.0,0.0002,1.0
+2026-06-03,Control,C. 10-19,dreamheist_event,Slingshot,count,19999,1,0.01,1.0,0.0001,1.0
+2026-06-03,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19999,11,0.06,220.0,0.011,20.0
+2026-06-03,Control,D. 20-39,dreamheist_event,Chuck,count,10009,1,0.01,1.0,0.0001,1.0
+2026-06-03,Control,D. 20-39,dreamheist_event,HC Free,HC,10009,6,0.06,55.0,0.0055,9.1667
+2026-06-03,Control,D. 20-39,dreamheist_event,HC Total,HC,10009,6,0.06,55.0,0.0055,9.1667
+2026-06-03,Control,D. 20-39,dreamheist_event,Red,count,10009,1,0.01,1.0,0.0001,1.0
+2026-06-03,Control,D. 20-39,dreamheist_event,Slingshot,count,10009,1,0.01,1.0,0.0001,1.0
+2026-06-03,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10009,4,0.04,80.0,0.008,20.0
+2026-06-03,Control,E. 40-99,dreamheist_event,HC Free,HC,4134,2,0.05,55.0,0.0133,27.5
+2026-06-03,Control,E. 40-99,dreamheist_event,HC Total,HC,4134,2,0.05,55.0,0.0133,27.5
+2026-06-03,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4134,2,0.05,40.0,0.0097,20.0
+2026-06-03,Variant,A. 0,dreamheist_event,Chuck,count,16779,3,0.02,3.0,0.0002,1.0
+2026-06-03,Variant,A. 0,dreamheist_event,Comet,count,16779,1,0.01,1.0,0.0001,1.0
+2026-06-03,Variant,A. 0,dreamheist_event,HC Free,HC,16779,10,0.06,1225.0,0.073,122.5
+2026-06-03,Variant,A. 0,dreamheist_event,HC Total,HC,16779,10,0.06,1225.0,0.073,122.5
+2026-06-03,Variant,A. 0,dreamheist_event,Red,count,16779,8,0.05,8.0,0.0005,1.0
+2026-06-03,Variant,A. 0,dreamheist_event,Slingshot,count,16779,4,0.02,4.0,0.0002,1.0
+2026-06-03,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16779,10,0.06,240.0,0.0143,24.0
+2026-06-03,Variant,B. 1-9,dreamheist_event,Chuck,count,32103,2040,6.35,2049.0,0.0638,1.0044
+2026-06-03,Variant,B. 1-9,dreamheist_event,HC Free,HC,32103,8161,25.42,121050.0,3.7707,14.8327
+2026-06-03,Variant,B. 1-9,dreamheist_event,HC Total,HC,32103,8161,25.42,121050.0,3.7707,14.8327
+2026-06-03,Variant,B. 1-9,dreamheist_event,Red,count,32103,7394,23.03,7454.0,0.2322,1.0081
+2026-06-03,Variant,B. 1-9,dreamheist_event,Slingshot,count,32103,2040,6.35,2049.0,0.0638,1.0044
+2026-06-03,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32103,17864,55.65,362590.0,11.2946,20.2972
+2026-06-03,Variant,C. 10-19,dreamheist_event,Chuck,count,20221,3600,17.8,3650.0,0.1805,1.0139
+2026-06-03,Variant,C. 10-19,dreamheist_event,Comet,count,20221,27,0.13,28.0,0.0014,1.037
+2026-06-03,Variant,C. 10-19,dreamheist_event,HC Free,HC,20221,10722,53.02,306725.0,15.1686,28.6071
+2026-06-03,Variant,C. 10-19,dreamheist_event,HC Total,HC,20221,10722,53.02,306725.0,15.1686,28.6071
+2026-06-03,Variant,C. 10-19,dreamheist_event,Red,count,20221,7183,35.52,7264.0,0.3592,1.0113
+2026-06-03,Variant,C. 10-19,dreamheist_event,Slingshot,count,20221,3627,17.94,3678.0,0.1819,1.0141
+2026-06-03,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20221,11958,59.14,245000.0,12.1161,20.4884
+2026-06-03,Variant,D. 20-39,dreamheist_event,Chuck,count,10198,2159,21.17,2193.0,0.215,1.0157
+2026-06-03,Variant,D. 20-39,dreamheist_event,Comet,count,10198,16,0.16,16.0,0.0016,1.0
+2026-06-03,Variant,D. 20-39,dreamheist_event,HC Free,HC,10198,5866,57.52,291750.0,28.6086,49.7358
+2026-06-03,Variant,D. 20-39,dreamheist_event,HC Total,HC,10198,5866,57.52,291750.0,28.6086,49.7358
+2026-06-03,Variant,D. 20-39,dreamheist_event,Red,count,10198,3645,35.74,3691.0,0.3619,1.0126
+2026-06-03,Variant,D. 20-39,dreamheist_event,Slingshot,count,10198,2175,21.33,2209.0,0.2166,1.0156
+2026-06-03,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10198,5945,58.3,123200.0,12.0808,20.7233
+2026-06-03,Variant,E. 40-99,dreamheist_event,Chuck,count,4121,867,21.04,883.0,0.2143,1.0185
+2026-06-03,Variant,E. 40-99,dreamheist_event,Comet,count,4121,200,4.85,207.0,0.0502,1.035
+2026-06-03,Variant,E. 40-99,dreamheist_event,HC Free,HC,4121,2456,59.6,278575.0,67.5989,113.4263
+2026-06-03,Variant,E. 40-99,dreamheist_event,HC Total,HC,4121,2456,59.6,278575.0,67.5989,113.4263
+2026-06-03,Variant,E. 40-99,dreamheist_event,Red,count,4121,1571,38.12,1598.0,0.3878,1.0172
+2026-06-03,Variant,E. 40-99,dreamheist_event,Slingshot,count,4121,1067,25.89,1090.0,0.2645,1.0216
+2026-06-03,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4121,2452,59.5,62900.0,15.2633,25.6525
+2026-06-03,Variant,F. 100+,dreamheist_event,Chuck,count,431,65,15.08,67.0,0.1555,1.0308
+2026-06-03,Variant,F. 100+,dreamheist_event,Comet,count,431,63,14.62,65.0,0.1508,1.0317
+2026-06-03,Variant,F. 100+,dreamheist_event,HC Free,HC,431,295,68.45,60380.0,140.0928,204.678
+2026-06-03,Variant,F. 100+,dreamheist_event,HC Total,HC,431,295,68.45,60380.0,140.0928,204.678
+2026-06-03,Variant,F. 100+,dreamheist_event,Red,count,431,190,44.08,191.0,0.4432,1.0053
+2026-06-03,Variant,F. 100+,dreamheist_event,Slingshot,count,431,128,29.7,132.0,0.3063,1.0313
+2026-06-03,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,431,295,68.45,12120.0,28.1206,41.0847
+2026-06-04,Control,A. 0,dreamheist_event,HC Free,HC,17742,1,0.01,5.0,0.0003,5.0
+2026-06-04,Control,A. 0,dreamheist_event,HC Total,HC,17742,1,0.01,5.0,0.0003,5.0
+2026-06-04,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,17742,1,0.01,20.0,0.0011,20.0
+2026-06-04,Control,B. 1-9,dreamheist_event,HC Free,HC,32587,9,0.03,85.0,0.0026,9.4444
+2026-06-04,Control,B. 1-9,dreamheist_event,HC Total,HC,32587,9,0.03,85.0,0.0026,9.4444
+2026-06-04,Control,B. 1-9,dreamheist_event,Red,count,32587,1,0.0,1.0,0.0,1.0
+2026-06-04,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32587,9,0.03,320.0,0.0098,35.5556
+2026-06-04,Control,B. 1-9,treasure_dive_event,Red,count,32587,1,0.0,1.0,0.0,1.0
+2026-06-04,Control,C. 10-19,dreamheist_event,Chuck,count,18798,1,0.01,2.0,0.0001,2.0
+2026-06-04,Control,C. 10-19,dreamheist_event,HC Free,HC,18798,5,0.03,125.0,0.0066,25.0
+2026-06-04,Control,C. 10-19,dreamheist_event,HC Total,HC,18798,5,0.03,125.0,0.0066,25.0
+2026-06-04,Control,C. 10-19,dreamheist_event,Red,count,18798,2,0.01,3.0,0.0002,1.5
+2026-06-04,Control,C. 10-19,dreamheist_event,Shuffle,count,18798,1,0.01,1.0,0.0001,1.0
+2026-06-04,Control,C. 10-19,dreamheist_event,Slingshot,count,18798,1,0.01,2.0,0.0001,2.0
+2026-06-04,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18798,2,0.01,40.0,0.0021,20.0
+2026-06-04,Control,D. 20-39,dreamheist_event,Chuck,count,10071,2,0.02,2.0,0.0002,1.0
+2026-06-04,Control,D. 20-39,dreamheist_event,HC Free,HC,10071,8,0.08,80.0,0.0079,10.0
+2026-06-04,Control,D. 20-39,dreamheist_event,HC Total,HC,10071,8,0.08,80.0,0.0079,10.0
+2026-06-04,Control,D. 20-39,dreamheist_event,Red,count,10071,1,0.01,1.0,0.0001,1.0
+2026-06-04,Control,D. 20-39,dreamheist_event,Slingshot,count,10071,2,0.02,2.0,0.0002,1.0
+2026-06-04,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10071,5,0.05,100.0,0.0099,20.0
+2026-06-04,Control,E. 40-99,dreamheist_event,HC Free,HC,4148,2,0.05,25.0,0.006,12.5
+2026-06-04,Control,E. 40-99,dreamheist_event,HC Total,HC,4148,2,0.05,25.0,0.006,12.5
+2026-06-04,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4148,2,0.05,40.0,0.0096,20.0
+2026-06-04,Variant,A. 0,dreamheist_event,Chuck,count,17776,11,0.06,11.0,0.0006,1.0
+2026-06-04,Variant,A. 0,dreamheist_event,HC Free,HC,17776,36,0.2,1750.0,0.0984,48.6111
+2026-06-04,Variant,A. 0,dreamheist_event,HC Total,HC,17776,36,0.2,1750.0,0.0984,48.6111
+2026-06-04,Variant,A. 0,dreamheist_event,Red,count,17776,21,0.12,21.0,0.0012,1.0
+2026-06-04,Variant,A. 0,dreamheist_event,Slingshot,count,17776,11,0.06,11.0,0.0006,1.0
+2026-06-04,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,17776,93,0.52,1920.0,0.108,20.6452
+2026-06-04,Variant,B. 1-9,dreamheist_event,Chuck,count,31748,2280,7.18,2319.0,0.073,1.0171
+2026-06-04,Variant,B. 1-9,dreamheist_event,HC Free,HC,31748,8598,27.08,132875.0,4.1853,15.4542
+2026-06-04,Variant,B. 1-9,dreamheist_event,HC Total,HC,31748,8598,27.08,132875.0,4.1853,15.4542
+2026-06-04,Variant,B. 1-9,dreamheist_event,Red,count,31748,7654,24.11,7822.0,0.2464,1.0219
+2026-06-04,Variant,B. 1-9,dreamheist_event,Slingshot,count,31748,2280,7.18,2319.0,0.073,1.0171
+2026-06-04,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31748,17853,56.23,371800.0,11.711,20.8256
+2026-06-04,Variant,C. 10-19,dreamheist_event,Chuck,count,19218,3953,20.57,4056.0,0.2111,1.0261
+2026-06-04,Variant,C. 10-19,dreamheist_event,Comet,count,19218,11,0.06,11.0,0.0006,1.0
+2026-06-04,Variant,C. 10-19,dreamheist_event,HC Free,HC,19218,10631,55.32,297570.0,15.4839,27.9908
+2026-06-04,Variant,C. 10-19,dreamheist_event,HC Total,HC,19218,10631,55.32,297570.0,15.4839,27.9908
+2026-06-04,Variant,C. 10-19,dreamheist_event,Red,count,19218,7430,38.66,7628.0,0.3969,1.0266
+2026-06-04,Variant,C. 10-19,dreamheist_event,Slingshot,count,19218,3964,20.63,4067.0,0.2116,1.026
+2026-06-04,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19218,11698,60.87,244440.0,12.7193,20.8959
+2026-06-04,Variant,D. 20-39,dreamheist_event,Chuck,count,10014,2504,25.0,2579.0,0.2575,1.03
+2026-06-04,Variant,D. 20-39,dreamheist_event,Comet,count,10014,4,0.04,4.0,0.0004,1.0
+2026-06-04,Variant,D. 20-39,dreamheist_event,HC Free,HC,10014,6197,61.88,321010.0,32.0561,51.8009
+2026-06-04,Variant,D. 20-39,dreamheist_event,HC Total,HC,10014,6197,61.88,321010.0,32.0561,51.8009
+2026-06-04,Variant,D. 20-39,dreamheist_event,Red,count,10014,4074,40.68,4207.0,0.4201,1.0326
+2026-06-04,Variant,D. 20-39,dreamheist_event,Slingshot,count,10014,2508,25.04,2583.0,0.2579,1.0299
+2026-06-04,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10014,6242,62.33,132380.0,13.2195,21.2079
+2026-06-04,Variant,E. 40-99,dreamheist_event,Chuck,count,4205,1022,24.3,1077.0,0.2561,1.0538
+2026-06-04,Variant,E. 40-99,dreamheist_event,Comet,count,4205,213,5.07,221.0,0.0526,1.0376
+2026-06-04,Variant,E. 40-99,dreamheist_event,HC Free,HC,4205,2719,64.66,312300.0,74.2687,114.8584
+2026-06-04,Variant,E. 40-99,dreamheist_event,HC Total,HC,4205,2719,64.66,312300.0,74.2687,114.8584
+2026-06-04,Variant,E. 40-99,dreamheist_event,Red,count,4205,1804,42.9,1874.0,0.4457,1.0388
+2026-06-04,Variant,E. 40-99,dreamheist_event,Slingshot,count,4205,1235,29.37,1298.0,0.3087,1.051
+2026-06-04,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4205,2708,64.4,70530.0,16.7729,26.0451
+2026-06-04,Variant,F. 100+,dreamheist_event,Chuck,count,495,84,16.97,85.0,0.1717,1.0119
+2026-06-04,Variant,F. 100+,dreamheist_event,Comet,count,495,74,14.95,79.0,0.1596,1.0676
+2026-06-04,Variant,F. 100+,dreamheist_event,HC Free,HC,495,358,72.32,76590.0,154.7273,213.9385
+2026-06-04,Variant,F. 100+,dreamheist_event,HC Total,HC,495,358,72.32,76590.0,154.7273,213.9385
+2026-06-04,Variant,F. 100+,dreamheist_event,Red,count,495,242,48.89,256.0,0.5172,1.0579
+2026-06-04,Variant,F. 100+,dreamheist_event,Slingshot,count,495,158,31.92,164.0,0.3313,1.038
+2026-06-04,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,495,357,72.12,14220.0,28.7273,39.8319
+2026-06-05,Control,A. 0,dreamheist_event,HC Free,HC,16259,1,0.01,5.0,0.0003,5.0
+2026-06-05,Control,A. 0,dreamheist_event,HC Total,HC,16259,1,0.01,5.0,0.0003,5.0
+2026-06-05,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16259,1,0.01,20.0,0.0012,20.0
+2026-06-05,Control,B. 1-9,dreamheist_event,Chuck,count,32724,1,0.0,1.0,0.0,1.0
+2026-06-05,Control,B. 1-9,dreamheist_event,HC Free,HC,32724,15,0.05,145.0,0.0044,9.6667
+2026-06-05,Control,B. 1-9,dreamheist_event,HC Total,HC,32724,15,0.05,145.0,0.0044,9.6667
+2026-06-05,Control,B. 1-9,dreamheist_event,Red,count,32724,6,0.02,6.0,0.0002,1.0
+2026-06-05,Control,B. 1-9,dreamheist_event,Slingshot,count,32724,1,0.0,1.0,0.0,1.0
+2026-06-05,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32724,8,0.02,160.0,0.0049,20.0
+2026-06-05,Control,C. 10-19,dreamheist_event,Chuck,count,18084,1,0.01,1.0,0.0001,1.0
+2026-06-05,Control,C. 10-19,dreamheist_event,HC Free,HC,18084,4,0.02,40.0,0.0022,10.0
+2026-06-05,Control,C. 10-19,dreamheist_event,HC Total,HC,18084,4,0.02,40.0,0.0022,10.0
+2026-06-05,Control,C. 10-19,dreamheist_event,Slingshot,count,18084,1,0.01,1.0,0.0001,1.0
+2026-06-05,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18084,3,0.02,60.0,0.0033,20.0
+2026-06-05,Control,D. 20-39,dreamheist_event,Chuck,count,10152,1,0.01,1.0,0.0001,1.0
+2026-06-05,Control,D. 20-39,dreamheist_event,HC Free,HC,10152,8,0.08,180.0,0.0177,22.5
+2026-06-05,Control,D. 20-39,dreamheist_event,HC Total,HC,10152,8,0.08,180.0,0.0177,22.5
+2026-06-05,Control,D. 20-39,dreamheist_event,Red,count,10152,2,0.02,3.0,0.0003,1.5
+2026-06-05,Control,D. 20-39,dreamheist_event,Slingshot,count,10152,1,0.01,1.0,0.0001,1.0
+2026-06-05,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10152,6,0.06,120.0,0.0118,20.0
+2026-06-05,Variant,A. 0,dreamheist_event,Chuck,count,16231,12,0.07,13.0,0.0008,1.0833
+2026-06-05,Variant,A. 0,dreamheist_event,Comet,count,16231,2,0.01,2.0,0.0001,1.0
+2026-06-05,Variant,A. 0,dreamheist_event,HC Free,HC,16231,42,0.26,1905.0,0.1174,45.3571
+2026-06-05,Variant,A. 0,dreamheist_event,HC Total,HC,16231,42,0.26,1905.0,0.1174,45.3571
+2026-06-05,Variant,A. 0,dreamheist_event,Red,count,16231,20,0.12,20.0,0.0012,1.0
+2026-06-05,Variant,A. 0,dreamheist_event,Slingshot,count,16231,14,0.09,15.0,0.0009,1.0714
+2026-06-05,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16231,91,0.56,1860.0,0.1146,20.4396
+2026-06-05,Variant,B. 1-9,dreamheist_event,Chuck,count,31790,2590,8.15,2642.0,0.0831,1.0201
+2026-06-05,Variant,B. 1-9,dreamheist_event,HC Free,HC,31790,9452,29.73,150675.0,4.7397,15.9411
+2026-06-05,Variant,B. 1-9,dreamheist_event,HC Total,HC,31790,9452,29.73,150675.0,4.7397,15.9411
+2026-06-05,Variant,B. 1-9,dreamheist_event,Red,count,31790,8526,26.82,8720.0,0.2743,1.0228
+2026-06-05,Variant,B. 1-9,dreamheist_event,Shuffle,count,31790,1,0.0,2.0,0.0001,2.0
+2026-06-05,Variant,B. 1-9,dreamheist_event,Slingshot,count,31790,2590,8.15,2642.0,0.0831,1.0201
+2026-06-05,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31790,19148,60.23,399720.0,12.5738,20.8753
+2026-06-05,Variant,C. 10-19,dreamheist_event,Chuck,count,18440,4001,21.7,4100.0,0.2223,1.0247
+2026-06-05,Variant,C. 10-19,dreamheist_event,Comet,count,18440,1,0.01,1.0,0.0001,1.0
+2026-06-05,Variant,C. 10-19,dreamheist_event,HC Free,HC,18440,10736,58.22,283655.0,15.3826,26.4209
+2026-06-05,Variant,C. 10-19,dreamheist_event,HC Total,HC,18440,10736,58.22,283655.0,15.3826,26.4209
+2026-06-05,Variant,C. 10-19,dreamheist_event,Red,count,18440,7505,40.7,7730.0,0.4192,1.03
+2026-06-05,Variant,C. 10-19,dreamheist_event,Slingshot,count,18440,4002,21.7,4101.0,0.2224,1.0247
+2026-06-05,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18440,11746,63.7,244870.0,13.2793,20.8471
+2026-06-05,Variant,D. 20-39,dreamheist_event,Chuck,count,10017,2485,24.81,2569.0,0.2565,1.0338
+2026-06-05,Variant,D. 20-39,dreamheist_event,Comet,count,10017,2,0.02,2.0,0.0002,1.0
+2026-06-05,Variant,D. 20-39,dreamheist_event,HC Free,HC,10017,6397,63.86,322185.0,32.1638,50.365
+2026-06-05,Variant,D. 20-39,dreamheist_event,HC Total,HC,10017,6397,63.86,322185.0,32.1638,50.365
+2026-06-05,Variant,D. 20-39,dreamheist_event,Red,count,10017,4121,41.14,4248.0,0.4241,1.0308
+2026-06-05,Variant,D. 20-39,dreamheist_event,Slingshot,count,10017,2487,24.83,2571.0,0.2567,1.0338
+2026-06-05,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10017,6423,64.12,136260.0,13.6029,21.2144
+2026-06-05,Variant,E. 40-99,dreamheist_event,Chuck,count,4181,941,22.51,979.0,0.2342,1.0404
+2026-06-05,Variant,E. 40-99,dreamheist_event,Comet,count,4181,189,4.52,204.0,0.0488,1.0794
+2026-06-05,Variant,E. 40-99,dreamheist_event,HC Free,HC,4181,2665,63.74,295995.0,70.7953,111.0675
+2026-06-05,Variant,E. 40-99,dreamheist_event,HC Total,HC,4181,2665,63.74,295995.0,70.7953,111.0675
+2026-06-05,Variant,E. 40-99,dreamheist_event,Red,count,4181,1698,40.61,1765.0,0.4221,1.0395
+2026-06-05,Variant,E. 40-99,dreamheist_event,Slingshot,count,4181,1129,27.0,1183.0,0.2829,1.0478
+2026-06-05,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4181,2646,63.29,68610.0,16.4099,25.9297
+2026-06-05,Variant,F. 100+,dreamheist_event,Chuck,count,468,63,13.46,66.0,0.141,1.0476
+2026-06-05,Variant,F. 100+,dreamheist_event,Comet,count,468,71,15.17,72.0,0.1538,1.0141
+2026-06-05,Variant,F. 100+,dreamheist_event,HC Free,HC,468,315,67.31,68275.0,145.8868,216.746
+2026-06-05,Variant,F. 100+,dreamheist_event,HC Total,HC,468,315,67.31,68275.0,145.8868,216.746
+2026-06-05,Variant,F. 100+,dreamheist_event,Red,count,468,198,42.31,206.0,0.4402,1.0404
+2026-06-05,Variant,F. 100+,dreamheist_event,Slingshot,count,468,134,28.63,138.0,0.2949,1.0299
+2026-06-05,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,468,312,66.67,13410.0,28.6538,42.9808
+2026-06-06,Control,A. 0,dreamheist_event,HC Free,HC,16514,2,0.01,15.0,0.0009,7.5
+2026-06-06,Control,A. 0,dreamheist_event,HC Total,HC,16514,2,0.01,15.0,0.0009,7.5
+2026-06-06,Control,A. 0,dreamheist_event,Red,count,16514,1,0.01,1.0,0.0001,1.0
+2026-06-06,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16514,1,0.01,20.0,0.0012,20.0
+2026-06-06,Control,B. 1-9,dreamheist_event,Chuck,count,31614,2,0.01,2.0,0.0001,1.0
+2026-06-06,Control,B. 1-9,dreamheist_event,HC Free,HC,31614,13,0.04,110.0,0.0035,8.4615
+2026-06-06,Control,B. 1-9,dreamheist_event,HC Total,HC,31614,13,0.04,110.0,0.0035,8.4615
+2026-06-06,Control,B. 1-9,dreamheist_event,Red,count,31614,2,0.01,2.0,0.0001,1.0
+2026-06-06,Control,B. 1-9,dreamheist_event,Slingshot,count,31614,2,0.01,2.0,0.0001,1.0
+2026-06-06,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31614,10,0.03,200.0,0.0063,20.0
+2026-06-06,Control,C. 10-19,dreamheist_event,Chuck,count,17665,1,0.01,1.0,0.0001,1.0
+2026-06-06,Control,C. 10-19,dreamheist_event,HC Free,HC,17665,8,0.05,65.0,0.0037,8.125
+2026-06-06,Control,C. 10-19,dreamheist_event,HC Total,HC,17665,8,0.05,65.0,0.0037,8.125
+2026-06-06,Control,C. 10-19,dreamheist_event,Slingshot,count,17665,1,0.01,1.0,0.0001,1.0
+2026-06-06,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,17665,7,0.04,140.0,0.0079,20.0
+2026-06-06,Control,E. 40-99,dreamheist_event,HC Free,HC,4012,1,0.02,15.0,0.0037,15.0
+2026-06-06,Control,E. 40-99,dreamheist_event,HC Total,HC,4012,1,0.02,15.0,0.0037,15.0
+2026-06-06,Control,E. 40-99,dreamheist_event,Red,count,4012,1,0.02,1.0,0.0002,1.0
+2026-06-06,Control,E. 40-99,treasure_dive_event,Comet,count,4012,1,0.02,1.0,0.0002,1.0
+2026-06-06,Control,E. 40-99,treasure_dive_event,HC Free,HC,4012,1,0.02,130.0,0.0324,130.0
+2026-06-06,Control,E. 40-99,treasure_dive_event,HC Total,HC,4012,1,0.02,130.0,0.0324,130.0
+2026-06-06,Control,E. 40-99,treasure_dive_event,Red,count,4012,1,0.02,1.0,0.0002,1.0
+2026-06-06,Control,E. 40-99,treasure_dive_event,Shuffle,count,4012,1,0.02,1.0,0.0002,1.0
+2026-06-06,Control,E. 40-99,treasure_dive_event,UL Chuck,minutes,4012,1,0.02,10.0,0.0025,10.0
+2026-06-06,Control,E. 40-99,treasure_dive_event,Unlimited Lives,minutes,4012,1,0.02,30.0,0.0075,30.0
+2026-06-06,Variant,A. 0,dreamheist_event,Chuck,count,16719,7,0.04,7.0,0.0004,1.0
+2026-06-06,Variant,A. 0,dreamheist_event,Comet,count,16719,1,0.01,1.0,0.0001,1.0
+2026-06-06,Variant,A. 0,dreamheist_event,HC Free,HC,16719,31,0.19,1595.0,0.0954,51.4516
+2026-06-06,Variant,A. 0,dreamheist_event,HC Total,HC,16719,31,0.19,1595.0,0.0954,51.4516
+2026-06-06,Variant,A. 0,dreamheist_event,Red,count,16719,14,0.08,15.0,0.0009,1.0714
+2026-06-06,Variant,A. 0,dreamheist_event,Slingshot,count,16719,8,0.05,8.0,0.0005,1.0
+2026-06-06,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16719,101,0.6,2140.0,0.128,21.1881
+2026-06-06,Variant,B. 1-9,dreamheist_event,Chuck,count,30908,2521,8.16,2564.0,0.083,1.0171
+2026-06-06,Variant,B. 1-9,dreamheist_event,Comet,count,30908,5,0.02,11.0,0.0004,2.2
+2026-06-06,Variant,B. 1-9,dreamheist_event,HC Free,HC,30908,9118,29.5,147025.0,4.7569,16.1247
+2026-06-06,Variant,B. 1-9,dreamheist_event,HC Total,HC,30908,9118,29.5,147025.0,4.7569,16.1247
+2026-06-06,Variant,B. 1-9,dreamheist_event,Red,count,30908,8148,26.36,8389.0,0.2714,1.0296
+2026-06-06,Variant,B. 1-9,dreamheist_event,Shuffle,count,30908,1,0.0,7.0,0.0002,7.0
+2026-06-06,Variant,B. 1-9,dreamheist_event,Slingshot,count,30908,2525,8.17,2568.0,0.0831,1.017
+2026-06-06,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30908,18467,59.75,386180.0,12.4945,20.9119
+2026-06-06,Variant,C. 10-19,dreamheist_event,Chuck,count,17986,4311,23.97,4426.0,0.2461,1.0267
+2026-06-06,Variant,C. 10-19,dreamheist_event,Comet,count,17986,3,0.02,3.0,0.0002,1.0
+2026-06-06,Variant,C. 10-19,dreamheist_event,HC Free,HC,17986,10648,59.2,290025.0,16.125,27.2375
+2026-06-06,Variant,C. 10-19,dreamheist_event,HC Total,HC,17986,10648,59.2,290025.0,16.125,27.2375
+2026-06-06,Variant,C. 10-19,dreamheist_event,Red,count,17986,7706,42.84,7944.0,0.4417,1.0309
+2026-06-06,Variant,C. 10-19,dreamheist_event,Slingshot,count,17986,4314,23.99,4429.0,0.2462,1.0267
+2026-06-06,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,17986,11721,65.17,244110.0,13.5722,20.8267
+2026-06-06,Variant,D. 20-39,dreamheist_event,Chuck,count,9939,2633,26.49,2721.0,0.2738,1.0334
+2026-06-06,Variant,D. 20-39,dreamheist_event,Comet,count,9939,5,0.05,6.0,0.0006,1.2
+2026-06-06,Variant,D. 20-39,dreamheist_event,HC Free,HC,9939,6355,63.94,314595.0,31.6526,49.5035
+2026-06-06,Variant,D. 20-39,dreamheist_event,HC Total,HC,9939,6355,63.94,314595.0,31.6526,49.5035
+2026-06-06,Variant,D. 20-39,dreamheist_event,Red,count,9939,4228,42.54,4349.0,0.4376,1.0286
+2026-06-06,Variant,D. 20-39,dreamheist_event,Slingshot,count,9939,2638,26.54,2727.0,0.2744,1.0337
+2026-06-06,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9939,6389,64.28,134630.0,13.5456,21.0722
+2026-06-06,Variant,E. 40-99,dreamheist_event,Chuck,count,4171,1101,26.4,1155.0,0.2769,1.049
+2026-06-06,Variant,E. 40-99,dreamheist_event,Comet,count,4171,189,4.53,196.0,0.047,1.037
+2026-06-06,Variant,E. 40-99,dreamheist_event,HC Free,HC,4171,2757,66.1,291650.0,69.9233,105.7853
+2026-06-06,Variant,E. 40-99,dreamheist_event,HC Total,HC,4171,2757,66.1,291650.0,69.9233,105.7853
+2026-06-06,Variant,E. 40-99,dreamheist_event,Red,count,4171,1855,44.47,1928.0,0.4622,1.0394
+2026-06-06,Variant,E. 40-99,dreamheist_event,Slingshot,count,4171,1290,30.93,1351.0,0.3239,1.0473
+2026-06-06,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4171,2745,65.81,70290.0,16.8521,25.6066
+2026-06-06,Variant,F. 100+,dreamheist_event,Chuck,count,484,81,16.74,85.0,0.1756,1.0494
+2026-06-06,Variant,F. 100+,dreamheist_event,Comet,count,484,82,16.94,87.0,0.1798,1.061
+2026-06-06,Variant,F. 100+,dreamheist_event,HC Free,HC,484,324,66.94,72340.0,149.4628,223.2716
+2026-06-06,Variant,F. 100+,dreamheist_event,HC Total,HC,484,324,66.94,72340.0,149.4628,223.2716
+2026-06-06,Variant,F. 100+,dreamheist_event,Red,count,484,224,46.28,230.0,0.4752,1.0268
+2026-06-06,Variant,F. 100+,dreamheist_event,Slingshot,count,484,163,33.68,172.0,0.3554,1.0552
+2026-06-06,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,484,321,66.32,12850.0,26.5496,40.0312
+2026-06-07,Control,A. 0,dreamheist_event,HC Free,HC,16421,1,0.01,5.0,0.0003,5.0
+2026-06-07,Control,A. 0,dreamheist_event,HC Total,HC,16421,1,0.01,5.0,0.0003,5.0
+2026-06-07,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16421,1,0.01,20.0,0.0012,20.0
+2026-06-07,Control,B. 1-9,dreamheist_event,HC Free,HC,32438,13,0.04,115.0,0.0035,8.8462
+2026-06-07,Control,B. 1-9,dreamheist_event,HC Total,HC,32438,13,0.04,115.0,0.0035,8.8462
+2026-06-07,Control,B. 1-9,dreamheist_event,Red,count,32438,4,0.01,4.0,0.0001,1.0
+2026-06-07,Control,B. 1-9,dreamheist_event,UL Red,minutes,32438,1,0.0,10.0,0.0003,10.0
+2026-06-07,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32438,10,0.03,200.0,0.0062,20.0
+2026-06-07,Control,B. 1-9,treasure_dive_event,Red,count,32438,1,0.0,1.0,0.0,1.0
+2026-06-07,Control,B. 1-9,treasure_dive_event,UL Red,minutes,32438,1,0.0,10.0,0.0003,10.0
+2026-06-07,Control,C. 10-19,dreamheist_event,HC Free,HC,18039,8,0.04,125.0,0.0069,15.625
+2026-06-07,Control,C. 10-19,dreamheist_event,HC Total,HC,18039,8,0.04,125.0,0.0069,15.625
+2026-06-07,Control,C. 10-19,dreamheist_event,Red,count,18039,2,0.01,2.0,0.0001,1.0
+2026-06-07,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18039,7,0.04,220.0,0.0122,31.4286
+2026-06-07,Control,D. 20-39,dreamheist_event,Chuck,count,10324,1,0.01,1.0,0.0001,1.0
+2026-06-07,Control,D. 20-39,dreamheist_event,HC Free,HC,10324,4,0.04,70.0,0.0068,17.5
+2026-06-07,Control,D. 20-39,dreamheist_event,HC Total,HC,10324,4,0.04,70.0,0.0068,17.5
+2026-06-07,Control,D. 20-39,dreamheist_event,Slingshot,count,10324,1,0.01,1.0,0.0001,1.0
+2026-06-07,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10324,3,0.03,60.0,0.0058,20.0
+2026-06-07,Control,E. 40-99,dreamheist_event,HC Free,HC,4161,1,0.02,40.0,0.0096,40.0
+2026-06-07,Control,E. 40-99,dreamheist_event,HC Total,HC,4161,1,0.02,40.0,0.0096,40.0
+2026-06-07,Control,E. 40-99,dreamheist_event,Red,count,4161,1,0.02,1.0,0.0002,1.0
+2026-06-07,Control,E. 40-99,dreamheist_event,UL Chuck,minutes,4161,1,0.02,10.0,0.0024,10.0
+2026-06-07,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4161,1,0.02,30.0,0.0072,30.0
+2026-06-07,Control,E. 40-99,treasure_dive_event,HC Free,HC,4161,1,0.02,40.0,0.0096,40.0
+2026-06-07,Control,E. 40-99,treasure_dive_event,HC Total,HC,4161,1,0.02,40.0,0.0096,40.0
+2026-06-07,Control,E. 40-99,treasure_dive_event,Red,count,4161,1,0.02,1.0,0.0002,1.0
+2026-06-07,Control,E. 40-99,treasure_dive_event,UL Chuck,minutes,4161,1,0.02,10.0,0.0024,10.0
+2026-06-07,Control,E. 40-99,treasure_dive_event,Unlimited Lives,minutes,4161,1,0.02,30.0,0.0072,30.0
+2026-06-07,Variant,A. 0,dreamheist_event,Chuck,count,16960,7,0.04,7.0,0.0004,1.0
+2026-06-07,Variant,A. 0,dreamheist_event,HC Free,HC,16960,34,0.2,1210.0,0.0713,35.5882
+2026-06-07,Variant,A. 0,dreamheist_event,HC Total,HC,16960,34,0.2,1210.0,0.0713,35.5882
+2026-06-07,Variant,A. 0,dreamheist_event,Red,count,16960,19,0.11,19.0,0.0011,1.0
+2026-06-07,Variant,A. 0,dreamheist_event,Slingshot,count,16960,7,0.04,7.0,0.0004,1.0
+2026-06-07,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16960,79,0.47,1680.0,0.0991,21.2658
+2026-06-07,Variant,B. 1-9,dreamheist_event,Chuck,count,31222,2469,7.91,2506.0,0.0803,1.015
+2026-06-07,Variant,B. 1-9,dreamheist_event,HC Free,HC,31222,9167,29.36,142655.0,4.5691,15.5618
+2026-06-07,Variant,B. 1-9,dreamheist_event,HC Total,HC,31222,9167,29.36,142655.0,4.5691,15.5618
+2026-06-07,Variant,B. 1-9,dreamheist_event,Red,count,31222,8159,26.13,8372.0,0.2681,1.0261
+2026-06-07,Variant,B. 1-9,dreamheist_event,Slingshot,count,31222,2469,7.91,2506.0,0.0803,1.015
+2026-06-07,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31222,18443,59.07,384220.0,12.3061,20.8328
+2026-06-07,Variant,C. 10-19,dreamheist_event,Chuck,count,18303,4267,23.31,4383.0,0.2395,1.0272
+2026-06-07,Variant,C. 10-19,dreamheist_event,Comet,count,18303,4,0.02,4.0,0.0002,1.0
+2026-06-07,Variant,C. 10-19,dreamheist_event,HC Free,HC,18303,10647,58.17,284925.0,15.5671,26.7611
+2026-06-07,Variant,C. 10-19,dreamheist_event,HC Total,HC,18303,10647,58.17,284925.0,15.5671,26.7611
+2026-06-07,Variant,C. 10-19,dreamheist_event,Red,count,18303,7843,42.85,8063.0,0.4405,1.0281
+2026-06-07,Variant,C. 10-19,dreamheist_event,Slingshot,count,18303,4271,23.33,4387.0,0.2397,1.0272
+2026-06-07,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18303,11823,64.6,245900.0,13.435,20.7984
+2026-06-07,Variant,D. 20-39,dreamheist_event,Chuck,count,10418,3095,29.71,3181.0,0.3053,1.0278
+2026-06-07,Variant,D. 20-39,dreamheist_event,Comet,count,10418,10,0.1,11.0,0.0011,1.1
+2026-06-07,Variant,D. 20-39,dreamheist_event,HC Free,HC,10418,6740,64.7,345590.0,33.1724,51.2745
+2026-06-07,Variant,D. 20-39,dreamheist_event,HC Total,HC,10418,6740,64.7,345590.0,33.1724,51.2745
+2026-06-07,Variant,D. 20-39,dreamheist_event,Red,count,10418,4765,45.74,4922.0,0.4725,1.0329
+2026-06-07,Variant,D. 20-39,dreamheist_event,Slingshot,count,10418,3105,29.8,3192.0,0.3064,1.028
+2026-06-07,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10418,6793,65.2,144120.0,13.8337,21.216
+2026-06-07,Variant,E. 40-99,dreamheist_event,Chuck,count,4252,1264,29.73,1315.0,0.3093,1.0403
+2026-06-07,Variant,E. 40-99,dreamheist_event,Comet,count,4252,179,4.21,186.0,0.0437,1.0391
+2026-06-07,Variant,E. 40-99,dreamheist_event,HC Free,HC,4252,2842,66.84,286410.0,67.3589,100.7776
+2026-06-07,Variant,E. 40-99,dreamheist_event,HC Total,HC,4252,2842,66.84,286410.0,67.3589,100.7776
+2026-06-07,Variant,E. 40-99,dreamheist_event,Red,count,4252,1993,46.87,2055.0,0.4833,1.0311
+2026-06-07,Variant,E. 40-99,dreamheist_event,Slingshot,count,4252,1443,33.94,1501.0,0.353,1.0402
+2026-06-07,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4252,2823,66.39,70330.0,16.5405,24.9132
+2026-06-07,Variant,F. 100+,dreamheist_event,Chuck,count,516,111,21.51,119.0,0.2306,1.0721
+2026-06-07,Variant,F. 100+,dreamheist_event,Comet,count,516,91,17.64,97.0,0.188,1.0659
+2026-06-07,Variant,F. 100+,dreamheist_event,HC Free,HC,516,371,71.9,74970.0,145.2907,202.0755
+2026-06-07,Variant,F. 100+,dreamheist_event,HC Total,HC,516,371,71.9,74970.0,145.2907,202.0755
+2026-06-07,Variant,F. 100+,dreamheist_event,Red,count,516,255,49.42,267.0,0.5174,1.0471
+2026-06-07,Variant,F. 100+,dreamheist_event,Slingshot,count,516,201,38.95,216.0,0.4186,1.0746
+2026-06-07,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,516,370,71.71,13860.0,26.8605,37.4595
+2026-06-08,Control,B. 1-9,dreamheist_event,HC Free,HC,33528,8,0.02,70.0,0.0021,8.75
+2026-06-08,Control,B. 1-9,dreamheist_event,HC Total,HC,33528,8,0.02,70.0,0.0021,8.75
+2026-06-08,Control,B. 1-9,dreamheist_event,Red,count,33528,4,0.01,4.0,0.0001,1.0
+2026-06-08,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,33528,6,0.02,120.0,0.0036,20.0
+2026-06-08,Control,C. 10-19,dreamheist_event,HC Free,HC,19877,7,0.04,55.0,0.0028,7.8571
+2026-06-08,Control,C. 10-19,dreamheist_event,HC Total,HC,19877,7,0.04,55.0,0.0028,7.8571
+2026-06-08,Control,C. 10-19,dreamheist_event,Red,count,19877,1,0.01,1.0,0.0001,1.0
+2026-06-08,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19877,6,0.03,120.0,0.006,20.0
+2026-06-08,Control,D. 20-39,dreamheist_event,Chuck,count,11714,1,0.01,1.0,0.0001,1.0
+2026-06-08,Control,D. 20-39,dreamheist_event,HC Free,HC,11714,3,0.03,35.0,0.003,11.6667
+2026-06-08,Control,D. 20-39,dreamheist_event,HC Total,HC,11714,3,0.03,35.0,0.003,11.6667
+2026-06-08,Control,D. 20-39,dreamheist_event,Slingshot,count,11714,1,0.01,1.0,0.0001,1.0
+2026-06-08,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11714,2,0.02,40.0,0.0034,20.0
+2026-06-08,Control,E. 40-99,dreamheist_event,HC Free,HC,4617,2,0.04,20.0,0.0043,10.0
+2026-06-08,Control,E. 40-99,dreamheist_event,HC Total,HC,4617,2,0.04,20.0,0.0043,10.0
+2026-06-08,Control,E. 40-99,dreamheist_event,Red,count,4617,1,0.02,1.0,0.0002,1.0
+2026-06-08,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4617,1,0.02,20.0,0.0043,20.0
+2026-06-08,Variant,A. 0,dreamheist_event,Chuck,count,16619,17,0.1,18.0,0.0011,1.0588
+2026-06-08,Variant,A. 0,dreamheist_event,Comet,count,16619,2,0.01,2.0,0.0001,1.0
+2026-06-08,Variant,A. 0,dreamheist_event,HC Free,HC,16619,60,0.36,3550.0,0.2136,59.1667
+2026-06-08,Variant,A. 0,dreamheist_event,HC Total,HC,16619,60,0.36,3550.0,0.2136,59.1667
+2026-06-08,Variant,A. 0,dreamheist_event,Red,count,16619,39,0.23,42.0,0.0025,1.0769
+2026-06-08,Variant,A. 0,dreamheist_event,Slingshot,count,16619,19,0.11,20.0,0.0012,1.0526
+2026-06-08,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16619,91,0.55,1940.0,0.1167,21.3187
+2026-06-08,Variant,B. 1-9,dreamheist_event,Chuck,count,32409,2209,6.82,2253.0,0.0695,1.0199
+2026-06-08,Variant,B. 1-9,dreamheist_event,Comet,count,32409,4,0.01,4.0,0.0001,1.0
+2026-06-08,Variant,B. 1-9,dreamheist_event,HC Free,HC,32409,9087,28.04,143530.0,4.4287,15.7951
+2026-06-08,Variant,B. 1-9,dreamheist_event,HC Total,HC,32409,9087,28.04,143530.0,4.4287,15.7951
+2026-06-08,Variant,B. 1-9,dreamheist_event,Red,count,32409,7885,24.33,8093.0,0.2497,1.0264
+2026-06-08,Variant,B. 1-9,dreamheist_event,Slingshot,count,32409,2213,6.83,2257.0,0.0696,1.0199
+2026-06-08,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32409,18567,57.29,386790.0,11.9346,20.8321
+2026-06-08,Variant,C. 10-19,dreamheist_event,Chuck,count,20132,4414,21.93,4509.0,0.224,1.0215
+2026-06-08,Variant,C. 10-19,dreamheist_event,Comet,count,20132,20,0.1,21.0,0.001,1.05
+2026-06-08,Variant,C. 10-19,dreamheist_event,HC Free,HC,20132,11565,57.45,332370.0,16.5095,28.7393
+2026-06-08,Variant,C. 10-19,dreamheist_event,HC Total,HC,20132,11565,57.45,332370.0,16.5095,28.7393
+2026-06-08,Variant,C. 10-19,dreamheist_event,Red,count,20132,8356,41.51,8593.0,0.4268,1.0284
+2026-06-08,Variant,C. 10-19,dreamheist_event,Slingshot,count,20132,4434,22.02,4530.0,0.225,1.0217
+2026-06-08,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20132,12944,64.3,271240.0,13.4731,20.9549
+2026-06-08,Variant,D. 20-39,dreamheist_event,Chuck,count,11996,3314,27.63,3429.0,0.2858,1.0347
+2026-06-08,Variant,D. 20-39,dreamheist_event,Comet,count,11996,146,1.22,157.0,0.0131,1.0753
+2026-06-08,Variant,D. 20-39,dreamheist_event,HC Free,HC,11996,8063,67.21,491355.0,40.9599,60.9395
+2026-06-08,Variant,D. 20-39,dreamheist_event,HC Total,HC,11996,8063,67.21,491355.0,40.9599,60.9395
+2026-06-08,Variant,D. 20-39,dreamheist_event,Red,count,11996,5441,45.36,5670.0,0.4727,1.0421
+2026-06-08,Variant,D. 20-39,dreamheist_event,Slingshot,count,11996,3460,28.84,3586.0,0.2989,1.0364
+2026-06-08,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11996,8169,68.1,178970.0,14.9191,21.9084
+2026-06-08,Variant,E. 40-99,dreamheist_event,Chuck,count,4955,1378,27.81,1444.0,0.2914,1.0479
+2026-06-08,Variant,E. 40-99,dreamheist_event,Comet,count,4955,343,6.92,353.0,0.0712,1.0292
+2026-06-08,Variant,E. 40-99,dreamheist_event,HC Free,HC,4955,3582,72.29,448590.0,90.5328,125.2345
+2026-06-08,Variant,E. 40-99,dreamheist_event,HC Total,HC,4955,3582,72.29,448590.0,90.5328,125.2345
+2026-06-08,Variant,E. 40-99,dreamheist_event,Red,count,4955,2552,51.5,2662.0,0.5372,1.0431
+2026-06-08,Variant,E. 40-99,dreamheist_event,Slingshot,count,4955,1721,34.73,1797.0,0.3627,1.0442
+2026-06-08,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4955,3570,72.05,94980.0,19.1685,26.605
+2026-06-08,Variant,F. 100+,dreamheist_event,Chuck,count,532,114,21.43,118.0,0.2218,1.0351
+2026-06-08,Variant,F. 100+,dreamheist_event,Comet,count,532,94,17.67,98.0,0.1842,1.0426
+2026-06-08,Variant,F. 100+,dreamheist_event,HC Free,HC,532,394,74.06,79970.0,150.3195,202.9695
+2026-06-08,Variant,F. 100+,dreamheist_event,HC Total,HC,532,394,74.06,79970.0,150.3195,202.9695
+2026-06-08,Variant,F. 100+,dreamheist_event,Red,count,532,279,52.44,290.0,0.5451,1.0394
+2026-06-08,Variant,F. 100+,dreamheist_event,Slingshot,count,532,208,39.1,216.0,0.406,1.0385
+2026-06-08,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,532,393,73.87,14660.0,27.5564,37.3028
+2026-06-09,Control,A. 0,dreamheist_event,HC Free,HC,17158,2,0.01,20.0,0.0012,10.0
+2026-06-09,Control,A. 0,dreamheist_event,HC Total,HC,17158,2,0.01,20.0,0.0012,10.0
+2026-06-09,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,17158,2,0.01,40.0,0.0023,20.0
+2026-06-09,Control,B. 1-9,dreamheist_event,HC Free,HC,33133,6,0.02,55.0,0.0017,9.1667
+2026-06-09,Control,B. 1-9,dreamheist_event,HC Total,HC,33133,6,0.02,55.0,0.0017,9.1667
+2026-06-09,Control,B. 1-9,dreamheist_event,Red,count,33133,1,0.0,1.0,0.0,1.0
+2026-06-09,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,33133,6,0.02,160.0,0.0048,26.6667
+2026-06-09,Control,C. 10-19,dreamheist_event,Chuck,count,19819,3,0.02,3.0,0.0002,1.0
+2026-06-09,Control,C. 10-19,dreamheist_event,HC Free,HC,19819,7,0.04,210.0,0.0106,30.0
+2026-06-09,Control,C. 10-19,dreamheist_event,HC Total,HC,19819,7,0.04,210.0,0.0106,30.0
+2026-06-09,Control,C. 10-19,dreamheist_event,Red,count,19819,1,0.01,1.0,0.0001,1.0
+2026-06-09,Control,C. 10-19,dreamheist_event,Slingshot,count,19819,3,0.02,3.0,0.0002,1.0
+2026-06-09,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19819,5,0.03,100.0,0.005,20.0
+2026-06-09,Control,D. 20-39,dreamheist_event,HC Free,HC,11371,1,0.01,10.0,0.0009,10.0
+2026-06-09,Control,D. 20-39,dreamheist_event,HC Total,HC,11371,1,0.01,10.0,0.0009,10.0
+2026-06-09,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11371,1,0.01,20.0,0.0018,20.0
+2026-06-09,Control,E. 40-99,dreamheist_event,HC Free,HC,4172,1,0.02,15.0,0.0036,15.0
+2026-06-09,Control,E. 40-99,dreamheist_event,HC Total,HC,4172,1,0.02,15.0,0.0036,15.0
+2026-06-09,Control,E. 40-99,dreamheist_event,Red,count,4172,1,0.02,1.0,0.0002,1.0
+2026-06-09,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4172,1,0.02,20.0,0.0048,20.0
+2026-06-09,Variant,A. 0,dreamheist_event,Chuck,count,17510,10,0.06,10.0,0.0006,1.0
+2026-06-09,Variant,A. 0,dreamheist_event,Comet,count,17510,1,0.01,1.0,0.0001,1.0
+2026-06-09,Variant,A. 0,dreamheist_event,HC Free,HC,17510,32,0.18,2225.0,0.1271,69.5313
+2026-06-09,Variant,A. 0,dreamheist_event,HC Total,HC,17510,32,0.18,2225.0,0.1271,69.5313
+2026-06-09,Variant,A. 0,dreamheist_event,Red,count,17510,16,0.09,16.0,0.0009,1.0
+2026-06-09,Variant,A. 0,dreamheist_event,Slingshot,count,17510,11,0.06,11.0,0.0006,1.0
+2026-06-09,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,17510,95,0.54,2130.0,0.1216,22.4211
+2026-06-09,Variant,B. 1-9,dreamheist_event,Chuck,count,31548,2148,6.81,2201.0,0.0698,1.0247
+2026-06-09,Variant,B. 1-9,dreamheist_event,Comet,count,31548,1,0.0,1.0,0.0,1.0
+2026-06-09,Variant,B. 1-9,dreamheist_event,HC Free,HC,31548,8627,27.35,133725.0,4.2388,15.5008
+2026-06-09,Variant,B. 1-9,dreamheist_event,HC Total,HC,31548,8627,27.35,133725.0,4.2388,15.5008
+2026-06-09,Variant,B. 1-9,dreamheist_event,Red,count,31548,7422,23.53,7650.0,0.2425,1.0307
+2026-06-09,Variant,B. 1-9,dreamheist_event,Slingshot,count,31548,2149,6.81,2202.0,0.0698,1.0247
+2026-06-09,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31548,17627,55.87,368710.0,11.6873,20.9173
+2026-06-09,Variant,B. 1-9,treasure_dive_event,Bomb,count,31548,1,0.0,1.0,0.0,1.0
+2026-06-09,Variant,B. 1-9,treasure_dive_event,HC Free,HC,31548,1,0.0,110.0,0.0035,110.0
+2026-06-09,Variant,B. 1-9,treasure_dive_event,HC Total,HC,31548,1,0.0,110.0,0.0035,110.0
+2026-06-09,Variant,B. 1-9,treasure_dive_event,Red,count,31548,1,0.0,1.0,0.0,1.0
+2026-06-09,Variant,B. 1-9,treasure_dive_event,Shuffle,count,31548,1,0.0,1.0,0.0,1.0
+2026-06-09,Variant,B. 1-9,treasure_dive_event,Slingshot,count,31548,1,0.0,3.0,0.0001,3.0
+2026-06-09,Variant,B. 1-9,treasure_dive_event,Unlimited Lives,minutes,31548,1,0.0,30.0,0.001,30.0
+2026-06-09,Variant,C. 10-19,dreamheist_event,Chuck,count,20088,4526,22.53,4655.0,0.2317,1.0285
+2026-06-09,Variant,C. 10-19,dreamheist_event,Comet,count,20088,18,0.09,20.0,0.001,1.1111
+2026-06-09,Variant,C. 10-19,dreamheist_event,HC Free,HC,20088,11395,56.73,326565.0,16.2567,28.6586
+2026-06-09,Variant,C. 10-19,dreamheist_event,HC Total,HC,20088,11395,56.73,326565.0,16.2567,28.6586
+2026-06-09,Variant,C. 10-19,dreamheist_event,Red,count,20088,8308,41.36,8562.0,0.4262,1.0306
+2026-06-09,Variant,C. 10-19,dreamheist_event,Slingshot,count,20088,4544,22.62,4675.0,0.2327,1.0288
+2026-06-09,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20088,12848,63.96,269460.0,13.414,20.9729
+2026-06-09,Variant,D. 20-39,dreamheist_event,Chuck,count,11565,3238,28.0,3330.0,0.2879,1.0284
+2026-06-09,Variant,D. 20-39,dreamheist_event,Comet,count,11565,94,0.81,99.0,0.0086,1.0532
+2026-06-09,Variant,D. 20-39,dreamheist_event,HC Free,HC,11565,7631,65.98,427740.0,36.9857,56.0529
+2026-06-09,Variant,D. 20-39,dreamheist_event,HC Total,HC,11565,7631,65.98,427740.0,36.9857,56.0529
+2026-06-09,Variant,D. 20-39,dreamheist_event,Red,count,11565,5305,45.87,5532.0,0.4783,1.0428
+2026-06-09,Variant,D. 20-39,dreamheist_event,Slingshot,count,11565,3332,28.81,3429.0,0.2965,1.0291
+2026-06-09,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11565,7750,67.01,169470.0,14.6537,21.8671
+2026-06-09,Variant,E. 40-99,dreamheist_event,Chuck,count,4385,1349,30.76,1410.0,0.3216,1.0452
+2026-06-09,Variant,E. 40-99,dreamheist_event,Comet,count,4385,170,3.88,175.0,0.0399,1.0294
+2026-06-09,Variant,E. 40-99,dreamheist_event,HC Free,HC,4385,3090,70.47,305805.0,69.7389,98.966
+2026-06-09,Variant,E. 40-99,dreamheist_event,HC Total,HC,4385,3090,70.47,305805.0,69.7389,98.966
+2026-06-09,Variant,E. 40-99,dreamheist_event,Red,count,4385,2206,50.31,2281.0,0.5202,1.034
+2026-06-09,Variant,E. 40-99,dreamheist_event,Slingshot,count,4385,1519,34.64,1585.0,0.3615,1.0434
+2026-06-09,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4385,3092,70.51,76630.0,17.4755,24.7833
+2026-06-09,Variant,F. 100+,dreamheist_event,Chuck,count,518,110,21.24,113.0,0.2181,1.0273
+2026-06-09,Variant,F. 100+,dreamheist_event,Comet,count,518,99,19.11,107.0,0.2066,1.0808
+2026-06-09,Variant,F. 100+,dreamheist_event,HC Free,HC,518,376,72.59,82975.0,160.1834,220.6782
+2026-06-09,Variant,F. 100+,dreamheist_event,HC Total,HC,518,376,72.59,82975.0,160.1834,220.6782
+2026-06-09,Variant,F. 100+,dreamheist_event,Red,count,518,277,53.47,294.0,0.5676,1.0614
+2026-06-09,Variant,F. 100+,dreamheist_event,Slingshot,count,518,209,40.35,220.0,0.4247,1.0526
+2026-06-09,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,518,379,73.17,13900.0,26.834,36.6755
+2026-06-10,Control,B. 1-9,dreamheist_event,Chuck,count,32801,1,0.0,1.0,0.0,1.0
+2026-06-10,Control,B. 1-9,dreamheist_event,HC Free,HC,32801,7,0.02,65.0,0.002,9.2857
+2026-06-10,Control,B. 1-9,dreamheist_event,HC Total,HC,32801,7,0.02,65.0,0.002,9.2857
+2026-06-10,Control,B. 1-9,dreamheist_event,Red,count,32801,1,0.0,1.0,0.0,1.0
+2026-06-10,Control,B. 1-9,dreamheist_event,Slingshot,count,32801,1,0.0,1.0,0.0,1.0
+2026-06-10,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32801,5,0.02,100.0,0.003,20.0
+2026-06-10,Control,C. 10-19,dreamheist_event,Comet,count,19488,1,0.01,1.0,0.0001,1.0
+2026-06-10,Control,C. 10-19,dreamheist_event,HC Free,HC,19488,6,0.03,150.0,0.0077,25.0
+2026-06-10,Control,C. 10-19,dreamheist_event,HC Total,HC,19488,6,0.03,150.0,0.0077,25.0
+2026-06-10,Control,C. 10-19,dreamheist_event,Red,count,19488,3,0.02,3.0,0.0002,1.0
+2026-06-10,Control,C. 10-19,dreamheist_event,Shuffle,count,19488,1,0.01,1.0,0.0001,1.0
+2026-06-10,Control,C. 10-19,dreamheist_event,UL Bomb,minutes,19488,1,0.01,10.0,0.0005,10.0
+2026-06-10,Control,C. 10-19,dreamheist_event,UL Chuck,minutes,19488,1,0.01,10.0,0.0005,10.0
+2026-06-10,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19488,4,0.02,90.0,0.0046,22.5
+2026-06-10,Control,D. 20-39,dreamheist_event,Chuck,count,10451,1,0.01,16.0,0.0015,16.0
+2026-06-10,Control,D. 20-39,dreamheist_event,HC Free,HC,10451,3,0.03,330.0,0.0316,110.0
+2026-06-10,Control,D. 20-39,dreamheist_event,HC Total,HC,10451,3,0.03,330.0,0.0316,110.0
+2026-06-10,Control,D. 20-39,dreamheist_event,Slingshot,count,10451,1,0.01,16.0,0.0015,16.0
+2026-06-10,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10451,2,0.02,40.0,0.0038,20.0
+2026-06-10,Control,E. 40-99,dreamheist_event,HC Free,HC,4082,2,0.05,15.0,0.0037,7.5
+2026-06-10,Control,E. 40-99,dreamheist_event,HC Total,HC,4082,2,0.05,15.0,0.0037,7.5
+2026-06-10,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4082,2,0.05,40.0,0.0098,20.0
+2026-06-10,Variant,A. 0,dreamheist_event,Chuck,count,17690,6,0.03,6.0,0.0003,1.0
+2026-06-10,Variant,A. 0,dreamheist_event,Comet,count,17690,2,0.01,2.0,0.0001,1.0
+2026-06-10,Variant,A. 0,dreamheist_event,HC Free,HC,17690,29,0.16,1555.0,0.0879,53.6207
+2026-06-10,Variant,A. 0,dreamheist_event,HC Total,HC,17690,29,0.16,1555.0,0.0879,53.6207
+2026-06-10,Variant,A. 0,dreamheist_event,Red,count,17690,16,0.09,16.0,0.0009,1.0
+2026-06-10,Variant,A. 0,dreamheist_event,Slingshot,count,17690,8,0.05,8.0,0.0005,1.0
+2026-06-10,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,17690,81,0.46,1700.0,0.0961,20.9877
+2026-06-10,Variant,B. 1-9,dreamheist_event,Chuck,count,31130,1910,6.14,1950.0,0.0626,1.0209
+2026-06-10,Variant,B. 1-9,dreamheist_event,Comet,count,31130,1,0.0,1.0,0.0,1.0
+2026-06-10,Variant,B. 1-9,dreamheist_event,HC Free,HC,31130,8186,26.3,124905.0,4.0124,15.2584
+2026-06-10,Variant,B. 1-9,dreamheist_event,HC Total,HC,31130,8186,26.3,124905.0,4.0124,15.2584
+2026-06-10,Variant,B. 1-9,dreamheist_event,Red,count,31130,6986,22.44,7203.0,0.2314,1.0311
+2026-06-10,Variant,B. 1-9,dreamheist_event,Slingshot,count,31130,1911,6.14,1951.0,0.0627,1.0209
+2026-06-10,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31130,17092,54.91,356900.0,11.4648,20.8811
+2026-06-10,Variant,C. 10-19,dreamheist_event,Chuck,count,19621,4176,21.28,4296.0,0.2189,1.0287
+2026-06-10,Variant,C. 10-19,dreamheist_event,Comet,count,19621,23,0.12,23.0,0.0012,1.0
+2026-06-10,Variant,C. 10-19,dreamheist_event,HC Free,HC,19621,10984,55.98,316020.0,16.1062,28.7709
+2026-06-10,Variant,C. 10-19,dreamheist_event,HC Total,HC,19621,10984,55.98,316020.0,16.1062,28.7709
+2026-06-10,Variant,C. 10-19,dreamheist_event,Red,count,19621,8087,41.22,8329.0,0.4245,1.0299
+2026-06-10,Variant,C. 10-19,dreamheist_event,Slingshot,count,19621,4199,21.4,4319.0,0.2201,1.0286
+2026-06-10,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19621,12550,63.96,262390.0,13.3729,20.9076
+2026-06-10,Variant,D. 20-39,dreamheist_event,Chuck,count,10532,2923,27.75,3021.0,0.2868,1.0335
+2026-06-10,Variant,D. 20-39,dreamheist_event,Comet,count,10532,3,0.03,3.0,0.0003,1.0
+2026-06-10,Variant,D. 20-39,dreamheist_event,HC Free,HC,10532,6705,63.66,305100.0,28.9689,45.5034
+2026-06-10,Variant,D. 20-39,dreamheist_event,HC Total,HC,10532,6705,63.66,305100.0,28.9689,45.5034
+2026-06-10,Variant,D. 20-39,dreamheist_event,Red,count,10532,4688,44.51,4865.0,0.4619,1.0378
+2026-06-10,Variant,D. 20-39,dreamheist_event,Slingshot,count,10532,2926,27.78,3024.0,0.2871,1.0335
+2026-06-10,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10532,6835,64.9,145370.0,13.8027,21.2685
+2026-06-10,Variant,E. 40-99,dreamheist_event,Chuck,count,4288,1336,31.16,1382.0,0.3223,1.0344
+2026-06-10,Variant,E. 40-99,dreamheist_event,Comet,count,4288,145,3.38,150.0,0.035,1.0345
+2026-06-10,Variant,E. 40-99,dreamheist_event,HC Free,HC,4288,2958,68.98,273475.0,63.7768,92.4527
+2026-06-10,Variant,E. 40-99,dreamheist_event,HC Total,HC,4288,2958,68.98,273475.0,63.7768,92.4527
+2026-06-10,Variant,E. 40-99,dreamheist_event,Red,count,4288,2096,48.88,2174.0,0.507,1.0372
+2026-06-10,Variant,E. 40-99,dreamheist_event,Slingshot,count,4288,1481,34.54,1532.0,0.3573,1.0344
+2026-06-10,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4288,2954,68.89,72720.0,16.959,24.6175
+2026-06-10,Variant,F. 100+,dreamheist_event,Chuck,count,523,129,24.67,136.0,0.26,1.0543
+2026-06-10,Variant,F. 100+,dreamheist_event,Comet,count,523,91,17.4,95.0,0.1816,1.044
+2026-06-10,Variant,F. 100+,dreamheist_event,HC Free,HC,523,370,70.75,73945.0,141.3862,199.8514
+2026-06-10,Variant,F. 100+,dreamheist_event,HC Total,HC,523,370,70.75,73945.0,141.3862,199.8514
+2026-06-10,Variant,F. 100+,dreamheist_event,Red,count,523,280,53.54,291.0,0.5564,1.0393
+2026-06-10,Variant,F. 100+,dreamheist_event,Slingshot,count,523,220,42.07,231.0,0.4417,1.05
+2026-06-10,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,523,369,70.55,13310.0,25.4493,36.0705
+2026-06-11,Control,B. 1-9,dreamheist_event,HC Free,HC,32125,10,0.03,100.0,0.0031,10.0
+2026-06-11,Control,B. 1-9,dreamheist_event,HC Total,HC,32125,10,0.03,100.0,0.0031,10.0
+2026-06-11,Control,B. 1-9,dreamheist_event,Red,count,32125,3,0.01,3.0,0.0001,1.0
+2026-06-11,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32125,7,0.02,160.0,0.005,22.8571
+2026-06-11,Control,C. 10-19,dreamheist_event,Chuck,count,18624,1,0.01,1.0,0.0001,1.0
+2026-06-11,Control,C. 10-19,dreamheist_event,HC Free,HC,18624,5,0.03,165.0,0.0089,33.0
+2026-06-11,Control,C. 10-19,dreamheist_event,HC Total,HC,18624,5,0.03,165.0,0.0089,33.0
+2026-06-11,Control,C. 10-19,dreamheist_event,Red,count,18624,3,0.02,3.0,0.0002,1.0
+2026-06-11,Control,C. 10-19,dreamheist_event,Slingshot,count,18624,1,0.01,1.0,0.0001,1.0
+2026-06-11,Control,C. 10-19,dreamheist_event,UL Chuck,minutes,18624,1,0.01,10.0,0.0005,10.0
+2026-06-11,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18624,4,0.02,90.0,0.0048,22.5
+2026-06-11,Control,C. 10-19,treasure_dive_event,HC Free,HC,18624,1,0.01,40.0,0.0021,40.0
+2026-06-11,Control,C. 10-19,treasure_dive_event,HC Total,HC,18624,1,0.01,40.0,0.0021,40.0
+2026-06-11,Control,C. 10-19,treasure_dive_event,Red,count,18624,1,0.01,1.0,0.0001,1.0
+2026-06-11,Control,C. 10-19,treasure_dive_event,UL Chuck,minutes,18624,1,0.01,10.0,0.0005,10.0
+2026-06-11,Control,C. 10-19,treasure_dive_event,Unlimited Lives,minutes,18624,1,0.01,30.0,0.0016,30.0
+2026-06-11,Control,D. 20-39,dreamheist_event,Chuck,count,10171,2,0.02,2.0,0.0002,1.0
+2026-06-11,Control,D. 20-39,dreamheist_event,HC Free,HC,10171,6,0.06,75.0,0.0074,12.5
+2026-06-11,Control,D. 20-39,dreamheist_event,HC Total,HC,10171,6,0.06,75.0,0.0074,12.5
+2026-06-11,Control,D. 20-39,dreamheist_event,Slingshot,count,10171,2,0.02,2.0,0.0002,1.0
+2026-06-11,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10171,4,0.04,80.0,0.0079,20.0
+2026-06-11,Variant,A. 0,dreamheist_event,Chuck,count,18355,9,0.05,9.0,0.0005,1.0
+2026-06-11,Variant,A. 0,dreamheist_event,Comet,count,18355,2,0.01,2.0,0.0001,1.0
+2026-06-11,Variant,A. 0,dreamheist_event,HC Free,HC,18355,36,0.2,2350.0,0.128,65.2778
+2026-06-11,Variant,A. 0,dreamheist_event,HC Total,HC,18355,36,0.2,2350.0,0.128,65.2778
+2026-06-11,Variant,A. 0,dreamheist_event,Red,count,18355,22,0.12,22.0,0.0012,1.0
+2026-06-11,Variant,A. 0,dreamheist_event,Shuffle,count,18355,1,0.01,2.0,0.0001,2.0
+2026-06-11,Variant,A. 0,dreamheist_event,Slingshot,count,18355,11,0.06,11.0,0.0006,1.0
+2026-06-11,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,18355,83,0.45,1740.0,0.0948,20.9639
+2026-06-11,Variant,B. 1-9,dreamheist_event,Chuck,count,30899,1905,6.17,1961.0,0.0635,1.0294
+2026-06-11,Variant,B. 1-9,dreamheist_event,Comet,count,30899,4,0.01,4.0,0.0001,1.0
+2026-06-11,Variant,B. 1-9,dreamheist_event,HC Free,HC,30899,7800,25.24,121885.0,3.9446,15.6263
+2026-06-11,Variant,B. 1-9,dreamheist_event,HC Total,HC,30899,7800,25.24,121885.0,3.9446,15.6263
+2026-06-11,Variant,B. 1-9,dreamheist_event,Red,count,30899,6725,21.76,6922.0,0.224,1.0293
+2026-06-11,Variant,B. 1-9,dreamheist_event,Slingshot,count,30899,1909,6.18,1965.0,0.0636,1.0293
+2026-06-11,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30899,16528,53.49,343890.0,11.1295,20.8065
+2026-06-11,Variant,C. 10-19,dreamheist_event,Chuck,count,18615,4075,21.89,4191.0,0.2251,1.0285
+2026-06-11,Variant,C. 10-19,dreamheist_event,Comet,count,18615,18,0.1,18.0,0.001,1.0
+2026-06-11,Variant,C. 10-19,dreamheist_event,HC Free,HC,18615,10359,55.65,282505.0,15.1762,27.2715
+2026-06-11,Variant,C. 10-19,dreamheist_event,HC Total,HC,18615,10359,55.65,282505.0,15.1762,27.2715
+2026-06-11,Variant,C. 10-19,dreamheist_event,Red,count,18615,7629,40.98,7867.0,0.4226,1.0312
+2026-06-11,Variant,C. 10-19,dreamheist_event,Slingshot,count,18615,4093,21.99,4209.0,0.2261,1.0283
+2026-06-11,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18615,11995,64.44,250730.0,13.4692,20.9029
+2026-06-11,Variant,D. 20-39,dreamheist_event,Chuck,count,10399,2897,27.86,3022.0,0.2906,1.0431
+2026-06-11,Variant,D. 20-39,dreamheist_event,Comet,count,10399,11,0.11,12.0,0.0012,1.0909
+2026-06-11,Variant,D. 20-39,dreamheist_event,HC Free,HC,10399,6607,63.53,291715.0,28.0522,44.1524
+2026-06-11,Variant,D. 20-39,dreamheist_event,HC Total,HC,10399,6607,63.53,291715.0,28.0522,44.1524
+2026-06-11,Variant,D. 20-39,dreamheist_event,Red,count,10399,4617,44.4,4787.0,0.4603,1.0368
+2026-06-11,Variant,D. 20-39,dreamheist_event,Slingshot,count,10399,2908,27.96,3034.0,0.2918,1.0433
+2026-06-11,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10399,6788,65.28,145110.0,13.9542,21.3774
+2026-06-11,Variant,D. 20-39,treasure_dive_event,Red,count,10399,1,0.01,1.0,0.0001,1.0
+2026-06-11,Variant,E. 40-99,dreamheist_event,Chuck,count,4203,1278,30.41,1333.0,0.3172,1.043
+2026-06-11,Variant,E. 40-99,dreamheist_event,Comet,count,4203,150,3.57,157.0,0.0374,1.0467
+2026-06-11,Variant,E. 40-99,dreamheist_event,HC Free,HC,4203,2900,69.0,274260.0,65.2534,94.5724
+2026-06-11,Variant,E. 40-99,dreamheist_event,HC Total,HC,4203,2900,69.0,274260.0,65.2534,94.5724
+2026-06-11,Variant,E. 40-99,dreamheist_event,Red,count,4203,2087,49.66,2173.0,0.517,1.0412
+2026-06-11,Variant,E. 40-99,dreamheist_event,Slingshot,count,4203,1428,33.98,1490.0,0.3545,1.0434
+2026-06-11,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4203,2902,69.05,71420.0,16.9926,24.6106
+2026-06-11,Variant,F. 100+,dreamheist_event,Chuck,count,507,136,26.82,140.0,0.2761,1.0294
+2026-06-11,Variant,F. 100+,dreamheist_event,Comet,count,507,71,14.0,77.0,0.1519,1.0845
+2026-06-11,Variant,F. 100+,dreamheist_event,HC Free,HC,507,369,72.78,64830.0,127.8698,175.6911
+2026-06-11,Variant,F. 100+,dreamheist_event,HC Total,HC,507,369,72.78,64830.0,127.8698,175.6911
+2026-06-11,Variant,F. 100+,dreamheist_event,Red,count,507,265,52.27,278.0,0.5483,1.0491
+2026-06-11,Variant,F. 100+,dreamheist_event,Slingshot,count,507,207,40.83,217.0,0.428,1.0483
+2026-06-11,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,507,368,72.58,13120.0,25.8777,35.6522
+2026-06-12,Control,B. 1-9,dreamheist_event,HC Free,HC,32775,5,0.02,45.0,0.0014,9.0
+2026-06-12,Control,B. 1-9,dreamheist_event,HC Total,HC,32775,5,0.02,45.0,0.0014,9.0
+2026-06-12,Control,B. 1-9,dreamheist_event,Red,count,32775,2,0.01,2.0,0.0001,1.0
+2026-06-12,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32775,4,0.01,80.0,0.0024,20.0
+2026-06-12,Control,C. 10-19,dreamheist_event,HC Free,HC,18590,8,0.04,60.0,0.0032,7.5
+2026-06-12,Control,C. 10-19,dreamheist_event,HC Total,HC,18590,8,0.04,60.0,0.0032,7.5
+2026-06-12,Control,C. 10-19,dreamheist_event,Red,count,18590,2,0.01,2.0,0.0001,1.0
+2026-06-12,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18590,7,0.04,140.0,0.0075,20.0
+2026-06-12,Control,D. 20-39,dreamheist_event,HC Free,HC,10261,4,0.04,30.0,0.0029,7.5
+2026-06-12,Control,D. 20-39,dreamheist_event,HC Total,HC,10261,4,0.04,30.0,0.0029,7.5
+2026-06-12,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10261,4,0.04,80.0,0.0078,20.0
+2026-06-12,Control,E. 40-99,dreamheist_event,HC Free,HC,3958,1,0.03,5.0,0.0013,5.0
+2026-06-12,Control,E. 40-99,dreamheist_event,HC Total,HC,3958,1,0.03,5.0,0.0013,5.0
+2026-06-12,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,3958,1,0.03,20.0,0.0051,20.0
+2026-06-12,Variant,A. 0,dreamheist_event,Chuck,count,15649,15,0.1,15.0,0.001,1.0
+2026-06-12,Variant,A. 0,dreamheist_event,HC Free,HC,15649,39,0.25,1880.0,0.1201,48.2051
+2026-06-12,Variant,A. 0,dreamheist_event,HC Total,HC,15649,39,0.25,1880.0,0.1201,48.2051
+2026-06-12,Variant,A. 0,dreamheist_event,Red,count,15649,22,0.14,23.0,0.0015,1.0455
+2026-06-12,Variant,A. 0,dreamheist_event,Slingshot,count,15649,15,0.1,15.0,0.001,1.0
+2026-06-12,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,15649,88,0.56,1850.0,0.1182,21.0227
+2026-06-12,Variant,B. 1-9,dreamheist_event,Chuck,count,31567,2599,8.23,2645.0,0.0838,1.0177
+2026-06-12,Variant,B. 1-9,dreamheist_event,Comet,count,31567,1,0.0,1.0,0.0,1.0
+2026-06-12,Variant,B. 1-9,dreamheist_event,HC Free,HC,31567,9549,30.25,151690.0,4.8053,15.8854
+2026-06-12,Variant,B. 1-9,dreamheist_event,HC Total,HC,31567,9549,30.25,151690.0,4.8053,15.8854
+2026-06-12,Variant,B. 1-9,dreamheist_event,Red,count,31567,8291,26.26,8501.0,0.2693,1.0253
+2026-06-12,Variant,B. 1-9,dreamheist_event,Slingshot,count,31567,2600,8.24,2646.0,0.0838,1.0177
+2026-06-12,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31567,18701,59.24,389760.0,12.3471,20.8417
+2026-06-12,Variant,C. 10-19,dreamheist_event,Chuck,count,18639,3512,18.84,3591.0,0.1927,1.0225
+2026-06-12,Variant,C. 10-19,dreamheist_event,Comet,count,18639,4,0.02,4.0,0.0002,1.0
+2026-06-12,Variant,C. 10-19,dreamheist_event,HC Free,HC,18639,11109,59.6,290235.0,15.5714,26.1261
+2026-06-12,Variant,C. 10-19,dreamheist_event,HC Total,HC,18639,11109,59.6,290235.0,15.5714,26.1261
+2026-06-12,Variant,C. 10-19,dreamheist_event,Red,count,18639,7299,39.16,7484.0,0.4015,1.0253
+2026-06-12,Variant,C. 10-19,dreamheist_event,Slingshot,count,18639,3516,18.86,3595.0,0.1929,1.0225
+2026-06-12,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18639,12121,65.03,252900.0,13.5683,20.8646
+2026-06-12,Variant,D. 20-39,dreamheist_event,Chuck,count,10423,1998,19.17,2066.0,0.1982,1.034
+2026-06-12,Variant,D. 20-39,dreamheist_event,Comet,count,10423,4,0.04,4.0,0.0004,1.0
+2026-06-12,Variant,D. 20-39,dreamheist_event,HC Free,HC,10423,6488,62.25,325600.0,31.2386,50.185
+2026-06-12,Variant,D. 20-39,dreamheist_event,HC Total,HC,10423,6488,62.25,325600.0,31.2386,50.185
+2026-06-12,Variant,D. 20-39,dreamheist_event,Red,count,10423,3993,38.31,4107.0,0.394,1.0285
+2026-06-12,Variant,D. 20-39,dreamheist_event,Slingshot,count,10423,2001,19.2,2070.0,0.1986,1.0345
+2026-06-12,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10423,6502,62.38,137220.0,13.1651,21.1043
+2026-06-12,Variant,E. 40-99,dreamheist_event,Chuck,count,4244,903,21.28,941.0,0.2217,1.0421
+2026-06-12,Variant,E. 40-99,dreamheist_event,Comet,count,4244,171,4.03,180.0,0.0424,1.0526
+2026-06-12,Variant,E. 40-99,dreamheist_event,HC Free,HC,4244,2642,62.25,294310.0,69.3473,111.3967
+2026-06-12,Variant,E. 40-99,dreamheist_event,HC Total,HC,4244,2642,62.25,294310.0,69.3473,111.3967
+2026-06-12,Variant,E. 40-99,dreamheist_event,Red,count,4244,1638,38.6,1702.0,0.401,1.0391
+2026-06-12,Variant,E. 40-99,dreamheist_event,Slingshot,count,4244,1073,25.28,1121.0,0.2641,1.0447
+2026-06-12,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4244,2609,61.48,67920.0,16.0038,26.033
+2026-06-12,Variant,F. 100+,dreamheist_event,Chuck,count,496,72,14.52,74.0,0.1492,1.0278
+2026-06-12,Variant,F. 100+,dreamheist_event,Comet,count,496,74,14.92,76.0,0.1532,1.027
+2026-06-12,Variant,F. 100+,dreamheist_event,HC Free,HC,496,331,66.73,71010.0,143.1653,214.5317
+2026-06-12,Variant,F. 100+,dreamheist_event,HC Total,HC,496,331,66.73,71010.0,143.1653,214.5317
+2026-06-12,Variant,F. 100+,dreamheist_event,Red,count,496,205,41.33,213.0,0.4294,1.039
+2026-06-12,Variant,F. 100+,dreamheist_event,Slingshot,count,496,145,29.23,150.0,0.3024,1.0345
+2026-06-12,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,496,328,66.13,13900.0,28.0242,42.378
+2026-06-13,Control,B. 1-9,dreamheist_event,Chuck,count,31187,1,0.0,6.0,0.0002,6.0
+2026-06-13,Control,B. 1-9,dreamheist_event,HC Free,HC,31187,9,0.03,185.0,0.0059,20.5556
+2026-06-13,Control,B. 1-9,dreamheist_event,HC Total,HC,31187,9,0.03,185.0,0.0059,20.5556
+2026-06-13,Control,B. 1-9,dreamheist_event,Red,count,31187,1,0.0,1.0,0.0,1.0
+2026-06-13,Control,B. 1-9,dreamheist_event,Slingshot,count,31187,1,0.0,6.0,0.0002,6.0
+2026-06-13,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31187,7,0.02,160.0,0.0051,22.8571
+2026-06-13,Control,C. 10-19,dreamheist_event,Chuck,count,17894,1,0.01,1.0,0.0001,1.0
+2026-06-13,Control,C. 10-19,dreamheist_event,HC Free,HC,17894,4,0.02,45.0,0.0025,11.25
+2026-06-13,Control,C. 10-19,dreamheist_event,HC Total,HC,17894,4,0.02,45.0,0.0025,11.25
+2026-06-13,Control,C. 10-19,dreamheist_event,Slingshot,count,17894,1,0.01,1.0,0.0001,1.0
+2026-06-13,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,17894,3,0.02,60.0,0.0034,20.0
+2026-06-13,Control,D. 20-39,dreamheist_event,HC Free,HC,9938,4,0.04,35.0,0.0035,8.75
+2026-06-13,Control,D. 20-39,dreamheist_event,HC Total,HC,9938,4,0.04,35.0,0.0035,8.75
+2026-06-13,Control,D. 20-39,dreamheist_event,Red,count,9938,1,0.01,1.0,0.0001,1.0
+2026-06-13,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9938,3,0.03,60.0,0.006,20.0
+2026-06-13,Control,E. 40-99,dreamheist_event,Chuck,count,3833,1,0.03,1.0,0.0003,1.0
+2026-06-13,Control,E. 40-99,dreamheist_event,HC Free,HC,3833,1,0.03,20.0,0.0052,20.0
+2026-06-13,Control,E. 40-99,dreamheist_event,HC Total,HC,3833,1,0.03,20.0,0.0052,20.0
+2026-06-13,Control,E. 40-99,dreamheist_event,Slingshot,count,3833,1,0.03,1.0,0.0003,1.0
+2026-06-13,Variant,A. 0,dreamheist_event,Chuck,count,16232,10,0.06,10.0,0.0006,1.0
+2026-06-13,Variant,A. 0,dreamheist_event,HC Free,HC,16232,31,0.19,1060.0,0.0653,34.1935
+2026-06-13,Variant,A. 0,dreamheist_event,HC Total,HC,16232,31,0.19,1060.0,0.0653,34.1935
+2026-06-13,Variant,A. 0,dreamheist_event,Red,count,16232,16,0.1,17.0,0.001,1.0625
+2026-06-13,Variant,A. 0,dreamheist_event,Slingshot,count,16232,10,0.06,10.0,0.0006,1.0
+2026-06-13,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16232,73,0.45,1550.0,0.0955,21.2329
+2026-06-13,Variant,B. 1-9,dreamheist_event,Chuck,count,30077,2419,8.04,2452.0,0.0815,1.0136
+2026-06-13,Variant,B. 1-9,dreamheist_event,HC Free,HC,30077,8695,28.91,139365.0,4.6336,16.0282
+2026-06-13,Variant,B. 1-9,dreamheist_event,HC Total,HC,30077,8695,28.91,139365.0,4.6336,16.0282
+2026-06-13,Variant,B. 1-9,dreamheist_event,Red,count,30077,7446,24.76,7641.0,0.254,1.0262
+2026-06-13,Variant,B. 1-9,dreamheist_event,Slingshot,count,30077,2419,8.04,2452.0,0.0815,1.0136
+2026-06-13,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30077,17156,57.04,356530.0,11.8539,20.7817
+2026-06-13,Variant,C. 10-19,dreamheist_event,Chuck,count,17948,3354,18.69,3457.0,0.1926,1.0307
+2026-06-13,Variant,C. 10-19,dreamheist_event,Comet,count,17948,2,0.01,2.0,0.0001,1.0
+2026-06-13,Variant,C. 10-19,dreamheist_event,HC Free,HC,17948,10394,57.91,276160.0,15.3867,26.5692
+2026-06-13,Variant,C. 10-19,dreamheist_event,HC Total,HC,17948,10394,57.91,276160.0,15.3867,26.5692
+2026-06-13,Variant,C. 10-19,dreamheist_event,Red,count,17948,7021,39.12,7264.0,0.4047,1.0346
+2026-06-13,Variant,C. 10-19,dreamheist_event,Slingshot,count,17948,3356,18.7,3459.0,0.1927,1.0307
+2026-06-13,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,17948,11404,63.54,237190.0,13.2154,20.7988
+2026-06-13,Variant,D. 20-39,dreamheist_event,Chuck,count,10310,2207,21.41,2278.0,0.221,1.0322
+2026-06-13,Variant,D. 20-39,dreamheist_event,Comet,count,10310,7,0.07,7.0,0.0007,1.0
+2026-06-13,Variant,D. 20-39,dreamheist_event,HC Free,HC,10310,6442,62.48,339550.0,32.934,52.7088
+2026-06-13,Variant,D. 20-39,dreamheist_event,HC Total,HC,10310,6442,62.48,339550.0,32.934,52.7088
+2026-06-13,Variant,D. 20-39,dreamheist_event,Red,count,10310,4123,39.99,4262.0,0.4134,1.0337
+2026-06-13,Variant,D. 20-39,dreamheist_event,Slingshot,count,10310,2214,21.47,2285.0,0.2216,1.0321
+2026-06-13,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10310,6447,62.53,136440.0,13.2338,21.1633
+2026-06-13,Variant,E. 40-99,dreamheist_event,Chuck,count,4163,967,23.23,997.0,0.2395,1.031
+2026-06-13,Variant,E. 40-99,dreamheist_event,Comet,count,4163,190,4.56,198.0,0.0476,1.0421
+2026-06-13,Variant,E. 40-99,dreamheist_event,HC Free,HC,4163,2664,63.99,308240.0,74.0428,115.7057
+2026-06-13,Variant,E. 40-99,dreamheist_event,HC Total,HC,4163,2664,63.99,308240.0,74.0428,115.7057
+2026-06-13,Variant,E. 40-99,dreamheist_event,Red,count,4163,1756,42.18,1820.0,0.4372,1.0364
+2026-06-13,Variant,E. 40-99,dreamheist_event,Slingshot,count,4163,1156,27.77,1195.0,0.2871,1.0337
+2026-06-13,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4163,2645,63.54,67220.0,16.147,25.414
+2026-06-13,Variant,F. 100+,dreamheist_event,Chuck,count,490,86,17.55,87.0,0.1776,1.0116
+2026-06-13,Variant,F. 100+,dreamheist_event,Comet,count,490,66,13.47,69.0,0.1408,1.0455
+2026-06-13,Variant,F. 100+,dreamheist_event,HC Free,HC,490,327,66.73,67545.0,137.8469,206.5596
+2026-06-13,Variant,F. 100+,dreamheist_event,HC Total,HC,490,327,66.73,67545.0,137.8469,206.5596
+2026-06-13,Variant,F. 100+,dreamheist_event,Red,count,490,220,44.9,228.0,0.4653,1.0364
+2026-06-13,Variant,F. 100+,dreamheist_event,Slingshot,count,490,152,31.02,156.0,0.3184,1.0263
+2026-06-13,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,490,322,65.71,12440.0,25.3878,38.6335
+2026-06-14,Control,A. 0,dreamheist_event,HC Free,HC,16037,3,0.02,35.0,0.0022,11.6667
+2026-06-14,Control,A. 0,dreamheist_event,HC Total,HC,16037,3,0.02,35.0,0.0022,11.6667
+2026-06-14,Control,A. 0,dreamheist_event,Red,count,16037,1,0.01,1.0,0.0001,1.0
+2026-06-14,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16037,2,0.01,40.0,0.0025,20.0
+2026-06-14,Control,B. 1-9,dreamheist_event,Chuck,count,32074,1,0.0,1.0,0.0,1.0
+2026-06-14,Control,B. 1-9,dreamheist_event,HC Free,HC,32074,7,0.02,85.0,0.0027,12.1429
+2026-06-14,Control,B. 1-9,dreamheist_event,HC Total,HC,32074,7,0.02,85.0,0.0027,12.1429
+2026-06-14,Control,B. 1-9,dreamheist_event,Red,count,32074,2,0.01,2.0,0.0001,1.0
+2026-06-14,Control,B. 1-9,dreamheist_event,Slingshot,count,32074,1,0.0,1.0,0.0,1.0
+2026-06-14,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32074,5,0.02,140.0,0.0044,28.0
+2026-06-14,Control,C. 10-19,dreamheist_event,HC Free,HC,18508,7,0.04,70.0,0.0038,10.0
+2026-06-14,Control,C. 10-19,dreamheist_event,HC Total,HC,18508,7,0.04,70.0,0.0038,10.0
+2026-06-14,Control,C. 10-19,dreamheist_event,Red,count,18508,3,0.02,3.0,0.0002,1.0
+2026-06-14,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18508,5,0.03,100.0,0.0054,20.0
+2026-06-14,Control,D. 20-39,dreamheist_event,Bomb,count,10061,1,0.01,2.0,0.0002,2.0
+2026-06-14,Control,D. 20-39,dreamheist_event,HC Free,HC,10061,3,0.03,25.0,0.0025,8.3333
+2026-06-14,Control,D. 20-39,dreamheist_event,HC Total,HC,10061,3,0.03,25.0,0.0025,8.3333
+2026-06-14,Control,D. 20-39,dreamheist_event,Red,count,10061,2,0.02,3.0,0.0003,1.5
+2026-06-14,Control,D. 20-39,dreamheist_event,Shuffle,count,10061,1,0.01,2.0,0.0002,2.0
+2026-06-14,Control,D. 20-39,dreamheist_event,Slingshot,count,10061,1,0.01,2.0,0.0002,2.0
+2026-06-14,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10061,2,0.02,40.0,0.004,20.0
+2026-06-14,Control,E. 40-99,dreamheist_event,Chuck,count,3925,1,0.03,1.0,0.0003,1.0
+2026-06-14,Control,E. 40-99,dreamheist_event,HC Free,HC,3925,1,0.03,20.0,0.0051,20.0
+2026-06-14,Control,E. 40-99,dreamheist_event,HC Total,HC,3925,1,0.03,20.0,0.0051,20.0
+2026-06-14,Control,E. 40-99,dreamheist_event,Slingshot,count,3925,1,0.03,1.0,0.0003,1.0
+2026-06-14,Variant,A. 0,dreamheist_event,Chuck,count,16537,11,0.07,12.0,0.0007,1.0909
+2026-06-14,Variant,A. 0,dreamheist_event,HC Free,HC,16537,41,0.25,1720.0,0.104,41.9512
+2026-06-14,Variant,A. 0,dreamheist_event,HC Total,HC,16537,41,0.25,1720.0,0.104,41.9512
+2026-06-14,Variant,A. 0,dreamheist_event,Red,count,16537,28,0.17,28.0,0.0017,1.0
+2026-06-14,Variant,A. 0,dreamheist_event,Slingshot,count,16537,11,0.07,12.0,0.0007,1.0909
+2026-06-14,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16537,66,0.4,1350.0,0.0816,20.4545
+2026-06-14,Variant,B. 1-9,dreamheist_event,Chuck,count,31012,2251,7.26,2291.0,0.0739,1.0178
+2026-06-14,Variant,B. 1-9,dreamheist_event,HC Free,HC,31012,8792,28.35,135740.0,4.377,15.439
+2026-06-14,Variant,B. 1-9,dreamheist_event,HC Total,HC,31012,8792,28.35,135740.0,4.377,15.439
+2026-06-14,Variant,B. 1-9,dreamheist_event,Red,count,31012,7385,23.81,7572.0,0.2442,1.0253
+2026-06-14,Variant,B. 1-9,dreamheist_event,Slingshot,count,31012,2251,7.26,2291.0,0.0739,1.0178
+2026-06-14,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31012,17500,56.43,363550.0,11.7229,20.7743
+2026-06-14,Variant,C. 10-19,dreamheist_event,Chuck,count,18370,3304,17.99,3379.0,0.1839,1.0227
+2026-06-14,Variant,C. 10-19,dreamheist_event,Comet,count,18370,3,0.02,3.0,0.0002,1.0
+2026-06-14,Variant,C. 10-19,dreamheist_event,HC Free,HC,18370,10489,57.1,271675.0,14.7891,25.9009
+2026-06-14,Variant,C. 10-19,dreamheist_event,HC Total,HC,18370,10489,57.1,271675.0,14.7891,25.9009
+2026-06-14,Variant,C. 10-19,dreamheist_event,Red,count,18370,7037,38.31,7240.0,0.3941,1.0288
+2026-06-14,Variant,C. 10-19,dreamheist_event,Slingshot,count,18370,3307,18.0,3382.0,0.1841,1.0227
+2026-06-14,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18370,11661,63.48,242370.0,13.1938,20.7847
+2026-06-14,Variant,D. 20-39,dreamheist_event,Chuck,count,10262,2267,22.09,2348.0,0.2288,1.0357
+2026-06-14,Variant,D. 20-39,dreamheist_event,Comet,count,10262,7,0.07,7.0,0.0007,1.0
+2026-06-14,Variant,D. 20-39,dreamheist_event,HC Free,HC,10262,6432,62.68,338790.0,33.014,52.6726
+2026-06-14,Variant,D. 20-39,dreamheist_event,HC Total,HC,10262,6432,62.68,338790.0,33.014,52.6726
+2026-06-14,Variant,D. 20-39,dreamheist_event,Red,count,10262,4197,40.9,4334.0,0.4223,1.0326
+2026-06-14,Variant,D. 20-39,dreamheist_event,Slingshot,count,10262,2274,22.16,2355.0,0.2295,1.0356
+2026-06-14,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10262,6452,62.87,136300.0,13.282,21.1252
+2026-06-14,Variant,D. 20-39,treasure_dive_event,Bomb,count,10262,1,0.01,1.0,0.0001,1.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,Chuck,count,10262,1,0.01,3.0,0.0003,3.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,Comet,count,10262,1,0.01,1.0,0.0001,1.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,HC Free,HC,10262,1,0.01,360.0,0.0351,360.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,HC Total,HC,10262,1,0.01,360.0,0.0351,360.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,Shuffle,count,10262,1,0.01,3.0,0.0003,3.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,Slingshot,count,10262,1,0.01,1.0,0.0001,1.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,UL Red,minutes,10262,1,0.01,30.0,0.0029,30.0
+2026-06-14,Variant,D. 20-39,treasure_dive_event,Unlimited Lives,minutes,10262,1,0.01,150.0,0.0146,150.0
+2026-06-14,Variant,E. 40-99,dreamheist_event,Chuck,count,4227,1090,25.79,1122.0,0.2654,1.0294
+2026-06-14,Variant,E. 40-99,dreamheist_event,Comet,count,4227,181,4.28,187.0,0.0442,1.0331
+2026-06-14,Variant,E. 40-99,dreamheist_event,HC Free,HC,4227,2781,65.79,314235.0,74.34,112.9935
+2026-06-14,Variant,E. 40-99,dreamheist_event,HC Total,HC,4227,2781,65.79,314235.0,74.34,112.9935
+2026-06-14,Variant,E. 40-99,dreamheist_event,Red,count,4227,1889,44.69,1973.0,0.4668,1.0445
+2026-06-14,Variant,E. 40-99,dreamheist_event,Slingshot,count,4227,1271,30.07,1309.0,0.3097,1.0299
+2026-06-14,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4227,2764,65.39,69750.0,16.5011,25.2352
+2026-06-14,Variant,F. 100+,dreamheist_event,Chuck,count,490,117,23.88,122.0,0.249,1.0427
+2026-06-14,Variant,F. 100+,dreamheist_event,Comet,count,490,69,14.08,76.0,0.1551,1.1014
+2026-06-14,Variant,F. 100+,dreamheist_event,HC Free,HC,490,349,71.22,72100.0,147.1429,206.5903
+2026-06-14,Variant,F. 100+,dreamheist_event,HC Total,HC,490,349,71.22,72100.0,147.1429,206.5903
+2026-06-14,Variant,F. 100+,dreamheist_event,Red,count,490,245,50.0,261.0,0.5327,1.0653
+2026-06-14,Variant,F. 100+,dreamheist_event,Slingshot,count,490,186,37.96,198.0,0.4041,1.0645
+2026-06-14,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,490,345,70.41,12740.0,26.0,36.9275
+2026-06-15,Control,A. 0,dreamheist_event,Chuck,count,15473,1,0.01,1.0,0.0001,1.0
+2026-06-15,Control,A. 0,dreamheist_event,HC Free,HC,15473,1,0.01,20.0,0.0013,20.0
+2026-06-15,Control,A. 0,dreamheist_event,HC Total,HC,15473,1,0.01,20.0,0.0013,20.0
+2026-06-15,Control,A. 0,dreamheist_event,Slingshot,count,15473,1,0.01,1.0,0.0001,1.0
+2026-06-15,Control,B. 1-9,dreamheist_event,HC Free,HC,33595,5,0.01,50.0,0.0015,10.0
+2026-06-15,Control,B. 1-9,dreamheist_event,HC Total,HC,33595,5,0.01,50.0,0.0015,10.0
+2026-06-15,Control,B. 1-9,dreamheist_event,Red,count,33595,1,0.0,1.0,0.0,1.0
+2026-06-15,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,33595,4,0.01,80.0,0.0024,20.0
+2026-06-15,Control,C. 10-19,dreamheist_event,Chuck,count,20294,1,0.0,1.0,0.0,1.0
+2026-06-15,Control,C. 10-19,dreamheist_event,HC Free,HC,20294,6,0.03,130.0,0.0064,21.6667
+2026-06-15,Control,C. 10-19,dreamheist_event,HC Total,HC,20294,6,0.03,130.0,0.0064,21.6667
+2026-06-15,Control,C. 10-19,dreamheist_event,Red,count,20294,1,0.0,1.0,0.0,1.0
+2026-06-15,Control,C. 10-19,dreamheist_event,Slingshot,count,20294,1,0.0,1.0,0.0,1.0
+2026-06-15,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20294,6,0.03,120.0,0.0059,20.0
+2026-06-15,Control,D. 20-39,dreamheist_event,HC Free,HC,11165,3,0.03,25.0,0.0022,8.3333
+2026-06-15,Control,D. 20-39,dreamheist_event,HC Total,HC,11165,3,0.03,25.0,0.0022,8.3333
+2026-06-15,Control,D. 20-39,dreamheist_event,Red,count,11165,1,0.01,1.0,0.0001,1.0
+2026-06-15,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11165,2,0.02,40.0,0.0036,20.0
+2026-06-15,Variant,A. 0,dreamheist_event,Chuck,count,15985,20,0.13,20.0,0.0013,1.0
+2026-06-15,Variant,A. 0,dreamheist_event,Comet,count,15985,2,0.01,3.0,0.0002,1.5
+2026-06-15,Variant,A. 0,dreamheist_event,HC Free,HC,15985,69,0.43,3230.0,0.2021,46.8116
+2026-06-15,Variant,A. 0,dreamheist_event,HC Total,HC,15985,69,0.43,3230.0,0.2021,46.8116
+2026-06-15,Variant,A. 0,dreamheist_event,Red,count,15985,41,0.26,43.0,0.0027,1.0488
+2026-06-15,Variant,A. 0,dreamheist_event,Slingshot,count,15985,22,0.14,23.0,0.0014,1.0455
+2026-06-15,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,15985,83,0.52,1800.0,0.1126,21.6867
+2026-06-15,Variant,B. 1-9,dreamheist_event,Chuck,count,32105,2087,6.5,2120.0,0.066,1.0158
+2026-06-15,Variant,B. 1-9,dreamheist_event,Comet,count,32105,2,0.01,2.0,0.0001,1.0
+2026-06-15,Variant,B. 1-9,dreamheist_event,HC Free,HC,32105,8826,27.49,138375.0,4.3101,15.6781
+2026-06-15,Variant,B. 1-9,dreamheist_event,HC Total,HC,32105,8826,27.49,138375.0,4.3101,15.6781
+2026-06-15,Variant,B. 1-9,dreamheist_event,Red,count,32105,7203,22.44,7377.0,0.2298,1.0242
+2026-06-15,Variant,B. 1-9,dreamheist_event,Slingshot,count,32105,2089,6.51,2122.0,0.0661,1.0158
+2026-06-15,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32105,17563,54.7,364640.0,11.3577,20.7618
+2026-06-15,Variant,C. 10-19,dreamheist_event,Chuck,count,20247,3498,17.28,3585.0,0.1771,1.0249
+2026-06-15,Variant,C. 10-19,dreamheist_event,Comet,count,20247,13,0.06,13.0,0.0006,1.0
+2026-06-15,Variant,C. 10-19,dreamheist_event,HC Free,HC,20247,11356,56.09,322350.0,15.9209,28.3859
+2026-06-15,Variant,C. 10-19,dreamheist_event,HC Total,HC,20247,11356,56.09,322350.0,15.9209,28.3859
+2026-06-15,Variant,C. 10-19,dreamheist_event,Red,count,20247,7550,37.29,7764.0,0.3835,1.0283
+2026-06-15,Variant,C. 10-19,dreamheist_event,Slingshot,count,20247,3511,17.34,3598.0,0.1777,1.0248
+2026-06-15,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20247,12630,62.38,263840.0,13.0311,20.8899
+2026-06-15,Variant,D. 20-39,dreamheist_event,Chuck,count,11702,2624,22.42,2706.0,0.2312,1.0313
+2026-06-15,Variant,D. 20-39,dreamheist_event,Comet,count,11702,86,0.73,91.0,0.0078,1.0581
+2026-06-15,Variant,D. 20-39,dreamheist_event,HC Free,HC,11702,7683,65.66,467790.0,39.9752,60.8864
+2026-06-15,Variant,D. 20-39,dreamheist_event,HC Total,HC,11702,7683,65.66,467790.0,39.9752,60.8864
+2026-06-15,Variant,D. 20-39,dreamheist_event,Red,count,11702,5055,43.2,5238.0,0.4476,1.0362
+2026-06-15,Variant,D. 20-39,dreamheist_event,Shuffle,count,11702,1,0.01,1.0,0.0001,1.0
+2026-06-15,Variant,D. 20-39,dreamheist_event,Slingshot,count,11702,2709,23.15,2796.0,0.2389,1.0321
+2026-06-15,Variant,D. 20-39,dreamheist_event,UL Chuck,minutes,11702,1,0.01,10.0,0.0009,10.0
+2026-06-15,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11702,7717,65.95,168930.0,14.436,21.8906
+2026-06-15,Variant,E. 40-99,dreamheist_event,Chuck,count,4918,1185,24.1,1223.0,0.2487,1.0321
+2026-06-15,Variant,E. 40-99,dreamheist_event,Comet,count,4918,346,7.04,366.0,0.0744,1.0578
+2026-06-15,Variant,E. 40-99,dreamheist_event,HC Free,HC,4918,3518,71.53,485115.0,98.6407,137.8951
+2026-06-15,Variant,E. 40-99,dreamheist_event,HC Total,HC,4918,3518,71.53,485115.0,98.6407,137.8951
+2026-06-15,Variant,E. 40-99,dreamheist_event,Red,count,4918,2405,48.9,2521.0,0.5126,1.0482
+2026-06-15,Variant,E. 40-99,dreamheist_event,Slingshot,count,4918,1531,31.13,1589.0,0.3231,1.0379
+2026-06-15,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4918,3502,71.21,97690.0,19.8638,27.8955
+2026-06-15,Variant,F. 100+,dreamheist_event,Chuck,count,478,127,26.57,132.0,0.2762,1.0394
+2026-06-15,Variant,F. 100+,dreamheist_event,Comet,count,478,67,14.02,71.0,0.1485,1.0597
+2026-06-15,Variant,F. 100+,dreamheist_event,HC Free,HC,478,357,74.69,69260.0,144.8954,194.0056
+2026-06-15,Variant,F. 100+,dreamheist_event,HC Total,HC,478,357,74.69,69260.0,144.8954,194.0056
+2026-06-15,Variant,F. 100+,dreamheist_event,Red,count,478,256,53.56,268.0,0.5607,1.0469
+2026-06-15,Variant,F. 100+,dreamheist_event,Slingshot,count,478,194,40.59,203.0,0.4247,1.0464
+2026-06-15,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,478,353,73.85,13050.0,27.3013,36.9688
+2026-06-16,Control,A. 0,dreamheist_event,HC Free,HC,16582,3,0.02,25.0,0.0015,8.3333
+2026-06-16,Control,A. 0,dreamheist_event,HC Total,HC,16582,3,0.02,25.0,0.0015,8.3333
+2026-06-16,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16582,3,0.02,60.0,0.0036,20.0
+2026-06-16,Control,B. 1-9,dreamheist_event,HC Free,HC,33234,6,0.02,60.0,0.0018,10.0
+2026-06-16,Control,B. 1-9,dreamheist_event,HC Total,HC,33234,6,0.02,60.0,0.0018,10.0
+2026-06-16,Control,B. 1-9,dreamheist_event,Red,count,33234,1,0.0,1.0,0.0,1.0
+2026-06-16,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,33234,5,0.02,100.0,0.003,20.0
+2026-06-16,Control,C. 10-19,dreamheist_event,HC Free,HC,20153,3,0.01,55.0,0.0027,18.3333
+2026-06-16,Control,C. 10-19,dreamheist_event,HC Total,HC,20153,3,0.01,55.0,0.0027,18.3333
+2026-06-16,Control,C. 10-19,dreamheist_event,Red,count,20153,1,0.0,1.0,0.0,1.0
+2026-06-16,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20153,3,0.01,100.0,0.005,33.3333
+2026-06-16,Control,D. 20-39,dreamheist_event,HC Free,HC,10700,1,0.01,10.0,0.0009,10.0
+2026-06-16,Control,D. 20-39,dreamheist_event,HC Total,HC,10700,1,0.01,10.0,0.0009,10.0
+2026-06-16,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10700,1,0.01,20.0,0.0019,20.0
+2026-06-16,Control,E. 40-99,dreamheist_event,HC Free,HC,3904,1,0.03,10.0,0.0026,10.0
+2026-06-16,Control,E. 40-99,dreamheist_event,HC Total,HC,3904,1,0.03,10.0,0.0026,10.0
+2026-06-16,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,3904,1,0.03,20.0,0.0051,20.0
+2026-06-16,Variant,A. 0,dreamheist_event,Chuck,count,16834,5,0.03,5.0,0.0003,1.0
+2026-06-16,Variant,A. 0,dreamheist_event,Comet,count,16834,3,0.02,4.0,0.0002,1.3333
+2026-06-16,Variant,A. 0,dreamheist_event,HC Free,HC,16834,26,0.15,2920.0,0.1735,112.3077
+2026-06-16,Variant,A. 0,dreamheist_event,HC Total,HC,16834,26,0.15,2920.0,0.1735,112.3077
+2026-06-16,Variant,A. 0,dreamheist_event,Red,count,16834,16,0.1,16.0,0.001,1.0
+2026-06-16,Variant,A. 0,dreamheist_event,Slingshot,count,16834,8,0.05,9.0,0.0005,1.125
+2026-06-16,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16834,67,0.4,1560.0,0.0927,23.2836
+2026-06-16,Variant,B. 1-9,dreamheist_event,Chuck,count,31975,1892,5.92,1930.0,0.0604,1.0201
+2026-06-16,Variant,B. 1-9,dreamheist_event,HC Free,HC,31975,8211,25.68,125380.0,3.9212,15.2698
+2026-06-16,Variant,B. 1-9,dreamheist_event,HC Total,HC,31975,8211,25.68,125380.0,3.9212,15.2698
+2026-06-16,Variant,B. 1-9,dreamheist_event,Red,count,31975,6568,20.54,6752.0,0.2112,1.028
+2026-06-16,Variant,B. 1-9,dreamheist_event,Slingshot,count,31975,1892,5.92,1930.0,0.0604,1.0201
+2026-06-16,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31975,16479,51.54,342990.0,10.7268,20.8138
+2026-06-16,Variant,C. 10-19,dreamheist_event,Chuck,count,20042,3516,17.54,3617.0,0.1805,1.0287
+2026-06-16,Variant,C. 10-19,dreamheist_event,Comet,count,20042,14,0.07,15.0,0.0007,1.0714
+2026-06-16,Variant,C. 10-19,dreamheist_event,HC Free,HC,20042,11073,55.25,313485.0,15.6414,28.3108
+2026-06-16,Variant,C. 10-19,dreamheist_event,HC Total,HC,20042,11073,55.25,313485.0,15.6414,28.3108
+2026-06-16,Variant,C. 10-19,dreamheist_event,Red,count,20042,7296,36.4,7508.0,0.3746,1.0291
+2026-06-16,Variant,C. 10-19,dreamheist_event,Slingshot,count,20042,3530,17.61,3632.0,0.1812,1.0289
+2026-06-16,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20042,12456,62.15,260420.0,12.9937,20.9072
+2026-06-16,Variant,D. 20-39,dreamheist_event,Chuck,count,11164,2527,22.64,2597.0,0.2326,1.0277
+2026-06-16,Variant,D. 20-39,dreamheist_event,Comet,count,11164,61,0.55,66.0,0.0059,1.082
+2026-06-16,Variant,D. 20-39,dreamheist_event,HC Free,HC,11164,7323,65.59,436020.0,39.0559,59.5412
+2026-06-16,Variant,D. 20-39,dreamheist_event,HC Total,HC,11164,7323,65.59,436020.0,39.0559,59.5412
+2026-06-16,Variant,D. 20-39,dreamheist_event,Red,count,11164,4786,42.87,4981.0,0.4462,1.0407
+2026-06-16,Variant,D. 20-39,dreamheist_event,Shuffle,count,11164,1,0.01,1.0,0.0001,1.0
+2026-06-16,Variant,D. 20-39,dreamheist_event,Slingshot,count,11164,2588,23.18,2663.0,0.2385,1.029
+2026-06-16,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11164,7370,66.02,162060.0,14.5163,21.9891
+2026-06-16,Variant,D. 20-39,treasure_dive_event,Shuffle,count,11164,1,0.01,1.0,0.0001,1.0
+2026-06-16,Variant,E. 40-99,dreamheist_event,Chuck,count,4253,1183,27.82,1225.0,0.288,1.0355
+2026-06-16,Variant,E. 40-99,dreamheist_event,Comet,count,4253,165,3.88,172.0,0.0404,1.0424
+2026-06-16,Variant,E. 40-99,dreamheist_event,HC Free,HC,4253,2944,69.22,326185.0,76.6953,110.7965
+2026-06-16,Variant,E. 40-99,dreamheist_event,HC Total,HC,4253,2944,69.22,326185.0,76.6953,110.7965
+2026-06-16,Variant,E. 40-99,dreamheist_event,Red,count,4253,2044,48.06,2132.0,0.5013,1.0431
+2026-06-16,Variant,E. 40-99,dreamheist_event,Slingshot,count,4253,1348,31.7,1397.0,0.3285,1.0364
+2026-06-16,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4253,2924,68.75,73380.0,17.2537,25.0958
+2026-06-16,Variant,F. 100+,dreamheist_event,Chuck,count,510,143,28.04,148.0,0.2902,1.035
+2026-06-16,Variant,F. 100+,dreamheist_event,Comet,count,510,85,16.67,89.0,0.1745,1.0471
+2026-06-16,Variant,F. 100+,dreamheist_event,HC Free,HC,510,386,75.69,76300.0,149.6078,197.6684
+2026-06-16,Variant,F. 100+,dreamheist_event,HC Total,HC,510,386,75.69,76300.0,149.6078,197.6684
+2026-06-16,Variant,F. 100+,dreamheist_event,Red,count,510,286,56.08,294.0,0.5765,1.028
+2026-06-16,Variant,F. 100+,dreamheist_event,Slingshot,count,510,228,44.71,237.0,0.4647,1.0395
+2026-06-16,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,510,384,75.29,13320.0,26.1176,34.6875
+2026-06-17,Control,A. 0,dreamheist_event,Chuck,count,16775,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,A. 0,dreamheist_event,Shuffle,count,16775,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,A. 0,treasure_dive_event,Chuck,count,16775,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,A. 0,treasure_dive_event,Shuffle,count,16775,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,B. 1-9,dreamheist_event,Chuck,count,32885,2,0.01,2.0,0.0001,1.0
+2026-06-17,Control,B. 1-9,dreamheist_event,HC Free,HC,32885,8,0.02,105.0,0.0032,13.125
+2026-06-17,Control,B. 1-9,dreamheist_event,HC Total,HC,32885,8,0.02,105.0,0.0032,13.125
+2026-06-17,Control,B. 1-9,dreamheist_event,Red,count,32885,1,0.0,1.0,0.0,1.0
+2026-06-17,Control,B. 1-9,dreamheist_event,Slingshot,count,32885,2,0.01,2.0,0.0001,1.0
+2026-06-17,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32885,6,0.02,120.0,0.0036,20.0
+2026-06-17,Control,C. 10-19,dreamheist_event,Bomb,count,19819,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,C. 10-19,dreamheist_event,HC Free,HC,19819,2,0.01,80.0,0.004,40.0
+2026-06-17,Control,C. 10-19,dreamheist_event,HC Total,HC,19819,2,0.01,80.0,0.004,40.0
+2026-06-17,Control,C. 10-19,dreamheist_event,Red,count,19819,3,0.02,3.0,0.0002,1.0
+2026-06-17,Control,C. 10-19,dreamheist_event,Slingshot,count,19819,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19819,2,0.01,40.0,0.002,20.0
+2026-06-17,Control,C. 10-19,treasure_dive_event,Bomb,count,19819,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,C. 10-19,treasure_dive_event,Red,count,19819,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,C. 10-19,treasure_dive_event,Slingshot,count,19819,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,D. 20-39,dreamheist_event,HC Free,HC,9882,2,0.02,55.0,0.0056,27.5
+2026-06-17,Control,D. 20-39,dreamheist_event,HC Total,HC,9882,2,0.02,55.0,0.0056,27.5
+2026-06-17,Control,D. 20-39,dreamheist_event,Red,count,9882,2,0.02,2.0,0.0002,1.0
+2026-06-17,Control,D. 20-39,dreamheist_event,UL Chuck,minutes,9882,1,0.01,10.0,0.001,10.0
+2026-06-17,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9882,1,0.01,30.0,0.003,30.0
+2026-06-17,Control,D. 20-39,treasure_dive_event,HC Free,HC,9882,1,0.01,40.0,0.004,40.0
+2026-06-17,Control,D. 20-39,treasure_dive_event,HC Total,HC,9882,1,0.01,40.0,0.004,40.0
+2026-06-17,Control,D. 20-39,treasure_dive_event,Red,count,9882,1,0.01,1.0,0.0001,1.0
+2026-06-17,Control,D. 20-39,treasure_dive_event,UL Chuck,minutes,9882,1,0.01,10.0,0.001,10.0
+2026-06-17,Control,D. 20-39,treasure_dive_event,Unlimited Lives,minutes,9882,1,0.01,30.0,0.003,30.0
+2026-06-17,Control,E. 40-99,dreamheist_event,HC Free,HC,3873,1,0.03,10.0,0.0026,10.0
+2026-06-17,Control,E. 40-99,dreamheist_event,HC Total,HC,3873,1,0.03,10.0,0.0026,10.0
+2026-06-17,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,3873,1,0.03,20.0,0.0052,20.0
+2026-06-17,Variant,A. 0,dreamheist_event,Chuck,count,17431,12,0.07,12.0,0.0007,1.0
+2026-06-17,Variant,A. 0,dreamheist_event,Comet,count,17431,3,0.02,3.0,0.0002,1.0
+2026-06-17,Variant,A. 0,dreamheist_event,HC Free,HC,17431,45,0.26,2945.0,0.169,65.4444
+2026-06-17,Variant,A. 0,dreamheist_event,HC Total,HC,17431,45,0.26,2945.0,0.169,65.4444
+2026-06-17,Variant,A. 0,dreamheist_event,Red,count,17431,26,0.15,27.0,0.0015,1.0385
+2026-06-17,Variant,A. 0,dreamheist_event,Slingshot,count,17431,15,0.09,15.0,0.0009,1.0
+2026-06-17,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,17431,90,0.52,1910.0,0.1096,21.2222
+2026-06-17,Variant,B. 1-9,dreamheist_event,Chuck,count,31230,1695,5.43,1736.0,0.0556,1.0242
+2026-06-17,Variant,B. 1-9,dreamheist_event,Comet,count,31230,1,0.0,1.0,0.0,1.0
+2026-06-17,Variant,B. 1-9,dreamheist_event,HC Free,HC,31230,7705,24.67,117990.0,3.7781,15.3134
+2026-06-17,Variant,B. 1-9,dreamheist_event,HC Total,HC,31230,7705,24.67,117990.0,3.7781,15.3134
+2026-06-17,Variant,B. 1-9,dreamheist_event,Red,count,31230,6069,19.43,6236.0,0.1997,1.0275
+2026-06-17,Variant,B. 1-9,dreamheist_event,Shuffle,count,31230,1,0.0,1.0,0.0,1.0
+2026-06-17,Variant,B. 1-9,dreamheist_event,Slingshot,count,31230,1695,5.43,1736.0,0.0556,1.0242
+2026-06-17,Variant,B. 1-9,dreamheist_event,UL Chuck,minutes,31230,1,0.0,10.0,0.0003,10.0
+2026-06-17,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31230,15706,50.29,327680.0,10.4925,20.8634
+2026-06-17,Variant,C. 10-19,dreamheist_event,Chuck,count,19573,3193,16.31,3296.0,0.1684,1.0323
+2026-06-17,Variant,C. 10-19,dreamheist_event,Comet,count,19573,9,0.05,9.0,0.0005,1.0
+2026-06-17,Variant,C. 10-19,dreamheist_event,HC Free,HC,19573,10552,53.91,297245.0,15.1865,28.1695
+2026-06-17,Variant,C. 10-19,dreamheist_event,HC Total,HC,19573,10552,53.91,297245.0,15.1865,28.1695
+2026-06-17,Variant,C. 10-19,dreamheist_event,Red,count,19573,7027,35.9,7242.0,0.37,1.0306
+2026-06-17,Variant,C. 10-19,dreamheist_event,Slingshot,count,19573,3202,16.36,3305.0,0.1689,1.0322
+2026-06-17,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19573,11980,61.21,250990.0,12.8233,20.9508
+2026-06-17,Variant,D. 20-39,dreamheist_event,Chuck,count,10256,2246,21.9,2320.0,0.2262,1.0329
+2026-06-17,Variant,D. 20-39,dreamheist_event,Comet,count,10256,14,0.14,14.0,0.0014,1.0
+2026-06-17,Variant,D. 20-39,dreamheist_event,HC Free,HC,10256,6359,62.0,327720.0,31.954,51.5364
+2026-06-17,Variant,D. 20-39,dreamheist_event,HC Total,HC,10256,6359,62.0,327720.0,31.954,51.5364
+2026-06-17,Variant,D. 20-39,dreamheist_event,Red,count,10256,4236,41.3,4399.0,0.4289,1.0385
+2026-06-17,Variant,D. 20-39,dreamheist_event,Slingshot,count,10256,2260,22.04,2334.0,0.2276,1.0327
+2026-06-17,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10256,6455,62.94,137980.0,13.4536,21.3757
+2026-06-17,Variant,E. 40-99,dreamheist_event,Chuck,count,4184,1135,27.13,1190.0,0.2844,1.0485
+2026-06-17,Variant,E. 40-99,dreamheist_event,Comet,count,4184,167,3.99,177.0,0.0423,1.0599
+2026-06-17,Variant,E. 40-99,dreamheist_event,HC Free,HC,4184,2788,66.63,308285.0,73.6819,110.5757
+2026-06-17,Variant,E. 40-99,dreamheist_event,HC Total,HC,4184,2788,66.63,308285.0,73.6819,110.5757
+2026-06-17,Variant,E. 40-99,dreamheist_event,Red,count,4184,1948,46.56,2027.0,0.4845,1.0406
+2026-06-17,Variant,E. 40-99,dreamheist_event,Slingshot,count,4184,1302,31.12,1367.0,0.3267,1.0499
+2026-06-17,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4184,2773,66.28,68790.0,16.4412,24.8071
+2026-06-17,Variant,F. 100+,dreamheist_event,Chuck,count,484,150,30.99,151.0,0.312,1.0067
+2026-06-17,Variant,F. 100+,dreamheist_event,Comet,count,484,74,15.29,78.0,0.1612,1.0541
+2026-06-17,Variant,F. 100+,dreamheist_event,HC Free,HC,484,357,73.76,67385.0,139.2252,188.7535
+2026-06-17,Variant,F. 100+,dreamheist_event,HC Total,HC,484,357,73.76,67385.0,139.2252,188.7535
+2026-06-17,Variant,F. 100+,dreamheist_event,Red,count,484,272,56.2,278.0,0.5744,1.0221
+2026-06-17,Variant,F. 100+,dreamheist_event,Slingshot,count,484,224,46.28,229.0,0.4731,1.0223
+2026-06-17,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,484,357,73.76,11760.0,24.2975,32.9412
+2026-06-18,Control,A. 0,dreamheist_event,HC Free,HC,18068,3,0.02,30.0,0.0017,10.0
+2026-06-18,Control,A. 0,dreamheist_event,HC Total,HC,18068,3,0.02,30.0,0.0017,10.0
+2026-06-18,Control,A. 0,dreamheist_event,Red,count,18068,1,0.01,1.0,0.0001,1.0
+2026-06-18,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,18068,2,0.01,40.0,0.0022,20.0
+2026-06-18,Control,B. 1-9,dreamheist_event,HC Free,HC,31576,8,0.03,55.0,0.0017,6.875
+2026-06-18,Control,B. 1-9,dreamheist_event,HC Total,HC,31576,8,0.03,55.0,0.0017,6.875
+2026-06-18,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31576,8,0.03,160.0,0.0051,20.0
+2026-06-18,Control,C. 10-19,dreamheist_event,HC Free,HC,18928,3,0.02,70.0,0.0037,23.3333
+2026-06-18,Control,C. 10-19,dreamheist_event,HC Total,HC,18928,3,0.02,70.0,0.0037,23.3333
+2026-06-18,Control,C. 10-19,dreamheist_event,Red,count,18928,2,0.01,2.0,0.0001,1.0
+2026-06-18,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18928,2,0.01,40.0,0.0021,20.0
+2026-06-18,Control,E. 40-99,dreamheist_event,HC Free,HC,3907,1,0.03,15.0,0.0038,15.0
+2026-06-18,Control,E. 40-99,dreamheist_event,HC Total,HC,3907,1,0.03,15.0,0.0038,15.0
+2026-06-18,Control,E. 40-99,dreamheist_event,Red,count,3907,1,0.03,1.0,0.0003,1.0
+2026-06-18,Variant,A. 0,dreamheist_event,Chuck,count,18403,15,0.08,15.0,0.0008,1.0
+2026-06-18,Variant,A. 0,dreamheist_event,Comet,count,18403,1,0.01,1.0,0.0001,1.0
+2026-06-18,Variant,A. 0,dreamheist_event,HC Free,HC,18403,37,0.2,1650.0,0.0897,44.5946
+2026-06-18,Variant,A. 0,dreamheist_event,HC Total,HC,18403,37,0.2,1650.0,0.0897,44.5946
+2026-06-18,Variant,A. 0,dreamheist_event,Red,count,18403,21,0.11,21.0,0.0011,1.0
+2026-06-18,Variant,A. 0,dreamheist_event,Slingshot,count,18403,16,0.09,16.0,0.0009,1.0
+2026-06-18,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,18403,73,0.4,1510.0,0.0821,20.6849
+2026-06-18,Variant,B. 1-9,dreamheist_event,Chuck,count,30370,1629,5.36,1656.0,0.0545,1.0166
+2026-06-18,Variant,B. 1-9,dreamheist_event,Comet,count,30370,2,0.01,2.0,0.0001,1.0
+2026-06-18,Variant,B. 1-9,dreamheist_event,HC Free,HC,30370,6985,23.0,109710.0,3.6124,15.7065
+2026-06-18,Variant,B. 1-9,dreamheist_event,HC Total,HC,30370,6985,23.0,109710.0,3.6124,15.7065
+2026-06-18,Variant,B. 1-9,dreamheist_event,Red,count,30370,5494,18.09,5641.0,0.1857,1.0268
+2026-06-18,Variant,B. 1-9,dreamheist_event,Slingshot,count,30370,1631,5.37,1658.0,0.0546,1.0166
+2026-06-18,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30370,13946,45.92,289970.0,9.5479,20.7923
+2026-06-18,Variant,C. 10-19,dreamheist_event,Chuck,count,18468,3080,16.68,3152.0,0.1707,1.0234
+2026-06-18,Variant,C. 10-19,dreamheist_event,Comet,count,18468,5,0.03,5.0,0.0003,1.0
+2026-06-18,Variant,C. 10-19,dreamheist_event,HC Free,HC,18468,9485,51.36,265055.0,14.3521,27.9446
+2026-06-18,Variant,C. 10-19,dreamheist_event,HC Total,HC,18468,9485,51.36,265055.0,14.3521,27.9446
+2026-06-18,Variant,C. 10-19,dreamheist_event,Red,count,18468,6429,34.81,6600.0,0.3574,1.0266
+2026-06-18,Variant,C. 10-19,dreamheist_event,Slingshot,count,18468,3085,16.7,3157.0,0.1709,1.0233
+2026-06-18,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18468,10769,58.31,223830.0,12.1199,20.7847
+2026-06-18,Variant,D. 20-39,dreamheist_event,Chuck,count,9913,2209,22.28,2280.0,0.23,1.0321
+2026-06-18,Variant,D. 20-39,dreamheist_event,Comet,count,9913,7,0.07,7.0,0.0007,1.0
+2026-06-18,Variant,D. 20-39,dreamheist_event,HC Free,HC,9913,6026,60.79,307685.0,31.0385,51.0596
+2026-06-18,Variant,D. 20-39,dreamheist_event,HC Total,HC,9913,6026,60.79,307685.0,31.0385,51.0596
+2026-06-18,Variant,D. 20-39,dreamheist_event,Red,count,9913,3959,39.94,4087.0,0.4123,1.0323
+2026-06-18,Variant,D. 20-39,dreamheist_event,Slingshot,count,9913,2216,22.35,2287.0,0.2307,1.032
+2026-06-18,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9913,6118,61.72,130100.0,13.1242,21.2651
+2026-06-18,Variant,E. 40-99,dreamheist_event,Chuck,count,4271,1280,29.97,1317.0,0.3084,1.0289
+2026-06-18,Variant,E. 40-99,dreamheist_event,Comet,count,4271,155,3.63,158.0,0.037,1.0194
+2026-06-18,Variant,E. 40-99,dreamheist_event,HC Free,HC,4271,2949,69.05,317340.0,74.3011,107.6094
+2026-06-18,Variant,E. 40-99,dreamheist_event,HC Total,HC,4271,2949,69.05,317340.0,74.3011,107.6094
+2026-06-18,Variant,E. 40-99,dreamheist_event,Red,count,4271,2068,48.42,2129.0,0.4985,1.0295
+2026-06-18,Variant,E. 40-99,dreamheist_event,Slingshot,count,4271,1435,33.6,1475.0,0.3454,1.0279
+2026-06-18,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4271,2941,68.86,73170.0,17.1318,24.8793
+2026-06-18,Variant,F. 100+,dreamheist_event,Chuck,count,479,138,28.81,143.0,0.2985,1.0362
+2026-06-18,Variant,F. 100+,dreamheist_event,Comet,count,479,73,15.24,80.0,0.167,1.0959
+2026-06-18,Variant,F. 100+,dreamheist_event,HC Free,HC,479,372,77.66,72910.0,152.2129,195.9946
+2026-06-18,Variant,F. 100+,dreamheist_event,HC Total,HC,479,372,77.66,72910.0,152.2129,195.9946
+2026-06-18,Variant,F. 100+,dreamheist_event,Red,count,479,280,58.46,286.0,0.5971,1.0214
+2026-06-18,Variant,F. 100+,dreamheist_event,Slingshot,count,479,211,44.05,223.0,0.4656,1.0569
+2026-06-18,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,479,372,77.66,12810.0,26.7432,34.4355
+2026-06-19,Control,A. 0,dreamheist_event,Chuck,count,15783,1,0.01,1.0,0.0001,1.0
+2026-06-19,Control,A. 0,dreamheist_event,HC Free,HC,15783,3,0.02,30.0,0.0019,10.0
+2026-06-19,Control,A. 0,dreamheist_event,HC Total,HC,15783,3,0.02,30.0,0.0019,10.0
+2026-06-19,Control,A. 0,dreamheist_event,Red,count,15783,1,0.01,1.0,0.0001,1.0
+2026-06-19,Control,A. 0,dreamheist_event,Slingshot,count,15783,1,0.01,1.0,0.0001,1.0
+2026-06-19,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,15783,2,0.01,40.0,0.0025,20.0
+2026-06-19,Control,B. 1-9,dreamheist_event,Chuck,count,32050,1,0.0,1.0,0.0,1.0
+2026-06-19,Control,B. 1-9,dreamheist_event,HC Free,HC,32050,7,0.02,160.0,0.005,22.8571
+2026-06-19,Control,B. 1-9,dreamheist_event,HC Total,HC,32050,7,0.02,160.0,0.005,22.8571
+2026-06-19,Control,B. 1-9,dreamheist_event,Red,count,32050,1,0.0,2.0,0.0001,2.0
+2026-06-19,Control,B. 1-9,dreamheist_event,Shuffle,count,32050,1,0.0,2.0,0.0001,2.0
+2026-06-19,Control,B. 1-9,dreamheist_event,Slingshot,count,32050,1,0.0,1.0,0.0,1.0
+2026-06-19,Control,B. 1-9,dreamheist_event,UL Chuck,minutes,32050,1,0.0,20.0,0.0006,20.0
+2026-06-19,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32050,7,0.02,180.0,0.0056,25.7143
+2026-06-19,Control,C. 10-19,dreamheist_event,HC Free,HC,18593,5,0.03,45.0,0.0024,9.0
+2026-06-19,Control,C. 10-19,dreamheist_event,HC Total,HC,18593,5,0.03,45.0,0.0024,9.0
+2026-06-19,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18593,5,0.03,100.0,0.0054,20.0
+2026-06-19,Control,D. 20-39,dreamheist_event,HC Free,HC,9717,3,0.03,30.0,0.0031,10.0
+2026-06-19,Control,D. 20-39,dreamheist_event,HC Total,HC,9717,3,0.03,30.0,0.0031,10.0
+2026-06-19,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9717,3,0.03,60.0,0.0062,20.0
+2026-06-19,Variant,A. 0,dreamheist_event,Chuck,count,16109,11,0.07,12.0,0.0007,1.0909
+2026-06-19,Variant,A. 0,dreamheist_event,Comet,count,16109,2,0.01,2.0,0.0001,1.0
+2026-06-19,Variant,A. 0,dreamheist_event,HC Free,HC,16109,33,0.2,2695.0,0.1673,81.6667
+2026-06-19,Variant,A. 0,dreamheist_event,HC Total,HC,16109,33,0.2,2695.0,0.1673,81.6667
+2026-06-19,Variant,A. 0,dreamheist_event,Red,count,16109,17,0.11,18.0,0.0011,1.0588
+2026-06-19,Variant,A. 0,dreamheist_event,Slingshot,count,16109,13,0.08,14.0,0.0009,1.0769
+2026-06-19,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16109,75,0.47,1610.0,0.0999,21.4667
+2026-06-19,Variant,B. 1-9,dreamheist_event,Chuck,count,30753,1962,6.38,1990.0,0.0647,1.0143
+2026-06-19,Variant,B. 1-9,dreamheist_event,Comet,count,30753,4,0.01,4.0,0.0001,1.0
+2026-06-19,Variant,B. 1-9,dreamheist_event,HC Free,HC,30753,8172,26.57,133060.0,4.3267,16.2824
+2026-06-19,Variant,B. 1-9,dreamheist_event,HC Total,HC,30753,8172,26.57,133060.0,4.3267,16.2824
+2026-06-19,Variant,B. 1-9,dreamheist_event,Red,count,30753,6491,21.11,6634.0,0.2157,1.022
+2026-06-19,Variant,B. 1-9,dreamheist_event,Slingshot,count,30753,1966,6.39,1994.0,0.0648,1.0142
+2026-06-19,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30753,15727,51.14,325690.0,10.5905,20.709
+2026-06-19,Variant,C. 10-19,dreamheist_event,Chuck,count,18493,3203,17.32,3278.0,0.1773,1.0234
+2026-06-19,Variant,C. 10-19,dreamheist_event,Comet,count,18493,4,0.02,4.0,0.0002,1.0
+2026-06-19,Variant,C. 10-19,dreamheist_event,HC Free,HC,18493,10130,54.78,269255.0,14.5598,26.58
+2026-06-19,Variant,C. 10-19,dreamheist_event,HC Total,HC,18493,10130,54.78,269255.0,14.5598,26.58
+2026-06-19,Variant,C. 10-19,dreamheist_event,Red,count,18493,6879,37.2,7067.0,0.3821,1.0273
+2026-06-19,Variant,C. 10-19,dreamheist_event,Slingshot,count,18493,3207,17.34,3282.0,0.1775,1.0234
+2026-06-19,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18493,11459,61.96,238410.0,12.8919,20.8055
+2026-06-19,Variant,D. 20-39,dreamheist_event,Chuck,count,9975,2247,22.53,2315.0,0.2321,1.0303
+2026-06-19,Variant,D. 20-39,dreamheist_event,Comet,count,9975,10,0.1,10.0,0.001,1.0
+2026-06-19,Variant,D. 20-39,dreamheist_event,HC Free,HC,9975,6323,63.39,314070.0,31.4857,49.671
+2026-06-19,Variant,D. 20-39,dreamheist_event,HC Total,HC,9975,6323,63.39,314070.0,31.4857,49.671
+2026-06-19,Variant,D. 20-39,dreamheist_event,Red,count,9975,4217,42.28,4338.0,0.4349,1.0287
+2026-06-19,Variant,D. 20-39,dreamheist_event,Shuffle,count,9975,1,0.01,1.0,0.0001,1.0
+2026-06-19,Variant,D. 20-39,dreamheist_event,Slingshot,count,9975,2256,22.62,2324.0,0.233,1.0301
+2026-06-19,Variant,D. 20-39,dreamheist_event,UL Chuck,minutes,9975,1,0.01,10.0,0.001,10.0
+2026-06-19,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9975,6388,64.04,135650.0,13.599,21.2351
+2026-06-19,Variant,E. 40-99,dreamheist_event,Chuck,count,4148,1175,28.33,1214.0,0.2927,1.0332
+2026-06-19,Variant,E. 40-99,dreamheist_event,Comet,count,4148,159,3.83,163.0,0.0393,1.0252
+2026-06-19,Variant,E. 40-99,dreamheist_event,HC Free,HC,4148,2830,68.23,305710.0,73.7006,108.0247
+2026-06-19,Variant,E. 40-99,dreamheist_event,HC Total,HC,4148,2830,68.23,305710.0,73.7006,108.0247
+2026-06-19,Variant,E. 40-99,dreamheist_event,Red,count,4148,2002,48.26,2083.0,0.5022,1.0405
+2026-06-19,Variant,E. 40-99,dreamheist_event,Slingshot,count,4148,1334,32.16,1377.0,0.332,1.0322
+2026-06-19,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4148,2818,67.94,68840.0,16.5959,24.4287
+2026-06-19,Variant,F. 100+,dreamheist_event,Bomb,count,469,1,0.21,2.0,0.0043,2.0
+2026-06-19,Variant,F. 100+,dreamheist_event,Chuck,count,469,156,33.26,164.0,0.3497,1.0513
+2026-06-19,Variant,F. 100+,dreamheist_event,Comet,count,469,72,15.35,74.0,0.1578,1.0278
+2026-06-19,Variant,F. 100+,dreamheist_event,HC Free,HC,469,361,76.97,67835.0,144.6375,187.9086
+2026-06-19,Variant,F. 100+,dreamheist_event,HC Total,HC,469,361,76.97,67835.0,144.6375,187.9086
+2026-06-19,Variant,F. 100+,dreamheist_event,Red,count,469,287,61.19,300.0,0.6397,1.0453
+2026-06-19,Variant,F. 100+,dreamheist_event,Shuffle,count,469,1,0.21,1.0,0.0021,1.0
+2026-06-19,Variant,F. 100+,dreamheist_event,Slingshot,count,469,227,48.4,238.0,0.5075,1.0485
+2026-06-19,Variant,F. 100+,dreamheist_event,UL Red,minutes,469,1,0.21,30.0,0.064,30.0
+2026-06-19,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,469,358,76.33,11740.0,25.032,32.7933
+2026-06-20,Control,A. 0,dreamheist_event,HC Free,HC,16318,1,0.01,10.0,0.0006,10.0
+2026-06-20,Control,A. 0,dreamheist_event,HC Total,HC,16318,1,0.01,10.0,0.0006,10.0
+2026-06-20,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16318,1,0.01,20.0,0.0012,20.0
+2026-06-20,Control,B. 1-9,dreamheist_event,HC Free,HC,30747,5,0.02,50.0,0.0016,10.0
+2026-06-20,Control,B. 1-9,dreamheist_event,HC Total,HC,30747,5,0.02,50.0,0.0016,10.0
+2026-06-20,Control,B. 1-9,dreamheist_event,Red,count,30747,1,0.0,1.0,0.0,1.0
+2026-06-20,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30747,4,0.01,80.0,0.0026,20.0
+2026-06-20,Control,C. 10-19,dreamheist_event,Chuck,count,18075,1,0.01,1.0,0.0001,1.0
+2026-06-20,Control,C. 10-19,dreamheist_event,HC Free,HC,18075,1,0.01,100.0,0.0055,100.0
+2026-06-20,Control,C. 10-19,dreamheist_event,HC Total,HC,18075,1,0.01,100.0,0.0055,100.0
+2026-06-20,Control,C. 10-19,dreamheist_event,Red,count,18075,1,0.01,1.0,0.0001,1.0
+2026-06-20,Control,C. 10-19,dreamheist_event,Slingshot,count,18075,1,0.01,1.0,0.0001,1.0
+2026-06-20,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18075,1,0.01,20.0,0.0011,20.0
+2026-06-20,Control,D. 20-39,dreamheist_event,HC Free,HC,9348,4,0.04,30.0,0.0032,7.5
+2026-06-20,Control,D. 20-39,dreamheist_event,HC Total,HC,9348,4,0.04,30.0,0.0032,7.5
+2026-06-20,Control,D. 20-39,dreamheist_event,Red,count,9348,1,0.01,1.0,0.0001,1.0
+2026-06-20,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9348,3,0.03,60.0,0.0064,20.0
+2026-06-20,Variant,A. 0,dreamheist_event,Chuck,count,16684,6,0.04,6.0,0.0004,1.0
+2026-06-20,Variant,A. 0,dreamheist_event,Comet,count,16684,3,0.02,3.0,0.0002,1.0
+2026-06-20,Variant,A. 0,dreamheist_event,HC Free,HC,16684,38,0.23,1960.0,0.1175,51.5789
+2026-06-20,Variant,A. 0,dreamheist_event,HC Total,HC,16684,38,0.23,1960.0,0.1175,51.5789
+2026-06-20,Variant,A. 0,dreamheist_event,Red,count,16684,21,0.13,21.0,0.0013,1.0
+2026-06-20,Variant,A. 0,dreamheist_event,Slingshot,count,16684,9,0.05,9.0,0.0005,1.0
+2026-06-20,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16684,85,0.51,1800.0,0.1079,21.1765
+2026-06-20,Variant,B. 1-9,dreamheist_event,Chuck,count,29554,1902,6.44,1926.0,0.0652,1.0126
+2026-06-20,Variant,B. 1-9,dreamheist_event,Comet,count,29554,2,0.01,2.0,0.0001,1.0
+2026-06-20,Variant,B. 1-9,dreamheist_event,HC Free,HC,29554,7827,26.48,124810.0,4.2231,15.9461
+2026-06-20,Variant,B. 1-9,dreamheist_event,HC Total,HC,29554,7827,26.48,124810.0,4.2231,15.9461
+2026-06-20,Variant,B. 1-9,dreamheist_event,Red,count,29554,6236,21.1,6388.0,0.2161,1.0244
+2026-06-20,Variant,B. 1-9,dreamheist_event,Slingshot,count,29554,1904,6.44,1928.0,0.0652,1.0126
+2026-06-20,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29554,15054,50.94,312540.0,10.5752,20.7613
+2026-06-20,Variant,C. 10-19,dreamheist_event,Chuck,count,17791,3305,18.58,3397.0,0.1909,1.0278
+2026-06-20,Variant,C. 10-19,dreamheist_event,Comet,count,17791,2,0.01,2.0,0.0001,1.0
+2026-06-20,Variant,C. 10-19,dreamheist_event,HC Free,HC,17791,9848,55.35,266605.0,14.9854,27.072
+2026-06-20,Variant,C. 10-19,dreamheist_event,HC Total,HC,17791,9848,55.35,266605.0,14.9854,27.072
+2026-06-20,Variant,C. 10-19,dreamheist_event,Red,count,17791,6866,38.59,7072.0,0.3975,1.03
+2026-06-20,Variant,C. 10-19,dreamheist_event,Shuffle,count,17791,1,0.01,2.0,0.0001,2.0
+2026-06-20,Variant,C. 10-19,dreamheist_event,Slingshot,count,17791,3307,18.59,3399.0,0.1911,1.0278
+2026-06-20,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,17791,11121,62.51,231180.0,12.9942,20.7877
+2026-06-20,Variant,D. 20-39,dreamheist_event,Chuck,count,9808,2461,25.09,2535.0,0.2585,1.0301
+2026-06-20,Variant,D. 20-39,dreamheist_event,Comet,count,9808,9,0.09,9.0,0.0009,1.0
+2026-06-20,Variant,D. 20-39,dreamheist_event,HC Free,HC,9808,6248,63.7,328370.0,33.4798,52.556
+2026-06-20,Variant,D. 20-39,dreamheist_event,HC Total,HC,9808,6248,63.7,328370.0,33.4798,52.556
+2026-06-20,Variant,D. 20-39,dreamheist_event,Red,count,9808,4304,43.88,4469.0,0.4556,1.0383
+2026-06-20,Variant,D. 20-39,dreamheist_event,Slingshot,count,9808,2470,25.18,2544.0,0.2594,1.03
+2026-06-20,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9808,6307,64.3,134430.0,13.7062,21.3144
+2026-06-20,Variant,E. 40-99,dreamheist_event,Chuck,count,4140,1307,31.57,1371.0,0.3312,1.049
+2026-06-20,Variant,E. 40-99,dreamheist_event,Comet,count,4140,155,3.74,160.0,0.0386,1.0323
+2026-06-20,Variant,E. 40-99,dreamheist_event,HC Free,HC,4140,2879,69.54,310990.0,75.1184,108.0201
+2026-06-20,Variant,E. 40-99,dreamheist_event,HC Total,HC,4140,2879,69.54,310990.0,75.1184,108.0201
+2026-06-20,Variant,E. 40-99,dreamheist_event,Red,count,4140,2104,50.82,2175.0,0.5254,1.0337
+2026-06-20,Variant,E. 40-99,dreamheist_event,Slingshot,count,4140,1462,35.31,1531.0,0.3698,1.0472
+2026-06-20,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4140,2861,69.11,69360.0,16.7536,24.2433
+2026-06-20,Variant,F. 100+,dreamheist_event,Chuck,count,494,177,35.83,182.0,0.3684,1.0282
+2026-06-20,Variant,F. 100+,dreamheist_event,Comet,count,494,70,14.17,77.0,0.1559,1.1
+2026-06-20,Variant,F. 100+,dreamheist_event,HC Free,HC,494,380,76.92,72000.0,145.749,189.4737
+2026-06-20,Variant,F. 100+,dreamheist_event,HC Total,HC,494,380,76.92,72000.0,145.749,189.4737
+2026-06-20,Variant,F. 100+,dreamheist_event,Red,count,494,303,61.34,315.0,0.6377,1.0396
+2026-06-20,Variant,F. 100+,dreamheist_event,Slingshot,count,494,247,50.0,259.0,0.5243,1.0486
+2026-06-20,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,494,378,76.52,12170.0,24.6356,32.1958
+2026-06-21,Control,B. 1-9,dreamheist_event,HC Free,HC,31259,3,0.01,40.0,0.0013,13.3333
+2026-06-21,Control,B. 1-9,dreamheist_event,HC Total,HC,31259,3,0.01,40.0,0.0013,13.3333
+2026-06-21,Control,B. 1-9,dreamheist_event,Red,count,31259,1,0.0,2.0,0.0001,2.0
+2026-06-21,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31259,2,0.01,40.0,0.0013,20.0
+2026-06-21,Control,C. 10-19,dreamheist_event,HC Free,HC,18135,2,0.01,55.0,0.003,27.5
+2026-06-21,Control,C. 10-19,dreamheist_event,HC Total,HC,18135,2,0.01,55.0,0.003,27.5
+2026-06-21,Control,C. 10-19,dreamheist_event,Red,count,18135,2,0.01,2.0,0.0001,1.0
+2026-06-21,Control,C. 10-19,dreamheist_event,Shuffle,count,18135,1,0.01,1.0,0.0001,1.0
+2026-06-21,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18135,1,0.01,20.0,0.0011,20.0
+2026-06-21,Control,C. 10-19,treasure_dive_event,Comet,count,18135,1,0.01,9.0,0.0005,9.0
+2026-06-21,Control,C. 10-19,treasure_dive_event,HC Free,HC,18135,1,0.01,450.0,0.0248,450.0
+2026-06-21,Control,C. 10-19,treasure_dive_event,HC Total,HC,18135,1,0.01,450.0,0.0248,450.0
+2026-06-21,Control,C. 10-19,treasure_dive_event,Shuffle,count,18135,1,0.01,9.0,0.0005,9.0
+2026-06-21,Control,D. 20-39,dreamheist_event,HC Free,HC,9541,4,0.04,50.0,0.0052,12.5
+2026-06-21,Control,D. 20-39,dreamheist_event,HC Total,HC,9541,4,0.04,50.0,0.0052,12.5
+2026-06-21,Control,D. 20-39,dreamheist_event,Red,count,9541,2,0.02,2.0,0.0002,1.0
+2026-06-21,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9541,2,0.02,40.0,0.0042,20.0
+2026-06-21,Control,E. 40-99,dreamheist_event,HC Free,HC,4012,1,0.02,5.0,0.0012,5.0
+2026-06-21,Control,E. 40-99,dreamheist_event,HC Total,HC,4012,1,0.02,5.0,0.0012,5.0
+2026-06-21,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4012,1,0.02,20.0,0.005,20.0
+2026-06-21,Variant,A. 0,dreamheist_event,Chuck,count,16754,11,0.07,11.0,0.0007,1.0
+2026-06-21,Variant,A. 0,dreamheist_event,Comet,count,16754,1,0.01,1.0,0.0001,1.0
+2026-06-21,Variant,A. 0,dreamheist_event,HC Free,HC,16754,30,0.18,1105.0,0.066,36.8333
+2026-06-21,Variant,A. 0,dreamheist_event,HC Total,HC,16754,30,0.18,1105.0,0.066,36.8333
+2026-06-21,Variant,A. 0,dreamheist_event,Red,count,16754,13,0.08,13.0,0.0008,1.0
+2026-06-21,Variant,A. 0,dreamheist_event,Slingshot,count,16754,12,0.07,12.0,0.0007,1.0
+2026-06-21,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16754,54,0.32,1200.0,0.0716,22.2222
+2026-06-21,Variant,B. 1-9,dreamheist_event,Chuck,count,29850,1878,6.29,1918.0,0.0643,1.0213
+2026-06-21,Variant,B. 1-9,dreamheist_event,Comet,count,29850,3,0.01,3.0,0.0001,1.0
+2026-06-21,Variant,B. 1-9,dreamheist_event,HC Free,HC,29850,7820,26.2,123005.0,4.1208,15.7295
+2026-06-21,Variant,B. 1-9,dreamheist_event,HC Total,HC,29850,7820,26.2,123005.0,4.1208,15.7295
+2026-06-21,Variant,B. 1-9,dreamheist_event,Red,count,29850,6224,20.85,6370.0,0.2134,1.0235
+2026-06-21,Variant,B. 1-9,dreamheist_event,Slingshot,count,29850,1881,6.3,1921.0,0.0644,1.0213
+2026-06-21,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29850,15495,51.91,322020.0,10.7879,20.7822
+2026-06-21,Variant,C. 10-19,dreamheist_event,Chuck,count,18056,3138,17.38,3226.0,0.1787,1.028
+2026-06-21,Variant,C. 10-19,dreamheist_event,Comet,count,18056,3,0.02,4.0,0.0002,1.3333
+2026-06-21,Variant,C. 10-19,dreamheist_event,HC Free,HC,18056,9973,55.23,262050.0,14.5132,26.2759
+2026-06-21,Variant,C. 10-19,dreamheist_event,HC Total,HC,18056,9973,55.23,262050.0,14.5132,26.2759
+2026-06-21,Variant,C. 10-19,dreamheist_event,Red,count,18056,6835,37.85,7030.0,0.3893,1.0285
+2026-06-21,Variant,C. 10-19,dreamheist_event,Slingshot,count,18056,3141,17.4,3230.0,0.1789,1.0283
+2026-06-21,Variant,C. 10-19,dreamheist_event,UL Chuck,minutes,18056,1,0.01,10.0,0.0006,10.0
+2026-06-21,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18056,11293,62.54,234590.0,12.9924,20.773
+2026-06-21,Variant,C. 10-19,treasure_dive_event,HC Free,HC,18056,1,0.01,40.0,0.0022,40.0
+2026-06-21,Variant,C. 10-19,treasure_dive_event,HC Total,HC,18056,1,0.01,40.0,0.0022,40.0
+2026-06-21,Variant,C. 10-19,treasure_dive_event,Red,count,18056,1,0.01,1.0,0.0001,1.0
+2026-06-21,Variant,C. 10-19,treasure_dive_event,UL Chuck,minutes,18056,1,0.01,10.0,0.0006,10.0
+2026-06-21,Variant,C. 10-19,treasure_dive_event,Unlimited Lives,minutes,18056,1,0.01,30.0,0.0017,30.0
+2026-06-21,Variant,D. 20-39,dreamheist_event,Chuck,count,10015,2437,24.33,2498.0,0.2494,1.025
+2026-06-21,Variant,D. 20-39,dreamheist_event,Comet,count,10015,5,0.05,5.0,0.0005,1.0
+2026-06-21,Variant,D. 20-39,dreamheist_event,HC Free,HC,10015,6379,63.69,333655.0,33.3155,52.3052
+2026-06-21,Variant,D. 20-39,dreamheist_event,HC Total,HC,10015,6379,63.69,333655.0,33.3155,52.3052
+2026-06-21,Variant,D. 20-39,dreamheist_event,Red,count,10015,4416,44.09,4566.0,0.4559,1.034
+2026-06-21,Variant,D. 20-39,dreamheist_event,Slingshot,count,10015,2442,24.38,2503.0,0.2499,1.025
+2026-06-21,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10015,6470,64.6,137400.0,13.7194,21.2365
+2026-06-21,Variant,E. 40-99,dreamheist_event,Chuck,count,4242,1368,32.25,1423.0,0.3355,1.0402
+2026-06-21,Variant,E. 40-99,dreamheist_event,Comet,count,4242,166,3.91,172.0,0.0405,1.0361
+2026-06-21,Variant,E. 40-99,dreamheist_event,HC Free,HC,4242,2950,69.54,309350.0,72.9255,104.8644
+2026-06-21,Variant,E. 40-99,dreamheist_event,HC Total,HC,4242,2950,69.54,309350.0,72.9255,104.8644
+2026-06-21,Variant,E. 40-99,dreamheist_event,Red,count,4242,2134,50.31,2216.0,0.5224,1.0384
+2026-06-21,Variant,E. 40-99,dreamheist_event,Shuffle,count,4242,1,0.02,1.0,0.0002,1.0
+2026-06-21,Variant,E. 40-99,dreamheist_event,Slingshot,count,4242,1533,36.14,1594.0,0.3758,1.0398
+2026-06-21,Variant,E. 40-99,dreamheist_event,UL Bomb,minutes,4242,1,0.02,10.0,0.0024,10.0
+2026-06-21,Variant,E. 40-99,dreamheist_event,UL Chuck,minutes,4242,1,0.02,10.0,0.0024,10.0
+2026-06-21,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4242,2935,69.19,70730.0,16.6737,24.0988
+2026-06-21,Variant,F. 100+,dreamheist_event,Chuck,count,484,196,40.5,201.0,0.4153,1.0255
+2026-06-21,Variant,F. 100+,dreamheist_event,Comet,count,484,53,10.95,58.0,0.1198,1.0943
+2026-06-21,Variant,F. 100+,dreamheist_event,HC Free,HC,484,387,79.96,63520.0,131.2397,164.1344
+2026-06-21,Variant,F. 100+,dreamheist_event,HC Total,HC,484,387,79.96,63520.0,131.2397,164.1344
+2026-06-21,Variant,F. 100+,dreamheist_event,Red,count,484,306,63.22,315.0,0.6508,1.0294
+2026-06-21,Variant,F. 100+,dreamheist_event,Slingshot,count,484,249,51.45,259.0,0.5351,1.0402
+2026-06-21,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,484,387,79.96,12290.0,25.3926,31.7571
+2026-06-22,Control,A. 0,dreamheist_event,HC Free,HC,16413,2,0.01,10.0,0.0006,5.0
+2026-06-22,Control,A. 0,dreamheist_event,HC Total,HC,16413,2,0.01,10.0,0.0006,5.0
+2026-06-22,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16413,2,0.01,40.0,0.0024,20.0
+2026-06-22,Control,B. 1-9,dreamheist_event,Chuck,count,32587,1,0.0,1.0,0.0,1.0
+2026-06-22,Control,B. 1-9,dreamheist_event,HC Free,HC,32587,5,0.02,125.0,0.0038,25.0
+2026-06-22,Control,B. 1-9,dreamheist_event,HC Total,HC,32587,5,0.02,125.0,0.0038,25.0
+2026-06-22,Control,B. 1-9,dreamheist_event,Red,count,32587,1,0.0,1.0,0.0,1.0
+2026-06-22,Control,B. 1-9,dreamheist_event,Slingshot,count,32587,1,0.0,1.0,0.0,1.0
+2026-06-22,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,32587,5,0.02,100.0,0.0031,20.0
+2026-06-22,Control,C. 10-19,dreamheist_event,HC Free,HC,19727,4,0.02,70.0,0.0035,17.5
+2026-06-22,Control,C. 10-19,dreamheist_event,HC Total,HC,19727,4,0.02,70.0,0.0035,17.5
+2026-06-22,Control,C. 10-19,dreamheist_event,Red,count,19727,3,0.02,3.0,0.0002,1.0
+2026-06-22,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19727,2,0.01,40.0,0.002,20.0
+2026-06-22,Control,D. 20-39,dreamheist_event,HC Free,HC,11008,3,0.03,25.0,0.0023,8.3333
+2026-06-22,Control,D. 20-39,dreamheist_event,HC Total,HC,11008,3,0.03,25.0,0.0023,8.3333
+2026-06-22,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11008,3,0.03,60.0,0.0055,20.0
+2026-06-22,Variant,A. 0,dreamheist_event,Chuck,count,16758,18,0.11,18.0,0.0011,1.0
+2026-06-22,Variant,A. 0,dreamheist_event,Comet,count,16758,1,0.01,1.0,0.0001,1.0
+2026-06-22,Variant,A. 0,dreamheist_event,HC Free,HC,16758,66,0.39,2855.0,0.1704,43.2576
+2026-06-22,Variant,A. 0,dreamheist_event,HC Total,HC,16758,66,0.39,2855.0,0.1704,43.2576
+2026-06-22,Variant,A. 0,dreamheist_event,Red,count,16758,33,0.2,35.0,0.0021,1.0606
+2026-06-22,Variant,A. 0,dreamheist_event,Slingshot,count,16758,19,0.11,19.0,0.0011,1.0
+2026-06-22,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16758,73,0.44,1550.0,0.0925,21.2329
+2026-06-22,Variant,B. 1-9,dreamheist_event,Chuck,count,31260,1784,5.71,1800.0,0.0576,1.009
+2026-06-22,Variant,B. 1-9,dreamheist_event,Comet,count,31260,3,0.01,3.0,0.0001,1.0
+2026-06-22,Variant,B. 1-9,dreamheist_event,HC Free,HC,31260,7977,25.52,127195.0,4.0689,15.9452
+2026-06-22,Variant,B. 1-9,dreamheist_event,HC Total,HC,31260,7977,25.52,127195.0,4.0689,15.9452
+2026-06-22,Variant,B. 1-9,dreamheist_event,Red,count,31260,6310,20.19,6471.0,0.207,1.0255
+2026-06-22,Variant,B. 1-9,dreamheist_event,Slingshot,count,31260,1788,5.72,1804.0,0.0577,1.0089
+2026-06-22,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31260,16127,51.59,334480.0,10.6999,20.7404
+2026-06-22,Variant,C. 10-19,dreamheist_event,Chuck,count,19821,3409,17.2,3499.0,0.1765,1.0264
+2026-06-22,Variant,C. 10-19,dreamheist_event,Comet,count,19821,22,0.11,23.0,0.0012,1.0455
+2026-06-22,Variant,C. 10-19,dreamheist_event,HC Free,HC,19821,10832,54.65,313370.0,15.81,28.93
+2026-06-22,Variant,C. 10-19,dreamheist_event,HC Total,HC,19821,10832,54.65,313370.0,15.81,28.93
+2026-06-22,Variant,C. 10-19,dreamheist_event,Red,count,19821,7332,36.99,7544.0,0.3806,1.0289
+2026-06-22,Variant,C. 10-19,dreamheist_event,Slingshot,count,19821,3431,17.31,3522.0,0.1777,1.0265
+2026-06-22,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19821,12240,61.75,255540.0,12.8924,20.8775
+2026-06-22,Variant,D. 20-39,dreamheist_event,Chuck,count,11365,2713,23.87,2810.0,0.2473,1.0358
+2026-06-22,Variant,D. 20-39,dreamheist_event,Comet,count,11365,87,0.77,91.0,0.008,1.046
+2026-06-22,Variant,D. 20-39,dreamheist_event,HC Free,HC,11365,7547,66.41,454740.0,40.0123,60.2544
+2026-06-22,Variant,D. 20-39,dreamheist_event,HC Total,HC,11365,7547,66.41,454740.0,40.0123,60.2544
+2026-06-22,Variant,D. 20-39,dreamheist_event,Red,count,11365,5087,44.76,5255.0,0.4624,1.033
+2026-06-22,Variant,D. 20-39,dreamheist_event,Slingshot,count,11365,2800,24.64,2901.0,0.2553,1.0361
+2026-06-22,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11365,7639,67.22,167960.0,14.7787,21.9872
+2026-06-22,Variant,E. 40-99,dreamheist_event,Chuck,count,4990,1521,30.48,1578.0,0.3162,1.0375
+2026-06-22,Variant,E. 40-99,dreamheist_event,Comet,count,4990,337,6.75,353.0,0.0707,1.0475
+2026-06-22,Variant,E. 40-99,dreamheist_event,HC Free,HC,4990,3753,75.21,483300.0,96.8537,128.777
+2026-06-22,Variant,E. 40-99,dreamheist_event,HC Total,HC,4990,3753,75.21,483300.0,96.8537,128.777
+2026-06-22,Variant,E. 40-99,dreamheist_event,Red,count,4990,2717,54.45,2804.0,0.5619,1.032
+2026-06-22,Variant,E. 40-99,dreamheist_event,Slingshot,count,4990,1858,37.23,1931.0,0.387,1.0393
+2026-06-22,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4990,3746,75.07,99260.0,19.8918,26.4976
+2026-06-22,Variant,F. 100+,dreamheist_event,Chuck,count,479,192,40.08,199.0,0.4154,1.0365
+2026-06-22,Variant,F. 100+,dreamheist_event,Comet,count,479,83,17.33,91.0,0.19,1.0964
+2026-06-22,Variant,F. 100+,dreamheist_event,HC Free,HC,479,395,82.46,75790.0,158.2255,191.8734
+2026-06-22,Variant,F. 100+,dreamheist_event,HC Total,HC,479,395,82.46,75790.0,158.2255,191.8734
+2026-06-22,Variant,F. 100+,dreamheist_event,Red,count,479,333,69.52,345.0,0.7203,1.036
+2026-06-22,Variant,F. 100+,dreamheist_event,Slingshot,count,479,275,57.41,290.0,0.6054,1.0545
+2026-06-22,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,479,392,81.84,12250.0,25.5741,31.25
+2026-06-23,Control,A. 0,dreamheist_event,HC Free,HC,15431,2,0.01,20.0,0.0013,10.0
+2026-06-23,Control,A. 0,dreamheist_event,HC Total,HC,15431,2,0.01,20.0,0.0013,10.0
+2026-06-23,Control,A. 0,dreamheist_event,Red,count,15431,1,0.01,1.0,0.0001,1.0
+2026-06-23,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,15431,1,0.01,20.0,0.0013,20.0
+2026-06-23,Control,B. 1-9,dreamheist_event,Chuck,count,31927,1,0.0,1.0,0.0,1.0
+2026-06-23,Control,B. 1-9,dreamheist_event,HC Free,HC,31927,5,0.02,50.0,0.0016,10.0
+2026-06-23,Control,B. 1-9,dreamheist_event,HC Total,HC,31927,5,0.02,50.0,0.0016,10.0
+2026-06-23,Control,B. 1-9,dreamheist_event,Red,count,31927,1,0.0,1.0,0.0,1.0
+2026-06-23,Control,B. 1-9,dreamheist_event,Slingshot,count,31927,1,0.0,1.0,0.0,1.0
+2026-06-23,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31927,5,0.02,100.0,0.0031,20.0
+2026-06-23,Control,B. 1-9,treasure_dive_event,Red,count,31927,1,0.0,1.0,0.0,1.0
+2026-06-23,Control,C. 10-19,dreamheist_event,Chuck,count,20694,1,0.0,1.0,0.0,1.0
+2026-06-23,Control,C. 10-19,dreamheist_event,HC Free,HC,20694,3,0.01,115.0,0.0056,38.3333
+2026-06-23,Control,C. 10-19,dreamheist_event,HC Total,HC,20694,3,0.01,115.0,0.0056,38.3333
+2026-06-23,Control,C. 10-19,dreamheist_event,Red,count,20694,2,0.01,2.0,0.0001,1.0
+2026-06-23,Control,C. 10-19,dreamheist_event,Slingshot,count,20694,1,0.0,1.0,0.0,1.0
+2026-06-23,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20694,2,0.01,40.0,0.0019,20.0
+2026-06-23,Control,D. 20-39,dreamheist_event,Chuck,count,11278,2,0.02,2.0,0.0002,1.0
+2026-06-23,Control,D. 20-39,dreamheist_event,HC Free,HC,11278,3,0.03,130.0,0.0115,43.3333
+2026-06-23,Control,D. 20-39,dreamheist_event,HC Total,HC,11278,3,0.03,130.0,0.0115,43.3333
+2026-06-23,Control,D. 20-39,dreamheist_event,Red,count,11278,2,0.02,2.0,0.0002,1.0
+2026-06-23,Control,D. 20-39,dreamheist_event,Slingshot,count,11278,2,0.02,2.0,0.0002,1.0
+2026-06-23,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11278,1,0.01,20.0,0.0018,20.0
+2026-06-23,Control,E. 40-99,treasure_dive_event,Comet,count,4114,1,0.02,1.0,0.0002,1.0
+2026-06-23,Control,E. 40-99,treasure_dive_event,HC Free,HC,4114,1,0.02,90.0,0.0219,90.0
+2026-06-23,Control,E. 40-99,treasure_dive_event,HC Total,HC,4114,1,0.02,90.0,0.0219,90.0
+2026-06-23,Control,E. 40-99,treasure_dive_event,Red,count,4114,1,0.02,1.0,0.0002,1.0
+2026-06-23,Control,E. 40-99,treasure_dive_event,Shuffle,count,4114,1,0.02,1.0,0.0002,1.0
+2026-06-23,Control,E. 40-99,treasure_dive_event,UL Chuck,minutes,4114,1,0.02,10.0,0.0024,10.0
+2026-06-23,Control,E. 40-99,treasure_dive_event,Unlimited Lives,minutes,4114,1,0.02,30.0,0.0073,30.0
+2026-06-23,Variant,A. 0,dreamheist_event,Chuck,count,15650,6,0.04,6.0,0.0004,1.0
+2026-06-23,Variant,A. 0,dreamheist_event,Comet,count,15650,2,0.01,2.0,0.0001,1.0
+2026-06-23,Variant,A. 0,dreamheist_event,HC Free,HC,15650,35,0.22,2220.0,0.1419,63.4286
+2026-06-23,Variant,A. 0,dreamheist_event,HC Total,HC,15650,35,0.22,2220.0,0.1419,63.4286
+2026-06-23,Variant,A. 0,dreamheist_event,Red,count,15650,21,0.13,21.0,0.0013,1.0
+2026-06-23,Variant,A. 0,dreamheist_event,Slingshot,count,15650,8,0.05,8.0,0.0005,1.0
+2026-06-23,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,15650,67,0.43,1450.0,0.0927,21.6418
+2026-06-23,Variant,B. 1-9,dreamheist_event,Chuck,count,30863,2488,8.06,2530.0,0.082,1.0169
+2026-06-23,Variant,B. 1-9,dreamheist_event,HC Free,HC,30863,9172,29.72,147315.0,4.7732,16.0614
+2026-06-23,Variant,B. 1-9,dreamheist_event,HC Total,HC,30863,9172,29.72,147315.0,4.7732,16.0614
+2026-06-23,Variant,B. 1-9,dreamheist_event,Red,count,30863,7470,24.2,7629.0,0.2472,1.0213
+2026-06-23,Variant,B. 1-9,dreamheist_event,Slingshot,count,30863,2488,8.06,2530.0,0.082,1.0169
+2026-06-23,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30863,16825,54.52,349890.0,11.3369,20.7958
+2026-06-23,Variant,C. 10-19,dreamheist_event,Chuck,count,20504,4546,22.17,4653.0,0.2269,1.0235
+2026-06-23,Variant,C. 10-19,dreamheist_event,Comet,count,20504,28,0.14,28.0,0.0014,1.0
+2026-06-23,Variant,C. 10-19,dreamheist_event,HC Free,HC,20504,12597,61.44,386310.0,18.8407,30.6668
+2026-06-23,Variant,C. 10-19,dreamheist_event,HC Total,HC,20504,12597,61.44,386310.0,18.8407,30.6668
+2026-06-23,Variant,C. 10-19,dreamheist_event,Red,count,20504,8899,43.4,9120.0,0.4448,1.0248
+2026-06-23,Variant,C. 10-19,dreamheist_event,Slingshot,count,20504,4574,22.31,4681.0,0.2283,1.0234
+2026-06-23,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20504,13799,67.3,287790.0,14.0358,20.8559
+2026-06-23,Variant,D. 20-39,dreamheist_event,Chuck,count,11618,3473,29.89,3579.0,0.3081,1.0305
+2026-06-23,Variant,D. 20-39,dreamheist_event,Comet,count,11618,112,0.96,115.0,0.0099,1.0268
+2026-06-23,Variant,D. 20-39,dreamheist_event,HC Free,HC,11618,8379,72.12,543675.0,46.7959,64.8854
+2026-06-23,Variant,D. 20-39,dreamheist_event,HC Total,HC,11618,8379,72.12,543675.0,46.7959,64.8854
+2026-06-23,Variant,D. 20-39,dreamheist_event,Red,count,11618,5959,51.29,6167.0,0.5308,1.0349
+2026-06-23,Variant,D. 20-39,dreamheist_event,Slingshot,count,11618,3585,30.86,3694.0,0.318,1.0304
+2026-06-23,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11618,8463,72.84,184960.0,15.9201,21.8551
+2026-06-23,Variant,E. 40-99,dreamheist_event,Chuck,count,4571,1711,37.43,1766.0,0.3863,1.0321
+2026-06-23,Variant,E. 40-99,dreamheist_event,Comet,count,4571,185,4.05,190.0,0.0416,1.027
+2026-06-23,Variant,E. 40-99,dreamheist_event,HC Free,HC,4571,3489,76.33,379855.0,83.1011,108.8722
+2026-06-23,Variant,E. 40-99,dreamheist_event,HC Total,HC,4571,3489,76.33,379855.0,83.1011,108.8722
+2026-06-23,Variant,E. 40-99,dreamheist_event,Red,count,4571,2637,57.69,2729.0,0.597,1.0349
+2026-06-23,Variant,E. 40-99,dreamheist_event,Slingshot,count,4571,1896,41.48,1956.0,0.4279,1.0316
+2026-06-23,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4571,3471,75.94,84530.0,18.4927,24.3532
+2026-06-23,Variant,F. 100+,dreamheist_event,Chuck,count,529,220,41.59,224.0,0.4234,1.0182
+2026-06-23,Variant,F. 100+,dreamheist_event,Comet,count,529,97,18.34,101.0,0.1909,1.0412
+2026-06-23,Variant,F. 100+,dreamheist_event,HC Free,HC,529,462,87.33,87925.0,166.2098,190.3139
+2026-06-23,Variant,F. 100+,dreamheist_event,HC Total,HC,529,462,87.33,87925.0,166.2098,190.3139
+2026-06-23,Variant,F. 100+,dreamheist_event,Red,count,529,389,73.53,399.0,0.7543,1.0257
+2026-06-23,Variant,F. 100+,dreamheist_event,Slingshot,count,529,317,59.92,325.0,0.6144,1.0252
+2026-06-23,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,529,461,87.15,14500.0,27.4102,31.4534
+2026-06-24,Control,A. 0,dreamheist_event,HC Free,HC,15912,1,0.01,10.0,0.0006,10.0
+2026-06-24,Control,A. 0,dreamheist_event,HC Total,HC,15912,1,0.01,10.0,0.0006,10.0
+2026-06-24,Control,A. 0,dreamheist_event,Red,count,15912,1,0.01,1.0,0.0001,1.0
+2026-06-24,Control,B. 1-9,dreamheist_event,Chuck,count,31006,1,0.0,1.0,0.0,1.0
+2026-06-24,Control,B. 1-9,dreamheist_event,HC Free,HC,31006,5,0.02,65.0,0.0021,13.0
+2026-06-24,Control,B. 1-9,dreamheist_event,HC Total,HC,31006,5,0.02,65.0,0.0021,13.0
+2026-06-24,Control,B. 1-9,dreamheist_event,Red,count,31006,2,0.01,2.0,0.0001,1.0
+2026-06-24,Control,B. 1-9,dreamheist_event,Slingshot,count,31006,1,0.0,1.0,0.0,1.0
+2026-06-24,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31006,3,0.01,60.0,0.0019,20.0
+2026-06-24,Control,C. 10-19,dreamheist_event,HC Free,HC,20154,1,0.0,10.0,0.0005,10.0
+2026-06-24,Control,C. 10-19,dreamheist_event,HC Total,HC,20154,1,0.0,10.0,0.0005,10.0
+2026-06-24,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20154,1,0.0,20.0,0.001,20.0
+2026-06-24,Control,D. 20-39,dreamheist_event,Chuck,count,10376,1,0.01,1.0,0.0001,1.0
+2026-06-24,Control,D. 20-39,dreamheist_event,HC Free,HC,10376,2,0.02,110.0,0.0106,55.0
+2026-06-24,Control,D. 20-39,dreamheist_event,HC Total,HC,10376,2,0.02,110.0,0.0106,55.0
+2026-06-24,Control,D. 20-39,dreamheist_event,Red,count,10376,1,0.01,1.0,0.0001,1.0
+2026-06-24,Control,D. 20-39,dreamheist_event,Slingshot,count,10376,1,0.01,1.0,0.0001,1.0
+2026-06-24,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10376,2,0.02,40.0,0.0039,20.0
+2026-06-24,Control,E. 40-99,dreamheist_event,HC Free,HC,4172,1,0.02,10.0,0.0024,10.0
+2026-06-24,Control,E. 40-99,dreamheist_event,HC Total,HC,4172,1,0.02,10.0,0.0024,10.0
+2026-06-24,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4172,1,0.02,20.0,0.0048,20.0
+2026-06-24,Control,F. 100+,dreamheist_event,Chuck,count,478,1,0.21,1.0,0.0021,1.0
+2026-06-24,Control,F. 100+,dreamheist_event,HC Free,HC,478,1,0.21,20.0,0.0418,20.0
+2026-06-24,Control,F. 100+,dreamheist_event,HC Total,HC,478,1,0.21,20.0,0.0418,20.0
+2026-06-24,Control,F. 100+,dreamheist_event,Slingshot,count,478,1,0.21,1.0,0.0021,1.0
+2026-06-24,Variant,A. 0,dreamheist_event,Chuck,count,16102,17,0.11,17.0,0.0011,1.0
+2026-06-24,Variant,A. 0,dreamheist_event,Comet,count,16102,4,0.02,4.0,0.0002,1.0
+2026-06-24,Variant,A. 0,dreamheist_event,HC Free,HC,16102,49,0.3,3800.0,0.236,77.551
+2026-06-24,Variant,A. 0,dreamheist_event,HC Total,HC,16102,49,0.3,3800.0,0.236,77.551
+2026-06-24,Variant,A. 0,dreamheist_event,Red,count,16102,26,0.16,28.0,0.0017,1.0769
+2026-06-24,Variant,A. 0,dreamheist_event,Slingshot,count,16102,21,0.13,21.0,0.0013,1.0
+2026-06-24,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16102,74,0.46,1600.0,0.0994,21.6216
+2026-06-24,Variant,B. 1-9,dreamheist_event,Chuck,count,29793,2169,7.28,2208.0,0.0741,1.018
+2026-06-24,Variant,B. 1-9,dreamheist_event,HC Free,HC,29793,8474,28.44,133995.0,4.4975,15.8125
+2026-06-24,Variant,B. 1-9,dreamheist_event,HC Total,HC,29793,8474,28.44,133995.0,4.4975,15.8125
+2026-06-24,Variant,B. 1-9,dreamheist_event,Red,count,29793,6717,22.55,6886.0,0.2311,1.0252
+2026-06-24,Variant,B. 1-9,dreamheist_event,Slingshot,count,29793,2169,7.28,2208.0,0.0741,1.018
+2026-06-24,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29793,15846,53.19,328580.0,11.0288,20.7358
+2026-06-24,Variant,C. 10-19,dreamheist_event,Chuck,count,19977,3858,19.31,3999.0,0.2002,1.0365
+2026-06-24,Variant,C. 10-19,dreamheist_event,Comet,count,19977,23,0.12,24.0,0.0012,1.0435
+2026-06-24,Variant,C. 10-19,dreamheist_event,HC Free,HC,19977,11523,57.68,341460.0,17.0927,29.6329
+2026-06-24,Variant,C. 10-19,dreamheist_event,HC Total,HC,19977,11523,57.68,341460.0,17.0927,29.6329
+2026-06-24,Variant,C. 10-19,dreamheist_event,Red,count,19977,7980,39.95,8256.0,0.4133,1.0346
+2026-06-24,Variant,C. 10-19,dreamheist_event,Shuffle,count,19977,1,0.01,1.0,0.0001,1.0
+2026-06-24,Variant,C. 10-19,dreamheist_event,Slingshot,count,19977,3880,19.42,4022.0,0.2013,1.0366
+2026-06-24,Variant,C. 10-19,dreamheist_event,UL Chuck,minutes,19977,1,0.01,10.0,0.0005,10.0
+2026-06-24,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19977,12909,64.62,270020.0,13.5165,20.9172
+2026-06-24,Variant,D. 20-39,dreamheist_event,Chuck,count,10836,2871,26.5,2955.0,0.2727,1.0293
+2026-06-24,Variant,D. 20-39,dreamheist_event,Comet,count,10836,14,0.13,14.0,0.0013,1.0
+2026-06-24,Variant,D. 20-39,dreamheist_event,HC Free,HC,10836,7237,66.79,381570.0,35.2132,52.7249
+2026-06-24,Variant,D. 20-39,dreamheist_event,HC Total,HC,10836,7237,66.79,381570.0,35.2132,52.7249
+2026-06-24,Variant,D. 20-39,dreamheist_event,Red,count,10836,5047,46.58,5225.0,0.4822,1.0353
+2026-06-24,Variant,D. 20-39,dreamheist_event,Slingshot,count,10836,2886,26.63,2971.0,0.2742,1.0295
+2026-06-24,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10836,7343,67.76,155970.0,14.3937,21.2406
+2026-06-24,Variant,E. 40-99,dreamheist_event,Chuck,count,4590,1564,34.07,1606.0,0.3499,1.0269
+2026-06-24,Variant,E. 40-99,dreamheist_event,Comet,count,4590,174,3.79,181.0,0.0394,1.0402
+2026-06-24,Variant,E. 40-99,dreamheist_event,HC Free,HC,4590,3314,72.2,348755.0,75.9815,105.2369
+2026-06-24,Variant,E. 40-99,dreamheist_event,HC Total,HC,4590,3314,72.2,348755.0,75.9815,105.2369
+2026-06-24,Variant,E. 40-99,dreamheist_event,Red,count,4590,2459,53.57,2521.0,0.5492,1.0252
+2026-06-24,Variant,E. 40-99,dreamheist_event,Slingshot,count,4590,1738,37.86,1787.0,0.3893,1.0282
+2026-06-24,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4590,3315,72.22,79650.0,17.3529,24.0271
+2026-06-24,Variant,F. 100+,dreamheist_event,Chuck,count,554,234,42.24,237.0,0.4278,1.0128
+2026-06-24,Variant,F. 100+,dreamheist_event,Comet,count,554,82,14.8,88.0,0.1588,1.0732
+2026-06-24,Variant,F. 100+,dreamheist_event,HC Free,HC,554,470,84.84,77690.0,140.2347,165.2979
+2026-06-24,Variant,F. 100+,dreamheist_event,HC Total,HC,554,470,84.84,77690.0,140.2347,165.2979
+2026-06-24,Variant,F. 100+,dreamheist_event,Red,count,554,376,67.87,384.0,0.6931,1.0213
+2026-06-24,Variant,F. 100+,dreamheist_event,Slingshot,count,554,316,57.04,325.0,0.5866,1.0285
+2026-06-24,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,554,466,84.12,14230.0,25.6859,30.5365
+2026-06-25,Control,A. 0,dreamheist_event,HC Free,HC,17103,2,0.01,10.0,0.0006,5.0
+2026-06-25,Control,A. 0,dreamheist_event,HC Total,HC,17103,2,0.01,10.0,0.0006,5.0
+2026-06-25,Control,A. 0,dreamheist_event,Red,count,17103,1,0.01,2.0,0.0001,2.0
+2026-06-25,Control,A. 0,dreamheist_event,Slingshot,count,17103,1,0.01,2.0,0.0001,2.0
+2026-06-25,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,17103,2,0.01,40.0,0.0023,20.0
+2026-06-25,Control,B. 1-9,dreamheist_event,HC Free,HC,29851,3,0.01,25.0,0.0008,8.3333
+2026-06-25,Control,B. 1-9,dreamheist_event,HC Total,HC,29851,3,0.01,25.0,0.0008,8.3333
+2026-06-25,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29851,3,0.01,60.0,0.002,20.0
+2026-06-25,Control,C. 10-19,dreamheist_event,Chuck,count,19014,1,0.01,1.0,0.0001,1.0
+2026-06-25,Control,C. 10-19,dreamheist_event,HC Free,HC,19014,4,0.02,40.0,0.0021,10.0
+2026-06-25,Control,C. 10-19,dreamheist_event,HC Total,HC,19014,4,0.02,40.0,0.0021,10.0
+2026-06-25,Control,C. 10-19,dreamheist_event,Slingshot,count,19014,1,0.01,1.0,0.0001,1.0
+2026-06-25,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19014,3,0.02,60.0,0.0032,20.0
+2026-06-25,Control,D. 20-39,dreamheist_event,Chuck,count,10091,1,0.01,1.0,0.0001,1.0
+2026-06-25,Control,D. 20-39,dreamheist_event,HC Free,HC,10091,2,0.02,110.0,0.0109,55.0
+2026-06-25,Control,D. 20-39,dreamheist_event,HC Total,HC,10091,2,0.02,110.0,0.0109,55.0
+2026-06-25,Control,D. 20-39,dreamheist_event,Red,count,10091,1,0.01,1.0,0.0001,1.0
+2026-06-25,Control,D. 20-39,dreamheist_event,Slingshot,count,10091,1,0.01,1.0,0.0001,1.0
+2026-06-25,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10091,2,0.02,40.0,0.004,20.0
+2026-06-25,Control,E. 40-99,dreamheist_event,HC Free,HC,4234,1,0.02,10.0,0.0024,10.0
+2026-06-25,Control,E. 40-99,dreamheist_event,HC Total,HC,4234,1,0.02,10.0,0.0024,10.0
+2026-06-25,Control,E. 40-99,dreamheist_event,Red,count,4234,1,0.02,1.0,0.0002,1.0
+2026-06-25,Variant,A. 0,dreamheist_event,Chuck,count,17197,10,0.06,10.0,0.0006,1.0
+2026-06-25,Variant,A. 0,dreamheist_event,Comet,count,17197,3,0.02,3.0,0.0002,1.0
+2026-06-25,Variant,A. 0,dreamheist_event,HC Free,HC,17197,45,0.26,2355.0,0.1369,52.3333
+2026-06-25,Variant,A. 0,dreamheist_event,HC Total,HC,17197,45,0.26,2355.0,0.1369,52.3333
+2026-06-25,Variant,A. 0,dreamheist_event,Red,count,17197,32,0.19,32.0,0.0019,1.0
+2026-06-25,Variant,A. 0,dreamheist_event,Slingshot,count,17197,13,0.08,13.0,0.0008,1.0
+2026-06-25,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,17197,56,0.33,1160.0,0.0675,20.7143
+2026-06-25,Variant,A. 0,treasure_dive_event,Comet,count,17197,1,0.01,1.0,0.0001,1.0
+2026-06-25,Variant,A. 0,treasure_dive_event,HC Free,HC,17197,1,0.01,130.0,0.0076,130.0
+2026-06-25,Variant,A. 0,treasure_dive_event,HC Total,HC,17197,1,0.01,130.0,0.0076,130.0
+2026-06-25,Variant,A. 0,treasure_dive_event,Red,count,17197,1,0.01,1.0,0.0001,1.0
+2026-06-25,Variant,A. 0,treasure_dive_event,Shuffle,count,17197,1,0.01,1.0,0.0001,1.0
+2026-06-25,Variant,A. 0,treasure_dive_event,UL Chuck,minutes,17197,1,0.01,10.0,0.0006,10.0
+2026-06-25,Variant,A. 0,treasure_dive_event,Unlimited Lives,minutes,17197,1,0.01,30.0,0.0017,30.0
+2026-06-25,Variant,B. 1-9,dreamheist_event,Chuck,count,28659,1839,6.42,1865.0,0.0651,1.0141
+2026-06-25,Variant,B. 1-9,dreamheist_event,HC Free,HC,28659,7544,26.32,118335.0,4.1291,15.686
+2026-06-25,Variant,B. 1-9,dreamheist_event,HC Total,HC,28659,7544,26.32,118335.0,4.1291,15.686
+2026-06-25,Variant,B. 1-9,dreamheist_event,Red,count,28659,5926,20.68,6072.0,0.2119,1.0246
+2026-06-25,Variant,B. 1-9,dreamheist_event,Slingshot,count,28659,1839,6.42,1865.0,0.0651,1.0141
+2026-06-25,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,28659,14536,50.72,301880.0,10.5335,20.7677
+2026-06-25,Variant,C. 10-19,dreamheist_event,Chuck,count,19107,3428,17.94,3533.0,0.1849,1.0306
+2026-06-25,Variant,C. 10-19,dreamheist_event,Comet,count,19107,8,0.04,8.0,0.0004,1.0
+2026-06-25,Variant,C. 10-19,dreamheist_event,HC Free,HC,19107,10544,55.18,288135.0,15.0801,27.3269
+2026-06-25,Variant,C. 10-19,dreamheist_event,HC Total,HC,19107,10544,55.18,288135.0,15.0801,27.3269
+2026-06-25,Variant,C. 10-19,dreamheist_event,Red,count,19107,7242,37.9,7439.0,0.3893,1.0272
+2026-06-25,Variant,C. 10-19,dreamheist_event,Slingshot,count,19107,3436,17.98,3541.0,0.1853,1.0306
+2026-06-25,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19107,12078,63.21,251270.0,13.1507,20.8039
+2026-06-25,Variant,D. 20-39,dreamheist_event,Chuck,count,10492,2506,23.88,2570.0,0.2449,1.0255
+2026-06-25,Variant,D. 20-39,dreamheist_event,Comet,count,10492,6,0.06,6.0,0.0006,1.0
+2026-06-25,Variant,D. 20-39,dreamheist_event,HC Free,HC,10492,6833,65.13,331020.0,31.5498,48.4443
+2026-06-25,Variant,D. 20-39,dreamheist_event,HC Total,HC,10492,6833,65.13,331020.0,31.5498,48.4443
+2026-06-25,Variant,D. 20-39,dreamheist_event,Red,count,10492,4651,44.33,4780.0,0.4556,1.0277
+2026-06-25,Variant,D. 20-39,dreamheist_event,Slingshot,count,10492,2512,23.94,2576.0,0.2455,1.0255
+2026-06-25,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10492,6955,66.29,147270.0,14.0364,21.1747
+2026-06-25,Variant,E. 40-99,dreamheist_event,Chuck,count,4567,1542,33.76,1601.0,0.3506,1.0383
+2026-06-25,Variant,E. 40-99,dreamheist_event,Comet,count,4567,139,3.04,147.0,0.0322,1.0576
+2026-06-25,Variant,E. 40-99,dreamheist_event,HC Free,HC,4567,3306,72.39,333050.0,72.9253,100.7411
+2026-06-25,Variant,E. 40-99,dreamheist_event,HC Total,HC,4567,3306,72.39,333050.0,72.9253,100.7411
+2026-06-25,Variant,E. 40-99,dreamheist_event,Red,count,4567,2387,52.27,2468.0,0.5404,1.0339
+2026-06-25,Variant,E. 40-99,dreamheist_event,Slingshot,count,4567,1681,36.81,1748.0,0.3827,1.0399
+2026-06-25,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4567,3302,72.3,79050.0,17.309,23.94
+2026-06-25,Variant,F. 100+,dreamheist_event,Chuck,count,546,228,41.76,231.0,0.4231,1.0132
+2026-06-25,Variant,F. 100+,dreamheist_event,Comet,count,546,65,11.9,66.0,0.1209,1.0154
+2026-06-25,Variant,F. 100+,dreamheist_event,HC Free,HC,546,455,83.33,70765.0,129.6062,155.5275
+2026-06-25,Variant,F. 100+,dreamheist_event,HC Total,HC,546,455,83.33,70765.0,129.6062,155.5275
+2026-06-25,Variant,F. 100+,dreamheist_event,Red,count,546,375,68.68,384.0,0.7033,1.024
+2026-06-25,Variant,F. 100+,dreamheist_event,Slingshot,count,546,293,53.66,297.0,0.544,1.0137
+2026-06-25,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,546,452,82.78,13600.0,24.9084,30.0885
+2026-06-26,Control,A. 0,dreamheist_event,HC Free,HC,14600,1,0.01,5.0,0.0003,5.0
+2026-06-26,Control,A. 0,dreamheist_event,HC Total,HC,14600,1,0.01,5.0,0.0003,5.0
+2026-06-26,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,14600,1,0.01,20.0,0.0014,20.0
+2026-06-26,Control,B. 1-9,dreamheist_event,HC Free,HC,30649,1,0.0,10.0,0.0003,10.0
+2026-06-26,Control,B. 1-9,dreamheist_event,HC Total,HC,30649,1,0.0,10.0,0.0003,10.0
+2026-06-26,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30649,1,0.0,20.0,0.0007,20.0
+2026-06-26,Control,B. 1-9,treasure_dive_event,Comet,count,30649,1,0.0,1.0,0.0,1.0
+2026-06-26,Control,B. 1-9,treasure_dive_event,HC Free,HC,30649,1,0.0,90.0,0.0029,90.0
+2026-06-26,Control,B. 1-9,treasure_dive_event,HC Total,HC,30649,1,0.0,90.0,0.0029,90.0
+2026-06-26,Control,B. 1-9,treasure_dive_event,Red,count,30649,1,0.0,1.0,0.0,1.0
+2026-06-26,Control,B. 1-9,treasure_dive_event,Shuffle,count,30649,1,0.0,1.0,0.0,1.0
+2026-06-26,Control,B. 1-9,treasure_dive_event,UL Chuck,minutes,30649,1,0.0,10.0,0.0003,10.0
+2026-06-26,Control,B. 1-9,treasure_dive_event,Unlimited Lives,minutes,30649,1,0.0,30.0,0.001,30.0
+2026-06-26,Control,C. 10-19,dreamheist_event,Red,count,19006,1,0.01,2.0,0.0001,2.0
+2026-06-26,Variant,A. 0,dreamheist_event,Chuck,count,14830,15,0.1,16.0,0.0011,1.0667
+2026-06-26,Variant,A. 0,dreamheist_event,HC Free,HC,14830,33,0.22,1255.0,0.0846,38.0303
+2026-06-26,Variant,A. 0,dreamheist_event,HC Total,HC,14830,33,0.22,1255.0,0.0846,38.0303
+2026-06-26,Variant,A. 0,dreamheist_event,Red,count,14830,14,0.09,14.0,0.0009,1.0
+2026-06-26,Variant,A. 0,dreamheist_event,Slingshot,count,14830,15,0.1,16.0,0.0011,1.0667
+2026-06-26,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,14830,54,0.36,1110.0,0.0748,20.5556
+2026-06-26,Variant,B. 1-9,dreamheist_event,Chuck,count,29283,1992,6.8,2022.0,0.0691,1.0151
+2026-06-26,Variant,B. 1-9,dreamheist_event,Comet,count,29283,3,0.01,3.0,0.0001,1.0
+2026-06-26,Variant,B. 1-9,dreamheist_event,HC Free,HC,29283,8773,29.96,136965.0,4.6773,15.6121
+2026-06-26,Variant,B. 1-9,dreamheist_event,HC Total,HC,29283,8773,29.96,136965.0,4.6773,15.6121
+2026-06-26,Variant,B. 1-9,dreamheist_event,Red,count,29283,6945,23.72,7098.0,0.2424,1.022
+2026-06-26,Variant,B. 1-9,dreamheist_event,Slingshot,count,29283,1995,6.81,2025.0,0.0692,1.015
+2026-06-26,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29283,16256,55.51,337200.0,11.5152,20.7431
+2026-06-26,Variant,C. 10-19,dreamheist_event,Chuck,count,19047,3596,18.88,3700.0,0.1943,1.0289
+2026-06-26,Variant,C. 10-19,dreamheist_event,Comet,count,19047,8,0.04,8.0,0.0004,1.0
+2026-06-26,Variant,C. 10-19,dreamheist_event,HC Free,HC,19047,11249,59.06,290075.0,15.2294,25.7867
+2026-06-26,Variant,C. 10-19,dreamheist_event,HC Total,HC,19047,11249,59.06,290075.0,15.2294,25.7867
+2026-06-26,Variant,C. 10-19,dreamheist_event,Red,count,19047,7776,40.83,8000.0,0.42,1.0288
+2026-06-26,Variant,C. 10-19,dreamheist_event,Slingshot,count,19047,3604,18.92,3708.0,0.1947,1.0289
+2026-06-26,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19047,12688,66.61,262570.0,13.7854,20.6944
+2026-06-26,Variant,D. 20-39,dreamheist_event,Chuck,count,10562,2608,24.69,2692.0,0.2549,1.0322
+2026-06-26,Variant,D. 20-39,dreamheist_event,Comet,count,10562,5,0.05,5.0,0.0005,1.0
+2026-06-26,Variant,D. 20-39,dreamheist_event,HC Free,HC,10562,7106,67.28,342365.0,32.4148,48.1797
+2026-06-26,Variant,D. 20-39,dreamheist_event,HC Total,HC,10562,7106,67.28,342365.0,32.4148,48.1797
+2026-06-26,Variant,D. 20-39,dreamheist_event,Red,count,10562,4883,46.23,5030.0,0.4762,1.0301
+2026-06-26,Variant,D. 20-39,dreamheist_event,Slingshot,count,10562,2613,24.74,2697.0,0.2553,1.0321
+2026-06-26,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10562,7192,68.09,152360.0,14.4253,21.1846
+2026-06-26,Variant,E. 40-99,dreamheist_event,Chuck,count,4603,1540,33.46,1589.0,0.3452,1.0318
+2026-06-26,Variant,E. 40-99,dreamheist_event,Comet,count,4603,150,3.26,158.0,0.0343,1.0533
+2026-06-26,Variant,E. 40-99,dreamheist_event,HC Free,HC,4603,3326,72.26,327025.0,71.0461,98.3238
+2026-06-26,Variant,E. 40-99,dreamheist_event,HC Total,HC,4603,3326,72.26,327025.0,71.0461,98.3238
+2026-06-26,Variant,E. 40-99,dreamheist_event,Red,count,4603,2422,52.62,2493.0,0.5416,1.0293
+2026-06-26,Variant,E. 40-99,dreamheist_event,Slingshot,count,4603,1690,36.72,1747.0,0.3795,1.0337
+2026-06-26,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4603,3326,72.26,79760.0,17.3278,23.9808
+2026-06-26,Variant,F. 100+,dreamheist_event,Chuck,count,527,220,41.75,225.0,0.4269,1.0227
+2026-06-26,Variant,F. 100+,dreamheist_event,Comet,count,527,75,14.23,80.0,0.1518,1.0667
+2026-06-26,Variant,F. 100+,dreamheist_event,HC Free,HC,527,442,83.87,72955.0,138.4345,165.0566
+2026-06-26,Variant,F. 100+,dreamheist_event,HC Total,HC,527,442,83.87,72955.0,138.4345,165.0566
+2026-06-26,Variant,F. 100+,dreamheist_event,Red,count,527,350,66.41,365.0,0.6926,1.0429
+2026-06-26,Variant,F. 100+,dreamheist_event,Slingshot,count,527,295,55.98,305.0,0.5787,1.0339
+2026-06-26,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,527,441,83.68,13460.0,25.5408,30.5215
+2026-06-27,Control,B. 1-9,dreamheist_event,Bomb,count,29539,1,0.0,2.0,0.0001,2.0
+2026-06-27,Control,B. 1-9,dreamheist_event,Chuck,count,29539,1,0.0,2.0,0.0001,2.0
+2026-06-27,Control,B. 1-9,dreamheist_event,HC Free,HC,29539,3,0.01,85.0,0.0029,28.3333
+2026-06-27,Control,B. 1-9,dreamheist_event,HC Total,HC,29539,3,0.01,85.0,0.0029,28.3333
+2026-06-27,Control,B. 1-9,dreamheist_event,Red,count,29539,1,0.0,2.0,0.0001,2.0
+2026-06-27,Control,B. 1-9,dreamheist_event,Shuffle,count,29539,1,0.0,2.0,0.0001,2.0
+2026-06-27,Control,B. 1-9,dreamheist_event,Slingshot,count,29539,1,0.0,2.0,0.0001,2.0
+2026-06-27,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29539,2,0.01,40.0,0.0014,20.0
+2026-06-27,Control,C. 10-19,dreamheist_event,Bomb,count,18414,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,C. 10-19,dreamheist_event,Comet,count,18414,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,C. 10-19,dreamheist_event,HC Free,HC,18414,3,0.02,90.0,0.0049,30.0
+2026-06-27,Control,C. 10-19,dreamheist_event,HC Total,HC,18414,3,0.02,90.0,0.0049,30.0
+2026-06-27,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18414,2,0.01,40.0,0.0022,20.0
+2026-06-27,Control,D. 20-39,dreamheist_event,Bomb,count,10273,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,D. 20-39,dreamheist_event,Comet,count,10273,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,D. 20-39,dreamheist_event,HC Free,HC,10273,1,0.01,130.0,0.0127,130.0
+2026-06-27,Control,D. 20-39,dreamheist_event,HC Total,HC,10273,1,0.01,130.0,0.0127,130.0
+2026-06-27,Control,D. 20-39,dreamheist_event,Red,count,10273,2,0.02,2.0,0.0002,1.0
+2026-06-27,Control,D. 20-39,dreamheist_event,Shuffle,count,10273,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,D. 20-39,dreamheist_event,Slingshot,count,10273,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,D. 20-39,dreamheist_event,UL Chuck,minutes,10273,1,0.01,10.0,0.001,10.0
+2026-06-27,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10273,1,0.01,30.0,0.0029,30.0
+2026-06-27,Control,D. 20-39,treasure_dive_event,Bomb,count,10273,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,D. 20-39,treasure_dive_event,Red,count,10273,1,0.01,1.0,0.0001,1.0
+2026-06-27,Control,D. 20-39,treasure_dive_event,Slingshot,count,10273,1,0.01,1.0,0.0001,1.0
+2026-06-27,Variant,A. 0,dreamheist_event,Chuck,count,15755,6,0.04,6.0,0.0004,1.0
+2026-06-27,Variant,A. 0,dreamheist_event,Comet,count,15755,1,0.01,1.0,0.0001,1.0
+2026-06-27,Variant,A. 0,dreamheist_event,HC Free,HC,15755,40,0.25,1715.0,0.1089,42.875
+2026-06-27,Variant,A. 0,dreamheist_event,HC Total,HC,15755,40,0.25,1715.0,0.1089,42.875
+2026-06-27,Variant,A. 0,dreamheist_event,Red,count,15755,24,0.15,25.0,0.0016,1.0417
+2026-06-27,Variant,A. 0,dreamheist_event,Slingshot,count,15755,7,0.04,7.0,0.0004,1.0
+2026-06-27,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,15755,57,0.36,1260.0,0.08,22.1053
+2026-06-27,Variant,B. 1-9,dreamheist_event,Bomb,count,28190,1,0.0,2.0,0.0001,2.0
+2026-06-27,Variant,B. 1-9,dreamheist_event,Chuck,count,28190,1946,6.9,1979.0,0.0702,1.017
+2026-06-27,Variant,B. 1-9,dreamheist_event,Comet,count,28190,3,0.01,3.0,0.0001,1.0
+2026-06-27,Variant,B. 1-9,dreamheist_event,HC Free,HC,28190,7962,28.24,127845.0,4.5351,16.0569
+2026-06-27,Variant,B. 1-9,dreamheist_event,HC Total,HC,28190,7962,28.24,127845.0,4.5351,16.0569
+2026-06-27,Variant,B. 1-9,dreamheist_event,Red,count,28190,6314,22.4,6477.0,0.2298,1.0258
+2026-06-27,Variant,B. 1-9,dreamheist_event,Shuffle,count,28190,1,0.0,2.0,0.0001,2.0
+2026-06-27,Variant,B. 1-9,dreamheist_event,Slingshot,count,28190,1949,6.91,1984.0,0.0704,1.018
+2026-06-27,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,28190,14908,52.88,308740.0,10.9521,20.7097
+2026-06-27,Variant,C. 10-19,dreamheist_event,Chuck,count,18503,3496,18.89,3587.0,0.1939,1.026
+2026-06-27,Variant,C. 10-19,dreamheist_event,Comet,count,18503,3,0.02,3.0,0.0002,1.0
+2026-06-27,Variant,C. 10-19,dreamheist_event,HC Free,HC,18503,10646,57.54,273150.0,14.7625,25.6575
+2026-06-27,Variant,C. 10-19,dreamheist_event,HC Total,HC,18503,10646,57.54,273150.0,14.7625,25.6575
+2026-06-27,Variant,C. 10-19,dreamheist_event,Red,count,18503,7331,39.62,7535.0,0.4072,1.0278
+2026-06-27,Variant,C. 10-19,dreamheist_event,Slingshot,count,18503,3499,18.91,3590.0,0.194,1.026
+2026-06-27,Variant,C. 10-19,dreamheist_event,UL Chuck,minutes,18503,1,0.01,10.0,0.0005,10.0
+2026-06-27,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18503,12065,65.21,250920.0,13.561,20.7973
+2026-06-27,Variant,C. 10-19,treasure_dive_event,Red,count,18503,1,0.01,1.0,0.0001,1.0
+2026-06-27,Variant,C. 10-19,treasure_dive_event,UL Chuck,minutes,18503,1,0.01,10.0,0.0005,10.0
+2026-06-27,Variant,C. 10-19,treasure_dive_event,Unlimited Lives,minutes,18503,1,0.01,30.0,0.0016,30.0
+2026-06-27,Variant,D. 20-39,dreamheist_event,Chuck,count,10399,2653,25.51,2739.0,0.2634,1.0324
+2026-06-27,Variant,D. 20-39,dreamheist_event,Comet,count,10399,9,0.09,9.0,0.0009,1.0
+2026-06-27,Variant,D. 20-39,dreamheist_event,HC Free,HC,10399,6913,66.48,341095.0,32.8008,49.3411
+2026-06-27,Variant,D. 20-39,dreamheist_event,HC Total,HC,10399,6913,66.48,341095.0,32.8008,49.3411
+2026-06-27,Variant,D. 20-39,dreamheist_event,Red,count,10399,4793,46.09,4948.0,0.4758,1.0323
+2026-06-27,Variant,D. 20-39,dreamheist_event,Slingshot,count,10399,2662,25.6,2748.0,0.2643,1.0323
+2026-06-27,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10399,7010,67.41,148170.0,14.2485,21.1369
+2026-06-27,Variant,E. 40-99,dreamheist_event,Chuck,count,4686,1663,35.49,1701.0,0.363,1.0229
+2026-06-27,Variant,E. 40-99,dreamheist_event,Comet,count,4686,151,3.22,155.0,0.0331,1.0265
+2026-06-27,Variant,E. 40-99,dreamheist_event,HC Free,HC,4686,3392,72.39,336635.0,71.8385,99.2438
+2026-06-27,Variant,E. 40-99,dreamheist_event,HC Total,HC,4686,3392,72.39,336635.0,71.8385,99.2438
+2026-06-27,Variant,E. 40-99,dreamheist_event,Red,count,4686,2551,54.44,2630.0,0.5612,1.031
+2026-06-27,Variant,E. 40-99,dreamheist_event,Slingshot,count,4686,1814,38.71,1856.0,0.3961,1.0232
+2026-06-27,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4686,3387,72.28,80200.0,17.1148,23.6788
+2026-06-27,Variant,F. 100+,dreamheist_event,Chuck,count,529,231,43.67,241.0,0.4556,1.0433
+2026-06-27,Variant,F. 100+,dreamheist_event,Comet,count,529,62,11.72,65.0,0.1229,1.0484
+2026-06-27,Variant,F. 100+,dreamheist_event,HC Free,HC,529,432,81.66,69270.0,130.9452,160.3472
+2026-06-27,Variant,F. 100+,dreamheist_event,HC Total,HC,529,432,81.66,69270.0,130.9452,160.3472
+2026-06-27,Variant,F. 100+,dreamheist_event,Red,count,529,351,66.35,362.0,0.6843,1.0313
+2026-06-27,Variant,F. 100+,dreamheist_event,Slingshot,count,529,293,55.39,306.0,0.5784,1.0444
+2026-06-27,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,529,432,81.66,13160.0,24.8771,30.463
+2026-06-28,Control,B. 1-9,dreamheist_event,HC Free,HC,29948,6,0.02,50.0,0.0017,8.3333
+2026-06-28,Control,B. 1-9,dreamheist_event,HC Total,HC,29948,6,0.02,50.0,0.0017,8.3333
+2026-06-28,Control,B. 1-9,dreamheist_event,Red,count,29948,3,0.01,3.0,0.0001,1.0
+2026-06-28,Control,B. 1-9,dreamheist_event,Slingshot,count,29948,1,0.0,1.0,0.0,1.0
+2026-06-28,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29948,5,0.02,100.0,0.0033,20.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,Bomb,count,29948,1,0.0,3.0,0.0001,3.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,Comet,count,29948,1,0.0,1.0,0.0,1.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,HC Free,HC,29948,1,0.0,245.0,0.0082,245.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,HC Total,HC,29948,1,0.0,245.0,0.0082,245.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,Red,count,29948,2,0.01,2.0,0.0001,1.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,Shuffle,count,29948,1,0.0,3.0,0.0001,3.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,Slingshot,count,29948,2,0.01,2.0,0.0001,1.0
+2026-06-28,Control,B. 1-9,treasure_dive_event,Unlimited Lives,minutes,29948,1,0.0,150.0,0.005,150.0
+2026-06-28,Control,C. 10-19,dreamheist_event,HC Free,HC,18663,4,0.02,30.0,0.0016,7.5
+2026-06-28,Control,C. 10-19,dreamheist_event,HC Total,HC,18663,4,0.02,30.0,0.0016,7.5
+2026-06-28,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18663,4,0.02,80.0,0.0043,20.0
+2026-06-28,Control,D. 20-39,dreamheist_event,Chuck,count,10539,1,0.01,1.0,0.0001,1.0
+2026-06-28,Control,D. 20-39,dreamheist_event,HC Free,HC,10539,6,0.06,105.0,0.01,17.5
+2026-06-28,Control,D. 20-39,dreamheist_event,HC Total,HC,10539,6,0.06,105.0,0.01,17.5
+2026-06-28,Control,D. 20-39,dreamheist_event,Red,count,10539,1,0.01,1.0,0.0001,1.0
+2026-06-28,Control,D. 20-39,dreamheist_event,Slingshot,count,10539,1,0.01,1.0,0.0001,1.0
+2026-06-28,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10539,5,0.05,100.0,0.0095,20.0
+2026-06-28,Variant,A. 0,dreamheist_event,Chuck,count,15929,11,0.07,11.0,0.0007,1.0
+2026-06-28,Variant,A. 0,dreamheist_event,Comet,count,15929,4,0.03,4.0,0.0003,1.0
+2026-06-28,Variant,A. 0,dreamheist_event,HC Free,HC,15929,34,0.21,2440.0,0.1532,71.7647
+2026-06-28,Variant,A. 0,dreamheist_event,HC Total,HC,15929,34,0.21,2440.0,0.1532,71.7647
+2026-06-28,Variant,A. 0,dreamheist_event,Red,count,15929,19,0.12,19.0,0.0012,1.0
+2026-06-28,Variant,A. 0,dreamheist_event,Slingshot,count,15929,15,0.09,15.0,0.0009,1.0
+2026-06-28,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,15929,60,0.38,1300.0,0.0816,21.6667
+2026-06-28,Variant,B. 1-9,dreamheist_event,Chuck,count,28490,1761,6.18,1788.0,0.0628,1.0153
+2026-06-28,Variant,B. 1-9,dreamheist_event,Comet,count,28490,1,0.0,1.0,0.0,1.0
+2026-06-28,Variant,B. 1-9,dreamheist_event,HC Free,HC,28490,7661,26.89,119305.0,4.1876,15.573
+2026-06-28,Variant,B. 1-9,dreamheist_event,HC Total,HC,28490,7661,26.89,119305.0,4.1876,15.573
+2026-06-28,Variant,B. 1-9,dreamheist_event,Red,count,28490,6032,21.17,6172.0,0.2166,1.0232
+2026-06-28,Variant,B. 1-9,dreamheist_event,Slingshot,count,28490,1762,6.18,1789.0,0.0628,1.0153
+2026-06-28,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,28490,15085,52.95,313270.0,10.9958,20.767
+2026-06-28,Variant,C. 10-19,dreamheist_event,Chuck,count,18562,3353,18.06,3448.0,0.1858,1.0283
+2026-06-28,Variant,C. 10-19,dreamheist_event,Comet,count,18562,1,0.01,1.0,0.0001,1.0
+2026-06-28,Variant,C. 10-19,dreamheist_event,HC Free,HC,18562,10241,55.17,260115.0,14.0133,25.3994
+2026-06-28,Variant,C. 10-19,dreamheist_event,HC Total,HC,18562,10241,55.17,260115.0,14.0133,25.3994
+2026-06-28,Variant,C. 10-19,dreamheist_event,Red,count,18562,7139,38.46,7347.0,0.3958,1.0291
+2026-06-28,Variant,C. 10-19,dreamheist_event,Slingshot,count,18562,3354,18.07,3449.0,0.1858,1.0283
+2026-06-28,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18562,11718,63.13,242990.0,13.0907,20.7365
+2026-06-28,Variant,D. 20-39,dreamheist_event,Bomb,count,10740,1,0.01,1.0,0.0001,1.0
+2026-06-28,Variant,D. 20-39,dreamheist_event,Chuck,count,10740,2776,25.85,2865.0,0.2668,1.0321
+2026-06-28,Variant,D. 20-39,dreamheist_event,Comet,count,10740,5,0.05,6.0,0.0006,1.2
+2026-06-28,Variant,D. 20-39,dreamheist_event,HC Free,HC,10740,7122,66.31,355520.0,33.1024,49.9186
+2026-06-28,Variant,D. 20-39,dreamheist_event,HC Total,HC,10740,7122,66.31,355520.0,33.1024,49.9186
+2026-06-28,Variant,D. 20-39,dreamheist_event,Red,count,10740,5000,46.55,5174.0,0.4818,1.0348
+2026-06-28,Variant,D. 20-39,dreamheist_event,Shuffle,count,10740,1,0.01,2.0,0.0002,2.0
+2026-06-28,Variant,D. 20-39,dreamheist_event,Slingshot,count,10740,2781,25.89,2872.0,0.2674,1.0327
+2026-06-28,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10740,7230,67.32,152910.0,14.2374,21.1494
+2026-06-28,Variant,E. 40-99,dreamheist_event,Chuck,count,4843,1696,35.02,1761.0,0.3636,1.0383
+2026-06-28,Variant,E. 40-99,dreamheist_event,Comet,count,4843,144,2.97,152.0,0.0314,1.0556
+2026-06-28,Variant,E. 40-99,dreamheist_event,HC Free,HC,4843,3449,71.22,335115.0,69.1957,97.1629
+2026-06-28,Variant,E. 40-99,dreamheist_event,HC Total,HC,4843,3449,71.22,335115.0,69.1957,97.1629
+2026-06-28,Variant,E. 40-99,dreamheist_event,Red,count,4843,2564,52.94,2651.0,0.5474,1.0339
+2026-06-28,Variant,E. 40-99,dreamheist_event,Slingshot,count,4843,1840,37.99,1913.0,0.395,1.0397
+2026-06-28,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4843,3449,71.22,81580.0,16.8449,23.6532
+2026-06-28,Variant,F. 100+,dreamheist_event,Chuck,count,570,261,45.79,266.0,0.4667,1.0192
+2026-06-28,Variant,F. 100+,dreamheist_event,Comet,count,570,65,11.4,68.0,0.1193,1.0462
+2026-06-28,Variant,F. 100+,dreamheist_event,HC Free,HC,570,468,82.11,72490.0,127.1754,154.8932
+2026-06-28,Variant,F. 100+,dreamheist_event,HC Total,HC,570,468,82.11,72490.0,127.1754,154.8932
+2026-06-28,Variant,F. 100+,dreamheist_event,Red,count,570,387,67.89,406.0,0.7123,1.0491
+2026-06-28,Variant,F. 100+,dreamheist_event,Slingshot,count,570,326,57.19,334.0,0.586,1.0245
+2026-06-28,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,570,468,82.11,13700.0,24.0351,29.2735
+2026-06-29,Control,B. 1-9,dreamheist_event,HC Free,HC,31101,5,0.02,45.0,0.0014,9.0
+2026-06-29,Control,B. 1-9,dreamheist_event,HC Total,HC,31101,5,0.02,45.0,0.0014,9.0
+2026-06-29,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31101,5,0.02,120.0,0.0039,24.0
+2026-06-29,Control,B. 1-9,treasure_dive_event,HC Free,HC,31101,1,0.0,35.0,0.0011,35.0
+2026-06-29,Control,B. 1-9,treasure_dive_event,HC Total,HC,31101,1,0.0,35.0,0.0011,35.0
+2026-06-29,Control,C. 10-19,dreamheist_event,HC Free,HC,20652,3,0.01,60.0,0.0029,20.0
+2026-06-29,Control,C. 10-19,dreamheist_event,HC Total,HC,20652,3,0.01,60.0,0.0029,20.0
+2026-06-29,Control,C. 10-19,dreamheist_event,Red,count,20652,2,0.01,2.0,0.0001,1.0
+2026-06-29,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20652,3,0.01,60.0,0.0029,20.0
+2026-06-29,Control,D. 20-39,dreamheist_event,HC Free,HC,11849,4,0.03,70.0,0.0059,17.5
+2026-06-29,Control,D. 20-39,dreamheist_event,HC Total,HC,11849,4,0.03,70.0,0.0059,17.5
+2026-06-29,Control,D. 20-39,dreamheist_event,Slingshot,count,11849,1,0.01,1.0,0.0001,1.0
+2026-06-29,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11849,4,0.03,80.0,0.0068,20.0
+2026-06-29,Control,D. 20-39,treasure_dive_event,Slingshot,count,11849,1,0.01,1.0,0.0001,1.0
+2026-06-29,Variant,A. 0,dreamheist_event,Chuck,count,15378,13,0.08,14.0,0.0009,1.0769
+2026-06-29,Variant,A. 0,dreamheist_event,Comet,count,15378,3,0.02,4.0,0.0003,1.3333
+2026-06-29,Variant,A. 0,dreamheist_event,HC Free,HC,15378,61,0.4,3005.0,0.1954,49.2623
+2026-06-29,Variant,A. 0,dreamheist_event,HC Total,HC,15378,61,0.4,3005.0,0.1954,49.2623
+2026-06-29,Variant,A. 0,dreamheist_event,Red,count,15378,31,0.2,32.0,0.0021,1.0323
+2026-06-29,Variant,A. 0,dreamheist_event,Slingshot,count,15378,16,0.1,18.0,0.0012,1.125
+2026-06-29,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,15378,74,0.48,1600.0,0.104,21.6216
+2026-06-29,Variant,B. 1-9,dreamheist_event,Chuck,count,29664,1595,5.38,1609.0,0.0542,1.0088
+2026-06-29,Variant,B. 1-9,dreamheist_event,Comet,count,29664,3,0.01,3.0,0.0001,1.0
+2026-06-29,Variant,B. 1-9,dreamheist_event,HC Free,HC,29664,7734,26.07,117705.0,3.9679,15.2192
+2026-06-29,Variant,B. 1-9,dreamheist_event,HC Total,HC,29664,7734,26.07,117705.0,3.9679,15.2192
+2026-06-29,Variant,B. 1-9,dreamheist_event,Red,count,29664,6020,20.29,6170.0,0.208,1.0249
+2026-06-29,Variant,B. 1-9,dreamheist_event,Slingshot,count,29664,1598,5.39,1612.0,0.0543,1.0088
+2026-06-29,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29664,15594,52.57,322990.0,10.8883,20.7125
+2026-06-29,Variant,C. 10-19,dreamheist_event,Bomb,count,20820,1,0.0,1.0,0.0,1.0
+2026-06-29,Variant,C. 10-19,dreamheist_event,Chuck,count,20820,3436,16.5,3551.0,0.1706,1.0335
+2026-06-29,Variant,C. 10-19,dreamheist_event,Comet,count,20820,14,0.07,15.0,0.0007,1.0714
+2026-06-29,Variant,C. 10-19,dreamheist_event,HC Free,HC,20820,11461,55.05,305220.0,14.6599,26.6312
+2026-06-29,Variant,C. 10-19,dreamheist_event,HC Total,HC,20820,11461,55.05,305220.0,14.6599,26.6312
+2026-06-29,Variant,C. 10-19,dreamheist_event,Red,count,20820,7618,36.59,7879.0,0.3784,1.0343
+2026-06-29,Variant,C. 10-19,dreamheist_event,Shuffle,count,20820,1,0.0,1.0,0.0,1.0
+2026-06-29,Variant,C. 10-19,dreamheist_event,Slingshot,count,20820,3451,16.58,3567.0,0.1713,1.0336
+2026-06-29,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,20820,13101,62.93,273810.0,13.1513,20.8999
+2026-06-29,Variant,C. 10-19,treasure_dive_event,Bomb,count,20820,1,0.0,1.0,0.0,1.0
+2026-06-29,Variant,C. 10-19,treasure_dive_event,Red,count,20820,1,0.0,1.0,0.0,1.0
+2026-06-29,Variant,C. 10-19,treasure_dive_event,Shuffle,count,20820,1,0.0,1.0,0.0,1.0
+2026-06-29,Variant,C. 10-19,treasure_dive_event,Slingshot,count,20820,1,0.0,1.0,0.0,1.0
+2026-06-29,Variant,D. 20-39,dreamheist_event,Chuck,count,12166,2934,24.12,3024.0,0.2486,1.0307
+2026-06-29,Variant,D. 20-39,dreamheist_event,Comet,count,12166,71,0.58,74.0,0.0061,1.0423
+2026-06-29,Variant,D. 20-39,dreamheist_event,HC Free,HC,12166,8210,67.48,454650.0,37.3705,55.3776
+2026-06-29,Variant,D. 20-39,dreamheist_event,HC Total,HC,12166,8210,67.48,454650.0,37.3705,55.3776
+2026-06-29,Variant,D. 20-39,dreamheist_event,Red,count,12166,5505,45.25,5693.0,0.4679,1.0342
+2026-06-29,Variant,D. 20-39,dreamheist_event,Slingshot,count,12166,3005,24.7,3098.0,0.2546,1.0309
+2026-06-29,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,12166,8337,68.53,181830.0,14.9458,21.81
+2026-06-29,Variant,E. 40-99,dreamheist_event,Chuck,count,5500,1836,33.38,1899.0,0.3453,1.0343
+2026-06-29,Variant,E. 40-99,dreamheist_event,Comet,count,5500,285,5.18,298.0,0.0542,1.0456
+2026-06-29,Variant,E. 40-99,dreamheist_event,HC Free,HC,5500,4112,74.76,468285.0,85.1427,113.8825
+2026-06-29,Variant,E. 40-99,dreamheist_event,HC Total,HC,5500,4112,74.76,468285.0,85.1427,113.8825
+2026-06-29,Variant,E. 40-99,dreamheist_event,Red,count,5500,3016,54.84,3122.0,0.5676,1.0351
+2026-06-29,Variant,E. 40-99,dreamheist_event,Slingshot,count,5500,2121,38.56,2197.0,0.3995,1.0358
+2026-06-29,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,5500,4112,74.76,105020.0,19.0945,25.5399
+2026-06-29,Variant,F. 100+,dreamheist_event,Chuck,count,526,246,46.77,256.0,0.4867,1.0407
+2026-06-29,Variant,F. 100+,dreamheist_event,Comet,count,526,72,13.69,74.0,0.1407,1.0278
+2026-06-29,Variant,F. 100+,dreamheist_event,HC Free,HC,526,443,84.22,70230.0,133.5171,158.5327
+2026-06-29,Variant,F. 100+,dreamheist_event,HC Total,HC,526,443,84.22,70230.0,133.5171,158.5327
+2026-06-29,Variant,F. 100+,dreamheist_event,Red,count,526,372,70.72,385.0,0.7319,1.0349
+2026-06-29,Variant,F. 100+,dreamheist_event,Slingshot,count,526,318,60.46,330.0,0.6274,1.0377
+2026-06-29,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,526,443,84.22,12900.0,24.5247,29.1196
+2026-06-30,Control,A. 0,dreamheist_event,HC Free,HC,16493,1,0.01,5.0,0.0003,5.0
+2026-06-30,Control,A. 0,dreamheist_event,HC Total,HC,16493,1,0.01,5.0,0.0003,5.0
+2026-06-30,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16493,1,0.01,20.0,0.0012,20.0
+2026-06-30,Control,B. 1-9,dreamheist_event,Chuck,count,31314,1,0.0,2.0,0.0001,2.0
+2026-06-30,Control,B. 1-9,dreamheist_event,HC Free,HC,31314,6,0.02,85.0,0.0027,14.1667
+2026-06-30,Control,B. 1-9,dreamheist_event,HC Total,HC,31314,6,0.02,85.0,0.0027,14.1667
+2026-06-30,Control,B. 1-9,dreamheist_event,Red,count,31314,1,0.0,1.0,0.0,1.0
+2026-06-30,Control,B. 1-9,dreamheist_event,Slingshot,count,31314,1,0.0,2.0,0.0001,2.0
+2026-06-30,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31314,4,0.01,80.0,0.0026,20.0
+2026-06-30,Control,C. 10-19,dreamheist_event,Chuck,count,19791,1,0.01,1.0,0.0001,1.0
+2026-06-30,Control,C. 10-19,dreamheist_event,HC Free,HC,19791,3,0.02,80.0,0.004,26.6667
+2026-06-30,Control,C. 10-19,dreamheist_event,HC Total,HC,19791,3,0.02,80.0,0.004,26.6667
+2026-06-30,Control,C. 10-19,dreamheist_event,Red,count,19791,1,0.01,1.0,0.0001,1.0
+2026-06-30,Control,C. 10-19,dreamheist_event,Slingshot,count,19791,1,0.01,1.0,0.0001,1.0
+2026-06-30,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19791,2,0.01,40.0,0.002,20.0
+2026-06-30,Control,E. 40-99,dreamheist_event,Chuck,count,4293,1,0.02,1.0,0.0002,1.0
+2026-06-30,Control,E. 40-99,dreamheist_event,HC Free,HC,4293,1,0.02,100.0,0.0233,100.0
+2026-06-30,Control,E. 40-99,dreamheist_event,HC Total,HC,4293,1,0.02,100.0,0.0233,100.0
+2026-06-30,Control,E. 40-99,dreamheist_event,Red,count,4293,1,0.02,1.0,0.0002,1.0
+2026-06-30,Control,E. 40-99,dreamheist_event,Slingshot,count,4293,1,0.02,1.0,0.0002,1.0
+2026-06-30,Control,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4293,1,0.02,20.0,0.0047,20.0
+2026-06-30,Variant,A. 0,dreamheist_event,Chuck,count,16762,12,0.07,12.0,0.0007,1.0
+2026-06-30,Variant,A. 0,dreamheist_event,Comet,count,16762,3,0.02,3.0,0.0002,1.0
+2026-06-30,Variant,A. 0,dreamheist_event,HC Free,HC,16762,51,0.3,2840.0,0.1694,55.6863
+2026-06-30,Variant,A. 0,dreamheist_event,HC Total,HC,16762,51,0.3,2840.0,0.1694,55.6863
+2026-06-30,Variant,A. 0,dreamheist_event,Red,count,16762,25,0.15,25.0,0.0015,1.0
+2026-06-30,Variant,A. 0,dreamheist_event,Slingshot,count,16762,15,0.09,15.0,0.0009,1.0
+2026-06-30,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16762,87,0.52,1870.0,0.1116,21.4943
+2026-06-30,Variant,B. 1-9,dreamheist_event,Chuck,count,29754,1642,5.52,1682.0,0.0565,1.0244
+2026-06-30,Variant,B. 1-9,dreamheist_event,HC Free,HC,29754,7486,25.16,112655.0,3.7862,15.0488
+2026-06-30,Variant,B. 1-9,dreamheist_event,HC Total,HC,29754,7486,25.16,112655.0,3.7862,15.0488
+2026-06-30,Variant,B. 1-9,dreamheist_event,Red,count,29754,5753,19.34,5894.0,0.1981,1.0245
+2026-06-30,Variant,B. 1-9,dreamheist_event,Slingshot,count,29754,1642,5.52,1682.0,0.0565,1.0244
+2026-06-30,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,29754,14868,49.97,308240.0,10.3596,20.7318
+2026-06-30,Variant,C. 10-19,dreamheist_event,Chuck,count,19772,3241,16.39,3329.0,0.1684,1.0272
+2026-06-30,Variant,C. 10-19,dreamheist_event,Comet,count,19772,11,0.06,11.0,0.0006,1.0
+2026-06-30,Variant,C. 10-19,dreamheist_event,HC Free,HC,19772,10459,52.9,282045.0,14.2649,26.9667
+2026-06-30,Variant,C. 10-19,dreamheist_event,HC Total,HC,19772,10459,52.9,282045.0,14.2649,26.9667
+2026-06-30,Variant,C. 10-19,dreamheist_event,Red,count,19772,6996,35.38,7233.0,0.3658,1.0339
+2026-06-30,Variant,C. 10-19,dreamheist_event,Shuffle,count,19772,1,0.01,2.0,0.0001,2.0
+2026-06-30,Variant,C. 10-19,dreamheist_event,Slingshot,count,19772,3252,16.45,3340.0,0.1689,1.0271
+2026-06-30,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19772,11984,60.61,249800.0,12.634,20.8445
+2026-06-30,Variant,D. 20-39,dreamheist_event,Chuck,count,11250,2725,24.22,2817.0,0.2504,1.0338
+2026-06-30,Variant,D. 20-39,dreamheist_event,Comet,count,11250,56,0.5,57.0,0.0051,1.0179
+2026-06-30,Variant,D. 20-39,dreamheist_event,HC Free,HC,11250,7489,66.57,412130.0,36.6338,55.0314
+2026-06-30,Variant,D. 20-39,dreamheist_event,HC Total,HC,11250,7489,66.57,412130.0,36.6338,55.0314
+2026-06-30,Variant,D. 20-39,dreamheist_event,Red,count,11250,4965,44.13,5113.0,0.4545,1.0298
+2026-06-30,Variant,D. 20-39,dreamheist_event,Slingshot,count,11250,2781,24.72,2874.0,0.2555,1.0334
+2026-06-30,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,11250,7590,67.47,164870.0,14.6551,21.722
+2026-06-30,Variant,E. 40-99,dreamheist_event,Chuck,count,4660,1665,35.73,1720.0,0.3691,1.033
+2026-06-30,Variant,E. 40-99,dreamheist_event,Comet,count,4660,153,3.28,159.0,0.0341,1.0392
+2026-06-30,Variant,E. 40-99,dreamheist_event,HC Free,HC,4660,3386,72.66,336770.0,72.2682,99.4595
+2026-06-30,Variant,E. 40-99,dreamheist_event,HC Total,HC,4660,3386,72.66,336770.0,72.2682,99.4595
+2026-06-30,Variant,E. 40-99,dreamheist_event,Red,count,4660,2556,54.85,2649.0,0.5685,1.0364
+2026-06-30,Variant,E. 40-99,dreamheist_event,Slingshot,count,4660,1818,39.01,1879.0,0.4032,1.0336
+2026-06-30,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4660,3389,72.73,80500.0,17.2747,23.7533
+2026-06-30,Variant,F. 100+,dreamheist_event,Chuck,count,504,240,47.62,242.0,0.4802,1.0083
+2026-06-30,Variant,F. 100+,dreamheist_event,Comet,count,504,64,12.7,66.0,0.131,1.0313
+2026-06-30,Variant,F. 100+,dreamheist_event,HC Free,HC,504,428,84.92,64725.0,128.4226,151.2266
+2026-06-30,Variant,F. 100+,dreamheist_event,HC Total,HC,504,428,84.92,64725.0,128.4226,151.2266
+2026-06-30,Variant,F. 100+,dreamheist_event,Red,count,504,358,71.03,369.0,0.7321,1.0307
+2026-06-30,Variant,F. 100+,dreamheist_event,Slingshot,count,504,304,60.32,308.0,0.6111,1.0132
+2026-06-30,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,504,429,85.12,12370.0,24.5437,28.8345
+2026-07-01,Control,A. 0,dreamheist_event,HC Free,HC,16695,4,0.02,25.0,0.0015,6.25
+2026-07-01,Control,A. 0,dreamheist_event,HC Total,HC,16695,4,0.02,25.0,0.0015,6.25
+2026-07-01,Control,A. 0,dreamheist_event,Unlimited Lives,minutes,16695,4,0.02,80.0,0.0048,20.0
+2026-07-01,Control,B. 1-9,dreamheist_event,HC Free,HC,31653,2,0.01,50.0,0.0016,25.0
+2026-07-01,Control,B. 1-9,dreamheist_event,HC Total,HC,31653,2,0.01,50.0,0.0016,25.0
+2026-07-01,Control,B. 1-9,dreamheist_event,Red,count,31653,1,0.0,1.0,0.0,1.0
+2026-07-01,Control,B. 1-9,dreamheist_event,UL Chuck,minutes,31653,1,0.0,10.0,0.0003,10.0
+2026-07-01,Control,B. 1-9,dreamheist_event,Unlimited Lives,minutes,31653,2,0.01,50.0,0.0016,25.0
+2026-07-01,Control,B. 1-9,treasure_dive_event,HC Free,HC,31653,1,0.0,40.0,0.0013,40.0
+2026-07-01,Control,B. 1-9,treasure_dive_event,HC Total,HC,31653,1,0.0,40.0,0.0013,40.0
+2026-07-01,Control,B. 1-9,treasure_dive_event,Red,count,31653,1,0.0,1.0,0.0,1.0
+2026-07-01,Control,B. 1-9,treasure_dive_event,UL Chuck,minutes,31653,1,0.0,10.0,0.0003,10.0
+2026-07-01,Control,B. 1-9,treasure_dive_event,Unlimited Lives,minutes,31653,1,0.0,30.0,0.0009,30.0
+2026-07-01,Control,C. 10-19,dreamheist_event,HC Free,HC,18784,3,0.02,190.0,0.0101,63.3333
+2026-07-01,Control,C. 10-19,dreamheist_event,HC Total,HC,18784,3,0.02,190.0,0.0101,63.3333
+2026-07-01,Control,C. 10-19,dreamheist_event,Red,count,18784,1,0.01,1.0,0.0001,1.0
+2026-07-01,Control,C. 10-19,dreamheist_event,Unlimited Lives,minutes,18784,3,0.02,320.0,0.017,106.6667
+2026-07-01,Control,D. 20-39,dreamheist_event,HC Free,HC,9894,2,0.02,45.0,0.0045,22.5
+2026-07-01,Control,D. 20-39,dreamheist_event,HC Total,HC,9894,2,0.02,45.0,0.0045,22.5
+2026-07-01,Control,D. 20-39,dreamheist_event,Red,count,9894,1,0.01,1.0,0.0001,1.0
+2026-07-01,Control,D. 20-39,dreamheist_event,Unlimited Lives,minutes,9894,2,0.02,40.0,0.004,20.0
+2026-07-01,Variant,A. 0,dreamheist_event,Chuck,count,16920,9,0.05,10.0,0.0006,1.1111
+2026-07-01,Variant,A. 0,dreamheist_event,Comet,count,16920,1,0.01,1.0,0.0001,1.0
+2026-07-01,Variant,A. 0,dreamheist_event,HC Free,HC,16920,34,0.2,1730.0,0.1022,50.8824
+2026-07-01,Variant,A. 0,dreamheist_event,HC Total,HC,16920,34,0.2,1730.0,0.1022,50.8824
+2026-07-01,Variant,A. 0,dreamheist_event,Red,count,16920,15,0.09,16.0,0.0009,1.0667
+2026-07-01,Variant,A. 0,dreamheist_event,Slingshot,count,16920,10,0.06,11.0,0.0007,1.1
+2026-07-01,Variant,A. 0,dreamheist_event,Unlimited Lives,minutes,16920,58,0.34,1240.0,0.0733,21.3793
+2026-07-01,Variant,B. 1-9,dreamheist_event,Chuck,count,30044,1541,5.13,1571.0,0.0523,1.0195
+2026-07-01,Variant,B. 1-9,dreamheist_event,Comet,count,30044,1,0.0,1.0,0.0,1.0
+2026-07-01,Variant,B. 1-9,dreamheist_event,HC Free,HC,30044,7337,24.42,109970.0,3.6603,14.9884
+2026-07-01,Variant,B. 1-9,dreamheist_event,HC Total,HC,30044,7337,24.42,109970.0,3.6603,14.9884
+2026-07-01,Variant,B. 1-9,dreamheist_event,Red,count,30044,5598,18.63,5739.0,0.191,1.0252
+2026-07-01,Variant,B. 1-9,dreamheist_event,Slingshot,count,30044,1542,5.13,1572.0,0.0523,1.0195
+2026-07-01,Variant,B. 1-9,dreamheist_event,Unlimited Lives,minutes,30044,14852,49.43,309030.0,10.2859,20.8073
+2026-07-01,Variant,C. 10-19,dreamheist_event,Chuck,count,19058,2997,15.73,3098.0,0.1626,1.0337
+2026-07-01,Variant,C. 10-19,dreamheist_event,Comet,count,19058,15,0.08,15.0,0.0008,1.0
+2026-07-01,Variant,C. 10-19,dreamheist_event,HC Free,HC,19058,10141,53.21,283545.0,14.878,27.9603
+2026-07-01,Variant,C. 10-19,dreamheist_event,HC Total,HC,19058,10141,53.21,283545.0,14.878,27.9603
+2026-07-01,Variant,C. 10-19,dreamheist_event,Red,count,19058,6795,35.65,7028.0,0.3688,1.0343
+2026-07-01,Variant,C. 10-19,dreamheist_event,Slingshot,count,19058,3012,15.8,3113.0,0.1633,1.0335
+2026-07-01,Variant,C. 10-19,dreamheist_event,Unlimited Lives,minutes,19058,11628,61.01,243130.0,12.7574,20.909
+2026-07-01,Variant,D. 20-39,dreamheist_event,Chuck,count,10056,2495,24.81,2578.0,0.2564,1.0333
+2026-07-01,Variant,D. 20-39,dreamheist_event,Comet,count,10056,11,0.11,11.0,0.0011,1.0
+2026-07-01,Variant,D. 20-39,dreamheist_event,HC Free,HC,10056,6477,64.41,330695.0,32.8853,51.0568
+2026-07-01,Variant,D. 20-39,dreamheist_event,HC Total,HC,10056,6477,64.41,330695.0,32.8853,51.0568
+2026-07-01,Variant,D. 20-39,dreamheist_event,Red,count,10056,4421,43.96,4541.0,0.4516,1.0271
+2026-07-01,Variant,D. 20-39,dreamheist_event,Slingshot,count,10056,2506,24.92,2589.0,0.2575,1.0331
+2026-07-01,Variant,D. 20-39,dreamheist_event,Unlimited Lives,minutes,10056,6588,65.51,140150.0,13.937,21.2735
+2026-07-01,Variant,E. 40-99,dreamheist_event,Chuck,count,4533,1584,34.94,1639.0,0.3616,1.0347
+2026-07-01,Variant,E. 40-99,dreamheist_event,Comet,count,4533,117,2.58,125.0,0.0276,1.0684
+2026-07-01,Variant,E. 40-99,dreamheist_event,HC Free,HC,4533,3190,70.37,299875.0,66.1538,94.0047
+2026-07-01,Variant,E. 40-99,dreamheist_event,HC Total,HC,4533,3190,70.37,299875.0,66.1538,94.0047
+2026-07-01,Variant,E. 40-99,dreamheist_event,Red,count,4533,2367,52.22,2436.0,0.5374,1.0292
+2026-07-01,Variant,E. 40-99,dreamheist_event,Slingshot,count,4533,1701,37.52,1764.0,0.3891,1.037
+2026-07-01,Variant,E. 40-99,dreamheist_event,Unlimited Lives,minutes,4533,3186,70.28,75090.0,16.5652,23.5687
+2026-07-01,Variant,F. 100+,dreamheist_event,Chuck,count,508,256,50.39,268.0,0.5276,1.0469
+2026-07-01,Variant,F. 100+,dreamheist_event,Comet,count,508,63,12.4,68.0,0.1339,1.0794
+2026-07-01,Variant,F. 100+,dreamheist_event,HC Free,HC,508,437,86.02,67570.0,133.0118,154.6224
+2026-07-01,Variant,F. 100+,dreamheist_event,HC Total,HC,508,437,86.02,67570.0,133.0118,154.6224
+2026-07-01,Variant,F. 100+,dreamheist_event,Red,count,508,378,74.41,400.0,0.7874,1.0582
+2026-07-01,Variant,F. 100+,dreamheist_event,Slingshot,count,508,319,62.8,336.0,0.6614,1.0533
+2026-07-01,Variant,F. 100+,dreamheist_event,Unlimited Lives,minutes,508,437,86.02,12580.0,24.7638,28.7872

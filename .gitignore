@@ -1,0 +1,14 @@
+# Office/Excel lock files
+~$*.xlsx
+~$*.xls
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code local (per-machine) settings
+.claude/settings.local.json
+
+# OS junk
+Thumbs.db
+desktop.ini
