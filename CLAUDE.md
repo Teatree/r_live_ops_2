@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this workspace is
 
-LiveOps economy simulation work for **Angry Birds Dream Blast** (ABDB, Rovio; sometimes aliased "Gymnastics Dream" in older docs). Not a software project — no git, no CI.
+LiveOps economy simulation work for **Angry Birds Dream Blast** (ABDB, Rovio; sometimes aliased "Gymnastics Dream" in older docs). Not a software project in the usual sense — git-tracked locally (since 2026-07-05, no remote, no CI); binaries (workbooks, PDFs, display xlsx) are versioned alongside code and docs.
 
 ## Folder layout
 
