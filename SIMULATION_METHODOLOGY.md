@@ -30,17 +30,23 @@ SIMULATED[res] = measured[res] × R[res] × D × T
   config when telemetry exists; we only *scale* reality by what changed. This automatically
   absorbs mechanics we can't model (matchmaking, rank distributions, Hatchling Hideaway's endless
   gate, loop grinding) because they're inside the measured number.
-- **R — reward ratio** (config change): `v2 ladder / base ladder`, per resource. Computed live
-  from the config sheet pairs. As of v5, only `c_saga` (HC per-segment + item ladder per-resource)
-  and `c_day` (streak-weighted HC) have R ≠ 1; every event `_v2` changed only `EventDuration`.
+- **R — reward ratio** (config change): `v2 ladder / base ladder`, per resource, computed live
+  from the config sheet pairs. **Since 2026-07-06 R is wired for EVERY simulated source**, not
+  just Saga/Daily Gift: leaderboards price the rank ladder at the measured `position_p25/50/75`
+  (`data_event_inst`), collections price the milestone ladder at survival over
+  `final_balance_p25/50/75` — so editing rewards AND requirements on any `_v2` sheet moves the
+  sim (see §7.1/§7.4 and `rewardR_` in the engine). R = 1 exactly while `_v2` rewards are
+  untouched (verified by harness gate). E_base = 0 with E_v2 > 0 → carried (no anchor — this is
+  why NEW milestone rewards on TaD_v2 don't flow; that rework needs a bottom-up score model).
 - **D — duration multiplier** (instance length change): from accrual curves, §5.
 - **T — cadence × reach ratio** (scheduling change): from the calendars, §4.
 
 Three departures from anchoring:
 - **Carried sources** (nothing changed / no schedule): SIMULATED = measured, DIFF = 0.
 - **Bottom-up sources** (no valid anchor): Rainbow Maker (new event, measured ≈ 0) is priced from
-  its config ladder × a population distribution. Night Sky was built the same way but is **ON
-  HOLD** (§7.3) and currently carried.
+  its config ladder × a population distribution. Night Sky is priced the same way (measured is
+  A/B-diluted, so its DIFF row = the ROLLOUT EFFECT, not a redesign delta) — re-wired 2026-07-06
+  per `NIGHT_SKY_REWIRE_PLAN.md` (§7.2).
 - **Removal**: a simulated event with zero `cal_new` instances gets SIMULATED = 0 (River Rush).
 
 **DIFF = SIMULATED − measured** is the deliverable: the real per-earner movement caused by the
@@ -53,10 +59,12 @@ redesign. Cadence differences are *supposed* to show up there.
 | Sheet | Key | Used for |
 |---|---|---|
 | `data_gains` | `engagement_segment \| payer_flag \| category \| resource` → `amount_per_earner` | the measured anchor. Segments are RAW labels `A. 0`, `B. 1-9` … `F. 100+`. The query emits only amount>0 rows ⇒ **a missing row is a legitimate measured 0.** |
-| `data_seg_beh` | `segment \| payer_flag` (merged labels `0-9`…`100+`) | `weekday_active_rate`/`weekend_active_rate` (reach), `login_streak_p50/75/90` (Daily Gift), `daily_max_streak_p50/75/90` (Night Sky) |
+| `data_seg_beh` | `segment \| payer_flag` (merged labels `0-9`…`100+`) | `weekday_active_rate`/`weekend_active_rate` (reach), `login_streak_p50/75/90` (Daily Gift). (`daily_max_streak_p*` still present but no longer used — NS moved to `data_streaks`.) |
 | `data_event_accrual` | `event_name \| payer_flag \| segment \| event_day` → `cum_token_share_p50` | duration curves (D) for collections/challenges |
 | `data_event_kite_accrual` | same shape | Kite's score-based curve (score events need their own accrual path) |
 | `data_RM` | `segment \| payer_flag` → `p10/p25/p50/p75/p90_matchables_window` | Rainbow Maker matchables distribution (per ONE 4-day window) |
+| `data_streaks` | `segment \| payer_flag` → `max_streak_per_day_p25/p50/p75/p90` | Night Sky streak distribution (clean, un-A/B-diluted; `ds.nsStreak`). Also the PBP sim's behaviour source. |
+| `data_event_inst` | `event_name \| segment \| payer_flag` → `position_p25/50/75`, `final_balance_p25/50/75` | the R-term's player distribution (`ds.eventInst`): rank quantiles for leaderboard R, progress survival for collection R. Also the PBP sim's placement/progress source. |
 | `cal_curr` / `cal_new` | visual grids | instances (§4) |
 | config pairs `c_saga(_v2)`, `c_day(_v2)`, `Race(_v2)`, `Ki/HH/BB/J/Ph/TaD(_v2)`, `RM`, `NS` | | R ratios, ladders, durations |
 
@@ -84,14 +92,13 @@ simCore (carried)      simSaga                simDailyGift
 simBombChallenge       simChuckChallenge      simRedChallenge     simLevelRace
 simFlashRace           simTargetDay           simKiteFestival
 simHatchlingHideaway   simBombsBallet         simJigsaw           simPhotoshoot
-simRainbowMaker        simRiverRush
-(simNightSky exists but is commented OUT of the registry — ON HOLD)
+simRainbowMaker        simRiverRush           simNightSky (re-wired 2026-07-06)
 ```
 
 Each function is a thin module declaring its inputs (calendar label, accrual key, config sheet)
 and delegating math to shared helpers (`timedCore_`, `leaderboardSim_`, `collectionSim_`,
 `survival_`, `reachSum_`, `accrualD_`). Carried: Ads, Core, Other, Season Pass (Free), Team Event,
-Team Race, FlowerCoop, IAPs, Flock Flurry, and currently Daily Night Sky Prize.
+Team Race, FlowerCoop, IAPs, Flock Flurry.
 
 ---
 
@@ -122,7 +129,8 @@ duration via `modalDur_` (most-common duration).
   calendars through `sanitizeCal_` (rebuilds `days` from `start/end/dur` whatever the shape), and
   `calParseTest.gs` deliberately defines no parser of its own.
 - If a whole calendar parses EMPTY, `timedCore_` fail-safes to carried (diff 0, reads as "no
-  change") rather than zeros. **Sanity canary: the Kite Festival row must SHRINK** (D≈0.34 @0-9).
+  change") rather than zeros. **Sanity canary: the Kite Festival row must GROW ≈ ×1.3** (measured
+  × T; re-classified 2026-07-06 — before that the canary direction was SHRINK via the score-curve D).
 
 ### 4.3 Reach and T
 A player doesn't participate in every instance. For each instance:
@@ -188,14 +196,17 @@ Payer flag is a full second dimension everywhere (NONPAYER/PAYER rows exist in e
 This is the core conceptual section. What differs is **what gates the reward**, which determines
 what duration does, what data can price a change, and what a zero means.
 
-### 7.1 Leaderboard events (rank-gated): Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day
+### 7.1 Leaderboard events (rank-gated): Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day, Kite Festival
 - **Reward gate:** your final RANK against other players. The payout ladder (200/100/50 HC +
   boosters, top-10) is a fixed pot per bucket — a participant's expected value depends on where
   they place, not how much they accumulate in absolute terms.
 - **Duration is nearly irrelevant per instance (D pinned to 1):** if everyone gets 2 days instead
   of 1, everyone scores more but *ranks barely move* (rank is relative). The token accrual curve
-  would mis-price this (it saturates day 1 anyway). So `sim = measured × T` — **cadence and reach
-  carry all movement.** More instances = more chances at rank rewards.
+  would mis-price this (it saturates day 1 anyway). So `sim = measured × R × T` — **cadence and
+  reach carry the calendar movement; R carries reward-ladder edits** (2026-07-06): R[res] =
+  E_v2/E_base where E = mean ladder payout at the measured `position_p25/50/75` rank quantiles
+  (three-quantile approximation; pot-ratio fallback when an event has no position data).
+  More instances = more chances at rank rewards.
 - **Zero semantics:** low segments legitimately earn 0 HC (they never place top-3) — a zero here
   is real economics, not a bug. Check booster columns before declaring a row dead.
 - **Target Day** is structurally a milestone+leaderboard hybrid, but its milestone ladder pays 0
@@ -203,12 +214,16 @@ what duration does, what data can price a change, and what a zero means.
   gives T≈1.8 (15 one-day boards = 15 rank chances). If milestones ever get rewards, it must move
   to the milestone family (§7.3) with a cumulative-SCORE-by-day curve — the generic token curve
   saturates day 1 and would double-count (this was the original "Target Day is broken" bug).
-- **Kite Festival** is a *score* leaderboard: rank-gated (so last-day payout, rank logic), but the
-  thing ranked is a banked streak score, and its accrual curve is score-based
-  (`data_event_kite_accrual`) and strongly segment-dependent. It's the one leaderboard event where
-  D matters (7d→3d cuts how much score fits in an instance for everyone — a real per-instance
-  collapse: net 0.44× @0-9 NP despite T=1.28). Think of it as "leaderboard cadence × collection
-  duration."
+- **Kite Festival** — RE-CLASSIFIED 2026-07-06 (user decision): it is a *score* leaderboard, and
+  its payouts are **rank-based and zero-sum per league of 60** (fixed pot 875 HC/league, no bots
+  in the data; the single score milestone at req 100 pays no HC and is trivially reached — p25
+  banked score @0-9 ≈ 100). Everyone scoring less in a 3-day instance leaves ranks, and therefore
+  payouts, unchanged → **D pinned to 1 like every other leaderboard; the old score-curve D
+  (0.32–0.70, the v1-era "flagship shrink") no longer applies.** Kite = measured × R × T ≈ ×1.3
+  (a mild inflator via cadence, 3×7d → 5×3d). Kite's R also prices the score-milestone term
+  (survival over `final_balance`), so milestone reward edits on Ki_v2 flow too. The
+  `data_event_kite_accrual` curve remains in use by the PBP sim only (within-session progress).
+  ⚠ This FLIPS the parse canary: the Kite row must now GROW vs measured, not shrink.
 
 ### 7.2 Streak events (threshold-gated by consecutive wins): Night Sky, Daily Gift
 - **Reward gate:** a personal streak crossing a fixed threshold — no competition, no pot. Expected
@@ -220,12 +235,21 @@ what duration does, what data can price a change, and what a zero means.
   Σ(wₙ·v2ₙ)/Σ(wₙ·baseₙ) with wₙ = P(login streak ≥ n) = S(n−1). Day 7's untouched 100 HC shields
   long-streak players; low-streak segments eat more of the nerf (R = 0.74 @0-9 NP vs naive 0.835).
   D = T = 1 (always-on).
-- **Night Sky** (ON HOLD — currently carried): design was bottom-up because NS runs as an A/B test,
-  so measured is test-diluted and NOT an anchor: E_day = Σₖ S(CumStreakReqₖ)×rewardₖ using the
-  segment's OWN ladder, × Σ p_day over the 33 daily instances. Daily-reset means NS is a *rate*,
-  not cumulative. The implementation (`simNightSky`) produced numbers judged wrong and is unwired
-  from `SOURCES`; the open modeling questions: cum-streak vs per-milestone streak axis, one-clear-
-  per-day assumption, tail sensitivity, and what the A/B measured value can validate.
+- **Night Sky** (re-wired 2026-07-06, `NIGHT_SKY_REWIRE_PLAN.md` Option A; **shipped OFF behind
+  `NS_SIMULATE = false`** — same day, user call: even unchanged, the model OVERESTIMATES actual NS
+  gains, cause not yet investigated, so NS is CARRIED in all three views until the flag is set
+  true in `EcoGainsSim_v4.gs`): bottom-up because NS
+  runs as an A/B test, so measured is test-diluted and NOT an anchor:
+  `E_day = Σₖ S(CumStreakReqₖ) × rewardₖ` using the segment's OWN ladder (cumulative gating,
+  honest — no free milestone), × Σ p_day over the 33 daily instances. Daily-reset means NS is a
+  *rate*, not cumulative across days. S is built over the **`data_streaks`
+  `max_streak_per_day_p25/50/75/90`** percentiles (clean source), each scaled by
+  **`NS_STREAK_N` = 1.25** — the effective-streak factor from the standalone NS Excel study
+  (landing ~a second streak of similar size; absorbs resets) — the same x-axis-scaling pattern
+  RM uses for duration. The DIFF row is the ROLLOUT EFFECT (full-rollout sim − diluted measured),
+  labeled in-sheet. Tail accepted as-is past p90 (user call); the harness prints the
+  S=0-beyond-p90×N conservative bound alongside. E_day is monotonic in segment; the window TOTAL
+  legitimately dips for 100+ (their measured Σ p_day is lower than 40-99's).
 - **Zero semantics:** a simulated 0 is possible economics only where a milestone pays 0; an
   all-zero row = ladder-read bug.
 
@@ -250,10 +274,14 @@ what duration does, what data can price a change, and what a zero means.
   amplifies instead of collapsing.
 
 ### 7.4 Collections (for completeness): HH, Bomb's Ballet, Jigsaw, Photoshoot
-Accumulation-gated like milestones, BUT live with full telemetry → anchored `measured × D × T`
+Accumulation-gated like milestones, BUT live with full telemetry → anchored `measured × R × D × T`
 with the token accrual curve for D. The curve does what the survival function does for RM, but
 empirically. Rewards arrive progressively (mid-instance claims), which also matters for the daily
-allocator (§9).
+allocator (§9). **R (2026-07-06):** E = Σ_k S(req_k) × rew_k with S = survival over the measured
+`final_balance_p25/50/75`; R[res] = E_v2/E_base. J and BB read each sheet's own native requirement
+column, so requirement edits flow fully; HH and Ph have no native cumulative req column on the
+base sheet, so BOTH sides share the v2 EventReach helper column as the req axis (reward edits
+flow; req edits only re-weight which rows' rewards differ — flagged limitation).
 
 ### 7.5 River Rush — removal semantics
 A real simulator on the generic collection path: `cal_new` has 0 RR instances → the removal branch
@@ -276,8 +304,9 @@ edit); base total 0 with v2 > 0 → carried (no anchor to scale; a new saga item
 
 `survival_(points)` builds a piecewise-linear CDF through (0,0) + given (x, percentile) points,
 linear tail beyond the last point at the preceding segment's slope, capped at 1; returns
-S(x) = 1 − CDF(x). Users: RM (p10..p90 matchables), Night Sky (daily-max-streak p50/75/90),
-Daily Gift weights (login-streak p50/75/90). Degenerate inputs (no positive percentiles) → null →
+S(x) = 1 − CDF(x). Users: RM (p10..p90 matchables), Night Sky (data_streaks max-streak
+p25/50/75/90 × NS_STREAK_N), Daily Gift weights (login-streak p50/75/90). Degenerate inputs (no
+positive percentiles) → null →
 caller carries. For anything priced off the tail, also compute the S=0-beyond-p90 bound.
 
 ---
@@ -356,6 +385,15 @@ mock `SpreadsheetApp` and `eval` the .gs files. Checks that must stay green:
 - **Conservation**: measured Core + Saga = old Core (88.16 @0-9 NP); daily columns sum to window
   totals (~1e-13); Σ single-source daily series = ALL.
 - **Placement**: Kite pays only on instance last days; RM only on its instance days; NS daily.
+- **NS gates** (2026-07-06 re-wire): simulated NS HC nonzero for every segment; E_day (HC per
+  active day) monotonic in segment (the window TOTAL is NOT asserted monotone — 100+ has a lower
+  measured Σ p_day than 40-99); NS still carried for A. 0; daily NS column sums == the simulated
+  33-day NS row; PBP seed-averaged Sampled NS ≈ E_day.
+- **R gates** (2026-07-06 R term): R == 1 exactly for every event with untouched v2 configs;
+  Kite == measured × T exactly; TaD_v2 Coins ×2 → Target Day HC ×2; J_v2 Coins ×0.5 → Jigsaw HC
+  ×0.5; J_v2 reqs ×10 → Jigsaw HC collapses (requirement edits flow); Race_v2 Red Coins = 0 →
+  Red Challenge HC 0; all mutations restore to baseline. (The harness mutates the in-memory mock
+  data and re-evals the engine to reset its caches.)
 - **Collision resilience**: engine results identical when a foreign `{start,end,dur}` parser
   overrides `parseCalendarInstances_`.
 Cheap sanity numbers live in `SIMULATION_PLAN.md` §5 (validation results block).
@@ -364,8 +402,13 @@ Cheap sanity numbers live in `SIMULATION_PLAN.md` §5 (validation results block)
 
 ## 13. Open work & standing flags
 
-1. **Night Sky rework** (D13 on hold): revisit the streak-axis question (cum vs per-milestone),
-   validate against A/B-arm telemetry, then re-wire `simNightSky` in `SOURCES`.
+1. **Night Sky: RE-WIRED 2026-07-06 but SHIPPED OFF** (`NIGHT_SKY_REWIRE_PLAN.md`, Option A —
+   survival scaled by N=1.25 off `data_streaks`; master switch `NS_SIMULATE = false` in
+   `EcoGainsSim_v4.gs`, NS carried in all three views). OPEN: the model overestimates actual NS
+   gains even without config changes (user observation, cause not investigated — candidates: the
+   N=1.25 factor, the one-clear-per-day×every-milestone-daily assumption, the linear tail).
+   Other acknowledged simplifications: N uniform across segments/payers; tail past p90 as-is;
+   A/B-arm telemetry unused for validation.
 2. **Target Day**: if milestones ever pay, build the cumulative-SCORE-by-day curve and move it to
    the milestone family; also reconcile its calendar (7d) vs data (`instance_length=2`) duration.
 3. **Level Race**: no accrual curve (D forced 1 — acceptable for rank rewards, revisit if priced).
@@ -394,10 +437,10 @@ data_streaks and data_event_inst v2 (Kite rows + inal_balance_p25/50/75).
 ECOGAINS_PBP(calendar, day, segment, payer, mode, luck, seed, [levels], [startLevel]) — the
 22-column ledger with ONE CLAIM PER ROW (2026-07-04 feedback round: openingInv removed, no em
 dashes in any output; the first claim rides on its play row, further claims spill onto
-continuation rows with blank play cells): S block (session-start claims: Daily Gift, Night Sky
-milestone night, Flock Flurry 60-min UL opt-in grant) + N play rows + E block (day-end LB
-payouts) + Session Summary per source x 11 resources (styled identically to the ledger on the
-sheet). ECOGAINS_PBP_EVENTS(...) — the Active Events table (6 columns; Family / Inst (days) /
+continuation rows with blank play cells): S block (session-start claims: Daily Gift, Flock
+Flurry 60-min UL opt-in grant) + N play rows + E block (day-end claims: LB payouts + Night Sky
+nightly milestones) + Session Summary per source x 11 resources (styled identically to the
+ledger on the sheet). ECOGAINS_PBP_EVENTS(...) — the Active Events table (6 columns; Family / Inst (days) /
 Event day dropped). ECOGAINS_PBP_PROFILE(segment, payer) — the behaviour block: 7 rows, each
 with a plain-language note (Daily Gift claim rate removed; p(active weekday/weekend) hidden
 behind PBP_SHOW_ACTIVITY_RATES = false since the sim conditions on playing).
@@ -435,6 +478,14 @@ step ladders (Ki_v2 1/10/100/200/500/1000; TaD 1/5/10/20/100); the raw streak mo
 so per-play increments are scaled to hit the measured day target — model gives the shape,
 measurement pins the level. LB payouts land on E only for instances ending that day, at the
 Luck percentile of position_pXX (Sampled: +/-0.25-quantile jitter).
+Night Sky (re-wired 2026-07-06; gated on the v4 master switch NS_SIMULATE, default OFF -> no
+NS claims anywhere) pays on the E row: effective streak = base x NS_STREAK_N (1.25,
+shared v4 constant); base = data_streaks max_streak_per_day_p50 (Expected) or the trace's
+longest realized win run (Sampled). EVERY milestone whose Cum Streak Req is cleared pays, each
+on its own row — honest cumulative gate, nothing unreached ever pays (the old handler
+exact-matched the p50 against a req and silently zeroed most segments). Seed-averaging Sampled
+NS reproduces the 33-day sim's per-active-day E_day (~x0.72 today — the Markov trace's best-run
+tail is slightly lighter than the measured percentiles; within the x0.5..x2 harness gate).
 
 **Standing flags:** conditions on the player being active AND participating in every running
 event; HH/Ph milestone requirements come from the EventReach helper columns imported on
@@ -442,13 +493,15 @@ HH_v2/Ph_v2 (keep them); FF 60-min UL join grant, HH 1.5 tokens/win and Jigsaw 3
 are design-doc constants (flagged, not sheet-read); the player walks in at a Starting Saga Level (input, or seeded random 100-400; Expected mode seed-independent) and Saga pays at config node boundaries anchored to that ABSOLUTE level (10-level nodes cycling every 100); Core chapter chests not simulated; Jigsaw
 session-start tier = Copper (assumption); SPT/COOP/Avatar/Dly untracked.
 
-**Verification:** python harness/_dump_mockdata.py && node harness/_mock_pbp.js — 27 checks:
+**Verification:** python harness/_dump_mockdata.py && node harness/_mock_pbp.js — 32 checks:
 spill shape, N from data, one-claim-per-row, no em dashes in any spill, determinism per seed /
 seed sensitivity / Expected seed-independence, TOTAL == sum of ledger bundles == final
 inventory, 6-column events table, TaD day score == measured target, Kite below-ladder payout,
 Jigsaw tier deltas + crossings == grants + accrual text, Daily Gift variant tag + integral
 bundle, Saga all-nodes-pay + bundle contents, 7-row profile with notes, HH/BB/Photoshoot
-mechanical accrual texts, FF join grant, 100+ (N~147) and cal_curr smoke tests.
+mechanical accrual texts, FF join grant, NS Expected pays-all-reached/none-unreached per
+segment (incl. 0-9) + Sampled claims == best-run x N gate + seed-average ~ E_day, 100+ (N~147)
+and cal_curr smoke tests.
 
 **Display sheet:** display/EcoGainsSim_PlybyPly_v6.xlsx (builders/_build_pbp_v6.py) in the
 workbook (6) green-simulation style the user hand-applied to the live sheet: 548235 section

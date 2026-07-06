@@ -310,6 +310,16 @@ the one challenge that grows. `Race_v2` r6 duration only. Confidence HIGH.
    linear over a nonlinear curve. Confidence MEDIUM-HIGH.
 
 ### 2.16 Night Sky  [daily streak event; bottom-up per D13 — A/B test, no measured anchor]
+
+> **2026-07-06 re-wire (`NIGHT_SKY_REWIRE_PLAN.md`, Option A) — supersedes points 2–4 below where
+> they differ:** streak source is now **`data_streaks` `max_streak_per_day_p25/50/75/90`** (clean,
+> un-A/B-diluted; p25 added), each percentile **× N = 1.25** (effective-streak factor from the
+> standalone NS Excel study — a second streak of similar size / reset absorption). Cumulative
+> gating kept (point 5's conservative choice, confirmed); honest — no free milestone. Current
+> outputs (NONPAYER, simHC/window): 0-9 54.1, 10-19 260.1, 20-39 458.8, 40-99 943.8, 100+ 775.3;
+> E_day monotonic 5.8 → 112.3 (the 100+ TOTAL dips below 40-99 because its measured Σ p_day is
+> lower — data, not model). PBP prices NS identically (day-end claims; Sampled uses the trace's
+> best run × N).
 1. **Type:** daily-reset win-streak ladder, config-segmented (D14). Live config `NS` (== `NS_v2`),
    "Night Sky (5 Segment)": per engagement segment 3 rounds × 1 milestone, `Path`='Final', with
    `Cum Streak Req` and `HC Reward` + booster columns (Red/Chuck/Bomb/Slingshot/Shuffle…; SPT out of
@@ -373,9 +383,14 @@ RM matchables map is deleted; nothing replaces it in code).
   `simTargetDay` — each wraps `leaderboardSim_(cat, calLabel)`: `meas × T`, D pinned 1 with comment.
 - `simHatchlingHideaway` / `simBombsBallet` / `simJigsaw` / `simPhotoshoot` — each wraps
   `collectionSim_(cat, calLabel, accrKey)`: `meas × D × T`, token curve, D normalised at curDur.
-- `simKiteFestival` — `meas × D × T` with the kite score curve.
-- `simNightSky` — bottom-up per 2.16: segment ladder from `NS` × survival(daily-max-streak) ×
-  Σ p_day over the calendar's 1-day instances. NOT anchored to measured (A/B test, D13).
+- `simKiteFestival` — RE-CLASSIFIED 2026-07-06: `meas × R × T`, D pinned 1 (payouts are rank-based
+  zero-sum per league of 60; the score-curve D is superseded — kite accrual stays PBP-only).
+- **R term (2026-07-06, supersedes "R=1 for events"):** `rewardR_` prices every LB/collection
+  ladder pair (base vs _v2) at the measured player distribution (`data_event_inst` rank quantiles /
+  final-balance survival) — reward and requirement edits on _v2 sheets now move the sim.
+- `simNightSky` — bottom-up per 2.16 (re-wired 2026-07-06): segment ladder from `NS` ×
+  survival(`data_streaks` max-streak p25–p90 × NS_STREAK_N 1.25) × Σ p_day over the calendar's
+  1-day instances. NOT anchored to measured (A/B test, D13); DIFF = rollout effect.
 - `simRainbowMaker` — survival-weighted sum from `RM` + `data_RM` + cal_new instances.
 - `simRiverRush` — the 2.12 branch logic (currently → 0 because cal_new has no instances).
 - **Display changes (D9 + D8):** `CATEGORY_ORDER` gains `'Saga'` (25 rows, 8–32 per block; block anchors

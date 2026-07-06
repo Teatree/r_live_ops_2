@@ -66,6 +66,17 @@ check('Kite NEW pays only on last days {5,12,19,26,33}', JSON.stringify(kiteDays
 
 const ns = ECOGAINS_DAILY('NONPAYER', '0-9', 'Daily Night Sky Prize', 'NEW');
 check('Night Sky NEW pays every day', ns.every(row => row[HC] > 0));
+// NS re-wire (NIGHT_SKY_REWIRE_PLAN §4.2): daily NS column sums == 33-day simulated NS row
+{
+  const NS_I = CATEGORY_ORDER.indexOf('Daily Night Sky Prize');
+  let maxE = 0;
+  for (const seg of ['0-9', '100+']) {
+    const win = ECOGAINS_SIM('NONPAYER', seg)[NS_I];
+    const g = ECOGAINS_DAILY('NONPAYER', seg, 'Daily Night Sky Prize', 'NEW');
+    for (let j = 0; j < 11; j++) maxE = Math.max(maxE, Math.abs(colSum(g, j) - win[j]));
+  }
+  check('NS daily sums reconcile with simulated 33-day NS row', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
+}
 // weekend days should carry slightly less for 0-9 (pWe 0.2763 < pWd 0.2868)
 check('NS weekday > weekend allocation', ns[0][HC] > ns[2][HC], `wed ${ns[0][HC].toFixed(4)} vs fri ${ns[2][HC].toFixed(4)}`);
 

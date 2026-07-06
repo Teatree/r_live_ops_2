@@ -106,8 +106,9 @@ LEGEND = [
     '7. Score events (Kite Festival, Target Day) are streak-driven off their config ladders; per-play increments are scaled so the day total hits the measured target (user-approved).',
     '8. Leaderboard payouts land on row E only for instances ending today; rank = Luck percentile of measured position_p25/50/75 (+/- 0.25 quantile jitter in Sampled mode).',
     '9. Saga pays the FULL node bundle (HC + boosters + Unlimited minutes) from c_saga / c_saga_v2 at node boundaries anchored to the absolute level. Core chapter chests are NOT simulated (cadence unknown).',
-    '10. Daily Gift is ALWAYS claimed at session start: cycle day from login streak p50, bundle = ONE config variant (Expected: Variant 1; Sampled: seeded pick) - never an average. Night Sky pays only on its exact milestone night. Flock Flurry opt-in = 60 min Unlimited Lives (design-PDF constant).',
-    '11. SPT / COOP Token / Avatar / star-daily rewards are outside the 11-resource universe and are not tracked.',
+    '10. Daily Gift is ALWAYS claimed at session start: cycle day from login streak p50, bundle = ONE config variant (Expected: Variant 1; Sampled: seeded pick) - never an average. Flock Flurry opt-in = 60 min Unlimited Lives (design-PDF constant).',
+    '11. Night Sky pays at day end: effective streak = max win streak x 1.25 (Expected: the p50 from data_streaks; Sampled: the longest run actually produced by the play trace). EVERY milestone whose Cum Streak Req is cleared pays, each on its own row; unreached milestones never pay.',
+    '12. SPT / COOP Token / Avatar / star-daily rewards are outside the 11-resource universe and are not tracked.',
 ]
 for i, txt in enumerate(LEGEND):
     ws.cell(39 + i, 1, txt).font = leg_f

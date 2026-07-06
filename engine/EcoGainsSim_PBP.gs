@@ -56,8 +56,11 @@
  *   6. Daily Gift is ALWAYS claimed at S (a login IS a claim; the old claim-rate gate is
  *      removed). Bundle = ONE concrete config variant (Expected: Variant 1; Sampled: seeded
  *      pick), never an average - claims are real integral bundles.
- *      Night Sky: streak night = daily_max_streak_p50; NS ladder milestone pays only on the
- *      exact night it is reached.
+ *      Night Sky (re-wired 2026-07-06, NIGHT_SKY_REWIRE_PLAN): pays at day end. Effective
+ *      streak = base x NS_STREAK_N (1.25, v4 constant); base = data_streaks
+ *      max_streak_per_day_p50 (Expected) or the trace's longest win run (Sampled). EVERY
+ *      milestone whose Cum Streak Req is cleared pays, each on its own row; nothing else does.
+ *      Seed-averaged Sampled NS ≈ the 33-day sim's per-active-day E_day (reconciliation).
  *   7. Saga pays the FULL node bundle (HC + boosters + Unlimited minutes) read from c_saga
  *      (cal_curr) / c_saga_v2 per-segment (cal_new), at node boundaries anchored to the
  *      ABSOLUTE level (10-level nodes cycling every 100 levels). The player walks in
@@ -207,8 +210,6 @@ function pbpSimulate_(a){
 
   // --- session-start claims (Daily Gift is ALWAYS claimed: a login is a claim) ---
   grantsS.push(pbpDailyGift_(a, beh, rng));
-  var ns = pbpNightSky_(a, beh);
-  if (ns) grantsS.push(ns);
   active.forEach(function(ev){
     if (ev.spec.joinUL) grantsS.push({ cat: ev.cat, rew: {'Unlimited Lives': PBP_FF_JOIN_UL},
                                        note: 'opt-in grant (1h UL, design-PDF constant)' });
@@ -274,6 +275,27 @@ function pbpSimulate_(a){
     grantsE.push({ cat: ev.cat, rew: rew || {},
                    note: 'rank ' + pos + (rew ? '' : ' (below ladder / pays nothing)') });
   });
+
+  // --- Night Sky nightly milestones (day end; NIGHT_SKY_REWIRE_PLAN Option A realization) ---
+  // Effective streak budget = base streak x NS_STREAK_N (v4 constant, 1.25): Expected mode uses
+  // the data_streaks max_streak_per_day p50; Sampled mode uses the longest win run the play
+  // trace actually produced. Cumulative gate, honest: EVERY milestone whose Cum Streak Req is
+  // cleared pays (each on its own ledger row); an unreached milestone never pays.
+  // NS_SIMULATE (v4 master switch) off -> no NS claims here either: all three views stay
+  // consistent (NS carried in the window/daily sims, silent in the ledger).
+  if (NS_SIMULATE && active.some(function(ev){ return ev.family === 'nightsky'; })){
+    var bestRun = 0;
+    plays.forEach(function(pl){ if (pl.streak > bestRun) bestRun = pl.streak; });
+    var baseStreak = a.sampled ? bestRun : num(st.max_streak_per_day_p50);
+    var effStreak = baseStreak * NS_STREAK_N;
+    readNSLadder_(a.seg).forEach(function(ms, mi){
+      if (ms.req <= effStreak + 1e-9)
+        grantsE.push({ cat: 'Daily Night Sky Prize', rew: ms.rew,
+          note: 'm' + (mi + 1) + ' @ ' + ms.req + ' (eff streak ' + Math.round(effStreak*100)/100 +
+                ' = ' + (a.sampled ? 'best run ' + bestRun : 'p50 ' + baseStreak) +
+                ' x ' + NS_STREAK_N + ')' });
+    });
+  }
 
   return { N: N, p: p, q: q, startLevel: startLevel, plays: plays, active: active,
            progress: progress, grantsS: grantsS, grantsE: grantsE, beh: beh, st: st };
@@ -351,13 +373,6 @@ function pbpGiftVariants_(sheet){
     blocks.push({ hdr: hdr, rows: v.slice(r + 1, r + 8) });
   }
   return blocks;
-}
-function pbpNightSky_(a, beh){
-  var night = Math.round(num(beh.daily_max_streak_p50));
-  var ladder = readNSLadder_(a.seg), hit = null;
-  ladder.forEach(function(ms){ if (ms.req === night) hit = ms; });
-  if (!hit) return null;
-  return { cat: 'Daily Night Sky Prize', rew: hit.rew, note: 'streak night ' + night + ' milestone' };
 }
 
 // ============================== LADDER / PLACEMENT HELPERS ===================================
@@ -537,7 +552,7 @@ function pbpLedger_(a){
               pl.grants, snapshot);
   });
   // E row
-  emitRows_('E', ['-', '-', 'day end (LB)', '', ''], sim.grantsE, runCums);
+  emitRows_('E', ['-', '-', 'day end', '', ''], sim.grantsE, runCums);
   // summary
   var totals = {}, order = [];
   function addTot(grants){ (grants || []).forEach(function(g){
@@ -569,9 +584,9 @@ function pbpEventsTable_(a){
       return false;
     });
     var payout = '-';
-    if (ev.spec.lb && ev.endsToday){
-      var g = sim.grantsE.filter(function(x){ return x.cat === ev.cat; })[0];
-      payout = g ? fmtBundle_(g.rew) + ' (' + g.note + ')' : '-';
+    if ((ev.spec.lb && ev.endsToday) || ev.family === 'nightsky'){
+      var gs = sim.grantsE.filter(function(x){ return x.cat === ev.cat; });
+      if (gs.length) payout = gs.map(function(g){ return fmtBundle_(g.rew) + ' (' + g.note + ')'; }).join('; ');
     }
     var accr = '-';
     if (ev.family === 'score')            accr = 'target +' + Math.round(ev.todayTarget);
@@ -607,8 +622,10 @@ function pbpProfile_(seg, payer){
      'Average length of a win run; shapes the Expected-mode win layout (data_streaks)'],
     ['Login streak (p50)', num(beh.login_streak_p50),
      'Median consecutive-day login run; sets the Daily Gift cycle day (data_seg_beh)'],
-    ['NS max streak (p50)', num(beh.daily_max_streak_p50),
-     'Median in-day saga win-streak; sets the Night Sky milestone night (data_seg_beh)']
+    ['NS effective streak (p50 x ' + NS_STREAK_N + ')',
+     Math.round(num(st.max_streak_per_day_p50) * NS_STREAK_N * 100) / 100,
+     'Night Sky streak budget: max win streak p50 x ' + NS_STREAK_N +
+     ' (second-streak allowance); gates which NS milestones pay (data_streaks)']
   ];
   if (PBP_SHOW_ACTIVITY_RATES)
     rows.push(['P(active weekday / weekend)', Math.round(num(beh.weekday_active_rate)*1000)/10 + '% / ' +

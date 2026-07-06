@@ -1,7 +1,27 @@
-# Night Sky Re-wire Plan (design only — do NOT implement yet)
+# Night Sky Re-wire Plan
 
-**Status:** DESIGN. Written 2026-07-06 from a decision round with the user. Next session: remind
-the user this exists, pick the one open fork (§3), then implement + verify.
+**Status: IMPLEMENTED 2026-07-06 — but PARKED OFF behind `NS_SIMULATE = false`** (added later the
+same day): the user judged the model to OVERESTIMATE actual NS gains even with unchanged configs;
+rather than re-open the model, NS is carried in all three views until the flag in
+`EcoGainsSim_v4.gs` is set true. The machinery below stays verified and ready.
+
+Implementation notes (same day, per user instruction to proceed). Choices made on
+the open items, all the recommended ones — flag if any should change:
+- **§3 fork → Option A** (survival distribution scaled by N; constant `NS_STREAK_N = 1.25` lives
+  in `EcoGainsSim_v4.gs`, shared by the PBP sim).
+- **§6.3 → realized longest run from the trace** for PBP Sampled mode; Expected mode = p50 × 1.25
+  (per §4.3 as written — note Luck deliberately does NOT move the NS streak percentile).
+- **§6.4 → N = 1.25 uniform** across all segments and payers.
+Verification (§5) all green; one gate reinterpreted: monotonicity is asserted on **E_day**, not
+the window TOTAL — the 100+ TOTAL (775 HC) legitimately lands below 40-99 (944 HC) because the
+100+ cohort's measured Σ p_day is 6.9 days vs 10.5 (data_seg_beh active rates), while E_day is
+strictly monotone (5.8 / 22.6 / 42.6 / 89.7 / 112.3 HC per active day, NONPAYER).
+Doc updates: SIMULATION_METHODOLOGY §1/§2/§3/§7.2/§8/§12/§13/§14, SIMULATION_PLAN §2.16 + §4.
+Original design below, kept for the rationale record.
+
+---
+
+**Original status:** DESIGN. Written 2026-07-06 from a decision round with the user.
 
 **Why NS is on hold today.** Night Sky's bottom-up sim (`simNightSky` in `EcoGainsSim_v4.gs`) was
 judged wrong on 2026-07-02 and is commented out of the `SOURCES` registry, so NS is **carried**

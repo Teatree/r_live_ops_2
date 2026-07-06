@@ -16,13 +16,23 @@
  *                  item (boosters/ULs) from the per-node item ladders on both sheets (v2 item
  *                  edits — e.g. zeroing ULs — now move the sim). Base-0 items carried.  [D9]
  *   Daily Gift     measured, HC x streak-weighted ladder ratio (c_day pair)
- *   leaderboard    Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day (D3):
- *                  measured x T  (D pinned 1 — rank payouts are end-state)
- *   collection     HH, Bomb's Ballet, Jigsaw, Photoshoot: measured x D x T
- *   score event    Kite Festival: measured x D x T with the kite score curve
- *   Night Sky      CARRIED for now (= measured from data_gains, diff 0). The bottom-up rollout
- *                  sim (simNightSky, D13) exists below but is UNWIRED from SOURCES — its output
- *                  was judged wrong; rework pending. Re-enable via the SOURCES registry.
+ *   leaderboard    Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day (D3),
+ *                  and Kite Festival (since 2026-07-06 — payouts are rank-based zero-sum per
+ *                  league of 60, so duration doesn't move them; the old score-curve D is gone):
+ *                  measured x R x T  (D pinned 1 — rank payouts are end-state).
+ *                  R = reward-config ratio v2/base: the rank ladder priced at the measured
+ *                  position_p25/50/75 (data_event_inst), per segment/payer/resource. Kite also
+ *                  prices its score milestone (survival over final_balance percentiles).
+ *   collection     HH, Bomb's Ballet, Jigsaw, Photoshoot: measured x R x D x T.
+ *                  R = milestone ladder priced at survival over final_balance_p25/50/75:
+ *                  E = Σ_k S(req_k) x rew_k, v2/base — reward AND requirement edits both flow.
+ *                  (HH/Ph requirement axis = the v2 EventReach helper column, shared by both
+ *                  sides — base sheets have no native cumulative req column.)
+ *   Night Sky      bottom-up daily-reset sim (D13; re-wired 2026-07-06, NIGHT_SKY_REWIRE_PLAN
+ *                  Option A): E_day = Σ_k S(CumStreakReq_k) x reward_k with survival S over the
+ *                  data_streaks max_streak_per_day percentiles scaled by N = 1.25 (effective-
+ *                  streak factor); window = E_day x Σ p_day. Measured is A/B-diluted → the DIFF
+ *                  row is the ROLLOUT EFFECT (full-rollout sim minus diluted measured).
  *   Rainbow Maker  bottom-up survival-weighted (D6/D7): per cal_new instance,
  *                  Σ_k S_dur(ReqAccum_k) x reward_k x reach(inst); data_RM percentiles
  *   River Rush     calendar-driven branches (D4): no cal_new instances today → 0
@@ -79,9 +89,7 @@ var SOURCES = {
   'Core'                  : simCore,
   'Saga'                  : simSaga,
   'Daily Gift'            : simDailyGift,
-  // 'Daily Night Sky Prize' : simNightSky,   // DISABLED: bottom-up rollout sim is wrong today —
-  //   NS is CARRIED (= data_gains measured, diff 0) until the model is reworked. Re-enable by
-  //   uncommenting this line.
+  'Daily Night Sky Prize' : simNightSky,   // re-enabled 2026-07-06 (NIGHT_SKY_REWIRE_PLAN)
   'Bomb Challenge'        : simBombChallenge,
   'Chuck Challenge'       : simChuckChallenge,
   'Red Challenge'         : simRedChallenge,
@@ -249,9 +257,9 @@ function dailyGiftRatio_(beh){
   return sOld > 0 ? sNew/sOld : 1;
 }
 
-// ============================== LEADERBOARD SOURCES (measured x T; D pinned 1) ===============
+// ============================== LEADERBOARD SOURCES (measured x R x T; D pinned 1) ===========
 // Rank payouts are end-state — extra duration barely changes what a given rank pays, so D = 1
-// and the calendars carry all movement (cadence x reach).
+// and the calendars carry cadence x reach (T); reward-config edits flow through R (below).
 function simBombChallenge (seg, payer, ctx){ return leaderboardSim_('Bomb Challenge',  "Bomb's Challenge",  seg, payer, ctx); }
 function simChuckChallenge(seg, payer, ctx){ return leaderboardSim_('Chuck Challenge', "Chuck's Challenge", seg, payer, ctx); }
 function simRedChallenge  (seg, payer, ctx){ return leaderboardSim_('Red Challenge',   "Red's Challenge",   seg, payer, ctx); }
@@ -264,13 +272,17 @@ function leaderboardSim_(cat, calLabel, seg, payer, ctx){
   return timedCore_(cat, calLabel, seg, payer, ctx, function(){ return 1; });
 }
 
-// ============================== COLLECTION / SCORE SOURCES (measured x D x T) ================
+// ============================== COLLECTION SOURCES (measured x R x D x T) ====================
 function simHatchlingHideaway(seg, payer, ctx){ return collectionSim_('Hatchling Hideaway', 'Hatchling Hideaway',  'Hatchling Hideaway', seg, payer, ctx, false); }
 function simBombsBallet      (seg, payer, ctx){ return collectionSim_("Bomb's Ballet",      "Bomb's Ballet Show",  'Bombs Ballet',       seg, payer, ctx, false); }
 function simJigsaw           (seg, payer, ctx){ return collectionSim_('Jigsaw',             'Jigsaw Puzzle',       'Jigsaw',             seg, payer, ctx, false); }
 function simPhotoshoot       (seg, payer, ctx){ return collectionSim_('Photoshoot',         'Photoshoot',          'Photoshoot',         seg, payer, ctx, false); }
-// Kite — score event; D from the score-LAG curve is strongly segment-dependent (0.32 → 0.70).
-function simKiteFestival     (seg, payer, ctx){ return collectionSim_('Kite Festival',      'Kite Festival',       'Kite Festival',      seg, payer, ctx, true ); }
+// Kite — re-classified 2026-07-06 (user decision): payouts are rank-based and zero-sum per
+// league of 60 (fixed pot, no bots in the data; the single score milestone at req 100 pays no
+// HC and is trivially reached), so duration change does NOT shrink per-instance payouts.
+// D pinned 1 like the other leaderboards; the old score-curve D (0.32-0.70) no longer applies.
+// NOTE this flips the parse canary: the Kite row must now GROW (x T ≈ 1.28), not shrink.
+function simKiteFestival     (seg, payer, ctx){ return leaderboardSim_('Kite Festival',     'Kite Festival',       seg, payer, ctx); }
 
 function collectionSim_(cat, calLabel, accrKey, seg, payer, ctx, kite){
   return timedCore_(cat, calLabel, seg, payer, ctx, function(curDur, newDur){
@@ -289,7 +301,7 @@ function simRiverRush(seg, payer, ctx){
 //   parse failed (either calendar empty)     -> carry measured  (fail-safe; Kite canary detects)
 //   no cal_new instances                     -> 0               (removed from the new calendar)
 //   cal_new only (no anchor-side instances)  -> carry measured  (NEEDS-ANCHOR — cannot be priced)
-//   both sides                               -> measured x D x T
+//   both sides                               -> measured x R x D x T
 function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   var meas = measuredRow_(cat, seg, payer, ctx.ds);
   if (!ctx.calCurOk || !ctx.calNewOk) return meas;
@@ -298,23 +310,190 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   if (!cur.length) return meas;
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
   var D = dFn(modalDur_(cur), modalDur_(nw));
+  var R = rewardR_(cat, seg, payer, ctx.ds);             // per-resource v2/base ratio (or null)
   var out = {};
-  RESOURCES.forEach(function(r){ out[r] = num(meas[r]) * D * T; });   // R = 1 (ladders unchanged)
+  RESOURCES.forEach(function(r){
+    out[r] = num(meas[r]) * ((R && R[r] != null) ? R[r] : 1) * D * T;
+  });
   return out;
+}
+
+// ============================== REWARD-CONFIG RATIO R (added 2026-07-06) =====================
+// Reward AND requirement edits on the _v2 config sheets now move the sim: R[res] = E_v2 / E_base,
+// where E = the ladder's expected payout for this (segment, payer) under the MEASURED player
+// distribution (data_event_inst). Base sheets carry the config that generated the measured
+// anchor, so R = 1 until a _v2 reward/requirement is edited (project fact: _v2 initially changed
+// only EventDuration). Rules:
+//   - E priced per resource. E_base = 0 with E_v2 > 0 -> no anchor to scale -> CARRIED (R = 1),
+//     same rule as Saga items. (This is why adding NEW milestone rewards to TaD_v2 won't flow:
+//     TaD milestones pay 0 in base config — that rework needs a bottom-up score-reach model.)
+//   - Leaderboards: E = mean of the ladder payout at position_p25/50/75 (three-quantile
+//     approximation of the rank distribution). No position data -> pot-ratio fallback
+//     (Σ ladder v2 / Σ ladder base — segment-blind, cruder).
+//   - Collections: E = Σ_k S(req_k) x rew_k with S = survival over final_balance_p25/50/75.
+//     J / BB read each sheet's own native req column (req edits flow fully). HH / Ph have no
+//     native cumulative req column on the base sheet -> BOTH sides use the v2 EventReach helper
+//     column as the req axis (reward edits flow; req edits only re-weight, flagged).
+//   - Kite: leaderboard E + the score-milestone term S(Score Req) x rew (survival over
+//     final_balance = banked score).
+// All row/col indices below are 0-based into sheetVals_() and were verified against workbook (6);
+// base and _v2 sheets share the same layout (v2 adds helper columns on the right).
+var LB_R_SPECS = {
+  'Red Challenge'   : {base:'Race', v2:'Race_v2', hdr:8,  r0:9,  r1:18, c0:1, c1:21, inst:'Red'},
+  'Chuck Challenge' : {base:'Race', v2:'Race_v2', hdr:26, r0:27, r1:36, c0:1, c1:21, inst:'Chuck'},
+  'Bomb Challenge'  : {base:'Race', v2:'Race_v2', hdr:44, r0:45, r1:54, c0:1, c1:21, inst:'Bomb'},
+  'Level Race'      : {base:'Race', v2:'Race_v2', hdr:62, r0:63, r1:72, c0:1, c1:21, inst:'Level Race'},
+  'Flash Race'      : {base:'Race', v2:'Race_v2', hdr:80, r0:81, r1:90, c0:1, c1:21, inst:'Flash Race'},
+  'Target Day'      : {base:'TaD',  v2:'TaD_v2',  hdr:34, r0:35, r1:54, c0:2, c1:22, inst:'Target Day'},
+  'Kite Festival'   : {base:'Ki',   v2:'Ki_v2',   hdr:25, r0:26, r1:85, c0:2, c1:22, inst:'Kite Festival',
+                       ms:{hdr:21, r0:22, r1:22, reqC:1, c0:2, c1:22}}
+};
+var COLL_R_SPECS = {
+  'Jigsaw'             : {base:'J',  v2:'J_v2',  hdr:9,  r0:10, r1:21, reqC:1,  reqFrom:'own',
+                          c0:2, c1:22, inst:'Jigsaw'},
+  'Hatchling Hideaway' : {base:'HH', v2:'HH_v2', hdr:10, r0:11, r1:15, reqC:47, reqFrom:'v2',
+                          reqR0:4, c0:1, c1:21, inst:'Hatchling Hideaway'},
+  "Bomb's Ballet"      : {base:'BB', v2:'BB_v2', hdr:7,  r0:8,  r1:22, reqC:1,  reqFrom:'own',
+                          c0:2, c1:22, completionRow:23, inst:'Bombs Ballet'},
+  'Photoshoot'         : {base:'Ph', v2:'Ph_v2', hdr:23, r0:24, r1:53, reqC:46, reqFrom:'v2',
+                          reqR0:4, c0:7, c1:27, inst:'Photoshoot'}
+};
+
+function rewardR_(cat, seg, payer, ds){
+  var lb = LB_R_SPECS[cat], coll = COLL_R_SPECS[cat];
+  if (!lb && !coll) return null;
+  var inst = ds.eventInst((lb || coll).inst, seg, payer);
+  var eBase, eV2;
+  if (lb){
+    var pos = inst ? [inst.position_p25, inst.position_p50, inst.position_p75]
+                       .map(function(p){ return Math.max(1, Math.round(num(p))); })
+                       .filter(function(p){ return p > 0; }) : [];
+    eBase = lbE_(lb.base, lb, pos, inst);
+    eV2   = lbE_(lb.v2,   lb, pos, inst);
+  } else {
+    var S = inst ? survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
+                              [num(inst.final_balance_p75),.75]]) : null;
+    if (!S) return null;                                   // no progress distribution -> carry
+    var reqs = collReqs_(coll);
+    if (!reqs.length) return null;
+    eBase = collE_(coll.base, coll, reqs, S);
+    eV2   = collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, S);
+  }
+  var R = {};
+  RESOURCES.forEach(function(r){
+    var b = num(eBase[r]), v = num(eV2[r]);
+    if (b > 1e-9) R[r] = v / b;                            // base 0 -> carry (no anchor)
+  });
+  return R;
+}
+
+// expected ladder payout per resource at the measured rank quantiles (leaderboards).
+// Ladder rows are position-ordered; a missing/0 pos cell falls back to the ordinal (Ki_v2's
+// formula-numbered rows). Positions past the ladder pay nothing. No positions -> pot total
+// (both sides get the same treatment, so the ratio degrades to the pot ratio).
+function lbE_(sheetName, spec, positions, inst){
+  var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
+  var ladder = {};
+  for (var r = spec.r0; r <= spec.r1; r++){
+    var pos = Math.round(num(v[r] && v[r][0]));
+    if (!(pos > 0)) pos = r - spec.r0 + 1;
+    ladder[pos] = rewRow_(v, r, cols);
+  }
+  var E = zeroRow_();
+  if (positions.length){
+    positions.forEach(function(p){
+      var rew = ladder[p] || {};
+      for (var res in rew) E[res] = num(E[res]) + rew[res] / positions.length;
+    });
+  } else {
+    for (var p2 in ladder) for (var res2 in ladder[p2]) E[res2] = num(E[res2]) + ladder[p2][res2];
+  }
+  if (spec.ms && inst){                                    // Kite score milestone term
+    var S = survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
+                       [num(inst.final_balance_p75),.75]]);
+    if (S){
+      var mCols = rewCols_(v, spec.ms.hdr, spec.ms.c0, spec.ms.c1);
+      for (var mr = spec.ms.r0; mr <= spec.ms.r1; mr++){
+        var req = num(v[mr] && v[mr][spec.ms.reqC]);
+        if (!(req > 0)) continue;
+        var mRew = rewRow_(v, mr, mCols), s = S(req);
+        for (var res3 in mRew) E[res3] = num(E[res3]) + mRew[res3] * s;
+      }
+    }
+  }
+  return E;
+}
+
+// requirement axis for a collection pair. reqFrom 'own': each sheet's native req column (v2Side
+// switches sheets). reqFrom 'v2': the v2 helper column serves BOTH sides (base has none).
+function collReqs_(spec, v2Side){
+  var name = (spec.reqFrom === 'own' && !v2Side) ? spec.base : spec.v2;
+  var v = sheetVals_(name), reqs = [], n = spec.r1 - spec.r0 + 1;
+  var row0 = (spec.reqR0 != null) ? spec.reqR0 : spec.r0;
+  for (var i = 0; i < n; i++) reqs.push(num(v[row0 + i] && v[row0 + i][spec.reqC]));
+  reqs.own = (spec.reqFrom === 'own');
+  return reqs.some(function(x){ return x > 0; }) ? reqs : [];
+}
+
+// survival-weighted milestone payout per resource (collections). The completion row (BB) is
+// gated at the LAST milestone's requirement.
+function collE_(sheetName, spec, reqs, S){
+  var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
+  var E = zeroRow_(), lastReq = 0;
+  for (var i = 0; i < reqs.length; i++){
+    var req = reqs[i];
+    if (!(req > 0)) continue;
+    lastReq = req;
+    var rew = rewRow_(v, spec.r0 + i, cols), s = S(req);
+    for (var res in rew) E[res] = num(E[res]) + rew[res] * s;
+  }
+  if (spec.completionRow != null && lastReq > 0){
+    var cRew = rewRow_(v, spec.completionRow, cols), cs = S(lastReq);
+    for (var res2 in cRew) E[res2] = num(E[res2]) + cRew[res2] * cs;
+  }
+  return E;
+}
+
+function rewCols_(v, hdrRow, c0, c1){
+  var cols = {};
+  for (var c = c0; c <= c1; c++){
+    var res = RES_MAP[String((v[hdrRow] || [])[c] || '').trim()];
+    if (res && cols[res] == null) cols[res] = c;
+  }
+  return cols;
+}
+function rewRow_(v, r, cols){
+  var rew = {};
+  for (var res in cols){ var amt = num(v[r] && v[r][cols[res]]); if (amt) rew[res] = amt; }
+  return rew;
 }
 
 // ============================== NIGHT SKY (D13 — bottom-up; A/B test) ========================
 // Config-segmented (D14): each segment has its OWN 3-milestone daily ladder in 'NS'.
-// Daily-reset: E_day[res] = Σ_k S(CumStreakReq_k) x reward_k[res], S = survival over the
-// daily_max_streak percentiles; window total = E_day x Σ p_day over the calendar's 1-day
-// instances. Measured 'Daily Night Sky Prize' is A/B-diluted → CURRENT column only, never an
-// anchor; DIFF = full-rollout value - diluted measured (labeled in-sheet).
+// Re-wired 2026-07-06 (NIGHT_SKY_REWIRE_PLAN, Option A): daily-reset, cumulative gating —
+//   E_day[res] = Σ_k S(CumStreakReq_k) x reward_k[res]
+// with S = survival over the data_streaks max_streak_per_day p25/p50/p75/p90 percentiles, each
+// scaled by NS_STREAK_N (same x-axis-scaling pattern as simRainbowMaker's duration scale).
+// Window total = E_day x Σ p_day over the calendar's 1-day instances. Measured
+// 'Daily Night Sky Prize' is A/B-diluted → CURRENT column only, never an anchor;
+// DIFF = full-rollout value - diluted measured = the ROLLOUT EFFECT (labeled in-sheet).
+var NS_STREAK_N = 1.25;   // effective-streak factor from the standalone NS Excel study: a player
+                          // tends to land ~a second streak of similar size; absorbs streak resets.
+// Night Sky master switch (2026-07-06, user call): even unchanged, the re-wired bottom-up sim
+// OVERESTIMATES what players actually get from NS (cause not yet investigated), so it ships OFF.
+//   false (default) -> NS is CARRIED (= measured from data_gains, diff 0) in the 33-day and
+//                      daily views, and the PBP sim skips NS milestone claims.
+//   true            -> NS is simulated bottom-up (survival x N model above) in all three views.
+var NS_SIMULATE = false;
 function simNightSky(seg, payer, ctx){
   var ds = ctx.ds, meas = measuredRow_('Daily Night Sky Prize', seg, payer, ds);
+  if (!NS_SIMULATE) return meas;                         // flag off -> carried (see switch above)
   if (!ctx.calNewOk) return meas;
   var ladder = readNSLadder_(seg);
   var b = ds.beh(seg, payer);
-  var S = survival_([[num(b.daily_max_streak_p50),.5],[num(b.daily_max_streak_p75),.75],[num(b.daily_max_streak_p90),.9]]);
+  var st = ds.nsStreak(seg, payer);
+  var S = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
+                          [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
   if (!ladder.length || !S) return meas;                 // no ladder / no streak data -> carry
   var eDay = zeroRow_();
   ladder.forEach(function(ms){
@@ -467,7 +646,7 @@ function sanitizeCal_(cal){
 
 var DataStore = (function(){
   var _cache = null;
-  function build(gainsVals, behVals, accVals, kiteVals, rmVals){
+  function build(gainsVals, behVals, accVals, kiteVals, rmVals, streaksVals, instVals){
     var gh = headerIndex_(gainsVals[0] || []), gMap = {};
     for (var i = 1; i < gainsVals.length; i++){ var r = gainsVals[i];
       if (!r[gh['engagement_segment']]) continue;
@@ -495,11 +674,24 @@ var DataStore = (function(){
         p10: num(w[rh['p10_matchables_window']]), p25: num(w[rh['p25_matchables_window']]),
         p50: num(w[rh['p50_matchables_window']]), p75: num(w[rh['p75_matchables_window']]),
         p90: num(w[rh['p90_matchables_window']]) }; }
+    var th = headerIndex_((streaksVals || [])[0] || []), tMap = {};
+    for (var t = 1; t < (streaksVals || []).length; t++){ var s = streaksVals[t];
+      if (!s[th['segment']]) continue;
+      tMap[[s[th['segment']], s[th['payer_flag']]].join('|')] = {
+        p25: num(s[th['max_streak_per_day_p25']]), p50: num(s[th['max_streak_per_day_p50']]),
+        p75: num(s[th['max_streak_per_day_p75']]), p90: num(s[th['max_streak_per_day_p90']]) }; }
+    var eh = headerIndex_((instVals || [])[0] || []), eMap = {};
+    for (var e = 1; e < (instVals || []).length; e++){ var x = instVals[e];
+      if (!x[eh['event_name']]) continue;
+      var eo = {}; for (var en in eh) eo[en] = x[eh[en]];
+      eMap[[x[eh['event_name']], x[eh['segment']], x[eh['payer_flag']]].join('|')] = eo; }
     return {
       gains: function(seg, payer, cat, res){ return num(gMap[[SEG_TO_GAINS[seg]||seg, payer, cat, res].join('|')]); },
       dataRow: function(cat, seg, payer){ var o = {}, self = this;
         RESOURCES.forEach(function(r){ o[r] = self.gains(seg, payer, cat, r); }); return o; },
       beh: function(seg, payer){ return bMap[[seg, payer].join('|')] || {}; },
+      nsStreak: function(seg, payer){ return tMap[[seg, payer].join('|')] || null; },
+      eventInst: function(ev, seg, payer){ return eMap[[ev, seg, payer].join('|')] || null; },
       rmPct: function(seg, payer){ return rMap[[seg, payer].join('|')] || null; },
       accrualCurve: function(ev, seg, payer, kite){ var m = kite ? kMap : aMap;
         return m[[ev, payer, seg].join('|')] || m[[ev, payer, '0-9'].join('|')] || []; }
@@ -510,10 +702,11 @@ var DataStore = (function(){
       if (_cache) return _cache;
       var ss = SpreadsheetApp.getActiveSpreadsheet();
       _cache = build(vals_(ss,'data_gains'), vals_(ss,'data_seg_beh'), vals_(ss,'data_event_accrual'),
-                     vals_(ss,'data_event_kite_accrual'), vals_(ss,'data_RM'));
+                     vals_(ss,'data_event_kite_accrual'), vals_(ss,'data_RM'), vals_(ss,'data_streaks'),
+                     vals_(ss,'data_event_inst'));
       return _cache;
     },
-    fromRanges: function(g,b,a,k,rm){ return build(g,b,a,k,rm); }
+    fromRanges: function(g,b,a,k,rm,st,ei){ return build(g,b,a,k,rm,st,ei); }
   };
   function vals_(ss, name){ var sh = ss.getSheetByName(name); return sh ? sh.getDataRange().getValues() : []; }
 })();
@@ -580,7 +773,8 @@ function onOpen(){
 var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','NS','NS_v2','Race','Race_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
   'F','F_v2','cal_curr','cal_new',CAL_PARSED_SHEET,
-  'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM'];
+  'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
+  'data_streaks','data_event_inst'];
 
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){

@@ -96,18 +96,18 @@ for (const seg of ['0-9', '100+']) {
   const c = ds.dataRow('Core', seg, 'NONPAYER'), s = ds.dataRow('Saga', seg, 'NONPAYER');
   console.log(`conservation ${seg}: Core ${fmt(c.HC)} + Saga ${fmt(s.HC)} = ${fmt(c.HC + s.HC)}`);
 }
-// NS conservative bound (S=0 beyond p90): recompute with capped survival
+// NS conservative bound (S=0 beyond p90 x N): recompute with capped survival, same source as
+// the engine (data_streaks percentiles x NS_STREAK_N; NIGHT_SKY_REWIRE_PLAN Option A)
 function nsBound(seg, payer) {
-  const b = ds.beh(seg, payer);
-  const S = survival_([[num(b.daily_max_streak_p50), .5], [num(b.daily_max_streak_p75), .75], [num(b.daily_max_streak_p90), .9]]);
+  const st = ds.nsStreak(seg, payer), b = ds.beh(seg, payer);
+  const S = survival_([[st.p25 * NS_STREAK_N, .25], [st.p50 * NS_STREAK_N, .5],
+                       [st.p75 * NS_STREAK_N, .75], [st.p90 * NS_STREAK_N, .9]]);
   const ladder = readNSLadder_(seg);
   let e = 0;
-  ladder.forEach(ms => { const s = ms.req > num(b.daily_max_streak_p90) ? 0 : S(ms.req); e += (ms.rew.HC || 0) * s; });
+  ladder.forEach(ms => { const s = ms.req > st.p90 * NS_STREAK_N ? 0 : S(ms.req); e += (ms.rew.HC || 0) * s; });
   const days = reachSum_(ctx.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
   return e * days;
 }
-console.log('NS conservative bound HC (0-9):', fmt(nsBound('0-9', 'NONPAYER')));
-console.log('NS conservative bound HC (100+):', fmt(nsBound('100+', 'NONPAYER')));
 // RM conservative bound
 function rmBound(seg, payer) {
   const pct = ds.rmPct(seg, payer), ladder = readRMLadder_(), b = ds.beh(seg, payer);
@@ -122,3 +122,115 @@ function rmBound(seg, payer) {
 }
 console.log('RM conservative bound HC (0-9):', fmt(rmBound('0-9', 'NONPAYER')));
 console.log('RM conservative bound HC (100+):', fmt(rmBound('100+', 'NONPAYER')));
+
+// ---------- NS re-wire release gates (NIGHT_SKY_REWIRE_PLAN §5 + NS_SIMULATE switch) ----------
+console.log('\n================ NS GATES ================');
+let failures = 0;
+const gate = (name, ok, detail) => {
+  console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? ' - ' + detail : ''));
+  if (!ok) failures++;
+};
+const engineSrc = fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8');
+const engineSrcNsOn = engineSrc.replace('var NS_SIMULATE = false', 'var NS_SIMULATE = true');
+const NS_I = CATEGORY_ORDER.indexOf('Daily Night Sky Prize');
+const SEG5 = ['0-9', '10-19', '20-39', '40-99', '100+'];
+// default state: NS_SIMULATE = false -> NS carried (= measured, diff 0) everywhere
+gate('NS_SIMULATE default OFF -> NS carried (diff 0) for every segment',
+     NS_SIMULATE === false && SEG5.every(s => Math.abs(ECOGAINS_DIFF('NONPAYER', s)[NS_I][0]) < 1e-9));
+// flip the switch on and gate the model itself
+eval(engineSrcNsOn);
+const nsHC = {}, nsEday = {};
+for (const seg of SEG5) {
+  nsHC[seg] = ECOGAINS_SIM('NONPAYER', seg)[NS_I][0];
+  const st = ds.nsStreak(seg, 'NONPAYER');
+  const S = survival_([[st.p25 * NS_STREAK_N, .25], [st.p50 * NS_STREAK_N, .5],
+                       [st.p75 * NS_STREAK_N, .75], [st.p90 * NS_STREAK_N, .9]]);
+  let e = 0; readNSLadder_(seg).forEach(ms => { e += (ms.rew.HC || 0) * S(ms.req); });
+  nsEday[seg] = e;
+  console.log(`NS ${seg.padEnd(6)} NONPAYER: simHC=${fmt(nsHC[seg]).padStart(8)}  E_day=${fmt(e).padStart(7)}  conservative(S=0>p90xN)=${fmt(nsBound(seg, 'NONPAYER')).padStart(8)}  measured(diluted)=${fmt(ds.dataRow('Daily Night Sky Prize', seg, 'NONPAYER').HC).padStart(8)}`);
+}
+gate('NS simulated HC nonzero for every segment', SEG5.every(s => nsHC[s] > 0), JSON.stringify(nsHC));
+// monotonicity is asserted on E_day (the model quantity): window totals also fold in the
+// cohort's Σ p_day active-day factor, which the data says is NOT monotone (100+ plays fewer
+// days than 40-99), so the 100+ TOTAL legitimately lands below 40-99.
+gate('NS E_day (HC per active day) monotonic in segment', SEG5.every((s, i) => i === 0 || nsEday[s] > nsEday[SEG5[i - 1]]),
+     SEG5.map(s => fmt(nsEday[s])).join(' < '));
+gate('NS carried for A. 0 (appendix, no streak data)',
+     Math.abs(ECOGAINS_DIFF('NONPAYER', 'A. 0')[NS_I][0]) < 1e-9);
+eval(engineSrc);   // back to the shipped default (NS_SIMULATE = false) for the R gates
+
+// ---------- R-term gates (reward-config ratio v2/base, added 2026-07-06) ----------
+// Mutate _v2 rewards/requirements in the in-memory mock data, re-eval the engine (fresh
+// Context/DataStore caches), and assert the sim responds. Restores after each test.
+console.log('\n================ R GATES ================');
+const idx = (cat) => CATEGORY_ORDER.indexOf(cat);
+const baseline = ECOGAINS_SIM('NONPAYER', '40-99');
+
+// today (v2 rewards untouched) every R must be exactly 1
+{
+  let worst = 1;
+  for (const cat of Object.keys(LB_R_SPECS).concat(Object.keys(COLL_R_SPECS))) {
+    const R = rewardR_(cat, '40-99', 'NONPAYER', ds);
+    if (R) for (const res in R) if (Math.abs(R[res] - 1) > Math.abs(worst - 1)) worst = R[res];
+  }
+  gate('R == 1 for every event with untouched v2 configs', Math.abs(worst - 1) < 1e-9, 'worst ' + worst);
+}
+// Kite re-classification: leaderboard semantics, sim == measured x T exactly (D pinned 1, R=1)
+{
+  const c2 = Context.get();
+  const measK = num(measuredRow_('Kite Festival', '40-99', 'NONPAYER', c2.ds)['HC']);
+  const tK = timingRatio_(c2.calCur['Kite Festival'] || [], c2.calNew['Kite Festival'] || [], '40-99', 'NONPAYER', c2.ds);
+  gate('Kite = measured x T (zero-sum rank payouts; canary now GROWS)',
+       Math.abs(baseline[idx('Kite Festival')][0] - measK * tK) < 1e-9,
+       `sim ${baseline[idx('Kite Festival')][0].toFixed(2)} vs ${(measK * tK).toFixed(2)} (T=${tK.toFixed(2)})`);
+}
+// helper: run fn with a mutation applied, engine re-eval'd before AND after (cache reset + restore)
+const mutate = (sheet, cells, factorOrValue, fn) => {
+  const saved = cells.map(([r, c]) => data[sheet].values[r][c]);
+  cells.forEach(([r, c]) => {
+    const old = +data[sheet].values[r][c] || 0;
+    data[sheet].values[r][c] = (typeof factorOrValue === 'function') ? factorOrValue(old) : factorOrValue;
+  });
+  eval(engineSrc);
+  const out = fn();
+  cells.forEach(([r, c], i) => { data[sheet].values[r][c] = saved[i]; });
+  eval(engineSrc);
+  return out;
+};
+const range = (r0, r1, c) => Array.from({length: r1 - r0 + 1}, (_, i) => [r0 + i, c]);
+
+// 1. LB reward edit: double every TaD_v2 ladder Coins cell -> Target Day HC exactly x2
+{
+  const hc = mutate('TaD_v2', range(35, 54, 2), (v) => v * 2,
+                    () => ECOGAINS_SIM('NONPAYER', '40-99')[idx('Target Day')][0]);
+  gate('TaD_v2 Coins x2 -> Target Day HC x2', Math.abs(hc - 2 * baseline[idx('Target Day')][0]) < 1e-9,
+       `${hc.toFixed(2)} vs 2x${baseline[idx('Target Day')][0].toFixed(2)}`);
+}
+// 2. collection reward edit: halve every J_v2 milestone Coins cell -> Jigsaw HC exactly x0.5
+{
+  const hc = mutate('J_v2', range(10, 21, 2), (v) => v / 2,
+                    () => ECOGAINS_SIM('NONPAYER', '40-99')[idx('Jigsaw')][0]);
+  gate('J_v2 Coins x0.5 -> Jigsaw HC x0.5', Math.abs(hc - 0.5 * baseline[idx('Jigsaw')][0]) < 1e-9,
+       `${hc.toFixed(2)} vs 0.5x${baseline[idx('Jigsaw')][0].toFixed(2)}`);
+}
+// 3. collection REQUIREMENT edit: J_v2 reqs x10 -> fewer players reach -> Jigsaw HC drops
+{
+  const hc = mutate('J_v2', range(10, 21, 1), (v) => v * 10,
+                    () => ECOGAINS_SIM('NONPAYER', '40-99')[idx('Jigsaw')][0]);
+  gate('J_v2 reqs x10 -> Jigsaw HC drops (requirement edits flow)',
+       hc < baseline[idx('Jigsaw')][0] * 0.7, `${hc.toFixed(2)} vs ${baseline[idx('Jigsaw')][0].toFixed(2)}`);
+}
+// 4. zero-out: Race_v2 Red block Coins = 0 -> Red Challenge HC -> 0 (other resources intact)
+{
+  const row = mutate('Race_v2', range(9, 18, 1), 0,
+                     () => ECOGAINS_SIM('NONPAYER', '40-99')[idx('Red Challenge')]);
+  gate('Race_v2 Red Coins = 0 -> Red Challenge HC 0', Math.abs(row[0]) < 1e-9, 'HC ' + row[0]);
+}
+// 5. restore clean: baseline reproduces after all mutations reverted
+{
+  const again = ECOGAINS_SIM('NONPAYER', '40-99');
+  const same = CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12));
+  gate('mutations fully restored (baseline reproduces)', same);
+}
+console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
+process.exit(failures ? 1 : 0);

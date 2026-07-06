@@ -1,6 +1,16 @@
 # Kite Festival — Mechanics
 
-**Type:** score-based PVP leaderboard | **Sim category:** score-leaderboard (`simScoreEvent`) | **Calendar name:** Kite Festival | **Accrual source:** `data_event_kite_accrual` (score-LAG query: `eventtype='event_action'`, `m_event_name='KiteFestival'`, `m_score_reached`) | **Config sheets:** Ki / Ki_v2
+**Type:** score-based PVP leaderboard | **Sim category:** LEADERBOARD since 2026-07-06 (`simKiteFestival` → `leaderboardSim_`, D pinned 1) | **Calendar name:** Kite Festival | **Accrual source:** `data_event_kite_accrual` (score-LAG query; **PBP sim only** since the re-classification) | **Config sheets:** Ki / Ki_v2
+
+> **2026-07-06 RE-CLASSIFICATION (user decision):** payouts are rank-based and **zero-sum per
+> league of 60** (fixed pot 875 HC/league; `avg_bots` = 0 in the now-populated `data_event_inst`
+> Kite rows, resolving gap #5 below; the single score milestone at req 100 pays no HC and even the
+> p25 player @0-9 banks ~100). Everyone scoring less in a 3-day instance leaves ranks — and
+> therefore payouts — unchanged, exactly as the "zero-sum" note in the simulation-relevant facts
+> below argued. The 33-day engine now prices Kite = measured × R × T (T ≈ 1.28–1.36, a mild
+> cadence inflator); the score-curve D ≈ 0.32 "flagship shrink" (gap #7, HAND_OFF established
+> fact) is **superseded**, and the parse canary direction flipped from shrink to GROW. Statements
+> below describing D≈0.32 as applied by the engine are historical.
 
 > **⚠ Source coverage warning:** the design PDF (`NESTKite Festival200526112311.pdf`) is **only 1 page**. It covers the core loop concept and one entry-milestone fact, and **explicitly outsources everything else**: the reward table lives in a linked "Kite Festival Event Rewards.pdf" (not in the materials) and the "Win Streak restoration method" is behind a broken/inaccessible link. All numbers below therefore come from the **Ki config sheet** of `NEW_LIVEOPS_CALENDAR_ECO.xlsx`, not from the PDF. What the PDF **does** cover: PVP score-submission concept, streak-based scoring with loss reset, bank-anytime mechanic, ranking = sum of submitted scores, week-long duration, main-menu score launch, first-100-score unlock + 30 min unlimited lives. What it does **not** cover: streak score values, reward ladders, league size, entry requirements, matchmaking/bots, streak restoration details.
 

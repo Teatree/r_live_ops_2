@@ -116,12 +116,14 @@ leg0 = first_hdr + len(BLOCKS) * PITCH + 1   # row after last block + gap
 legend = [
     'LEGEND / ASSUMPTIONS (EcoGainsSim_v4)',
     'Colors: blue = measured (carried) · gray = simulated · yellow label = always-on/daily sim · pink label = calendar-event sim · diff: red < 0 < green.',
-    'Night Sky: SIMULATED column = bottom-up FULL-ROLLOUT value (ladder x daily-max-streak survival x active days). CURRENT is A/B-diluted, so the diff mixes rollout effect with dilution.',
+    'Night Sky: CARRIED by default (NS_SIMULATE = false in EcoGainsSim_v4.gs - the bottom-up model overestimates actual NS gains; open question). Flag true -> full-rollout sim (segment ladder x survival over data_streaks max-streak p25-p90 x 1.25 effective-streak factor x active days); CURRENT is A/B-diluted, so DIFF would read as ROLLOUT EFFECT.',
     'Rainbow Maker & Night Sky magnitudes are tail-sensitive: milestones past p90 are priced by linear extrapolation (conservative S=0-beyond-p90 bounds available in the offline harness).',
     "Target Day: pure leaderboard (milestones pay 0 by design); D=1 rank-invariance assumed — same assumption as the bird challenges. Rainbow Maker's clipped 2-day instance scales the matchables axis x(2/4).",
     'Photoshoot: single instance in both calendars, so T is placement-sensitive. River Rush: simulated 0 because cal_new has no instances (removal) — re-add instances and it re-prices.',
     "A. 0 block: no behaviour data (these players barely play) — everything carried except config-only changes: Saga HC x ratio, Daily Gift HC x ratio (0-9 streaks as PROXY, slightly overstates), River Rush -> 0. RM/NS not simulated for A. 0.",
-    'After editing a calendar: menu EcoGainsSim ▸ Precompute calendars (writes hidden cal_parsed; engine prefers it). Sanity canary: the Kite Festival row must SHRINK vs measured (D≈0.34 @0-9). If every event row equals measured, the calendar read failed.',
+    'Reward-config edits FLOW (since 2026-07-06): editing rewards or requirements on any _v2 sheet reprices its row (R = v2/base ladder at the measured rank / progress distribution). Base sheets = the measured world; leave them untouched. TaD milestone rewards are the exception (base pays 0 -> no anchor -> carried).',
+    'Kite Festival is priced as a LEADERBOARD (since 2026-07-06): payouts are zero-sum per league of 60, so duration does not move them; D=1 and the row GROWS ~x1.3 via cadence.',
+    'After editing a calendar: menu EcoGainsSim ▸ Precompute calendars (writes hidden cal_parsed; engine prefers it). Sanity canary: the Kite Festival row must GROW ~x1.3 vs measured. If every event row equals measured, the calendar read failed.',
 ]
 for i, txt in enumerate(legend):
     c = ws.cell(leg0 + i, 2, txt)

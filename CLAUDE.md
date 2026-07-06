@@ -48,7 +48,7 @@ node harness/_mock_pbp.js        # same for EcoGainsSim_PBP.gs (~20 checks incl.
 python builders/_build_hc_v4.py  # rebuild a display xlsx into display/ (same pattern for the other _build_*.py)
 ```
 
-`harness/_mockdata.json` is a dump of the live workbook's sheets (values + merges). The Kite row is the canary: it must shrink (D≈0.32 from the 7→3 duration cut) — if it shows "no change", calendar parsing fell back to carry-measured.
+`harness/_mockdata.json` is a dump of the live workbook's sheets (values + merges). The Kite row is the canary: it must GROW ≈ ×1.3 (measured × T; Kite re-classified as a zero-sum leaderboard 2026-07-06 — before that the canary direction was shrink) — if it shows "no change", calendar parsing fell back to carry-measured.
 
 ## The big picture
 
@@ -57,10 +57,10 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 **Core model** — for each anchored event source, per resource:
 `SIMULATED = measured × R × D × T`
 
-- **R** = reward-config ratio (v2 ladder / base). Only Saga and Daily Gift have R≠1; all event `_v2` configs changed only `EventDuration`.
-- **D** = duration multiplier from the accrual curves (`data_event_accrual`; Kite has its own score-based curve in `data_event_kite_accrual`). Leaderboard events pin D=1 (rank payouts are end-state). Shortening = reliable interpolation; lengthening = flagged extrapolation.
+- **R** = reward-config ratio (v2 ladder / base), wired for EVERY simulated source since 2026-07-06: Saga/Daily Gift (streak-weighted), leaderboards (rank ladder priced at measured `position_p25/50/75` from `data_event_inst`), collections (milestone ladder × survival over `final_balance_p25/50/75` — reward AND requirement edits flow; HH/Ph share the v2 helper req axis). R=1 while `_v2` rewards are untouched; base-0 → v2>0 additions are carried (no anchor — TaD milestone rewards won't flow).
+- **D** = duration multiplier from the accrual curves (`data_event_accrual`). Leaderboard events pin D=1 (rank payouts are end-state) — including Kite Festival since 2026-07-06 (zero-sum league pot; `data_event_kite_accrual` is now PBP-only). Shortening = reliable interpolation; lengthening = flagged extrapolation.
 - **T** = cadence × reach ratio across calendar instances, using weekday/weekend active rates from `data_seg_beh`.
-- Always-on sources (Core/Saga, Daily Gift): D=T=1. Unlisted categories are **carried** (= measured, diff 0). Rainbow Maker is new (no measured anchor) → bottom-up survival-weighted milestone reach from `data_RM`. River Rush has no `cal_new` instances → 0 (removal semantics). Night Sky's bottom-up sim exists but is **unwired/on hold** — currently carried.
+- Always-on sources (Core/Saga, Daily Gift): D=T=1. Unlisted categories are **carried** (= measured, diff 0). Rainbow Maker is new (no measured anchor) → bottom-up survival-weighted milestone reach from `data_RM`. River Rush has no `cal_new` instances → 0 (removal semantics). Night Sky's bottom-up sim (re-wired 2026-07-06 per `NIGHT_SKY_REWIRE_PLAN.md`: survival over `data_streaks` max-streak percentiles × 1.25 `NS_STREAK_N`) is **shipped OFF behind `NS_SIMULATE = false`** in `EcoGainsSim_v4.gs` — it overestimates actual NS gains (open question), so NS is carried in all three views; flip the flag to simulate.
 
 **Data flow:** SQL queries → `data_*` sheets in the live workbook (headers on row 1, data from row 2) → `EcoGainsSim_v4.gs` reads them plus the visual calendar grids, all LIVE at recalc (decision D12: no numbers in code) → spills per segment block in `EcoGainsSim_HC`.
 

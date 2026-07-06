@@ -21,6 +21,8 @@ SHEETS = [
     # PBP engine additions
     'data_streaks', 'data_event_inst',
     'J_v2', 'HH_v2', 'BB_v2', 'Ph_v2', 'Ki_v2', 'TaD_v2', 'Race_v2', 'F_v2',
+    # base config sheets (R-term pairs: reward-config ratio v2/base, added 2026-07-06)
+    'J', 'HH', 'BB', 'Ph', 'Ki', 'TaD', 'Race', 'F',
 ]
 
 wb = openpyxl.load_workbook(SRC, data_only=True)

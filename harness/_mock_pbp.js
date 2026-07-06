@@ -238,6 +238,59 @@ if (ffDay) {
   check(`FF join grant on day ${ffDay}`, /Flock Flurry.*Unlimited Lives: 60/.test(sClaims), sClaims);
 }
 
+// ---------- Night Sky re-wire (NIGHT_SKY_REWIRE_PLAN §4.3 / §5 + NS_SIMULATE switch) ----------
+const nsClaimRows = (ledger) => ledgerBody(ledger).filter(r => /Daily Night Sky Prize m\d+/.test(String(r[CLAIMS_COL])));
+// default state: NS_SIMULATE = false (v4 master switch) -> the ledger carries NO NS claims
+check('NS_SIMULATE default OFF -> no NS claims in the ledger',
+      NS_SIMULATE === false && nsClaimRows(L).length === 0, 'claims=' + nsClaimRows(L).length);
+// flip the switch on (re-eval v4 + PBP with fresh caches) and check the model itself
+eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')
+       .replace('var NS_SIMULATE = false', 'var NS_SIMULATE = true'));
+eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
+const LNS = ECOGAINS_PBP(...args);   // showcase scenario re-run with NS on
+// Expected mode: EVERY milestone cleared by p50 x N pays, nothing else - incl. 0-9 (which the
+// old exact-match handler silently zeroed)
+for (const seg of ['0-9', '10-19', '100+']) {
+  const stq = PBPData.streaks(seg, 'NONPAYER');
+  const eff = num(stq.max_streak_per_day_p50) * NS_STREAK_N;
+  const expect = readNSLadder_(seg).filter(ms => ms.req <= eff + 1e-9).length;
+  const LX = ECOGAINS_PBP('cal_new', 5, seg, 'NONPAYER', 'Expected', 'p50', 1);
+  const got = nsClaimRows(LX).length;
+  check(`NS Expected ${seg}: pays all reached milestones, none unreached (${expect})`,
+        got === expect && expect > 0, `eff=${eff} expect=${expect} got=${got}`);
+}
+// Sampled mode: claims == milestones cleared by the trace's best win run x N (honest gate)
+{
+  const pr = ledgerBody(LNS).filter(r => typeof r[0] === 'number' || /^\d+$/.test(String(r[0])));
+  const best = Math.max(...pr.map(r => +r[4] || 0));
+  const expect = readNSLadder_('10-19').filter(ms => ms.req <= best * NS_STREAK_N + 1e-9).length;
+  check('NS Sampled: claims == milestones cleared by best run x N', nsClaimRows(LNS).length === expect,
+        `best=${best} expect=${expect} got=${nsClaimRows(LNS).length}`);
+}
+// reconciliation: seed-averaged Sampled NS HC ~ the 33-day sim's per-active-day E_day
+{
+  const stq = Context.get().ds.nsStreak('10-19', 'NONPAYER');
+  const S = survival_([[stq.p25 * NS_STREAK_N, .25], [stq.p50 * NS_STREAK_N, .5],
+                       [stq.p75 * NS_STREAK_N, .75], [stq.p90 * NS_STREAK_N, .9]]);
+  let eDay = 0;
+  readNSLadder_('10-19').forEach(ms => { eDay += (ms.rew.HC || 0) * S(ms.req); });
+  let acc = 0; const M = 60;
+  for (let sd = 1; sd <= M; sd++) {
+    const LX = ECOGAINS_PBP('cal_new', 5, '10-19', 'NONPAYER', 'Sampled', 'p50', sd);
+    for (const r of nsClaimRows(LX)) {
+      const m = String(r[CLAIMS_COL]).match(/Coins: ([\d.]+)/);
+      if (m) acc += +m[1];
+    }
+  }
+  const avg = acc / M;
+  console.log(`NS reconciliation: seed-avg HC/night ${avg.toFixed(2)} vs window E_day ${eDay.toFixed(2)} (${M} seeds)`);
+  check('NS Sampled seed-average ~ 33-day E_day (within x0.5..x2)', avg > eDay * 0.5 && avg < eDay * 2,
+        `avg=${avg.toFixed(2)} eDay=${eDay.toFixed(2)}`);
+}
+// back to the shipped defaults (NS_SIMULATE = false) for the smoke tests
+eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
+eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
+
 // heavy segment + cal_curr smoke tests
 const LH = ECOGAINS_PBP('cal_new', 5, '100+', 'NONPAYER', 'Sampled', 'p75', 7);
 check('100+ runs (N~147)', LH.length > 140 && LH.every(r => r.length === LH[0].length), 'rows=' + LH.length);
