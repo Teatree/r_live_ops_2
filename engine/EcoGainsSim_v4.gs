@@ -765,6 +765,9 @@ function onOpen(){
     .addItem('Clear calendar precompute', 'clearCalendarPrecompute')
     .addItem('Refresh simulations', 'refreshSims_')
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
+    .addSeparator()
+    .addItem('Mark v2 config diffs (red)', 'markV2ConfigDiffs')   // V2Diff.gs
+    .addItem('Clear v2 config diff marks', 'clearV2ConfigDiffs')  // V2Diff.gs
     .addToUi();
 }
 
@@ -788,22 +791,43 @@ function onEdit(e){
 
 // Forces regeneration: clears and re-sets every ECOGAINS_* formula on the display sheets, which
 // makes Sheets re-evaluate them (all engine reads are live, so fresh config/data flows through).
-var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily'];
+var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'cal_new'];   // cal_new: ECOGAINS_CAL_COUNTS (CalStats.gs)
+// Forcing a custom-function recalc means clearing the formula and re-setting it (Google only
+// re-runs a custom function when its ARGUMENTS change). The OLD version cleared EVERY target to ''
+// first, flushed, then restored — so if the run was interrupted in that window (onEdit's ~30s
+// simple-trigger limit, a flush error, or two edits racing this function at once) the restore
+// never ran and the LET/ECOGAINS_ cells were left BLANK. Hardened below:
+//   - LockService: skip if another refresh is already running (kills the race — the #1 cause).
+//   - per-cell clear -> flush -> restore inside try/finally: at most ONE cell is ever blank, and
+//     it is always put back even if the flush throws. A hard kill can leave at most that one cell
+//     blank (fix via menu > Refresh simulations), never the whole sheet.
 function refreshSims_(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  REFRESH_SHEETS.forEach(function(name){
-    var sh = ss.getSheetByName(name);
-    if (!sh) return;
-    var rng = sh.getDataRange(), formulas = rng.getFormulas(), targets = [];
-    for (var r = 0; r < formulas.length; r++)
-      for (var c = 0; c < formulas[r].length; c++)
-        if (formulas[r][c] && formulas[r][c].indexOf('ECOGAINS_') !== -1)
-          targets.push({ row: r + 1, col: c + 1, f: formulas[r][c] });
-    if (!targets.length) return;
-    targets.forEach(function(t){ sh.getRange(t.row, t.col).setFormula(''); });
-    SpreadsheetApp.flush();
-    targets.forEach(function(t){ sh.getRange(t.row, t.col).setFormula(t.f); });
-  });
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(100)) return;                 // another refresh holds it -> don't double-run (race = the wipe)
+  try {
+    REFRESH_SHEETS.forEach(function(name){
+      var sh = ss.getSheetByName(name);
+      if (!sh) return;
+      var formulas = sh.getDataRange().getFormulas(), targets = [];
+      for (var r = 0; r < formulas.length; r++)
+        for (var c = 0; c < formulas[r].length; c++)
+          if (formulas[r][c] && formulas[r][c].indexOf('ECOGAINS_') !== -1)
+            targets.push({ row: r + 1, col: c + 1, f: formulas[r][c] });
+      if (!targets.length) return;
+      // clear this sheet's targets -> ONE flush (registers the clears so the restore recalcs) ->
+      // restore in a finally so they ALWAYS come back even if the flush throws or times out. One
+      // flush per sheet, not per cell (per-cell was slow).
+      try {
+        targets.forEach(function(t){ sh.getRange(t.row, t.col).setFormula(''); });
+        SpreadsheetApp.flush();
+      } finally {
+        targets.forEach(function(t){ sh.getRange(t.row, t.col).setFormula(t.f); });
+      }
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
 function precomputeCalendars(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -958,7 +982,13 @@ function readCell_(a1){
   try { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET).getRange(a1).getValue(); }
   catch(e){ return null; }
 }
+// Per-execution cache. sheetVals_ is called MANY times per run (rewardR_ re-reads every config
+// sheet for each category x payer x segment) — without this, fillSimPerSegment did ~300 full-sheet
+// reads, incl. the heavy Ph_v2 reach-sim, every run. Config/data sheets don't change mid-run, so
+// caching by name is safe; the cache is a module global that resets each script execution.
+var _sheetValsCache = {};
 function sheetVals_(name){
+  if (_sheetValsCache[name] !== undefined) return _sheetValsCache[name];
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
-  return sh ? sh.getDataRange().getValues() : [];
+  return (_sheetValsCache[name] = sh ? sh.getDataRange().getValues() : []);
 }

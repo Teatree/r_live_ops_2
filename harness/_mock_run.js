@@ -184,17 +184,22 @@ const baseline = ECOGAINS_SIM('NONPAYER', '40-99');
        Math.abs(baseline[idx('Kite Festival')][0] - measK * tK) < 1e-9,
        `sim ${baseline[idx('Kite Festival')][0].toFixed(2)} vs ${(measK * tK).toFixed(2)} (T=${tK.toFixed(2)})`);
 }
-// helper: run fn with a mutation applied, engine re-eval'd before AND after (cache reset + restore)
+// Reset the engine's per-execution sheetVals_ cache. In real Sheets every recalc is a fresh
+// execution (empty cache); this harness fakes several "executions" in one process, so we clear the
+// module-level cache by hand. Defined at module scope so it targets the SAME binding the engine's
+// module-level sheetVals_ closes over (not a local shadow from the eval() inside mutate()).
+const resetSheetCache = () => { try { _sheetValsCache = {}; } catch (e) {} };
+// helper: run fn with a mutation applied, caches reset before AND after (so mutated config is read)
 const mutate = (sheet, cells, factorOrValue, fn) => {
   const saved = cells.map(([r, c]) => data[sheet].values[r][c]);
   cells.forEach(([r, c]) => {
     const old = +data[sheet].values[r][c] || 0;
     data[sheet].values[r][c] = (typeof factorOrValue === 'function') ? factorOrValue(old) : factorOrValue;
   });
-  eval(engineSrc);
+  eval(engineSrc); resetSheetCache();
   const out = fn();
   cells.forEach(([r, c], i) => { data[sheet].values[r][c] = saved[i]; });
-  eval(engineSrc);
+  eval(engineSrc); resetSheetCache();
   return out;
 };
 const range = (r0, r1, c) => Array.from({length: r1 - r0 + 1}, (_, i) => [r0 + i, c]);
