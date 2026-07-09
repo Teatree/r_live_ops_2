@@ -249,16 +249,22 @@ eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')
 eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
 const LNS = ECOGAINS_PBP(...args);   // showcase scenario re-run with NS on
 // Expected mode: EVERY milestone cleared by p50 x N pays, nothing else - incl. 0-9 (which the
-// old exact-match handler silently zeroed)
+// old exact-match handler silently zeroed). expect == 0 is a legitimate outcome (workbook (8)
+// telemetry: 100+ p50 62 x 1.25 = 77.5 sits just under its first req 80), so agreement is asserted
+// per segment and the "ladder read is sane" condition aggregated across segments instead.
+let nsExpectTotal = 0;
 for (const seg of ['0-9', '10-19', '100+']) {
   const stq = PBPData.streaks(seg, 'NONPAYER');
   const eff = num(stq.max_streak_per_day_p50) * NS_STREAK_N;
   const expect = readNSLadder_(seg).filter(ms => ms.req <= eff + 1e-9).length;
   const LX = ECOGAINS_PBP('cal_new', 5, seg, 'NONPAYER', 'Expected', 'p50', 1);
   const got = nsClaimRows(LX).length;
+  nsExpectTotal += expect;
   check(`NS Expected ${seg}: pays all reached milestones, none unreached (${expect})`,
-        got === expect && expect > 0, `eff=${eff} expect=${expect} got=${got}`);
+        got === expect, `eff=${eff} expect=${expect} got=${got}`);
 }
+check('NS Expected: some segment reaches a milestone (ladder/streak read sane)', nsExpectTotal > 0,
+      'total reached across segments=' + nsExpectTotal);
 // Sampled mode: claims == milestones cleared by the trace's best win run x N (honest gate)
 {
   const pr = ledgerBody(LNS).filter(r => typeof r[0] === 'number' || /^\d+$/.test(String(r[0])));

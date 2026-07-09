@@ -166,23 +166,52 @@ console.log('\n================ R GATES ================');
 const idx = (cat) => CATEGORY_ORDER.indexOf(cat);
 const baseline = ECOGAINS_SIM('NONPAYER', '40-99');
 
-// today (v2 rewards untouched) every R must be exactly 1
+// R must be exactly 1 wherever the v2 config region is IDENTICAL to base (untouched pair).
+// Since workbook (8) real _v2 edits exist (TaD_v2, Ki_v2 …), so touched pairs are excluded from
+// the assertion and REPORTED instead — the R term flowing for them is the feature working.
 {
-  let worst = 1;
+  const regionEq = (spec) => {
+    const sub = (sheet, hdr, r0, r1, c0, c1) => {
+      const rows = [hdr].concat(Array.from({ length: r1 - r0 + 1 }, (_, i) => r0 + i));
+      return rows.map(r => ((data[sheet].values[r - 1]) || []).slice(c0 - 1, c1));
+    };
+    let eq = JSON.stringify(sub(spec.base, spec.hdr, spec.r0, spec.r1, spec.c0, spec.c1)) ===
+             JSON.stringify(sub(spec.v2,   spec.hdr, spec.r0, spec.r1, spec.c0, spec.c1));
+    if (eq && spec.ms)                                     // Kite score-milestone rows too
+      eq = JSON.stringify(sub(spec.base, spec.ms.hdr, spec.ms.r0, spec.ms.r1, spec.ms.c0, spec.ms.c1)) ===
+           JSON.stringify(sub(spec.v2,   spec.ms.hdr, spec.ms.r0, spec.ms.r1, spec.ms.c0, spec.ms.c1));
+    return eq;
+  };
+  let worst = 1; const edited = [];
   for (const cat of Object.keys(LB_R_SPECS).concat(Object.keys(COLL_R_SPECS))) {
+    const spec = LB_R_SPECS[cat] || COLL_R_SPECS[cat];
     const R = rewardR_(cat, '40-99', 'NONPAYER', ds);
+    if (!regionEq(spec)) {
+      if (R) {
+        const off = Object.keys(R).filter(r => Math.abs(R[r] - 1) > 1e-9)
+          .reduce((o, k) => (o[k] = +R[k].toFixed(3), o), {});
+        edited.push(cat + ' ' + JSON.stringify(off));
+      }
+      continue;
+    }
     if (R) for (const res in R) if (Math.abs(R[res] - 1) > Math.abs(worst - 1)) worst = R[res];
   }
-  gate('R == 1 for every event with untouched v2 configs', Math.abs(worst - 1) < 1e-9, 'worst ' + worst);
+  if (edited.length) console.log('  v2 config edits present in the workbook: ' + edited.join(' · '));
+  gate('R == 1 for every event whose v2 config matches base', Math.abs(worst - 1) < 1e-9, 'worst ' + worst);
 }
-// Kite re-classification: leaderboard semantics, sim == measured x T exactly (D pinned 1, R=1)
+// Kite re-classification: leaderboard semantics, sim == measured x R x T exactly (D pinned 1).
+// Canary: sim must DIFFER from measured — if every timed event equals measured, the calendar
+// parse fail-safe engaged (run Precompute). R folds in any real Ki_v2 edits (workbook 8: 0.833).
 {
   const c2 = Context.get();
   const measK = num(measuredRow_('Kite Festival', '40-99', 'NONPAYER', c2.ds)['HC']);
   const tK = timingRatio_(c2.calCur['Kite Festival'] || [], c2.calNew['Kite Festival'] || [], '40-99', 'NONPAYER', c2.ds);
-  gate('Kite = measured x T (zero-sum rank payouts; canary now GROWS)',
-       Math.abs(baseline[idx('Kite Festival')][0] - measK * tK) < 1e-9,
-       `sim ${baseline[idx('Kite Festival')][0].toFixed(2)} vs ${(measK * tK).toFixed(2)} (T=${tK.toFixed(2)})`);
+  const RK = rewardR_('Kite Festival', '40-99', 'NONPAYER', c2.ds);
+  const rK = (RK && RK['HC'] != null) ? RK['HC'] : 1;
+  gate('Kite = measured x R x T (zero-sum rank payouts; canary: differs from measured)',
+       Math.abs(baseline[idx('Kite Festival')][0] - measK * rK * tK) < 1e-9 &&
+       Math.abs(measK * rK * tK - measK) > 1e-6,
+       `sim ${baseline[idx('Kite Festival')][0].toFixed(2)} vs ${(measK * rK * tK).toFixed(2)} (R=${rK.toFixed(3)}, T=${tK.toFixed(2)})`);
 }
 // Reset the engine's per-execution sheetVals_ cache. In real Sheets every recalc is a fresh
 // execution (empty cache); this harness fakes several "executions" in one process, so we clear the
