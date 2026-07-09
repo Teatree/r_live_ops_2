@@ -27,7 +27,7 @@ All scripts anchor their paths to their own file location, so run them from anyw
 - **Google Apps Script** (`engine/`) — the simulation engine, edited locally and pasted into the Apps Script project of a Google Sheets workbook. **Current engine: `EcoGainsSim_v4.gs`** (custom functions `ECOGAINS_SIM(payer, segment)` / `ECOGAINS_DIFF(payer, segment)`, each spilling 25 categories × 11 resources). Companions in the same Apps Script project: `EcoGainsSim_Daily.gs` (per-day 33-row view, `ECOGAINS_DAILY`), `EcoGainsSim_PBP.gs` (play-by-play session sim, `ECOGAINS_PBP`/`_EVENTS`/`_PROFILE` — see SIMULATION_METHODOLOGY §14), `SimPerSegmentFill.gs` (menu-run filler for the 'Sim per Segment' rollup), `calParseTest.gs` (calendar-parser verification). `archive/EcoGainsSim.gs` is the superseded v1 — don't extend it.
 - **Athena/Trino SQL** (`sqls/`) — queries against schema `abgbproduction_174525b3_gdpr` that produce the `data_*` sheets the engine reads. Each file is named after the sheet it feeds (`data_seg_beh.sql`, `data_event_inst.sql`, `data_event_accrual.sql`, `data_event_kite_accrual.sql`); `resource_share_by_category_period_v2.sql` produces `data_gains`. Exception: `sqls/daily_gains.sql` is actually **Python** despite the extension — the notebook export step that pushes the query dataframes into the workbook's `data_*` sheets via the Sheets API, and the authoritative source for every `data_*` column's meaning (its `HEADER_NOTES` dict).
 - **Excel exports** (`workbooks/`) — Google Sheets workbooks exported for reference. The workbook of record is the **highest-numbered `workbooks/NEW_LIVEOPS_CALENDAR_ECO (N).xlsx`**. Sheets-native `LET`/dynamic-array formulas do NOT recalc in Excel/openpyxl; only cached values survive (as `__xludf.DUMMYFUNCTION`).
-- **Python builders** (`builders/_build_*.py`, openpyxl) — generate the display-sheet xlsx files in `display/` (`EcoGainsSim_HC_v4`, `EcoGainsSim_Daily`, `EventReach_v1`, `EventReach_LB_v1`, `Sim_per_Segment_v2`, `EcoGainsSim_PlybyPly_v5`) which are then imported into the Google workbook. Regenerate by editing the script and re-running it — never hand-edit the xlsx. Superseded builder/xlsx versions live in `archive/`: when a new version supersedes a builder, move the old one there.
+- **Python builders** (`builders/_build_*.py`, openpyxl) — generate the display-sheet xlsx files in `display/` (`EcoGainsSim_HC_v4`, `EcoGainsSim_Daily_v2`, `EventReach_v1`, `EventReach_LB_v1`, `Sim_per_Segment_v3`, `EcoGainsSim_PlybyPly_v6`) which are then imported into the Google workbook. Regenerate by editing the script and re-running it — never hand-edit the xlsx. Superseded builder/xlsx versions live in `archive/`: when a new version supersedes a builder, move the old one there.
 - **PDFs** (`design_pdfs/`) — game-design docs per event (DRBL* = Dream Blast events, NEST* = related events).
 - **Markdown context docs** — the authoritative project state (see reading order below). Per-source game mechanics live in `source_docs/`.
 
@@ -48,7 +48,7 @@ node harness/_mock_pbp.js        # same for EcoGainsSim_PBP.gs (~20 checks incl.
 python builders/_build_hc_v4.py  # rebuild a display xlsx into display/ (same pattern for the other _build_*.py)
 ```
 
-`harness/_mockdata.json` is a dump of the live workbook's sheets (values + merges). The Kite row is the canary: it must GROW ≈ ×1.3 (measured × T; Kite re-classified as a zero-sum leaderboard 2026-07-06 — before that the canary direction was shrink) — if it shows "no change", calendar parsing fell back to carry-measured.
+`harness/_mockdata.json` is a dump of the live workbook's sheets (values + merges). The Kite row is the canary: it must DIFFER from measured (= measured × R × T; ≈ ×1.09 with workbook (8)'s real Ki_v2 edits, ×1.3 back when v2 was untouched; Kite re-classified as a zero-sum leaderboard 2026-07-06) — if it shows "no change", calendar parsing fell back to carry-measured.
 
 ## The big picture
 
@@ -72,7 +72,7 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 
 - **All `.gs` files share one global namespace.** A test file re-declaring `parseCalendarInstances_` once silently overrode the engine's parser. Helper/test files must define no duplicate names.
 - Custom functions sometimes can't read merges → menu **EcoGainsSim ▸ Precompute calendars** writes parsed instances to a hidden `cal_parsed` sheet, which the engine prefers. Re-run after editing merges (merge edits fire no `onEdit` trigger; value edits are caught by `AUTO_REFRESH`).
-- Google only re-runs a custom function when its ARGUMENTS change; `AUTO_REFRESH = true` + the `onEdit` trigger re-touch the formulas after input-sheet edits.
+- Google only re-runs a custom function when its ARGUMENTS change; every `ECOGAINS_*` formula therefore carries a trailing `sim_refresh!$A$1` nonce argument, and `AUTO_REFRESH = true` + the `onEdit` trigger bump that nonce after input-sheet edits (one atomic write — formulas are NEVER cleared/re-set; the old clear→restore refresh is what periodically wiped them: onEdit's ~30s hard kill skips `finally`). `refreshSims_` self-heals: adds the nonce to formulas missing it and restores vanished anchors from a document-properties snapshot.
 
 ## Related but separate work in this folder
 
