@@ -118,7 +118,65 @@ check('HH marginal spread (4d instance): day2 > day1 and day4 ≈ 0',
 check('unknown source -> message', String(ECOGAINS_DAILY('NONPAYER', '0-9', 'Nope', 'NEW')[0][0]).indexOf('Unknown source') === 0);
 check('unknown block -> message', String(ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'YO')[0][0]).indexOf('Unknown block') === 0);
 
-// ---- 5. eyeball: HC daily NEW totals, 0-9 NONPAYER ----
+// ---- 5. NET blocks (SPEND / CURNET / NEWNET — data_econ_daily, per earner) ----
+const isBlankGrid = g => Array.isArray(g) && g.length === 33 &&
+  g.every(row => Array.isArray(row) && row.length === 11 && row.every(x => x === ''));
+
+// 5a. fail-safe: without a data_econ_daily sheet every NET block spills a 33x11 grid of ''
+{
+  const stash = data['data_econ_daily'];
+  delete data['data_econ_daily'];
+  _sheetValsCache = {};                                   // eval'd var leaks into module scope
+  const g = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'CURNET');
+  check("NET fail-safe: no data_econ_daily -> 33x11 grid of ''", isBlankGrid(g));
+  if (stash !== undefined) data['data_econ_daily'] = stash;
+}
+
+// 5b. synthetic fixture (deterministic; segments 0-9 and 100+ only — 10-19 deliberately missing)
+function synthEconDaily() {
+  const rows = [['segment', 'payer_flag', 'currency', 'day_index', 'gain_total', 'spend_total',
+                 'resource_earners', 'gain_per_earner_day', 'spend_per_earner_day', 'net_per_earner_day']];
+  for (const seg of ['0-9', '100+'])
+    for (const payer of ['NONPAYER', 'PAYER'])
+      RESOURCES.forEach((res, j) => {
+        for (let d = 1; d <= 33; d++) {
+          const gain = 10 + 0.1 * d + j, spend = 8 + 0.05 * d;
+          rows.push([seg, payer, res, d, gain * 1000, spend * 1000, 1000, gain, spend, gain - spend]);
+        }
+      });
+  return { values: rows, merges: [] };
+}
+{
+  const stash = data['data_econ_daily'];
+  data['data_econ_daily'] = synthEconDaily();
+  _sheetValsCache = {};
+  for (const payer of ['NONPAYER', 'PAYER']) {
+    for (const seg of ['0-9', '100+']) {
+      const spend = ECOGAINS_DAILY(payer, seg, 'ALL', 'SPEND');
+      const curnet = ECOGAINS_DAILY(payer, seg, 'ALL', 'CURNET');
+      const newnet = ECOGAINS_DAILY(payer, seg, 'ALL', 'NEWNET');
+      const dif = ECOGAINS_DAILY(payer, seg, 'ALL', 'DIFF');
+      let eS = 0, eC = 0, eN = 0;
+      for (let d = 0; d < 33; d++) for (let j = 0; j < 11; j++) {
+        const gain = 10 + 0.1 * (d + 1) + j, sp = 8 + 0.05 * (d + 1);
+        eS = Math.max(eS, Math.abs(spend[d][j] - sp));
+        eC = Math.max(eC, Math.abs(curnet[d][j] - (gain - sp)));
+        eN = Math.max(eN, Math.abs(newnet[d][j] - curnet[d][j] - dif[d][j]));
+      }
+      check(`NET SPEND == fixture (${seg} ${payer})`, eS < 1e-9, 'max err ' + eS.toExponential(2));
+      check(`NET CURNET == gain - spend (${seg} ${payer})`, eC < 1e-9, 'max err ' + eC.toExponential(2));
+      check(`NET NEWNET - CURNET == DIFF (${seg} ${payer})`, eN < 1e-9, 'max err ' + eN.toExponential(2));
+    }
+  }
+  // blank-unless-ALL: spend is game-wide, single-source views must stay blank
+  check('NET blank when Source != ALL', isBlankGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'CURNET')));
+  // per-key missing -> blank (fixture has no 10-19 rows)
+  check('NET blank for segment missing from data_econ_daily', isBlankGrid(ECOGAINS_DAILY('NONPAYER', '10-19', 'ALL', 'CURNET')));
+  if (stash !== undefined) data['data_econ_daily'] = stash; else delete data['data_econ_daily'];
+  _sheetValsCache = {};
+}
+
+// ---- 6. eyeball: HC daily NEW totals, 0-9 NONPAYER ----
 const allNew = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'NEW');
 const allDif = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DIFF');
 const DOW = ['Wed','Thu','Fri','Sat','Sun','Mon','Tue'];

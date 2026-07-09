@@ -4,11 +4,27 @@
  * REQUIRES EcoGainsSim_v4.gs in the same project (uses Context, CATEGORY_ORDER, RESOURCES,
  * resultRow_, measuredRow_, reachOne_, isWeekend_, num).
  *
- * CUSTOM FUNCTION (three anchors on the sheet, each spilling 33 days x 11 resources):
+ * CUSTOM FUNCTION (six anchors on the sheet, each spilling 33 days x 11 resources):
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURRENT"))
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEW"))
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "DIFF"))
+ *   =LET(...same..., ECOGAINS_DAILY(payer, segment, source, "SPEND"))    // NET blocks, see below
+ *   =LET(...same..., ECOGAINS_DAILY(payer, segment, source, "CURNET"))
+ *   =LET(...same..., ECOGAINS_DAILY(payer, segment, source, "NEWNET"))
  *   source = 'ALL' or one CATEGORY_ORDER name.
+ *
+ * NET BLOCKS (per EARNER, actual daily data): read the 'data_econ_daily' sheet
+ * (segment | payer_flag | currency | day_index -> gain_per_earner_day / spend_per_earner_day,
+ * window-earner denominator so days sum to the data_econ window totals):
+ *   SPEND(day)  = actual spend that day
+ *   CURNET(day) = actual gain(day) - actual spend(day)
+ *   NEWNET(day) = actual gain(day) + [sim NEW(day) - sim CURRENT(day), all categories] - spend(day)
+ *                 (spend held constant; the sim's day-shift is ADDED onto the actual gains, so the
+ *                 33 days still sum to the window totals and net delta == the DIFF block)
+ * NET blocks spill a 33x11 grid of '' (blank) when: source != ALL (spend is game-wide and cannot
+ * be attributed to one source), data_econ_daily is missing / lacks the expected headers, or has no
+ * rows for this (segment, payer). The '' cells are deliberate: the sheet's net-delta formulas
+ * subtract these cells, and '' makes them error into their IFERROR blank instead of coercing to 0.
  *
  * ALLOCATION MODEL ("claim-day realistic") — window totals are the same numbers the main sim
  * produces (CURRENT = measured, anchored on cal_curr; NEW = simulated, anchored on cal_new);
@@ -29,6 +45,8 @@
  ************************************************************************************************/
 
 var DAILY_DAYS = 33;
+var DAILY_ECON_SHEET = 'data_econ_daily';                 // actual per-day gain/spend (per earner)
+var DAILY_NET_BLOCKS = { 'SPEND':1, 'CURNET':1, 'NEWNET':1 };
 
 // how each source's window total is placed on days (anything not listed = flat)
 var DAILY_ALWAYS  = { 'Core':1, 'Saga':1, 'Daily Gift':1 };
@@ -54,10 +72,28 @@ function ECOGAINS_DAILY(payer, segment, source, block){
   var s = String(segment || '0-9').trim();
   var src = String(source || 'ALL').trim();
   var blk = String(block  || 'NEW').trim().toUpperCase();
-  if (blk !== 'CURRENT' && blk !== 'NEW' && blk !== 'DIFF')
-    return [['Unknown block: ' + blk + " (use CURRENT / NEW / DIFF)"]];
+  if (blk !== 'CURRENT' && blk !== 'NEW' && blk !== 'DIFF' && !DAILY_NET_BLOCKS[blk])
+    return [['Unknown block: ' + blk + " (use CURRENT / NEW / DIFF / SPEND / CURNET / NEWNET)"]];
   if (src.toUpperCase() !== 'ALL' && CATEGORY_ORDER.indexOf(src) === -1)
     return [['Unknown source: ' + src]];
+
+  if (DAILY_NET_BLOCKS[blk]){
+    if (src.toUpperCase() !== 'ALL') return blankGrid_();  // spend is game-wide: NET only for ALL
+    var econ = econDaily_(s, p);
+    if (!econ) return blankGrid_();                        // no data_econ_daily (yet) -> blank
+    if (blk === 'SPEND')  return daysToGrid_(econ.spend);
+    if (blk === 'CURNET') return daysToGrid_(diffSeries_(econ.gain, econ.spend));
+    // NEWNET = actual net + the sim's per-day gain shift (NEW - CURRENT over all categories)
+    var ctxN = Context.get(), curN = emptyDays_(), nwN = emptyDays_();
+    CATEGORY_ORDER.forEach(function(cat){
+      addSeries_(curN, dailySeries_(cat, s, p, ctxN, false));
+      addSeries_(nwN,  dailySeries_(cat, s, p, ctxN, true ));
+    });
+    var net = diffSeries_(econ.gain, econ.spend);
+    addSeries_(net, diffSeries_(nwN, curN));
+    return daysToGrid_(net);
+  }
+
   var cats = (src.toUpperCase() === 'ALL') ? CATEGORY_ORDER : [src];
 
   var ctx = Context.get();
@@ -153,6 +189,43 @@ function curveRaw_(curve, d){
     }
   }
   return maxShare;
+}
+
+// data_econ_daily reader: segment | payer_flag | currency | day_index ->
+// gain_per_earner_day / spend_per_earner_day. Returns { gain: days[], spend: days[] }
+// (33 x {resource: value}) or null when the sheet is missing, lacks the expected headers, or has
+// no rows for this (segment, payer) — callers then spill the blank grid (fail-safe).
+function econDaily_(seg, payer){
+  var v = sheetVals_(DAILY_ECON_SHEET);
+  if (!v.length) return null;
+  var h = headerIndex_(v[0]);
+  if (h['currency'] == null || h['day_index'] == null ||
+      h['gain_per_earner_day'] == null || h['spend_per_earner_day'] == null) return null;
+  var gain = emptyDays_(), spend = emptyDays_(), found = false;
+  for (var i = 1; i < v.length; i++){ var r = v[i];
+    if (String(r[h['segment']]).trim() !== seg || String(r[h['payer_flag']]).trim() !== payer) continue;
+    var res = String(r[h['currency']]).trim();
+    if (RESOURCES.indexOf(res) === -1) continue;
+    var d = Math.round(num(r[h['day_index']]));
+    if (d < 1 || d > DAILY_DAYS) continue;
+    gain[d-1][res]  += num(r[h['gain_per_earner_day']]);
+    spend[d-1][res] += num(r[h['spend_per_earner_day']]);
+    found = true;
+  }
+  return found ? { gain: gain, spend: spend } : null;
+}
+
+// 33x11 grid of '' — the NET blocks' blank spill. MUST be '' text cells, not an empty/1x1 array:
+// the display sheet's net-delta formulas subtract these cells, and truly-empty cells coerce to 0
+// (net delta would read 0 instead of blank); '' makes the subtraction error into its IFERROR "".
+function blankGrid_(){
+  var out = [];
+  for (var d = 0; d < DAILY_DAYS; d++){
+    var row = [];
+    for (var j = 0; j < RESOURCES.length; j++) row.push('');
+    out.push(row);
+  }
+  return out;
 }
 
 // ---- small helpers ----

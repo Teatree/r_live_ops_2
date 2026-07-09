@@ -23,6 +23,9 @@ SHEETS = [
     'J_v2', 'HH_v2', 'BB_v2', 'Ph_v2', 'Ki_v2', 'TaD_v2', 'Race_v2', 'F_v2',
     # base config sheets (R-term pairs: reward-config ratio v2/base, added 2026-07-06)
     'J', 'HH', 'BB', 'Ph', 'Ki', 'TaD', 'Race', 'F',
+    # NET inputs (SimPerSegmentFill per-earner NET / ECOGAINS_DAILY net blocks) — expected MISSING
+    # until the per-earner data_econ re-pull and the new data_econ_daily sheet land in the workbook
+    'data_econ', 'data_econ_daily',
 ]
 
 wb = openpyxl.load_workbook(SRC, data_only=True)

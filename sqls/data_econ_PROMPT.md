@@ -1,7 +1,9 @@
-# Prompt — extend the economy query to produce `data_econ` (per-active-player gain/spend/net)
+# Prompt — extend the economy query to produce `data_econ` (per-earner + per-active-player gain/spend/net)
 
 Paste this to your query LLM **together with your current `data_seg_beh` query** (so it reuses the
-exact same window, cohort, segmentation and filters).
+exact same window, cohort, segmentation and filters). **v2 (2026-07-09):** adds four per-EARNER
+columns — the downstream sheet now consumes those; the per-active-player columns are retained for
+continuity/analysis.
 
 ---
 
@@ -22,13 +24,29 @@ has 0 spend — emit 0, don't drop it).
 | `gain_per_active_player` | total of that currency **gained** over the window ÷ **unique active players in the segment** (the same `unique_players` denominator as `data_seg_beh`) |
 | `spend_per_active_player` | total of that currency **spent/consumed** over the window ÷ the same `unique_players` |
 | `net_per_active_player` | `gain_per_active_player - spend_per_active_player` |
+| `resource_earners` | distinct players with **gain > 0** of this currency in the window, in this segment × payer tier — the **same definition as `data_gains.resource_earners`** ("Distinct players who earned >0 of this resource in this segment x payer tier"), so the two sheets reconcile |
+| `gain_per_earner` | total of that currency gained over the window ÷ `resource_earners` |
+| `spend_per_earner` | total of that currency spent over the window ÷ `resource_earners` — **same gainer denominator, NOT distinct spenders**, so gain and spend are directly nettable on one basis |
+| `net_per_earner` | `gain_per_earner - spend_per_earner` |
 | `gain_p25/p50/p75/p90` | per-player gain distribution (percentiles over players, 0 for non-gainers) |
 | `spend_p25/p50/p75/p90` | per-player spend distribution |
 | `net_p25/p50/p75/p90` | per-player **net** distribution (compute each player's gain−spend first, THEN percentile) |
 
-**Basis is per ACTIVE PLAYER**, not per earner/spender: divide segment totals by `unique_players`
-(all active players in the window), so gain and spend are directly nettable. The percentiles are
-over the full active-player population in the segment (players with no gain/spend contribute 0).
+**Two bases, deliberately:**
+- The `*_per_active_player` columns divide segment totals by `unique_players` (all active players
+  in the window) — kept for continuity with the previous version of this sheet.
+- The `*_per_earner` columns divide the SAME totals by `resource_earners` (players who gained >0 of
+  that currency). **These are what the downstream sheet now uses**, because its gains block is per
+  earner too. Note the deliberate choice: spend is also divided by the *gainer* count — a player who
+  spends the currency without gaining any in the window sits in the numerator but not the
+  denominator (slightly inflates per-earner spend; accepted so gain and spend net cleanly).
+- The percentiles stay over the full active-player population (players with no gain/spend
+  contribute 0), unchanged from v1.
+
+**Acceptance check** (please verify before delivering): per (segment, payer_flag, currency),
+`gain_per_earner` should be ≈ the sum over categories of `data_gains.amount_per_earner` for that
+same key. Small gaps are expected (the `data_gains` query drops cells with fewer than 50 earners),
+but the two should agree within a few percent for the big cells.
 
 ## Units (match the game/sim conventions)
 - `HC` = **coins only**.
@@ -57,8 +75,10 @@ the `HEADER_NOTES` doc-string describing each column. Keep it a **separate** que
 
 ### Why this shape (for my downstream sheet)
 `Sim per Segment` will show, per currency × segment × payer: `current_spend`, `current_net`,
-`new_net`, `net_diff`. It computes `new_net = gain_per_active_player × (simulated_gains /
-current_gains) − spend_per_active_player` — i.e. **spend is held constant** (we are NOT modelling how
-config changes shift spend), and the simulated/current gains ratio comes from my sim engine. So I
-only need the **current** per-player gain and spend from you; the projection is done in the sheet.
-An "overall" row weights the segments by `unique_players` (already in `data_seg_beh`).
+`new_net`, `net_diff`, all **per earner**. It computes `new_net = gain_per_earner +
+(simulated_gains − current_gains) − spend_per_earner` — i.e. **spend is held constant** (we are NOT
+modelling how config changes shift spend), and the absolute simulated-minus-current gain movement
+comes from my sim engine and is ADDED on (not applied as a ratio — my engine models only part of
+the total faucet). So I only need the **current** per-earner gain and spend from you; the
+projection is done in the sheet. An "overall" row weights the segments by `resource_earners` for
+the net columns (hence that column must be emitted) and by `unique_players` for the gains columns.

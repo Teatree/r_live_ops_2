@@ -7,8 +7,10 @@
 # Run:  python builders/_restore_formulas.py            # uses the highest NEW_LIVEOPS_CALENDAR_ECO
 #       python builders/_restore_formulas.py "<path>"   # or point at a specific workbook
 #
-# Anchors were verified against workbook (7); they follow the builders (_build_hc_v4 / _build_daily
-# / _build_pbp_v6). If a sheet is ever restructured, update ANCHORS below.
+# Anchors were verified against workbook (7) + the v2 Daily layout (NET blocks added 2026-07-09);
+# they follow the builders (_build_hc_v4 / _build_daily / _build_pbp_v6). If a sheet is ever
+# restructured, update ANCHORS below. NOTE: the AN9/AZ9/BL9 NET anchors only exist in the Google
+# workbook after the EcoGainsSim_Daily_v2 display sheet has been imported.
 import os, sys, glob, re
 import openpyxl
 
@@ -24,26 +26,36 @@ def newest_workbook():
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else newest_workbook()
 
+# The trailing sim_refresh!$A$1 on HC/Daily/cal_new anchors is the engine's refresh NONCE
+# (ignored by the functions; changing it is what re-runs the sims — since the nonce refactor the
+# engine never clears formulas, so disappearances should be history; this script stays as the
+# manual fallback). PBP keeps bare args: its sheet isn't on the engine's refresh list.
+NONCE = 'sim_refresh!$A$1'
+
 # --- HC: 6 segment blocks; SIM in col C, DIFF in col O, at data-row-0 = header row + 2 ---
 def hc_formulas():
     cells = {}
     for hdr in (6, 35, 64, 93, 122, 151):
         d0 = hdr + 2
-        cells[f'C{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment))'
-        cells[f'O{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment))'
+        cells[f'C{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment, {NONCE}))'
+        cells[f'O{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, {NONCE}))'
     return cells
 
 DAILY = {
-    'D9':  '=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURRENT"))',
-    'P9':  '=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEW"))',
-    'AB9': '=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "DIFF"))',
+    'D9':  f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURRENT", {NONCE}))',
+    'P9':  f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEW", {NONCE}))',
+    'AB9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "DIFF", {NONCE}))',
+    # v2 NET blocks (net Δ at BX is plain sheet formulas, not a spill — nothing to restore there)
+    'AN9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "SPEND", {NONCE}))',
+    'AZ9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURNET", {NONCE}))',
+    'BL9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEWNET", {NONCE}))',
 }
 PBP = {
     'A14': '=ECOGAINS_PBP_PROFILE($B$5,$B$6)',
     'A23': '=ECOGAINS_PBP_EVENTS($B$3,$B$4,$B$5,$B$6,$B$8)',
     'A52': '=ECOGAINS_PBP($B$3,$B$4,$B$5,$B$6,$B$7,$B$8,$B$9,$B$10,$B$11)',
 }
-CALNEW = {'E38': '=ECOGAINS_CAL_COUNTS()'}   # CalStats.gs — the instances/event-days summary
+CALNEW = {'E38': f'=ECOGAINS_CAL_COUNTS({NONCE})'}   # CalStats.gs — the instances/event-days summary
 
 # sheet name in the workbook -> {cell: formula}
 ANCHORS = {

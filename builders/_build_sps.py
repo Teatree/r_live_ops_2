@@ -1,10 +1,15 @@
-# Builds Sim_per_Segment_v2.xlsx — the 'Sim per Segment' rollup, one table per resource.
-# GAINS block (per earner, from the engine) + NET block (per ACTIVE PLAYER, spend held constant).
-# Each payer block now ends with an 'overall' row = unique_players-weighted average of the 5 segs.
+# Builds Sim_per_Segment_v3.xlsx — the 'Sim per Segment' rollup, one table per resource.
+# GAINS block (per earner, from the engine) + NET block (per EARNER too since v3 — same
+# resource_earners denominator as the gains block — spend held constant).
+# Each payer block ends with an 'overall' row: gains = unique_players-weighted average of the 5
+# segs; NET columns = resource_earners-weighted (written by the menu script).
 #
 # Prefilled with the offline gains from _sps_values.json and unique_players from the live workbook.
-# The NET columns (current_spend/current_net/new_net/net_diff) need the new 'data_econ' sheet and
-# are populated by the menu action (SimPerSegmentFill.gs) — left blank here until that data exists.
+# The NET columns (current_spend/current_net/new_net/net_diff) need the per-earner columns on the
+# 'data_econ' sheet (gain_per_earner / spend_per_earner / resource_earners — see
+# sqls/data_econ_PROMPT.md v2) and are populated by the menu action (SimPerSegmentFill.gs) —
+# left blank here until that data exists.
+import glob
 import json, os, openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -16,8 +21,12 @@ GROUPS = ['PAID', 'ADS', 'CORE', 'META']
 SEGS = ['0-9', '10-19', '20-39', '40-99', '100+']
 PAYERS = ['NONPAYER', 'PAYER']
 
-# unique_players weights (for the prefilled 'overall' rows) from the live workbook
-SRC = os.path.join(HERE, '..', 'workbooks', 'NEW_LIVEOPS_CALENDAR_ECO (7).xlsx')
+# unique_players weights (for the prefilled 'overall' rows) from the workbook of record
+# (highest-numbered NEW_LIVEOPS_CALENDAR_ECO (N).xlsx — same pick rule as harness/_dump_mockdata.py)
+import re as _re
+_books = glob.glob(os.path.join(HERE, '..', 'workbooks', 'NEW_LIVEOPS_CALENDAR_ECO*.xlsx'))
+_books.sort(key=lambda n: int((_re.search(r'\((\d+)\)', n) or [0, 0])[1]))
+SRC = _books[-1]
 _sb = openpyxl.load_workbook(SRC, data_only=True)['data_seg_beh']
 UP = {}
 for r in range(2, _sb.max_row + 1):
@@ -72,7 +81,7 @@ for t, res in enumerate(RES):
     bands = [(3, 7, '◄ CURRENT (actuals: data + calc) ►', F_CUR),
              (9, 13, '◄ SIMULATED (EcoGainsSim v4) ►', F_SIM),
              (15, 19, 'Δ', F_DELTA),
-             (NET_C0, NET_C0 + 3, '◄ NET / active player (spend held constant) ►', F_NET)]
+             (NET_C0, NET_C0 + 3, '◄ NET / earner (spend held constant) ►', F_NET)]
     bf = Font(name='Arial', size=11, bold=True, color='FFFFFFFF')
     for c1, c2, txt, rgb in bands:
         for c in range(c1, c2 + 1):
@@ -118,6 +127,6 @@ for t, res in enumerate(RES):
             # net Δ = new_net - cur_net (live)
             ws.cell(r, NET_C0 + 3).value = f'=IFERROR({CL(NET_C0+2)}{r}-{CL(NET_C0+1)}{r},"")'
 
-wb.save(os.path.join(HERE, '..', 'display', 'Sim_per_Segment_v2.xlsx'))
-print('written Sim_per_Segment_v2.xlsx —', len(RES), 'tables, PITCH', PITCH,
-      ', markers at', [3 + t * PITCH for t in range(len(RES))])
+wb.save(os.path.join(HERE, '..', 'display', 'Sim_per_Segment_v3.xlsx'))
+print('written Sim_per_Segment_v3.xlsx (from', os.path.basename(SRC), ') —', len(RES),
+      'tables, PITCH', PITCH, ', markers at', [3 + t * PITCH for t in range(len(RES))])
