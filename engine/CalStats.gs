@@ -16,7 +16,10 @@
  *   C38:C62: the 25 source labels, in CATEGORY_ORDER (== the order this function returns).
  *
  * Put ONE formula in E38:
- *     =ECOGAINS_CAL_COUNTS()
+ *     =ECOGAINS_CAL_COUNTS(sim_refresh!$A$1)
+ * (the argument is the engine's refresh NONCE — it is ignored by the function, but Google only
+ * re-runs a custom function when its arguments change, so the nonce is what makes refresh work;
+ * a bare =ECOGAINS_CAL_COUNTS() also works and refreshSims_ will rewrite it with the nonce.)
  * It spills 25 rows x 7 cols -> E38:K62, laid out to match the headers (G and J left blank):
  *     E = old instances   F = old event-days   [G blank]
  *     H = new instances    I = new event-days   [J blank]
@@ -27,10 +30,10 @@
  * ECOGAINS_CAL_STATS behaviour). Event-days count REAL days (a window-clipped instance counts only
  * the days that fall inside the 33-day grid).
  *
- * REFRESH: this function takes no arguments, so Google only re-runs it when the cell is re-touched.
- * The engine's refreshSims_ re-touches every ECOGAINS_ formula on REFRESH_SHEETS; add 'cal_new' to
- * that list (done in EcoGainsSim_v4.gs) so a calendar/input edit (or Precompute) refreshes E38 too.
- * Otherwise refresh manually: menu EcoGainsSim > Refresh simulations, or re-enter the E38 formula.
+ * REFRESH: via the nonce argument above. 'cal_new' is on the engine's REFRESH_SHEETS list, so a
+ * calendar/input edit (or Precompute) bumps sim_refresh!A1 and re-runs E38 — no formula clearing
+ * (the old clear->restore refresh is what made E38 vanish periodically). Manual refresh: menu
+ * EcoGainsSim > Refresh simulations.
  ************************************************************************************************/
 
 // category -> calendar row label. Own copy (kept in sync with the calendars, not with the engine).
@@ -47,6 +50,7 @@ var CALSTATS_LABEL = {
 /**
  * Per-source instance + event-day counts for cal_curr (old) and cal_new (new), plus an instance
  * diff. Spills 25 rows x 7 cols; drop it at cal_new!E38 (see the header block for the layout).
+ * Accepts (and ignores) the engine's refresh nonce as an argument — see REFRESH above.
  * @customfunction
  */
 function ECOGAINS_CAL_COUNTS(){

@@ -97,8 +97,10 @@ for t, (seg, title, kind) in enumerate(BLOCKS):
             c2.border, c2.number_format = BORDER, FMT_DIFF
         if t == 0 and (cat in ALWAYS_ON or cat in EVENT_SIM):
             sim_rows.append(row)
-    ws.cell(d0, 3).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment))'
-    ws.cell(d0, 15).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment))'
+    # trailing sim_refresh!$A$1 = the engine's refresh NONCE (ignored by the function; changing
+    # it is what re-runs the sim — the engine no longer clears/re-sets formulas)
+    ws.cell(d0, 3).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment, sim_refresh!$A$1))'
+    ws.cell(d0, 15).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, sim_refresh!$A$1))'
     diff_rng = f'O{d0}:Y{d0 + N - 1}'
     ws.conditional_formatting.add(diff_rng, CellIsRule(
         operator='lessThan', formula=['0'],

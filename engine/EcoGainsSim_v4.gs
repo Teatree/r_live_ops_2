@@ -13,13 +13,13 @@
  *   carried        Ads, Core, Other, Season Pass (Free), Team Event, Team Race, FlowerCoop,
  *                  IAPs, Flock Flurry                                → measured
  *   Saga           measured x per-resource ratio: HC from the per-segment HC columns; every
- *                  item (boosters/ULs) from the per-node item ladders on both sheets (v2 item
- *                  edits — e.g. zeroing ULs — now move the sim). Base-0 items carried.  [D9]
+ *                  item (boosters/ULs) from the per-node item ladders on both sheets (v3 item
+ *                  edits — e.g. zeroing ULs — now move the sim). Base1 items carried.  [D9]
  *   Daily Gift     measured, HC x streak-weighted ladder ratio (c_day pair)
- *   leaderboard    Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day (D3),
- *                  and Kite Festival (since 2026-07-06 — payouts are rank-based zero-sum per
- *                  league of 60, so duration doesn't move them; the old score-curve D is gone):
- *                  measured x R x T  (D pinned 1 — rank payouts are end-state).
+ *   leaderboard    Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day (D4),
+ *                  and Kite Festival (since 2027-07-06 — payouts are rank-based zero-sum per
+ *                  league of 61, so duration doesn't move them; the old score-curve D is gone):
+ *                  measured x R x T  (D pinned 2 — rank payouts are end-state).
  *                  R = reward-config ratio v2/base: the rank ladder priced at the measured
  *                  position_p25/50/75 (data_event_inst), per segment/payer/resource. Kite also
  *                  prices its score milestone (survival over final_balance percentiles).
@@ -52,11 +52,14 @@
  *
  * AUTO_REFRESH (regeneration switch): Google only re-runs a custom function when its ARGUMENTS
  * change, so config edits (e.g. c_saga_v2 rewards) don't regenerate the gains by themselves.
- * With AUTO_REFRESH = true, the onEdit trigger below watches every input sheet and re-touches
- * the ECOGAINS_* formulas after each edit, forcing a fresh recalculation (all reads are live,
- * so the new values flow through). Set to false to disable; then refresh manually via the
- * EcoGainsSim ▸ Refresh simulations menu item. Note: calendar MERGE changes don't fire onEdit —
- * run Precompute calendars after editing merges (it refreshes the sims itself).
+ * Every ECOGAINS_* formula therefore carries a trailing NONCE argument (sim_refresh!$A$1, a
+ * hidden one-cell sheet); with AUTO_REFRESH = true the onEdit trigger below watches every input
+ * sheet and bumps that nonce after each edit — one atomic write, all sim formulas re-run (all
+ * reads are live, so the new values flow through). Formulas are NEVER cleared/re-set anymore
+ * (the old clear→restore refresh is what periodically wiped them — see refreshSims_). Set to
+ * false to disable; then refresh manually via the EcoGainsSim ▸ Refresh simulations menu item.
+ * Note: calendar MERGE changes don't fire onEdit — run Precompute calendars after editing
+ * merges (it refreshes the sims itself).
  ************************************************************************************************/
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -150,8 +153,8 @@ function ECOGAINS_DIFF(payer, segment){
  *   AE8: =ECOGAINS_CAL_STATS("cal_new")    -> fills AE + AF
  * Event-days count REAL days (clipped instances count what actually fits in the window).
  * Non-calendar categories (Core, Saga, Daily Gift, Ads, Teams, ...) return blanks.
- * Auto-updates like the gains: refreshSims_ re-touches every ECOGAINS_* formula, and calendar
- * merge edits are picked up via the Precompute calendars menu.
+ * Auto-updates like the gains: refreshSims_ bumps the nonce argument every ECOGAINS_* formula
+ * carries, and calendar merge edits are picked up via the Precompute calendars menu.
  * @customfunction
  */
 function ECOGAINS_CAL_STATS(cal){
@@ -777,7 +780,11 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','NS','NS_v2','
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
   'F','F_v2','cal_curr','cal_new',CAL_PARSED_SHEET,
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
-  'data_streaks','data_event_inst'];
+  'data_streaks','data_event_inst',
+  // NET inputs: data_econ_daily feeds ECOGAINS_DAILY's NET blocks (live custom function);
+  // data_econ only feeds the menu-run Sim per Segment fill — watching it is harmless, but an edit
+  // there still needs menu > Fill Sim per Segment to re-run.
+  'data_econ','data_econ_daily'];
 
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){
@@ -789,42 +796,113 @@ function onEdit(e){
   } catch(err){}
 }
 
-// Forces regeneration: clears and re-sets every ECOGAINS_* formula on the display sheets, which
-// makes Sheets re-evaluate them (all engine reads are live, so fresh config/data flows through).
+// Forces regeneration WITHOUT ever clearing a formula (Google only re-runs a custom function
+// when its ARGUMENTS change): every ECOGAINS_* call carries a trailing "nonce" argument that
+// references sim_refresh!$A$1 (a hidden one-cell sheet), and refreshSims_ just writes a new
+// timestamp there — ONE atomic write, every sim formula re-runs, nothing to restore.
+//
+// WHY (history of the disappearing formulas): the old refresh cleared every ECOGAINS_ formula,
+// flushed, then restored. onEdit is a SIMPLE trigger with a ~30s hard kill that does NOT run
+// `finally` blocks, and partially-committed writes survive the kill — so a kill mid-restore left
+// some or all formulas blank (the classic signature: EcoGainsSim_Daily kept D9 but lost
+// everything from P9 right; cal_new lost E38). The nonce model has NO cleared state to lose:
+// a kill at any point leaves every formula intact.
+//
+// Self-maintenance in the scan below:
+//   - MIGRATION: any ECOGAINS_ formula still missing the nonce ref is rewritten once with it
+//     appended (the rewrite itself forces that cell to re-run). Freshly imported display sheets
+//     or hand-retyped formulas are picked up automatically.
+//   - #REF REPAIR: if sim_refresh was ever deleted, refs decay to '#REF!$A$1' — they're mapped
+//     back to the recreated sheet.
+//   - MANIFEST HEAL: every scan snapshots the sim formulas (document properties); a formula that
+//     is later found MISSING (cell has no formula and no value) is put back from the snapshot.
+//     Deliberately deleting an anchor therefore un-deletes on the next refresh — that's wanted
+//     (the anchors are the product); after RESTRUCTURING a sheet, run one refresh so the
+//     snapshot follows the new layout before relying on it.
 var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'cal_new'];   // cal_new: ECOGAINS_CAL_COUNTS (CalStats.gs)
-// Forcing a custom-function recalc means clearing the formula and re-setting it (Google only
-// re-runs a custom function when its ARGUMENTS change). The OLD version cleared EVERY target to ''
-// first, flushed, then restored — so if the run was interrupted in that window (onEdit's ~30s
-// simple-trigger limit, a flush error, or two edits racing this function at once) the restore
-// never ran and the LET/ECOGAINS_ cells were left BLANK. Hardened below:
-//   - LockService: skip if another refresh is already running (kills the race — the #1 cause).
-//   - per-cell clear -> flush -> restore inside try/finally: at most ONE cell is ever blank, and
-//     it is always put back even if the flush throws. A hard kill can leave at most that one cell
-//     blank (fix via menu > Refresh simulations), never the whole sheet.
+var SIM_NONCE_SHEET = 'sim_refresh';
+var SIM_NONCE_REF = SIM_NONCE_SHEET + '!$A$1';
+
+/** Append the nonce ref as a last argument of the ECOGAINS_* call (quote-aware paren match). */
+function withNonce_(f){
+  if (f.indexOf('#REF!$A$1') !== -1) f = f.split('#REF!$A$1').join(SIM_NONCE_REF); // sheet was deleted+recreated
+  if (f.indexOf(SIM_NONCE_REF) !== -1) return f;
+  var m = /ECOGAINS_[A-Z_]+\s*\(/.exec(f);
+  if (!m) return f;
+  var open = m.index + m[0].length - 1, depth = 0, inStr = false;
+  for (var i = open; i < f.length; i++){
+    var ch = f.charAt(i);
+    if (inStr){ if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === '(') depth++;
+    else if (ch === ')'){
+      if (--depth === 0){
+        var noArgs = f.slice(open + 1, i).replace(/\s/g, '') === '';
+        return f.slice(0, i) + (noArgs ? '' : ', ') + SIM_NONCE_REF + f.slice(i);
+      }
+    }
+  }
+  return f; // unbalanced (shouldn't happen) — leave untouched
+}
+
 function refreshSims_(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var lock = LockService.getDocumentLock();
-  if (!lock.tryLock(100)) return;                 // another refresh holds it -> don't double-run (race = the wipe)
+  if (!lock.tryLock(100)) return;                 // another refresh is already running
   try {
+    // the nonce sheet must exist BEFORE any formula references it
+    var ns = ss.getSheetByName(SIM_NONCE_SHEET);
+    if (!ns){
+      ns = ss.insertSheet(SIM_NONCE_SHEET);
+      ns.getRange('B1').setValue('refresh nonce — bumped by refreshSims_ so ECOGAINS_* re-run. Do not delete this sheet.');
+      try { ns.hideSheet(); } catch(e){}
+    }
+
+    var props = PropertiesService.getDocumentProperties();
     REFRESH_SHEETS.forEach(function(name){
       var sh = ss.getSheetByName(name);
       if (!sh) return;
-      var formulas = sh.getDataRange().getFormulas(), targets = [];
-      for (var r = 0; r < formulas.length; r++)
-        for (var c = 0; c < formulas[r].length; c++)
-          if (formulas[r][c] && formulas[r][c].indexOf('ECOGAINS_') !== -1)
-            targets.push({ row: r + 1, col: c + 1, f: formulas[r][c] });
-      if (!targets.length) return;
-      // clear this sheet's targets -> ONE flush (registers the clears so the restore recalcs) ->
-      // restore in a finally so they ALWAYS come back even if the flush throws or times out. One
-      // flush per sheet, not per cell (per-cell was slow).
-      try {
-        targets.forEach(function(t){ sh.getRange(t.row, t.col).setFormula(''); });
-        SpreadsheetApp.flush();
-      } finally {
-        targets.forEach(function(t){ sh.getRange(t.row, t.col).setFormula(t.f); });
+      var grid = sh.getDataRange().getFormulas();
+      var live = {};                                            // "r,c" -> formula
+      for (var r = 0; r < grid.length; r++)
+        for (var c = 0; c < grid[r].length; c++)
+          if (grid[r][c] && grid[r][c].indexOf('ECOGAINS_') !== -1)
+            live[(r + 1) + ',' + (c + 1)] = grid[r][c];
+
+      // MANIFEST HEAL: restore snapshot formulas that went missing (empty cell only —
+      // never overwrite a value someone typed or a spill that moved in)
+      var key = 'simFormulas.' + name, storedRaw = props.getProperty(key);
+      if (storedRaw){
+        JSON.parse(storedRaw).forEach(function(t){              // t = [row, col, formula]
+          var id = t[0] + ',' + t[1];
+          if (live[id]) return;
+          var rng = sh.getRange(t[0], t[1]);
+          if (rng.getFormula() === '' && rng.getValue() === ''){
+            live[id] = withNonce_(t[2]);
+            rng.setFormula(live[id]);
+          }
+        });
       }
+
+      // MIGRATION: ensure every sim formula carries the nonce argument
+      Object.keys(live).forEach(function(id){
+        var f2 = withNonce_(live[id]);
+        if (f2 !== live[id]){
+          var rc = id.split(',');
+          sh.getRange(Number(rc[0]), Number(rc[1])).setFormula(f2);
+          live[id] = f2;
+        }
+      });
+
+      // snapshot for the next heal
+      props.setProperty(key, JSON.stringify(Object.keys(live).map(function(id){
+        var rc = id.split(',');
+        return [Number(rc[0]), Number(rc[1]), live[id]];
+      })));
     });
+
+    // the actual refresh: one atomic write — every formula's nonce argument changes
+    ns.getRange('A1').setValue(new Date());
   } finally {
     lock.releaseLock();
   }
