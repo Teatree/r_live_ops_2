@@ -24,7 +24,7 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 
 ## Cross-cutting facts established while compiling
 
-- **`Race`/`Race_v2` = "All LB Challenges"**: five config blocks (Red's, "Chunk's" [sic], Bomb's Challenge, Level Challenge, Flash Race) sharing one generic ladder (pos1 200 HC + Comet; pos2 100 HC + Shuffle; pos3 50 HC + Shuffle; pos4-5 Shuffle; pos6-10 Slingshot; LBSize 10). Only `EventDuration` 1→2 changes in `_v2`, uniformly for all five blocks.
+- **`Race`/`Race_v2` = "All LB Challenges"**: five config blocks (Red's, "Chunk's" [sic], Bomb's Challenge, Level Challenge, Flash Race). **2026-07-10:** the base sheet's Flash Race + Level Challenge blocks were regenerated from the REAL live server configs (`builders/_build_race.py` → `display/Race_v1.xlsx`): Flash = league of 7, coins 100/50/25 + boosters + SPT 50/50/50/50/45/40/40 (ranks 8–10 zeroed); Level's mapped values (CherryBomb→Comet, Hammer→Slingshot, flagged) came out IDENTICAL to the old generic ladder, only LBSize 10→20. The bird challenges keep the generic ladder (pos1 200 HC + Comet; pos2 100 HC + Shuffle; pos3 50 HC + Shuffle; pos4-5 Shuffle; pos6-10 Slingshot; LBSize 10) — their live configs not yet provided, so #7 below is only PARTIALLY resolved. `_v2` still holds the pre-update content (EventDuration 2/2/2/2/1 + the old generic Flash ladder) — ⚠ re-duplicate it from the new base or R_SPT(Flash)=0.
 - Every checked `_v2` config changes ONLY `EventDuration` (R=1 for events) — re-confirmed programmatically for BB, HH, Ki, Ph, TaD, Race; RR_v2==RR exactly (0 diffs).
 - Redesign principles (deck pp.3-10): weekday/weekend differentiation, alternating same-mechanic events, event synergy — events balanced as served groups, not in isolation.
 

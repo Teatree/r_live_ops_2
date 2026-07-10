@@ -4,6 +4,18 @@
 
 > **No dedicated design PDF exists for this event.** Everything below is mined from the redesign deck, the two calendars, and the workbook config/data sheets.
 
+> **2026-07-10 UPDATE — REAL live server config obtained (supersedes the ladder/open questions
+> below where they conflict):** `configuration: "FlashRace"`, **leagueGroupSize 7** (the design's
+> 7-player groups win over the generic 10-row sheet ladder — resolves the config-vs-design
+> conflict), targetScore 10, maxRounds 1, closingTime 20 min, bots disabled, ads disabled.
+> **Rank rewards (1→7):** 100 Coins + ShootingStar(→Comet) + **50 SPT** · 50 Coins + Shuffle +
+> **50 SPT** · 25 Coins + Slingshot + **50 SPT** · Pre-Bomb + **50 SPT** · Pre-Chuck + **45 SPT**
+> · Pre-Red + **40 SPT** · Pre-Red + **40 SPT** — SPT is confirmed the primary payout
+> (total pot 315 SPT + 175 Coins per league of 7). SPT amounts are no longer unknown, and SPT is
+> tracked since D16. The base `Race` sheet's Flash block was regenerated from this config
+> (`builders/_build_race.py` → `display/Race_v1.xlsx`, ranks 8–10 zeroed, LBSize 7);
+> ⚠ `Race_v2` still holds the OLD generic ladder until re-duplicated — see the builder header.
+
 ## What it is
 
 The game's **speed-competition leaderboard event**: matched groups race to finish a fixed set of levels fastest. The redesign deck (p36) describes it verbatim:
