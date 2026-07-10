@@ -20,6 +20,7 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 | target-day.md | Target Day (Archery Arena) | milestone/score (SPECIAL) | PDF + TaD configs — but milestone rewards are all zeros in config |
 | rainbow-maker.md | Rainbow Maker | milestone/matchables (NEW) | full PDF + dedicated sim workbook |
 | river-rush.md | River Rush | streak-competitive (carried stub) | full PDF + RR configs + prior context |
+| season-pass.md | Season Pass (Dream Pass) | always-on SPT track + challenge LB (simulated via D16 tier coupling) | SP/SP_lb configs + data_gains SPT rows (added 2026-07-10); design PDF present, thinly mined |
 
 ## Cross-cutting facts established while compiling
 
@@ -34,7 +35,7 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 1. **Target Day milestone rewards missing**: TaD/TaD_v2 hold a 20-milestone ladder (100→23,500 score) with ALL reward cells = 0, and no "milestones 26+" ladder exists anywhere — the planned score-curve fix is blocked on the real live ladder. Also curDur is ambiguous: 7d (calendar) vs 2d (data) vs 1d (PDF).
 2. **Core/Saga nerf may not bite in the sim**: measured `Saga` (SagaPath) per-earner ≈ 0 while `chapter_complete` carries the HC at the c_saga ladder rate; `simCoreSaga` applies the 0.357 v2 ratio only to the ≈0 Saga row → the −64% nerf produces almost no simulated delta. Decide which measured rows the ratio should scale.
 3. **Rainbow Maker p50 mismatch**: engine's fallback matchables map equals the 3-DAY column of `Sim Per Segment` but is applied to the 4-day ladder; 4-day p50s lift mid segments 1–3 milestones. Also per-instance vs per-window still unconfirmed (naming hints per-instance).
-4. **Flash Race pays SPT, not HC**: data_gains shows zero HC in every segment; live calendar says "With SPT". SPT is outside the 11-resource universe. Race_v2's duration=2 for Flash Race contradicts both calendars (15×1d) — presumed uniform-sheet artifact; calendar wins.
+4. **Flash Race pays SPT, not HC** — RESOLVED 2026-07-10 (D16): SPT/SPTx2 are now resources 12–13 and Flash Race's SPT flows through its leaderboard T like any other resource (HC ≈ 0 stays correct). The Race_v2 duration=2 contradiction stands (presumed uniform-sheet artifact; calendar wins). NEW Season Pass questions (see season-pass.md): paid-track-in-measured assumption; Dream Pass telemetry empty; season length unknown (default 33d); measured SP SPT with a 0-SPT track; repo SQL SPT item identifiers unrecorded.
 5. **Bomb's Ballet duration three-way conflict**: config 3→4d, calendars 4d→3d, measured instance 5d.
 6. **Hatchling Hideaway token config conflict**: PDF says 1/3/5 tokens (Normal/Hard/Extreme), config says 1/2/3.
 7. **Challenge/LB ladder authenticity**: the shared "All LB Challenges" ladder may be a modeling simplification — unverified against live config.

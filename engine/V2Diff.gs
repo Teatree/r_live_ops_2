@@ -31,7 +31,8 @@
 var V2DIFF_PAIRS = [
   ['c_saga','c_saga_v2'], ['c_day','c_day_v2'], ['RR','RR_v2'], ['J','J_v2'],
   ['HH','HH_v2'], ['BB','BB_v2'], ['Ki','Ki_v2'], ['NS','NS_v2'], ['Ph','Ph_v2'],
-  ['F','F_v2'], ['Race','Race_v2'], ['TaD','TaD_v2']
+  ['F','F_v2'], ['Race','Race_v2'], ['TaD','TaD_v2'],
+  ['SP','SP_v2'], ['SP_lb','SP_lb_v2']   // season pass track + challenge (D16)
 ];
 // base sheets whose _v2 is a structural rewrite (not cell-aligned) -> skip the cell diff.
 // Empty now: c_saga was re-aligned with c_saga_v2, so it is compared like every other pair.

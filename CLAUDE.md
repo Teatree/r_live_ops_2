@@ -24,7 +24,7 @@ archive/      superseded versions (engine v1, old builders/xlsx) — never exten
 
 All scripts anchor their paths to their own file location, so run them from anywhere (commands below assume the root). The artifacts are:
 
-- **Google Apps Script** (`engine/`) — the simulation engine, edited locally and pasted into the Apps Script project of a Google Sheets workbook. **Current engine: `EcoGainsSim_v4.gs`** (custom functions `ECOGAINS_SIM(payer, segment)` / `ECOGAINS_DIFF(payer, segment)`, each spilling 25 categories × 11 resources). Companions in the same Apps Script project: `EcoGainsSim_Daily.gs` (per-day 33-row view, `ECOGAINS_DAILY`), `EcoGainsSim_PBP.gs` (play-by-play session sim, `ECOGAINS_PBP`/`_EVENTS`/`_PROFILE` — see SIMULATION_METHODOLOGY §14), `SimPerSegmentFill.gs` (menu-run filler for the 'Sim per Segment' rollup), `calParseTest.gs` (calendar-parser verification). `archive/EcoGainsSim.gs` is the superseded v1 — don't extend it.
+- **Google Apps Script** (`engine/`) — the simulation engine, edited locally and pasted into the Apps Script project of a Google Sheets workbook. **Current engine: `EcoGainsSim_v4.gs`** (custom functions `ECOGAINS_SIM(payer, segment)` / `ECOGAINS_DIFF(payer, segment)`, each spilling 25 categories × 13 resources — SPT/SPTx2 appended 2026-07-10, D16). Companions in the same Apps Script project: `EcoGainsSim_Daily.gs` (per-day 33-row view, `ECOGAINS_DAILY`), `EcoGainsSim_PBP.gs` (play-by-play session sim, `ECOGAINS_PBP`/`_EVENTS`/`_PROFILE` — see SIMULATION_METHODOLOGY §14), `SimPerSegmentFill.gs` (menu-run filler for the 'Sim per Segment' rollup), `calParseTest.gs` (calendar-parser verification). `archive/EcoGainsSim.gs` is the superseded v1 — don't extend it.
 - **Athena/Trino SQL** (`sqls/`) — queries against schema `abgbproduction_174525b3_gdpr` that produce the `data_*` sheets the engine reads. Each file is named after the sheet it feeds (`data_seg_beh.sql`, `data_event_inst.sql`, `data_event_accrual.sql`, `data_event_kite_accrual.sql`); `resource_share_by_category_period_v2.sql` produces `data_gains`. Exception: `sqls/daily_gains.sql` is actually **Python** despite the extension — the notebook export step that pushes the query dataframes into the workbook's `data_*` sheets via the Sheets API, and the authoritative source for every `data_*` column's meaning (its `HEADER_NOTES` dict).
 - **Excel exports** (`workbooks/`) — Google Sheets workbooks exported for reference. The workbook of record is the **highest-numbered `workbooks/NEW_LIVEOPS_CALENDAR_ECO (N).xlsx`**. Sheets-native `LET`/dynamic-array formulas do NOT recalc in Excel/openpyxl; only cached values survive (as `__xludf.DUMMYFUNCTION`).
 - **Python builders** (`builders/_build_*.py`, openpyxl) — generate the display-sheet xlsx files in `display/` (`EcoGainsSim_HC_v4`, `EcoGainsSim_Daily_v2`, `EventReach_v1`, `EventReach_LB_v1`, `Sim_per_Segment_v3`, `EcoGainsSim_PlybyPly_v6`) which are then imported into the Google workbook. Regenerate by editing the script and re-running it — never hand-edit the xlsx. Superseded builder/xlsx versions live in `archive/`: when a new version supersedes a builder, move the old one there.
@@ -34,7 +34,7 @@ All scripts anchor their paths to their own file location, so run them from anyw
 ## Reading order for any task touching the simulation
 
 1. `HAND_OFF.md` — project history and rationale (describes the v1-era state; code details there are superseded).
-2. `SIMULATION_PLAN.md` — per-source specs + decisions log D1–D15.
+2. `SIMULATION_PLAN.md` — per-source specs + decisions log D1–D16.
 3. `SIMULATION_METHODOLOGY.md` — **reflects the code as shipped** (v4 engine vs workbook v5): calendar/cadence/duration/segmentation machinery, leaderboard vs streak vs milestone families, recalc plumbing, zero-semantics debugging table, verification workflow.
 4. `source_docs/` for the mechanics of whichever event you're touching, then the code. Its `README.md` has the per-source index (doc quality per event) and the consolidated open questions / data conflicts (TaD zero-reward ladder, Core/Saga nerf scaling, Flash Race SPT, etc.).
 
@@ -48,7 +48,7 @@ node harness/_mock_pbp.js        # same for EcoGainsSim_PBP.gs (~20 checks incl.
 python builders/_build_hc_v4.py  # rebuild a display xlsx into display/ (same pattern for the other _build_*.py)
 ```
 
-`harness/_mockdata.json` is a dump of the live workbook's sheets (values + merges). The Kite row is the canary: it must DIFFER from measured (= measured × R × T; ≈ ×1.09 with workbook (8)'s real Ki_v2 edits, ×1.3 back when v2 was untouched; Kite re-classified as a zero-sum leaderboard 2026-07-06) — if it shows "no change", calendar parsing fell back to carry-measured.
+`harness/_mockdata.json` is a dump of the live workbook's sheets (values + merges). The Kite row is the canary: it must DIFFER from measured (= measured × R × T; ≈ ×1.09 with the real Ki_v2 edits since workbook (8), ×1.3 back when v2 was untouched; Kite re-classified as a zero-sum leaderboard 2026-07-06) — if it shows "no change", calendar parsing fell back to carry-measured. Second canary since D16: the Kite **SPT** column must also differ (measured × R_SPT 0.638 × T) and the Season Pass row must move (tier coupling — Chuck/UL Lives scale on workbook (10) data); `SP_v2`/`SP_lb_v2` are expected MISSING from the dump until duplicated in the live workbook (the engine falls back to base sheets — that path is what the gates exercise).
 
 ## The big picture
 
@@ -61,12 +61,13 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 - **D** = duration multiplier from the accrual curves (`data_event_accrual`). Leaderboard events pin D=1 (rank payouts are end-state) — including Kite Festival since 2026-07-06 (zero-sum league pot; `data_event_kite_accrual` is now PBP-only). Shortening = reliable interpolation; lengthening = flagged extrapolation.
 - **T** = cadence × reach ratio across calendar instances, using weekday/weekend active rates from `data_seg_beh`.
 - Always-on sources (Core/Saga, Daily Gift): D=T=1. Unlisted categories are **carried** (= measured, diff 0). Rainbow Maker is new (no measured anchor) → bottom-up survival-weighted milestone reach from `data_RM`. River Rush has no `cal_new` instances → 0 (removal semantics). Night Sky's bottom-up sim (re-wired 2026-07-06 per `NIGHT_SKY_REWIRE_PLAN.md`: survival over `data_streaks` max-streak percentiles × 1.25 `NS_STREAK_N`) is **shipped OFF behind `NS_SIMULATE = false`** in `EcoGainsSim_v4.gs` — it overestimates actual NS gains (open question), so NS is carried in all three views; flip the flag to simulate.
+- **Season Pass (Free)** is simulated via **SPT tier coupling** (D16, 2026-07-10): per-earner SPT+2×SPTx2 totals across all sources (measured vs simulated) land on the `SP`/`SP_v2` 30-tier Cumul ladder; the row scales by the cumulative-track-reward ratio through the reached tier (FREE for nonpayers, FREE+PAID for payers — flagged assumption) × `SP_lb_v2`/`SP_lb` challenge pot ratio × calendar T (D=1). No anchor → additive tier rewards when tiers rise, carry otherwise. `SP_v2`/`SP_lb_v2` missing → base sheets (ratios 1). See `SIMULATION_METHODOLOGY.md` §6.11 / `source_docs/season-pass.md`.
 
 **Data flow:** SQL queries → `data_*` sheets in the live workbook (headers on row 1, data from row 2) → `EcoGainsSim_v4.gs` reads them plus the visual calendar grids, all LIVE at recalc (decision D12: no numbers in code) → spills per segment block in `EcoGainsSim_HC`.
 
 **Calendar reader rule (subtle, verified):** in `cal_curr`/`cal_new` each MERGED range = one instance (duration = column width); each filled non-merged cell = one 1-day instance; neighbours are never collapsed. Day = column − 1; calendars start Wednesday, so weekend = `((day−1) % 7) ∈ {2,3,4}`.
 
-**Segments (decision D8):** raw buckets in `data_gains` (`A. 0` … `F. 100+`) vs merged labels elsewhere (`0-9`, `10-19`, …) — `SEG_TO_GAINS` maps `'0-9' → 'B. 1-9'` (NOT a merge of A.0∪B.1-9). `A. 0` is an appendix block: carried except config-only changes; RM and NS not applied. A label mismatch is the prime suspect whenever a whole segment table reads zero. `data_gains` only emits amount>0 rows, so a missing row is a legitimate measured 0 — most events pay boosters, not HC; check non-HC columns before calling a source dead.
+**Segments (decision D8):** raw buckets in `data_gains` (`A. 0` … `F. 100+`) vs merged labels elsewhere (`0-9`, `10-19`, …) — `SEG_TO_GAINS` maps `'0-9' → 'B. 1-9'` (NOT a merge of A.0∪B.1-9). `A. 0` is an appendix block: carried except config-only changes; RM, NS and the Season Pass tier coupling not applied. A label mismatch is the prime suspect whenever a whole segment table reads zero. `data_gains` only emits amount>0 rows, so a missing row is a legitimate measured 0 — most events pay boosters, not HC; check non-HC columns before calling a source dead.
 
 ## Apps Script gotchas (learned the hard way)
 
@@ -82,7 +83,7 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 
 ## Conventions (strict — from HAND_OFF.md §9 and the style doc)
 
-- **HC = coins only.** The 11-resource column order is fixed; column changes are append-only.
+- **HC = coins only.** The 13-resource column order is fixed (SPT/SPTx2 appended as cols 12–13, D16); column changes are append-only.
 - Zero formula errors is a release gate. Real data only in cells labelled "(data)"; loudly flag every assumption.
 - Formulas reference data sheets — never bake static values into sheets or code. If a value is computable from inputs, compute it.
 - **SQL:** compose via the incremental Python generator pattern (labelled string blocks → validate → write file); separate `.sql` files, never edit SQL in place; read all referenced project files before writing SQL. Athena gotchas: cast `processdate` to INT for partition pruning; `client_events` currency amounts have a 0–9999 cap that silently zeroes large grants (derive HC from `player_daily.hc_gain`); no `COUNT(DISTINCT)` inside a window; `ARBITRARY()` is non-deterministic; Night Sky is logged as *Dream Heist*; `event_tokens` is a MAP on the level-summary view.

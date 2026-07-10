@@ -15,11 +15,20 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VALS = json.load(open(os.path.join(HERE, '_sps_values.json')))
+# 13 since 2026-07-10 (append-only): SPT/SPTx2 = season pass tokens (D16)
 RES = ['HC', 'Slingshot', 'Shuffle', 'Comet', 'Red', 'Chuck', 'Bomb',
-       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives']
+       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2']
 GROUPS = ['PAID', 'ADS', 'CORE', 'META']
 SEGS = ['0-9', '10-19', '20-39', '40-99', '100+']
 PAYERS = ['NONPAYER', 'PAYER']
+
+# resources not yet in _sps_values.json (SPT/SPTx2 until the offline dump is regenerated):
+# prefill 0 — menu ▸ Fill Sim per Segment writes the live values over these on the Google side.
+for _r in RES:
+    if _r not in VALS:
+        VALS[_r] = {p: {s: {k: {g: 0.0 for g in GROUPS} for k in ('cur', 'sim')} for s in SEGS}
+                    for p in PAYERS}
+        print(f'NOTE: {_r} not in _sps_values.json — prefilled 0 (Fill Sim per Segment supplies live values)')
 
 # unique_players weights (for the prefilled 'overall' rows) from the workbook of record
 # (highest-numbered NEW_LIVEOPS_CALENDAR_ECO (N).xlsx — same pick rule as harness/_dump_mockdata.py)

@@ -83,7 +83,8 @@ for (const r of L.slice(0, 16))
 console.log('   ...');
 for (const r of L.slice(sumRowIdx(L))) console.log('  ', r.slice(1, 8).map(x => String(x).slice(0, 14)).join(' | '));
 
-check('ledger rectangular 22 cols', L.every(r => r.length === L[0].length) && L[0].length === 22);
+check('ledger rectangular 24 cols (11 chrome + 13 resources)',
+  L.every(r => r.length === L[0].length) && L[0].length === 11 + RESOURCES.length);
 const eIdx = L.findIndex(r => r[0] === 'E');
 const playRows = ledgerBody(L).filter(r => typeof r[0] === 'number' || /^\d+$/.test(String(r[0])));
 check('has S, N plays, E rows', L[1][0] === 'S' && eIdx > 10, 'eIdx=' + eIdx);
@@ -109,7 +110,8 @@ check('Expected mode seed-independent', JSON.stringify(E1) === JSON.stringify(E2
 const totRow = L[L.length - 1];
 const hdr = L[0];
 const bundles = parseBundles(L);
-const DISP = { HC: 'Coins', 'UL Red': 'Unlimited Red', 'UL Chuck': 'Unlimited Chuck', 'UL Bomb': 'Unlimited Bomb' };
+const DISP = { HC: 'Coins', 'UL Red': 'Unlimited Red', 'UL Chuck': 'Unlimited Chuck',
+               'UL Bomb': 'Unlimited Bomb', SPTx2: 'SPT x2' };   // mirrors PBP_RES_DISPLAY
 let totOK = true, totDetail = '';
 RESOURCES.forEach((res, i) => {
   const shown = +totRow[2 + i] || 0, parsed = bundles[DISP[res] || res] || 0;

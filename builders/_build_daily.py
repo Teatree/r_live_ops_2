@@ -12,8 +12,9 @@ from openpyxl.utils import get_column_letter as CL
 
 DISPLAY = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'display')
 
+# 13 since 2026-07-10 (append-only): SPT/SPTx2 = season pass tokens (D16)
 RES = ['HC', 'Slingshot', 'Shuffle', 'Comet', 'Red', 'Chuck', 'Bomb',
-       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives']
+       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2']
 CATS = ['Ads', 'Bomb Challenge', "Bomb's Ballet", 'Chuck Challenge', 'Core', 'Daily Gift',
         'Daily Night Sky Prize', 'Flock Flurry', 'Hatchling Hideaway', 'Jigsaw', 'Kite Festival',
         'Level Race', 'Other', 'Photoshoot', 'Red Challenge', 'River Rush', 'Saga',
@@ -32,18 +33,19 @@ BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
 FMT_VAL, FMT_DIFF = '#,##0.00', '#,##0.00;-#,##0.00'
 FMT_NET = '#,##0.00;[Red]-#,##0.00'             # net can be negative (spend > gain)
 
+# 13-wide blocks (since 2026-07-10) + 1 gap col: pitch 14
 BLOCKS = [(4, 'CURRENT', '◄ CURRENT (cal_curr, measured) ►', F_CUR, F_HCUR, FMT_VAL),
-          (16, 'NEW', '◄ NEW (cal_new, simulated) ►', F_NEW, F_HNEW, FMT_VAL),
-          (28, 'DIFF', 'Δ  NEW − CURRENT (same day)', F_DIF, F_HDIF, FMT_DIFF)]
+          (18, 'NEW', '◄ NEW (cal_new, simulated) ►', F_NEW, F_HNEW, FMT_VAL),
+          (32, 'DIFF', 'Δ  NEW − CURRENT (same day)', F_DIF, F_HDIF, FMT_DIFF)]
 # NET blocks (v2): three ECOGAINS_DAILY spills reading data_econ_daily (per earner, actual data)
-NET_SPILL = [(40, 'SPEND', '◄ ACTUAL SPEND / earner (data_econ_daily) ►', F_NET, F_HNET, FMT_VAL),
-             (52, 'CURNET', '◄ CURRENT NET / earner (gain − spend) ►', F_NET, F_HNET, FMT_NET),
-             (64, 'NEWNET', '◄ NEW NET / earner (gain + sim Δ − spend) ►', F_NET, F_HNET, FMT_NET)]
+NET_SPILL = [(46, 'SPEND', '◄ ACTUAL SPEND / earner (data_econ_daily) ►', F_NET, F_HNET, FMT_VAL),
+             (60, 'CURNET', '◄ CURRENT NET / earner (gain − spend) ►', F_NET, F_HNET, FMT_NET),
+             (74, 'NEWNET', '◄ NEW NET / earner (gain + sim Δ − spend) ►', F_NET, F_HNET, FMT_NET)]
 # net Δ = NEWNET − CURNET, plain sheet formulas (== the DIFF block when NET is filled)
-NETD = (76, 'NETD', 'Δ  NET (new − cur; == sim Δ)', F_DIF, F_HDIF, FMT_DIFF)
+NETD = (88, 'NETD', 'Δ  NET (new − cur; == sim Δ)', F_DIF, F_HDIF, FMT_DIFF)
 STYLE_BLOCKS = BLOCKS + NET_SPILL + [NETD]      # everything that gets band/header/day styling
-GAPS = ['O', 'AA', 'AM', 'AY', 'BK', 'BW', 'CI']
-DROP_COL = 88                                   # CJ — source dropdown list (moved from AN in v2)
+GAPS = ['Q', 'AE', 'AS', 'BG', 'BU', 'CI', 'CW']
+DROP_COL = 102                                  # CX — source dropdown list
 D0, DN = 9, 41            # data rows (33 days)
 TOT = 42
 
@@ -55,7 +57,7 @@ ws.column_dimensions['A'].width = 1.75
 ws.column_dimensions['B'].width = 5.5
 ws.column_dimensions['C'].width = 5.0
 for c0, *_ in STYLE_BLOCKS:
-    for j in range(11):
+    for j in range(len(RES)):
         ws.column_dimensions[CL(c0 + j)].width = 8.0
 for g in GAPS:
     ws.column_dimensions[g].width = 2.88
@@ -89,7 +91,7 @@ for i, s in enumerate(['ALL'] + CATS):
 
 # ---- band row (7) + header row (8) ----
 for c0, key, txt, band, hdr, fmt in STYLE_BLOCKS:
-    for j in range(11):
+    for j in range(len(RES)):
         cell = ws.cell(7, c0 + j)
         cell.fill = fill(band)
         cell.font = Font(name='Arial', size=11, bold=True, color='FFFFFFFF')
@@ -116,7 +118,7 @@ for d in range(1, 34):
         cell.font = Font(name='Arial', size=10)
         cell.alignment = Alignment(horizontal='center')
     for c0, key, txt, band, hdr, fmt in STYLE_BLOCKS:
-        for j in range(11):
+        for j in range(len(RES)):
             cell = ws.cell(r, c0 + j)
             cell.font = Font(name='Arial', size=10)
             cell.alignment = Alignment(horizontal='center')
@@ -133,7 +135,7 @@ for c0, key, *_ in BLOCKS + NET_SPILL:
 # (source ≠ ALL or no data_econ_daily) the spills emit '' text cells, the subtraction errors,
 # and the Δ shows blank instead of a false 0.
 for r in range(D0, DN + 1):
-    for j in range(11):
+    for j in range(len(RES)):
         ws.cell(r, NETD[0] + j).value = \
             f'=IFERROR({CL(NET_SPILL[2][0]+j)}{r}-{CL(NET_SPILL[1][0]+j)}{r},"")'
 
@@ -146,7 +148,7 @@ ws.cell(TOT, 3).fill = fill(F_HDRSEG)
 ws.cell(TOT, 3).border = BORDER
 for c0, key, txt, band, hdr, fmt in STYLE_BLOCKS:
     is_net = key in ('SPEND', 'CURNET', 'NEWNET', 'NETD')
-    for j in range(11):
+    for j in range(len(RES)):
         col = CL(c0 + j)
         # NET totals blank out when the block is blank ('' cells → COUNT 0); a plain SUM would
         # show 0 and read as "net is zero" instead of "no data / not applicable".
@@ -161,7 +163,8 @@ for c0, key, txt, band, hdr, fmt in STYLE_BLOCKS:
 
 # ---- conditional formatting ----
 # red/green on the DIFF and net-Δ blocks first (stopIfTrue so they win over the weekend tint)
-for rng in (f'AB{D0}:AL{DN}', f'{CL(NETD[0])}{D0}:{CL(NETD[0]+10)}{DN}'):
+for rng in (f'{CL(BLOCKS[2][0])}{D0}:{CL(BLOCKS[2][0] + len(RES) - 1)}{DN}',
+            f'{CL(NETD[0])}{D0}:{CL(NETD[0] + len(RES) - 1)}{DN}'):
     ws.conditional_formatting.add(rng, CellIsRule(
         operator='lessThan', formula=['0'], stopIfTrue=True,
         font=Font(color='FF990000'), fill=fill('FFF4CCCC')))
@@ -169,7 +172,7 @@ for rng in (f'AB{D0}:AL{DN}', f'{CL(NETD[0])}{D0}:{CL(NETD[0]+10)}{DN}'):
         operator='greaterThan', formula=['0'], stopIfTrue=True,
         font=Font(color='FF006100'), fill=fill('FFD9EAD3')))
 # weekend tint across the whole table (Fri/Sat/Sun)
-ws.conditional_formatting.add(f'B{D0}:{CL(NETD[0]+10)}{DN}', FormulaRule(
+ws.conditional_formatting.add(f'B{D0}:{CL(NETD[0] + len(RES) - 1)}{DN}', FormulaRule(
     formula=[f'OR($C{D0}="Fri",$C{D0}="Sat",$C{D0}="Sun")'], fill=fill(F_WEEKEND)))
 
 # ---- legend ----
@@ -178,9 +181,9 @@ legend = [
     'Window totals are exactly the main sim’s numbers (CURRENT = measured on cal_curr, NEW = simulated on cal_new); this view only places them on days — column TOTALs reconcile with EcoGainsSim_HC.',
     'Leaderboard events (Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day, Kite) pay on each instance’s LAST day → expect end-day spikes. Instance slices are split by reach.',
     'Collections (Hatchling Hideaway, Bomb’s Ballet, Jigsaw, Photoshoot) spread across instance days by the accrual curve’s marginal share; Rainbow Maker spreads ∝ active rate within its instances (no curve — flagged).',
-    'Core / Saga / Daily Gift pay daily ∝ weekday/weekend active rate; Night Sky over its daily instances. Non-calendar sources (Ads, Teams, Season Pass, Other, IAPs; River Rush current side) are flat ÷33 — their DIFF is uniform.',
+    'Core / Saga / Daily Gift pay daily ∝ weekday/weekend active rate; Night Sky over its daily instances. Season Pass (Free) spreads ∝ active rate across its season-lane instances (tier claims are continuous — same treatment as Rainbow Maker). Non-calendar sources (Ads, Teams, Other, IAPs; River Rush current side) are flat ÷33 — their DIFF is uniform.',
     'Weekend rows (Fri/Sat/Sun) are tinted. Filters: Payer / Segment / Source — Source=ALL sums every category; pick one to isolate its daily contribution.',
-    'NET blocks (AN:CH, per EARNER): ACTUAL SPEND and the gain side come from the data_econ_daily sheet (real per-day telemetry, window-earner denominator). CURRENT NET = actual gain − spend; NEW NET = actual gain + the sim’s day shift (NEW − CURRENT) − spend, so spend is held constant and net Δ == the DIFF block.',
+    'NET blocks (AT:CH, per EARNER; 13 resources incl. SPT/SPTx2): ACTUAL SPEND and the gain side come from the data_econ_daily sheet (real per-day telemetry, window-earner denominator). CURRENT NET = actual gain − spend; NEW NET = actual gain + the sim’s day shift (NEW − CURRENT) − spend, so spend is held constant and net Δ == the DIFF block.',
     'NET blocks are BLANK when Source ≠ ALL (spend is game-wide, not attributable to one event) and until the data_econ_daily sheet exists in the workbook. Their TOTAL row blanks out too (no data ≠ zero net).',
 ]
 for i, txt in enumerate(legend):
@@ -188,5 +191,6 @@ for i, txt in enumerate(legend):
     cell.font = Font(name='Arial', size=9, bold=(i == 0), color='FF000000' if i == 0 else 'FF808080')
 
 wb.save(os.path.join(DISPLAY, 'EcoGainsSim_Daily_v2.xlsx'))
-print('written EcoGainsSim_Daily_v2.xlsx — blocks at D/P/AB + NET at AN/AZ/BL/BX, data rows',
+print('written EcoGainsSim_Daily_v2.xlsx — blocks at',
+      '/'.join(CL(c0) for c0, *_ in STYLE_BLOCKS), '(13 res each), data rows',
       D0, '-', DN, ', TOTAL', TOT)

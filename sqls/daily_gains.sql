@@ -28,7 +28,7 @@ HEADER_NOTES = {
     "data_gains": {
         "engagement_segment": "7d-saga-completion tier (A.0 / B.1-9 / ... / F.100+).",
         "payer_flag": "NONPAYER / PAYER lifetime payer flag from cumulative_money_spent > 0.",
-        "resource": "Currency or item gained, e.g. HC, boosters, unlimited lives.",
+        "resource": "Currency or item gained, e.g. HC, boosters, unlimited lives, SPT / SPTx2 (season pass tokens; SPTx2 = the double-value token, weighted x2 for tier progression).",
         "unit": "Native unit of resource: HC, count, or minutes.",
         "category": "Mapped source category where the gain came from.",
         "resource_earners": "Distinct players who earned >0 of this resource in this segment x payer tier.",

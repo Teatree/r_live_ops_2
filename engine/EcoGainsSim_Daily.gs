@@ -4,7 +4,7 @@
  * REQUIRES EcoGainsSim_v4.gs in the same project (uses Context, CATEGORY_ORDER, RESOURCES,
  * resultRow_, measuredRow_, reachOne_, isWeekend_, num).
  *
- * CUSTOM FUNCTION (six anchors on the sheet, each spilling 33 days x 11 resources):
+ * CUSTOM FUNCTION (six anchors on the sheet, each spilling 33 days x 13 resources):
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURRENT"))
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEW"))
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "DIFF"))
@@ -21,7 +21,7 @@
  *   NEWNET(day) = actual gain(day) + [sim NEW(day) - sim CURRENT(day), all categories] - spend(day)
  *                 (spend held constant; the sim's day-shift is ADDED onto the actual gains, so the
  *                 33 days still sum to the window totals and net delta == the DIFF block)
- * NET blocks spill a 33x11 grid of '' (blank) when: source != ALL (spend is game-wide and cannot
+ * NET blocks spill a 33x13 grid of '' (blank) when: source != ALL (spend is game-wide and cannot
  * be attributed to one source), data_econ_daily is missing / lacks the expected headers, or has no
  * rows for this (segment, payer). The '' cells are deliberate: the sheet's net-delta formulas
  * subtract these cells, and '' makes them error into their IFERROR blank instead of coercing to 0.
@@ -29,9 +29,12 @@
  * ALLOCATION MODEL ("claim-day realistic") — window totals are the same numbers the main sim
  * produces (CURRENT = measured, anchored on cal_curr; NEW = simulated, anchored on cal_new);
  * this script only distributes them over the 33 calendar days, conserving totals exactly:
- *   flat        Ads, Other, Season Pass (Free), Team Event, Team Race, FlowerCoop, IAPs, and any
- *               source with a nonzero total but no calendar instances (River Rush's CURRENT side
- *               runs off-grid) -> total / 33 every day.
+ *   flat        Ads, Other, Team Event, Team Race, FlowerCoop, IAPs, and any source with a
+ *               nonzero total but no calendar instances (River Rush's CURRENT side runs
+ *               off-grid) -> total / 33 every day.
+ *   Season Pass (Free) — since 2026-07-10 (D16): spread over its 'Season Pass' lane instances
+ *               proportional to p_day (tier rewards are claimed continuously while playing —
+ *               same treatment as Rainbow Maker; the lane covers all 33 days today).
  *   always-on   Core, Saga, Daily Gift -> spread over all 33 days proportional to p_day (the
  *               weekday/weekend active rate). Night Sky -> over its 33x1d instances, prop p_day.
  *   last-day    Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day, Kite Festival —
@@ -63,7 +66,8 @@ var DAILY_CAL_LABEL = {
   'Target Day':'Target Day', 'Kite Festival':'Kite Festival',
   'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":"Bomb's Ballet Show",
   'Jigsaw':'Jigsaw Puzzle', 'Photoshoot':'Photoshoot', 'Rainbow Maker':'Rainbow Maker',
-  'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky'
+  'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky',
+  'Season Pass (Free)':'Season Pass'
 };
 
 /** @customfunction */
@@ -215,7 +219,7 @@ function econDaily_(seg, payer){
   return found ? { gain: gain, spend: spend } : null;
 }
 
-// 33x11 grid of '' — the NET blocks' blank spill. MUST be '' text cells, not an empty/1x1 array:
+// 33x13 grid of '' — the NET blocks' blank spill. MUST be '' text cells, not an empty/1x1 array:
 // the display sheet's net-delta formulas subtract these cells, and truly-empty cells coerce to 0
 // (net delta would read 0 instead of blank); '' makes the subtraction error into its IFERROR "".
 function blankGrid_(){

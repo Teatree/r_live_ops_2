@@ -4,14 +4,29 @@
  * Brand-new engine based on EcoGainsSim.gs. One named function per source (D15); everything
  * numeric is read LIVE from the workbook (D12): config sheets, both calendars, data_* sheets.
  *
- * CUSTOM FUNCTIONS (per segment block, spills 25x11):
+ * CUSTOM FUNCTIONS (per segment block, spills 25x13):
  *   =LET(payer, $C$3, segment, $B$6, ECOGAINS_SIM(payer, segment))     // C<firstDataRow>
  *   =LET(payer, $C$3, segment, $B$6, ECOGAINS_DIFF(payer, segment))    // O<firstDataRow>
  *   segment = '0-9' | '10-19' | '20-39' | '40-99' | '100+' | 'A. 0' (appendix, carried+annotated)
  *
  * MODEL PER SOURCE (see SIMULATION_PLAN.md §2 for specs and worked numbers):
- *   carried        Ads, Core, Other, Season Pass (Free), Team Event, Team Race, FlowerCoop,
- *                  IAPs, Flock Flurry                                → measured
+ *   carried        Ads, Core, Other, Team Event, Team Race, FlowerCoop, IAPs, Flock Flurry
+ *                                                                    → measured
+ *   Season Pass    simulated since 2026-07-10 (D16 — SPT tier coupling): more/less SPT earned
+ *                  across ALL sources moves the season-pass track tier reached, which scales the
+ *                  Season Pass (Free) payout row. Per resource:
+ *                    SIM = measured x cum_v2(T_sim)/cum_base(T_meas) x R_challenge x T
+ *                  T_meas/T_sim = tier reached on the SP / SP_v2 'Cumul' points ladder by the
+ *                  per-earner SPT+2xSPTx2 window totals (measured vs simulated; additive-
+ *                  projection convention), scaled x seasonDays/33. cum = Σ tier rewards 1..T —
+ *                  FREE track for NONPAYER, FREE+PAID for PAYER (assumption: the measured
+ *                  '(Free)' row contains payers' paid-track claims too). R_challenge = SP_lb_v2 /
+ *                  SP_lb rank-ladder pot ratio (zero-sum, Kite-style; no position telemetry —
+ *                  Dream Pass rows are empty). D pinned 1; T from the 'Season Pass' calendar
+ *                  lane. No anchor (measured 0 or cum_base 0): tiers GAINED add the absolute
+ *                  SP_v2 rewards of tiers (T_meas, T_sim] (HYBRID — flagged); otherwise carry.
+ *                  SP's own SPT contribution uses measured on BOTH sides (single pass, no
+ *                  recursion). SP_v2/SP_lb_v2 missing → base sheets (ratios 1).
  *   Saga           measured x per-resource ratio: HC from the per-segment HC columns; every
  *                  item (boosters/ULs) from the per-node item ladders on both sheets (v3 item
  *                  edits — e.g. zeroing ULs — now move the sim). Base1 items carried.  [D9]
@@ -72,8 +87,10 @@ var PAYER_CELL = 'C3';
 var SEG_CELL   = 'C4';   // fallback only
 var CAL_CUR = 'cal_curr', CAL_NEW = 'cal_new';
 
+// Append-only (13 since 2026-07-10: SPT + SPTx2 — season pass tokens; SPTx2 counts double
+// toward season-pass tier progression but is displayed as its own column).
 var RESOURCES = ['HC','Slingshot','Shuffle','Comet','Red','Chuck','Bomb',
-                 'UL Bomb','UL Chuck','UL Red','Unlimited Lives'];
+                 'UL Bomb','UL Chuck','UL Red','Unlimited Lives','SPT','SPTx2'];
 
 // Sheet row order (must match EcoGainsSim_HC blocks; 25 rows, Saga between River Rush and SP).
 var CATEGORY_ORDER = [
@@ -105,14 +122,16 @@ var SOURCES = {
   'Photoshoot'            : simPhotoshoot,
   'Kite Festival'         : simKiteFestival,
   'Rainbow Maker'         : simRainbowMaker,
-  'River Rush'            : simRiverRush
+  'River Rush'            : simRiverRush,
+  'Season Pass (Free)'    : simSeasonPass
 };
 
 // config/ladder column header -> engine resource name (shared by RM + NS readers)
 var RES_MAP = {'Coins':'HC','HC Reward':'HC','Red':'Red','Chuck':'Chuck','Bomb':'Bomb',
                'Slingshot':'Slingshot','Shuffle':'Shuffle','Comet':'Comet',
                'Unlimited Lives':'Unlimited Lives','Unlimited Red':'UL Red',
-               'Unlimited Chuck':'UL Chuck','Unlimited Bomb':'UL Bomb'};
+               'Unlimited Chuck':'UL Chuck','Unlimited Bomb':'UL Bomb',
+               'SPT':'SPT','SPT x2':'SPTx2'};   // config sheets write 'SPT x2' with a space
 
 // category -> calendar row label, for ECOGAINS_CAL_STATS (keep in sync with the per-source sim
 // wiring above and with DAILY_CAL_LABEL in EcoGainsSim_Daily.gs). Categories not listed have no
@@ -124,6 +143,7 @@ var CAL_LABEL = {
   'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":"Bomb's Ballet Show",
   'Jigsaw':'Jigsaw Puzzle', 'Photoshoot':'Photoshoot', 'Rainbow Maker':'Rainbow Maker',
   'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky',
+  'Season Pass (Free)':'Season Pass',   // season-long lane; T from cadence x reach, D pinned 1
   'Flock Flurry':'Flock Flurry'   // carried in the sim, but scheduled — stats show its cadence
 };
 
@@ -149,8 +169,10 @@ function ECOGAINS_DIFF(payer, segment){
 /**
  * Calendar stats per category: [instance count, total event-days] for one calendar.
  * Spills 25 rows x 2 cols (matches the EcoGainsSim_HC block rows 8-32).
- *   AB8: =ECOGAINS_CAL_STATS("cal_curr")   -> fills AB (instances) + AC (event-days)
- *   AE8: =ECOGAINS_CAL_STATS("cal_new")    -> fills AE + AF
+ * (13-resource layout since 2026-07-10: sim C..O, diff Q..AC — the old AB8/AE8 anchors now sit
+ * inside the diff block; place these clear of it:)
+ *   AE8: =ECOGAINS_CAL_STATS("cal_curr")   -> fills AE (instances) + AF (event-days)
+ *   AH8: =ECOGAINS_CAL_STATS("cal_new")    -> fills AH + AI
  * Event-days count REAL days (clipped instances count what actually fits in the window).
  * Non-calendar categories (Core, Saga, Daily Gift, Ads, Teams, ...) return blanks.
  * Auto-updates like the gains: refreshSims_ bumps the nonce argument every ECOGAINS_* formula
@@ -186,7 +208,8 @@ function measuredRow_(cat, seg, payer, ds){ return ds.dataRow(cat, seg, payer); 
 // ============================== A. 0 APPENDIX (§3 — carried & annotated, not simulated) ======
 // A.0 players have no behaviour/accrual/matchables data. Config-only changes are applied
 // (Saga ratio; Daily Gift ratio with 0-9 weights as PROXY — flagged); RR removal is universal;
-// everything else (incl. Night Sky and Rainbow Maker) carries its measured value.
+// everything else (incl. Night Sky, Rainbow Maker and the Season Pass tier coupling — D16)
+// carries its measured value.
 function appendixRow_(cat, payer, ctx){
   var ds = ctx.ds, meas = measuredRow_(cat, 'A. 0', payer, ds);
   if (cat === 'River Rush') return zeroRow_();
@@ -539,6 +562,169 @@ function simRainbowMaker(seg, payer, ctx){
   return out;
 }
 
+// ============================== SEASON PASS (D16 — SPT tier coupling) ========================
+// More/less SPT earned across ALL sources moves the tier reached on the season-pass points
+// ladder, which scales the Season Pass (Free) payout row. Anchored path per resource:
+//   SIM = measured x cum_v2(T_sim)/cum_base(T_meas) x R_challenge x T_cal      (D pinned 1)
+// T_meas/T_sim = spTier_ of the per-earner SPT + 2xSPTx2 window totals (measured vs simulated
+// per-category sums — additive-projection convention, same as the NET blocks) scaled
+// x seasonDays/33 onto the SP / SP_v2 'Cumul' ladder. cum = Σ tier rewards 1..T: FREE track for
+// NONPAYER, FREE+PAID for PAYER (ASSUMPTION, flagged: the measured '(Free)' category is presumed
+// to contain payers' paid-track claims — the telemetry label doesn't split tracks).
+// R_challenge = SP_lb_v2/SP_lb rank-ladder POT ratio (zero-sum like Kite; the Dream Pass rows in
+// data_event_inst are empty, so there is no position distribution to price at).
+// No anchor (measured 0 or cum_base 0): tiers GAINED add the ABSOLUTE SP_v2 rewards of tiers
+// (T_meas, T_sim] on top of measured (HYBRID — config absolutes on a measured row, flagged);
+// no tier gain -> carry (never deletes a measured value; e.g. the row's own SPT is carried —
+// the track pays no SPT).
+// SP's own SPT contribution enters the totals as measured on BOTH sides (single pass — this IS
+// the recursion guard; ctx._sptBusy is a defensive backstop). SP_v2 / SP_lb_v2 missing or empty
+// -> the base sheet serves both sides (all ratios 1). Season length: 'Season Length (days)'
+// config label on SP / SP_v2 (value in the cell to its right); absent -> 33 (window = season,
+// flagged assumption).
+function simSeasonPass(seg, payer, ctx){
+  var meas = measuredRow_('Season Pass (Free)', seg, payer, ctx.ds);
+  if (ctx._sptBusy) return meas;                       // defensive re-entry guard (see header)
+  if (!ctx.calCurOk || !ctx.calNewOk) return meas;     // parse fail -> carry (canary catches)
+  var cur = ctx.calCur['Season Pass'] || [], nw = ctx.calNew['Season Pass'] || [];
+  if (!nw.length) return zeroRow_();                   // removed from the new calendar
+  if (!cur.length) return meas;                        // no anchor-side instances -> carry
+  var base = readSPTrack_('SP');
+  if (!base.cum.length) return meas;                   // SP sheet unreadable -> carry
+  var v2Name = spV2Sheet_('SP');
+  var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
+  if (!v2.cum.length) v2 = base;
+  var daysBase = readSPSeasonDays_('SP') || 33;        // no config panel yet -> season = window
+  var daysV2   = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
+  var t  = sptTotals_(seg, payer, ctx);
+  var Tm = spTier_(t.meas * daysBase / 33, base.cum);
+  var Ts = spTier_(t.sim  * daysV2   / 33, v2.cum);
+  var cb = spCumTo_(base, Tm, payer), cs = spCumTo_(v2, Ts, payer);
+  var Rlb = spChallengeR_();
+  var T = timingRatio_(cur, nw, seg, payer, ctx.ds);   // D pinned 1 — tier rewards are end-state
+  var out = {};
+  RESOURCES.forEach(function(r){
+    var m = num(meas[r]);
+    if (m > 0 && num(cb[r]) > 0){                      // anchored: ratio path
+      out[r] = m * (num(cs[r]) / num(cb[r])) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
+    } else if (Ts > Tm){                               // no anchor: additive newly-unlocked tiers
+      var add = 0;
+      for (var i = Tm; i < Ts; i++){
+        add += num(v2.free[i] && v2.free[i][r]);
+        if (payer === 'PAYER') add += num(v2.paid[i] && v2.paid[i][r]);
+      }
+      out[r] = m + add;                                // HYBRID (absolute config values)
+    } else {
+      out[r] = m;                                      // no anchor, no tier gain -> carry
+    }
+  });
+  return out;
+}
+
+// Per-earner SPT window totals, measured vs simulated, summed over every category (additive-
+// projection convention). Cached on ctx: computed once per execution, shared by the SIM and
+// DIFF spills. 'Season Pass (Free)' itself contributes measured to BOTH sides (no recursion).
+function sptTotals_(seg, payer, ctx){
+  ctx._spt = ctx._spt || {};
+  var key = seg + '|' + payer;
+  if (ctx._spt[key]) return ctx._spt[key];
+  var ds = ctx.ds, meas = 0, sim = 0;
+  ctx._sptBusy = true;
+  try {
+    CATEGORY_ORDER.forEach(function(cat){
+      var mSPT = ds.gains(seg, payer, cat, 'SPT'), mX2 = ds.gains(seg, payer, cat, 'SPTx2');
+      meas += mSPT + 2 * mX2;
+      if (cat === 'Season Pass (Free)'){ sim += mSPT + 2 * mX2; return; }
+      var row = resultRow_(cat, seg, payer, ctx);
+      sim += num(row['SPT']) + 2 * num(row['SPTx2']);
+    });
+  } finally { ctx._sptBusy = false; }
+  return (ctx._spt[key] = { meas: meas, sim: sim });
+}
+
+// '<base>_v2' when that sheet exists and is non-empty, else the base sheet (ratios degrade to 1).
+function spV2Sheet_(base){
+  var v2 = base + '_v2';
+  return sheetVals_(v2).length ? v2 : base;
+}
+
+// SP / SP_v2 track: header row 4 (0-based 3: Tier | Incr real | Cumul | D..W FREE | X..AQ PAID),
+// tier rows 5+ until Cumul stops being numeric (the 'Total' row has Cumul = NA). The two tracks
+// repeat the same reward headers ('Coins', 'SPT', ...), so each range maps through rewCols_
+// separately — a single whole-row scan would collapse them onto the first (free) match.
+function readSPTrack_(sheetName){
+  var v = sheetVals_(sheetName);
+  var out = { cum: [], free: [], paid: [] };
+  if (!v.length) return out;
+  var fCols = rewCols_(v, 3, 3, 22), pCols = rewCols_(v, 3, 23, 42);
+  for (var r = 4; r < v.length; r++){
+    var c = num(v[r] && v[r][2]);
+    if (!(c > 0)) break;
+    out.cum.push(c);
+    out.free.push(rewRow_(v, r, fCols));
+    out.paid.push(rewRow_(v, r, pCols));
+  }
+  return out;
+}
+
+// 'Season Length (days)' config label anywhere on the sheet; value = the cell to its right.
+function readSPSeasonDays_(sheetName){
+  var v = sheetVals_(sheetName);
+  for (var r = 0; r < v.length; r++){
+    var row = v[r] || [];
+    for (var c = 0; c < row.length; c++){
+      if (String(row[c]).trim().toLowerCase() === 'season length (days)') return num(row[c + 1]);
+    }
+  }
+  return 0;
+}
+
+// Highest 1-based tier whose cumulative points requirement is met; 0 below tier 1, capped at
+// the ladder length (a maxed track gains nothing from extra SPT).
+function spTier_(points, cum){
+  var t = 0;
+  for (var i = 0; i < cum.length; i++){ if (cum[i] <= points) t = i + 1; else break; }
+  return t;
+}
+
+// Σ tier rewards 1..T per resource. FREE track only for NONPAYER; FREE+PAID for PAYER.
+function spCumTo_(track, T, payer){
+  var out = zeroRow_();
+  for (var i = 0; i < T && i < track.free.length; i++){
+    var f = track.free[i], p = track.paid[i], r;
+    for (r in f) out[r] = num(out[r]) + f[r];
+    if (payer === 'PAYER' && p) for (r in p) out[r] = num(out[r]) + p[r];
+  }
+  return out;
+}
+
+// Season Pass Challenge reward-config ratio: SP_lb_v2 / SP_lb rank-ladder POT totals per
+// resource (zero-sum league, Kite-style — no Dream Pass position telemetry to price at).
+// Base pot 0 -> R = 1 (no anchor -> carry; v2-only additions are flagged in the docs).
+function spChallengeR_(){
+  var v2Name = spV2Sheet_('SP_lb'), R = {};
+  if (v2Name === 'SP_lb') return R;                    // no v2 sheet -> all ratios 1
+  var b = readSPLbLadder_('SP_lb'), v = readSPLbLadder_(v2Name);
+  RESOURCES.forEach(function(r){
+    if (num(b[r]) > 1e-9) R[r] = num(v[r]) / num(b[r]);
+  });
+  return R;
+}
+
+// SP_lb / SP_lb_v2: headers row 6 (0-based 5: Rank | Coins | SPT | ...), rank rows 7+ until the
+// first blank Rank cell. Returns the per-resource pot (Σ over ranks) via RES_MAP columns.
+function readSPLbLadder_(sheetName){
+  var v = sheetVals_(sheetName), pot = zeroRow_();
+  if (!v.length) return pot;
+  var cols = rewCols_(v, 5, 1, 21);
+  for (var r = 6; r < v.length; r++){
+    if (!v[r] || v[r][0] == null || String(v[r][0]).trim() === '') break;
+    var rew = rewRow_(v, r, cols);
+    for (var res in rew) pot[res] = num(pot[res]) + rew[res];
+  }
+  return pot;
+}
+
 // ============================== SHARED MATH ==================================================
 // T = Σ_new reach / Σ_cur reach. Both 0 (no rate data) -> 1 (fail-safe: carry, don't zero).
 function timingRatio_(cur, nw, seg, payer, ds){
@@ -778,7 +964,7 @@ function onOpen(){
 // Every sheet the engine reads; a user edit on any of them re-touches the sim formulas.
 var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','NS','NS_v2','Race','Race_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
-  'F','F_v2','cal_curr','cal_new',CAL_PARSED_SHEET,
+  'F','F_v2','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
   'data_streaks','data_event_inst',
   // NET inputs: data_econ_daily feeds ECOGAINS_DAILY's NET blocks (live custom function);

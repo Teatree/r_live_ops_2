@@ -26,6 +26,10 @@ SHEETS = [
     # NET inputs (SimPerSegmentFill per-earner NET / ECOGAINS_DAILY net blocks) — expected MISSING
     # until the per-earner data_econ re-pull and the new data_econ_daily sheet land in the workbook
     'data_econ', 'data_econ_daily',
+    # Season Pass (D16): track + challenge configs. The _v2 pair is expected MISSING until the
+    # user duplicates SP -> SP_v2 / SP_lb -> SP_lb_v2 in the live workbook (the engine then falls
+    # back to the base sheets — that fallback path is exactly what the offline gates exercise).
+    'SP', 'SP_lb', 'SP_v2', 'SP_lb_v2',
 ]
 
 wb = openpyxl.load_workbook(SRC, data_only=True)

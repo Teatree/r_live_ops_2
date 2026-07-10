@@ -11,10 +11,12 @@
  * CUSTOM FUNCTIONS (all spill; header row included in the spill):
  *   =ECOGAINS_PBP(calendar, day, segment, payer, mode, luck, seed, [levels], [startLevel])
  *      -> ledger: header + S row (session-start claims) + N play rows + E row (day-end LB
- *         payouts) + blank + Session Summary (per-source x 11 resources + TOTAL).
- *         22 columns: Row | Play # | Level | Win? | Streak | Mult | CLAIMS (one milestone /
+ *         payouts) + blank + Session Summary (per-source x 13 resources + TOTAL).
+ *         24 columns: Row | Play # | Level | Win? | Streak | Mult | CLAIMS (one milestone /
  *         node / claim PER ROW, as "Source what -> {bundle}"; extra claims on a play spill
- *         onto continuation rows) | 4 event-progress slots | 11 resources (running inventory).
+ *         onto continuation rows) | 4 event-progress slots | 13 resources (running inventory).
+ *         SPT/SPTx2 tracked since 2026-07-10 (D16); season-pass TIER claims are NOT simulated
+ *         in the session view (window-sim only) — SPT appears here only as event payouts.
  *   =ECOGAINS_PBP_EVENTS(calendar, day, segment, payer, luck)   -> Active Events table.
  *   =ECOGAINS_PBP_PROFILE(segment, payer)                       -> Player Profile block.
  *   calendar 'cal_curr'|'cal_new'; day 1-33; segment '0-9'..'100+'; payer NONPAYER|PAYER;
@@ -81,7 +83,7 @@ var PBP_SHOW_ACTIVITY_RATES = false;  // TRUE -> profile also shows p(active wee
 
 // display names for bundles (engine resource -> sheet vocabulary)
 var PBP_RES_DISPLAY = {'HC':'Coins','UL Red':'Unlimited Red','UL Chuck':'Unlimited Chuck',
-                       'UL Bomb':'Unlimited Bomb'};
+                       'UL Bomb':'Unlimited Bomb','SPTx2':'SPT x2'};
 
 // calendar label -> event spec. Ranges are 0-based [row, col] into sheetVals_(cfg).
 // req: milestone requirement column; rew/hdr: reward block; lb: leaderboard ladder

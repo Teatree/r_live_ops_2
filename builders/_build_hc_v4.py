@@ -12,12 +12,14 @@ CATS = ['Ads', 'Bomb Challenge', "Bomb's Ballet", 'Chuck Challenge', 'Core', 'Da
         'Level Race', 'Other', 'Photoshoot', 'Red Challenge', 'River Rush', 'Saga',
         'Season Pass (Free)', 'Target Day', 'Team Event', 'Team Race', 'Flash Race',
         'FlowerCoop', 'Rainbow Maker', 'IAPs']
+# 13 since 2026-07-10 (append-only): SPT/SPTx2 = season pass tokens (D16)
 RES = ['HC', 'Slingshot', 'Shuffle', 'Comet', 'Red', 'Chuck', 'Bomb',
-       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives']
+       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2']
 ALWAYS_ON = {'Daily Gift', 'Saga', 'Daily Night Sky Prize'}   # yellow label (always-on/daily sim)
 EVENT_SIM = {'Bomb Challenge', "Bomb's Ballet", 'Chuck Challenge', 'Hatchling Hideaway', 'Jigsaw',
              'Kite Festival', 'Level Race', 'Photoshoot', 'Red Challenge', 'River Rush',
-             'Target Day', 'Flash Race', 'Rainbow Maker'}     # pink label (calendar event sim)
+             'Target Day', 'Flash Race', 'Rainbow Maker',
+             'Season Pass (Free)'}                            # pink label (calendar event sim)
 A0_APPLIED = {'Saga': 'FFFFF2CC', 'Daily Gift': 'FFFFF2CC', 'River Rush': 'FFF4CCCC'}
 
 BLOCKS = [('0-9',   '0-9 Segment - Over Time Period  (uses 1-9 gains data)', 'main'),
@@ -38,7 +40,7 @@ wb = openpyxl.Workbook()
 ws = wb.active
 ws.title = 'EcoGainsSim_HC'
 ws.sheet_view.showGridLines = False
-for col, w in {'A': 1.75, 'B': 19.25, 'C': 8.25, 'Z': 7.63}.items():
+for col, w in {'A': 1.75, 'B': 19.25, 'C': 8.25, 'AD': 7.63}.items():
     ws.column_dimensions[col].width = w
 
 ws['B2'] = 'Per-earner gains over the 33-day'
@@ -64,13 +66,13 @@ for t, (seg, title, kind) in enumerate(BLOCKS):
     tag.alignment = Alignment(horizontal='center')
     ws.cell(hdr, 3, title).font = Font(name='Arial', size=11, bold=True)
     dtitle = (title.split('  (')[0] + ' - Difference') if kind == 'main' else 'A. 0 Appendix - Difference (config-only changes)'
-    ws.cell(hdr, 15, dtitle).font = Font(name='Arial', size=11, bold=True)
+    ws.cell(hdr, 17, dtitle).font = Font(name='Arial', size=11, bold=True)   # diff block: Q..AC (13 wide, gap in P)
     hf = Font(name='Arial', size=9, bold=True)
     ws.cell(cols_row, 2, 'Source').font = hf
     ws.cell(cols_row, 2).fill = fill(F_HDR)
     ws.cell(cols_row, 2).border = BORDER
     for j, r in enumerate(RES):
-        for base in (3, 15):
+        for base in (3, 17):
             cell = ws.cell(cols_row, base + j, r)
             cell.font, cell.fill, cell.border = hf, fill(F_HDR), BORDER
             cell.alignment = Alignment(horizontal='center')
@@ -93,15 +95,15 @@ for t, (seg, title, kind) in enumerate(BLOCKS):
         for j in range(len(RES)):
             c1 = ws.cell(row, 3 + j)
             c1.fill, c1.border, c1.number_format = data_fill, BORDER, FMT_SIM
-            c2 = ws.cell(row, 15 + j)
+            c2 = ws.cell(row, 17 + j)
             c2.border, c2.number_format = BORDER, FMT_DIFF
         if t == 0 and (cat in ALWAYS_ON or cat in EVENT_SIM):
             sim_rows.append(row)
     # trailing sim_refresh!$A$1 = the engine's refresh NONCE (ignored by the function; changing
     # it is what re-runs the sim — the engine no longer clears/re-sets formulas)
     ws.cell(d0, 3).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment, sim_refresh!$A$1))'
-    ws.cell(d0, 15).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, sim_refresh!$A$1))'
-    diff_rng = f'O{d0}:Y{d0 + N - 1}'
+    ws.cell(d0, 17).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, sim_refresh!$A$1))'
+    diff_rng = f'Q{d0}:AC{d0 + N - 1}'
     ws.conditional_formatting.add(diff_rng, CellIsRule(
         operator='lessThan', formula=['0'],
         font=Font(color='FF990000', bold=False), fill=fill(F_PINK)))
@@ -125,6 +127,8 @@ legend = [
     "A. 0 block: no behaviour data (these players barely play) — everything carried except config-only changes: Saga HC x ratio, Daily Gift HC x ratio (0-9 streaks as PROXY, slightly overstates), River Rush -> 0. RM/NS not simulated for A. 0.",
     'Reward-config edits FLOW (since 2026-07-06): editing rewards or requirements on any _v2 sheet reprices its row (R = v2/base ladder at the measured rank / progress distribution). Base sheets = the measured world; leave them untouched. TaD milestone rewards are the exception (base pays 0 -> no anchor -> carried).',
     'Kite Festival is priced as a LEADERBOARD (since 2026-07-06): payouts are zero-sum per league of 60, so duration does not move them; D=1 and the row GROWS ~x1.3 via cadence.',
+    'SPT / SPTx2 (13-resource universe since 2026-07-10, D16): season pass tokens, appended as the last two columns; SPTx2 counts DOUBLE toward season-pass tier progression but displays separately. Every simulated source moves its SPT via the same R x D x T as its other resources.',
+    "Season Pass (Free) is SIMULATED via SPT tier coupling: per-earner SPT+2xSPTx2 window totals (measured vs simulated, summed over all sources - additive-projection convention) x seasonDays/33 land on the SP / SP_v2 'Cumul' ladder; the row scales by cum-reward ratio through the reached tier (FREE track for nonpayers, FREE+PAID for payers - ASSUMPTION: the measured '(Free)' row contains payers' paid-track claims) x SP_lb_v2/SP_lb challenge pot ratio (zero-sum; Dream Pass telemetry is empty) x calendar T (D=1). No anchor (measured 0 or base cum 0): tiers GAINED add absolute SP_v2 rewards (HYBRID, flagged); otherwise carried. SP_v2 / SP_lb_v2 missing -> base sheets serve both sides (ratios 1). Not applied to A. 0.",
     'After editing a calendar: menu EcoGainsSim ▸ Precompute calendars (writes hidden cal_parsed; engine prefers it). Sanity canary: the Kite Festival row must GROW ~x1.3 vs measured. If every event row equals measured, the calendar read failed.',
 ]
 for i, txt in enumerate(legend):

@@ -63,7 +63,9 @@ for (const payer of ['NONPAYER']) {
       const line = cat.padEnd(22) +
         ' simHC=' + fmt(sim[i][0]).padStart(9) +
         ' diffHC=' + fmt(diff[i][0]).padStart(9) +
-        ' | ULL sim=' + fmt(sim[i][10]).padStart(8);
+        ' | ULL sim=' + fmt(sim[i][10]).padStart(8) +
+        ' | SPT sim=' + fmt(sim[i][11]).padStart(8) +
+        ' diff=' + fmt(diff[i][11]).padStart(8);
       console.log(line);
     });
   }
@@ -265,6 +267,98 @@ const range = (r0, r1, c) => Array.from({length: r1 - r0 + 1}, (_, i) => [r0 + i
   const again = ECOGAINS_SIM('NONPAYER', '40-99');
   const same = CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12));
   gate('mutations fully restored (baseline reproduces)', same);
+}
+
+// ---------- SPT / Season Pass gates (D16, added 2026-07-10) ----------
+// Data-aware by design: tiers/ratios are recomputed through the engine's own functions, never
+// hardcoded (40-99 NONPAYER sits only ~1.65 pts above a tier edge — a re-pull could move it).
+console.log('\n================ SPT GATES ================');
+gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && RESOURCES.length === 13,
+     'got ' + baseline[0].length);
+
+// SPT-1: SPT flows through the leaderboard machinery — Kite SPT == measured x R_SPT x T, with
+// R_SPT != 1 from the real Ki_v2 SPT ladder cut (workbook 10: pot 2960 -> 1890). Canary: a
+// "no change" SPT row here means SPT fell out of the R/T plumbing.
+{
+  const c2 = Context.get();
+  const iSPT = RESOURCES.indexOf('SPT');
+  const measK = num(measuredRow_('Kite Festival', '40-99', 'NONPAYER', c2.ds)['SPT']);
+  const tK = timingRatio_(c2.calCur['Kite Festival'] || [], c2.calNew['Kite Festival'] || [], '40-99', 'NONPAYER', c2.ds);
+  const RK = rewardR_('Kite Festival', '40-99', 'NONPAYER', c2.ds);
+  const rK = (RK && RK['SPT'] != null) ? RK['SPT'] : 1;
+  const simK = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Kite Festival')][iSPT];
+  gate('Kite SPT = measured x R_SPT x T (R_SPT != 1: real Ki_v2 SPT edits)',
+       Math.abs(simK - measK * rK * tK) < 1e-9 && Math.abs(rK - 1) > 0.05 && Math.abs(simK - measK) > 1e-6,
+       `sim ${simK.toFixed(2)} vs meas ${measK.toFixed(2)} (R_SPT=${rK.toFixed(3)}, T=${tK.toFixed(2)})`);
+}
+
+// SPT-2: Season Pass tier coupling with SP_v2 / SP_lb_v2 ABSENT (fallback path — the dump has
+// no v2 sheets until the user duplicates them). Verifies the per-resource identity:
+// anchored -> measured x cum(Ts)/cum(Tm) x T_cal; no anchor + no tier gain -> carried.
+{
+  const c2 = Context.get();
+  gate('SP_v2/SP_lb_v2 absent -> engine falls back to base sheets',
+       spV2Sheet_('SP') === 'SP' && spV2Sheet_('SP_lb') === 'SP_lb');
+  const t = sptTotals_('40-99', 'NONPAYER', c2);
+  gate('SPT totals: simulated < measured (RR removal + Ki_v2 cut + T factors)',
+       t.meas > 100 && t.sim < t.meas - 50, `meas ${t.meas.toFixed(2)} sim ${t.sim.toFixed(2)}`);
+  const track = readSPTrack_('SP');
+  const Tm = spTier_(t.meas, track.cum), Ts = spTier_(t.sim, track.cum);   // seasonDays=33 default
+  gate('tier reached drops with the SPT loss (Ts < Tm)', Tm > 0 && Ts < Tm, `Tm ${Tm} -> Ts ${Ts}`);
+  const cb = spCumTo_(track, Tm, 'NONPAYER'), cs = spCumTo_(track, Ts, 'NONPAYER');
+  const tSP = timingRatio_(c2.calCur['Season Pass'] || [], c2.calNew['Season Pass'] || [], '40-99', 'NONPAYER', c2.ds);
+  const spRow = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Season Pass (Free)')];
+  const measRow = measuredRow_('Season Pass (Free)', '40-99', 'NONPAYER', c2.ds);
+  let maxE = 0; const scaled = [];
+  RESOURCES.forEach((r, j) => {
+    const m = num(measRow[r]);
+    const expected = (m > 0 && num(cb[r]) > 0) ? m * (num(cs[r]) / num(cb[r])) * tSP : m;
+    maxE = Math.max(maxE, Math.abs(spRow[j] - expected));
+    if (m > 0 && Math.abs(expected - m) > 1e-9) scaled.push(`${r} x${(expected / m).toFixed(3)}`);
+  });
+  gate('Season Pass row == tier-coupling identity per resource', maxE < 1e-9,
+       `max err ${maxE.toExponential(2)}; moved: ${scaled.join(', ') || '(none — suspicious)'}`);
+  gate('at least one Season Pass resource moved (coupling is live)', scaled.length > 0, scaled.join(', '));
+  const iSPT = RESOURCES.indexOf('SPT');
+  gate("Season Pass row's own SPT carried (track pays no SPT; no-anchor + no tier gain -> carry)",
+       Math.abs(spRow[iSPT] - num(measRow['SPT'])) < 1e-9,
+       `sim ${spRow[iSPT].toFixed(2)} == meas ${num(measRow['SPT']).toFixed(2)}`);
+}
+
+// SPT-3: synthetic SP_v2 with the Cumul ladder halved -> tiers RISE: anchored resources scale
+// UP (cum ratio > 1) and the no-anchor ADDITIVE path fires for resources the track pays inside
+// the newly unlocked tiers but measured never saw. Restores + re-checks baseline after.
+{
+  const clone = JSON.parse(JSON.stringify(data['SP']));
+  for (let r = 4; r < clone.values.length; r++) {              // 0-based rows 4.. = tier rows 5..
+    const v = +clone.values[r][2];
+    if (v > 0) clone.values[r][2] = v / 2;                     // Cumul col C halved
+  }
+  data['SP_v2'] = clone;
+  eval(engineSrc); resetSheetCache();
+  const c3 = Context.get();
+  const t = sptTotals_('40-99', 'NONPAYER', c3);
+  const base = readSPTrack_('SP'), v2 = readSPTrack_('SP_v2');
+  const Tm = spTier_(t.meas, base.cum), Ts = spTier_(t.sim, v2.cum);
+  const row = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Season Pass (Free)')];
+  const measRow = measuredRow_('Season Pass (Free)', '40-99', 'NONPAYER', c3.ds);
+  gate('SP_v2 Cumul x0.5 -> tier rises (Ts > Tm)', Ts > Tm, `Tm ${Tm} -> Ts ${Ts}`);
+  // any no-anchor resource paid in (Tm, Ts] must now be > measured (additive path)
+  let additive = null;
+  for (const r of RESOURCES) {
+    if (num(measRow[r]) > 0) continue;
+    let add = 0;
+    for (let i = Tm; i < Ts; i++) add += num(v2.free[i] && v2.free[i][r]);
+    if (add > 0) { additive = { res: r, add, got: row[RESOURCES.indexOf(r)] }; break; }
+  }
+  gate('no-anchor additive path pays newly unlocked tier rewards',
+       additive === null || Math.abs(additive.got - additive.add) < 1e-9,
+       additive ? `${additive.res}: +${additive.add.toFixed(2)} got ${additive.got.toFixed(2)}` : '(no additive-eligible resource in the gap — skipped)');
+  delete data['SP_v2'];
+  eval(engineSrc); resetSheetCache();
+  const again = ECOGAINS_SIM('NONPAYER', '40-99');
+  gate('SP_v2 mutation restored (baseline reproduces)',
+       CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
 }
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
 process.exit(failures ? 1 : 0);

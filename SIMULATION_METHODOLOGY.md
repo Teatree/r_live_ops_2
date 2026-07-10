@@ -58,7 +58,8 @@ carried**:
 
 | Category | Simulator | §  | Model |
 |---|---|---|---|
-| Ads, Core, Other, Season Pass (Free), Team Event, Team Race, FlowerCoop, IAPs, Flock Flurry | *(carried)* | [6.1](#61-carried-sources) | = measured |
+| Ads, Core, Other, Team Event, Team Race, FlowerCoop, IAPs, Flock Flurry | *(carried)* | [6.1](#61-carried-sources) | = measured |
+| Season Pass (Free) | `simSeasonPass` | [6.11](#611-season-pass-spt-tier-coupling) | measured × tier-cum ratio × R_challenge × T (D=1) — since 2026-07-10 (D16) |
 | Core | `simCore` | [6.2](#62-core--saga) | = measured (carried) |
 | Saga | `simSaga` | [6.2](#62-core--saga) | measured × per-resource ratio |
 | Daily Gift | `simDailyGift` | [6.3](#63-daily-gift) | measured, HC × streak-weighted ratio |
@@ -93,7 +94,7 @@ D12: no numbers in code).
 | `data_streaks` | `segment \| payer_flag` → `max_streak_per_day_p25/50/75/90` | Night Sky streak distribution (clean, un-A/B-diluted; `ds.nsStreak`). Also the PBP sim's behaviour source. |
 | `data_event_inst` | `event_name \| segment \| payer_flag` → `position_p25/50/75`, `final_balance_p25/50/75` | the [R-term](#r-reward-ratio) player distribution (`ds.eventInst`): rank quantiles for leaderboard R, progress survival for collection R. Also the PBP sim's placement/progress source. |
 | `cal_curr` / `cal_new` (🗓️) | visual grids | instances → [T](#t-cadence-and-reach), [D](#d-duration-multiplier) durations (§5). |
-| config pairs (⚙️) `c_saga(_v2)`, `c_day(_v2)`, `Race(_v2)`, `Ki/HH/BB/J/Ph/TaD(_v2)`, `RM`, `NS` | | ladders, requirements, durations, R ratios. |
+| config pairs (⚙️) `c_saga(_v2)`, `c_day(_v2)`, `Race(_v2)`, `Ki/HH/BB/J/Ph/TaD(_v2)`, `RM`, `NS`, `SP(_v2)`, `SP_lb(_v2)` | | ladders, requirements, durations, R ratios. `SP` = season-pass 30-tier track (Cumul points ladder + FREE/PAID reward columns); `SP_lb` = Season Pass Challenge rank ladder. The `_v2` twins may be ABSENT — the engine then reads the base sheet for both sides (ratios 1). |
 
 **Segment label mapping (`SEG_TO_GAINS`, decision D8).** Display segments are
 `0-9, 10-19, 20-39, 40-99, 100+`. `SEG_TO_GAINS` maps `'0-9' → 'B. 1-9'` (NOT a merge of
@@ -101,9 +102,12 @@ A.0 ∪ B.1-9): every non-gains "0-9" dataset already describes B.1-9 players on
 players barely play and are excluded from behaviour queries. **A. 0** is a separate appendix
 ([§6.10](#610-a-0-appendix)).
 
-**The 11-resource universe (fixed order, append-only):** HC (coins ONLY), Slingshot, Shuffle,
-Comet, Red, Chuck, Bomb, UL Bomb, UL Chuck, UL Red, Unlimited Lives. SPT/COOP/Avatar/Dly items are
-out of scope (this is why Flash Race legitimately shows ≈0 — it pays SPT).
+**The 13-resource universe (fixed order, append-only):** HC (coins ONLY), Slingshot, Shuffle,
+Comet, Red, Chuck, Bomb, UL Bomb, UL Chuck, UL Red, Unlimited Lives, **SPT, SPTx2** (season pass
+tokens, appended 2026-07-10 per decision D16; SPTx2 is the double-value token — displayed as its
+own column, weighted ×2 in season-pass tier progression). COOP Token / Avatar / star-daily items
+remain out of scope. Before D16 the universe was 11 resources and Flash Race showed ≈0 because its
+SPT payout was untracked; its SPT column is live now (HC stays ≈0 — it genuinely pays none).
 
 ---
 
@@ -334,10 +338,11 @@ from the accrual curve; both compute R from `data_event_inst`.
 
 ### 6.1 Carried sources
 
-**Overview.** Ads, Core, Other, Season Pass (Free), Team Event, Team Race, FlowerCoop, IAPs, Flock
-Flurry are not listed in `SOURCES` (or Core, which is explicitly carried) — nothing about them
-changed in the redesign, so SIMULATED = [measured](#measured) and DIFF = 0. Flock Flurry is carried
-in the gains but still *scheduled*, so `ECOGAINS_CAL_STATS` shows its cadence.
+**Overview.** Ads, Core, Other, Team Event, Team Race, FlowerCoop, IAPs, Flock Flurry are not
+listed in `SOURCES` (or Core, which is explicitly carried) — nothing about them changed in the
+redesign, so SIMULATED = [measured](#measured) and DIFF = 0. Flock Flurry is carried in the gains
+but still *scheduled*, so `ECOGAINS_CAL_STATS` shows its cadence. (Season Pass (Free) left this
+family 2026-07-10 — it is simulated via SPT tier coupling, [§6.11](#611-season-pass-spt-tier-coupling).)
 
 **Flow.**
 ```mermaid
@@ -626,10 +631,11 @@ flowchart TD
 **Step by step.** Identical to [§6.4](#64-score-based-leaderboards-kite-festival--target-day) steps
 1–5, except `lbE_` reads the ⚙️ `Race`/`Race_v2` block for the event and there is **no**
 score-milestone term. Worked T values: Bomb 0.86, Chuck 0.69, Red 1.30, Level 0.86, Flash 0.99
-(@0-9). Flash Race legitimately sims ≈0 in HC — it pays **SPT**, outside the 11 resources.
+(@0-9). Flash Race legitimately sims ≈0 in HC — its real payout is **SPT**, tracked as its own
+column since 2026-07-10 (D16).
 
 **Zero semantics.** As §6.4: HC 0 for a low segment with nonzero boosters is real rank economics.
-Flash Race ≈ 0 everywhere is real (SPT).
+Flash Race HC ≈ 0 everywhere is real (it pays SPT — check its SPT column instead).
 
 **In plain words.** These five events are pure races: your payout depends only on where you finish
 against other players, from a fixed prize table for the top ranks. The method is exactly the one
@@ -640,8 +646,8 @@ touches a segment that usually finishes 15th); multiply by T (the cadence-and-re
 more or less scheduled opportunity the new calendar offers, where each run counts as the chance the
 player shows up to it at all). Event length is ignored (D, the duration multiplier, = 1) because giving
 everyone more time doesn't reorder the leaderboard much. One expected oddity: Flash Race shows ≈ 0
-everywhere because it pays a currency (SPT) that's outside the 11 resources this simulation tracks —
-that zero is correct, not a bug.
+coins everywhere because its real payout is SPT (season pass tokens) — since 2026-07-10 that payout
+appears in the SPT column; the coins zero is correct, not a bug.
 
 **The formula.**
 
@@ -987,13 +993,14 @@ flowchart TD
   C{"category?"} -->|River Rush| Z["0"]
   C -->|Saga| SG["HC × saga HC ratio; items × saga item ratios (config-only)"]
   C -->|Daily Gift| DG["HC × Daily-Gift ratio using 0-9 login streaks as PROXY (overstates)"]
-  C -->|everything else incl. Night Sky, Rainbow Maker| CARRY["= measured"]
+  C -->|everything else incl. Night Sky, Rainbow Maker, Season Pass tier coupling| CARRY["= measured"]
 ```
 
 **Step by step (`appendixRow_`).** River Rush → 0 (universal removal). Saga → apply the
 [§6.2](#62-core--saga) HC + item ratios to measured. Daily Gift → apply the [§6.3](#63-daily-gift)
 ratio computed from **0-9** login streaks as a proxy (flagged: overstates A.0's remaining gains).
-Everything else, including Night Sky and Rainbow Maker, carries measured.
+Everything else, including Night Sky, Rainbow Maker and the [§6.11](#611-season-pass-spt-tier-coupling)
+Season Pass tier coupling, carries measured.
 
 **In plain words.** "A. 0" players finished zero levels in the measurement window — they barely touch
 the game, so none of the behaviour data (activity rates, streaks, event progress, matchables) exists
@@ -1015,7 +1022,7 @@ depending on which case you're in):
 >
 > **Daily Gift:** SIMULATED\[HC] = [measured](#measured)\[HC] × R_HC — the [§6.3 ratio](#63-daily-gift), but with its weights **wₙ = [S](#s-survival-function)(n−1)** built from the **0-9 segment's** login-streak [percentiles](https://en.wikipedia.org/wiki/Percentile) as a stand-in
 >
-> **Everything else (incl. Night Sky, Rainbow Maker):** SIMULATED\[res] = [measured](#measured)\[res]
+> **Everything else (incl. Night Sky, Rainbow Maker, Season Pass):** SIMULATED\[res] = [measured](#measured)\[res]
 
 - **[measured](#measured)\[res]** — what A. 0 players actually earned (📊 `data_gains`); for this
   segment it is almost always the whole answer, because no behaviour data exists to scale it with.
@@ -1029,12 +1036,122 @@ depending on which case you're in):
 
 ---
 
+### 6.11 Season Pass (SPT tier coupling)
+
+**Overview (added 2026-07-10, decision D16).** Season pass tokens (SPT / SPTx2) are what makes this
+source different from every other: **SPT earned across ALL sources drives progression along the
+season-pass reward track**, so a redesign that changes SPT payouts anywhere (Kite's ladder, River
+Rush's removal, Level Race's cadence…) moves how far players get on the track — and therefore how
+much the "Season Pass (Free)" row itself pays. `simSeasonPass` couples the two: it collects the
+per-earner SPT window totals (measured vs simulated), maps each onto the track's cumulative points
+ladder to get a tier reached, and scales the measured Season Pass row by the ratio of cumulative
+track rewards through those tiers. A Season Pass Challenge reward-config ratio (`SP_lb_v2`/`SP_lb`
+pot ratio) and the calendar T factor multiply on top; D is pinned 1 (tier rewards are end-state
+claims, like leaderboard payouts).
+
+**Data at a glance:** 📊 `data_gains` (measured row + the SPT/SPTx2 amounts of every category) ·
+⚙️ `SP` / `SP_v2` (30-tier track: `Cumul` points ladder, FREE cols D–W, PAID cols X–AQ, headers
+row 4, tiers rows 5–34; `Season Length (days)` config label read from anywhere on the sheet) ·
+⚙️ `SP_lb` / `SP_lb_v2` (challenge rank ladder, headers row 6, ranks rows 7+) · 🗓️ calendars
+(`Season Pass` lane → T). **`SP_v2` / `SP_lb_v2` may be absent** — the base sheet then serves both
+sides and every ratio degrades to 1.
+
+**Flow.**
+```mermaid
+flowchart TD
+  G["SPT totals/earner: meas = Σ cats SPT+2×SPTx2 (📊 data_gains); sim = same after each source's R·D·T"] --> PTS["points = SPT_total × seasonDays/33 (⚙️ SP / SP_v2 config)"]
+  PTS --> TIER["T_meas = tier(points_meas, ⚙️ SP Cumul); T_sim = tier(points_sim, ⚙️ SP_v2 Cumul); cap 30"]
+  TIER --> CUM["cum(T)[res] = Σ tier rewards 1..T — FREE for NONPAYER, FREE+PAID for PAYER"]
+  CUM --> OUT["anchored: SIM[res] = measured[res] × cum_v2(T_sim)/cum_base(T_meas) × R_chal[res] × T_cal"]
+  CUM --> FB["no anchor: tiers GAINED → measured + Σ SP_v2 rewards (T_meas, T_sim] (HYBRID); else carry"]
+```
+
+**Step by step (`simSeasonPass`).**
+1. Branch discipline as `timedCore_`: calendars unparsed → carry; no `Season Pass` lane in
+   `cal_new` → 0 (removal); none in `cal_curr` → carry; `SP` sheet unreadable → carry.
+2. **SPT totals** (`sptTotals_`, cached on the execution context): per earner,
+   `meas = Σ over every category of [SPT + 2×SPTx2]` from 📊 `data_gains` (the additive-projection
+   convention — same as the NET blocks); `sim` = the same sum using each category's **simulated**
+   SPT/SPTx2 (i.e. after that category's own R·D·T). The Season Pass category itself contributes
+   its *measured* SPT to BOTH sides — single pass, no recursion (the track pays no SPT, so there is
+   no feedback loop through the config either; `ctx._sptBusy` is a defensive backstop).
+3. **Points & tier:** `points = SPT_total × seasonDays/33` (seasonDays from the `Season Length
+   (days)` label on ⚙️ `SP` for the measured side / `SP_v2` for the simulated side; absent → 33,
+   i.e. window = season, **flagged assumption**). `tier(points)` = highest tier whose `Cumul` ≤
+   points (0 below tier 1, capped at 30 — a maxed track gains nothing from extra SPT).
+4. **Cumulative track rewards** `cum(T)[res]` = Σ of tiers 1..T rewards per resource — FREE track
+   only for NONPAYER; FREE+PAID for PAYER (**flagged assumption**: the measured '(Free)' category
+   is presumed to contain payers' paid-track claims too — the telemetry label doesn't split
+   tracks). Base side reads ⚙️ `SP`, simulated side ⚙️ `SP_v2`.
+5. **R_challenge** (`spChallengeR_`) = per resource, Σ `SP_lb_v2` rank ladder ÷ Σ `SP_lb` rank
+   ladder — a zero-sum POT ratio (Kite-style), because the Dream Pass rows in 📊 `data_event_inst`
+   are empty (no position distribution to price at). Base pot 0 → 1 (no anchor → carry).
+6. **T_cal** = the usual cadence×reach ratio over the `Season Pass` calendar lane (identical in
+   both calendars today → 1). **D pinned 1.**
+7. Per resource: `measured > 0 AND cum_base(T_meas) > 0` →
+   `SIM = measured × cum_v2(T_sim)/cum_base(T_meas) × R_challenge × T_cal`. **No anchor** (measured
+   0, or the track never paid this resource by T_meas): tiers GAINED (`T_sim > T_meas`) → `SIM =
+   measured + Σ SP_v2 rewards of tiers (T_meas, T_sim]` (absolute config values on a measured row —
+   **HYBRID, flagged**); no tier gain → carry (never deletes a measured value; e.g. the row's own
+   SPT stays carried). **A. 0**: fully carried ([§6.10](#610-a-0-appendix)).
+
+**Worked numbers (workbook (10), 40-99 NONPAYER, SP_v2 absent):** SPT_meas 318.65/earner → tier 8
+(Cumul 317 — only 1.65 pts above the edge, so NEVER hardcode tiers in checks); SPT_sim 224.44
+(River Rush removal −14.8, Kite ×0.638×1.31, Level Race ×T) → tier 6. Free-track cums 8→6: Coins
+20→20 (×1), Chuck 2→1 (×0.5), UL Lives 75→60 (×0.8) — exactly what the harness gate asserts.
+
+**In plain words.** The season pass is a punch-card: every season-pass token (SPT) you earn anywhere
+in the game punches points into it, and each filled row (tier) hands you a bundle of rewards. The
+redesign changes how many tokens players earn — removing River Rush deletes its tokens, nerfing
+Kite's token ladder shrinks those, rescheduling events moves theirs. So we first total up the
+tokens a typical player earned per source in real life, and the tokens the simulation says they'd
+earn under the new calendar (double-value tokens count twice). Each total lands somewhere on the
+track's points ladder — that's the tier reached, before vs after. Then we ask: through the tier
+you reach, how much of each resource does the track hand out, new world vs old? That ratio scales
+what players actually earned from the pass (payers get the paid track's rewards counted too, since
+they own the pass). If the track pays something the player's measured history can't anchor (they
+never reached a tier that pays it), we only ever ADD newly unlocked tier rewards on top — we never
+delete a measured value. Editing the SP_v2 sheet (cheaper tiers, richer rewards, longer season) or
+the challenge leaderboard's SP_lb_v2 ladder flows straight into this row; until those v2 sheets
+exist, everything reads the base sheets and only the SPT volume changes move the row.
+
+**The formula.**
+
+> **anchored:** SIMULATED\[res] = [measured](#measured)\[res] × ( cum_v2(T_sim)\[res] ÷ cum_base(T_meas)\[res] ) × R_chal\[res] × [T](#t-cadence-and-reach) &nbsp;&nbsp; (D = 1 by design)
+>
+> **no anchor, tiers gained:** SIMULATED\[res] = measured\[res] + [Σ](https://en.wikipedia.org/wiki/Summation) over tiers t ∈ (T_meas, T_sim] of ⚙️`SP_v2` reward_t\[res] &nbsp;&nbsp; **· no anchor otherwise:** SIMULATED\[res] = measured\[res]
+
+with the composite terms expanding to:
+
+> **T_x = tier( SPT_x × seasonDays_x ÷ 33 , Cumul ladder )** — the highest tier whose cumulative points requirement is met, capped at 30
+>
+> **SPT_meas = Σ over all categories of ( SPT + 2×SPTx2 ) per earner** (📊 `data_gains`) · **SPT_sim = the same sum after each category's own simulation** (Season Pass itself measured on both sides)
+>
+> **cum(T)\[res] = Σ tiers 1..T of track reward\[res]** — FREE track for NONPAYER, FREE+PAID for PAYER
+>
+> **R_chal\[res] = Σ ⚙️`SP_lb_v2` ladder\[res] ÷ Σ ⚙️`SP_lb` ladder\[res]** (zero-sum pot ratio; base 0 → 1)
+
+- **[measured](#measured)\[res]** — what players actually earned from the season pass (📊 `data_gains`).
+- **SPT_meas / SPT_sim** — the per-earner season-pass-token totals over the 33-day window, before vs
+  after the redesign; the double token (SPTx2) counts twice. Summing per-earner amounts across
+  categories is the project's additive-projection convention (an average player is assumed to touch
+  each source at its per-earner rate).
+- **tier / Cumul** — the track's points ladder: tier 1 costs 10 points, tier 30 cumulatively 3,557.
+- **cum(T)** — everything the track has handed out through tier T, per resource; the ratio of the two
+  worlds' cums is what scales the row (both = 1 while `SP_v2` is untouched and the tier doesn't move).
+- **R_chal** — the Season Pass Challenge reward-edit ratio: total prize pot of the redesigned rank
+  ladder ÷ the current one (no per-rank pricing — the Dream Pass telemetry needed for it is empty).
+- **[T](#t-cadence-and-reach)** — the usual cadence×reach ratio on the `Season Pass` calendar lane
+  (1 today: the lane is identical in both calendars).
+
+---
+
 # Part C — Views, plumbing, verification
 
 ## 7. The per-day view (`EcoGainsSim_Daily.gs`) — allocation, not re-simulation
 
 `ECOGAINS_DAILY(payer, segment, source, block)` (block = CURRENT | NEW | DIFF | SPEND | CURNET |
-NEWNET) spills 33×11. The gain blocks re-use the engine's window totals (CURRENT = measured, NEW =
+NEWNET) spills 33×13. The gain blocks re-use the engine's window totals (CURRENT = measured, NEW =
 simulated) and ONLY distribute them over days — column sums reconcile with the main sim to ~1e-13.
 "Claim-day realistic" rules:
 
@@ -1045,7 +1162,8 @@ simulated) and ONLY distribute them over days — column sums reconcile with the
 | Rainbow Maker | ∝ reach(inst) | ∝ [p_day](#reach-and-p_day) within instance (no curve — flagged) |
 | Core/Saga/Daily Gift | — | every day ∝ p_day |
 | Night Sky | — | over its 33×1d instances ∝ p_day (carried while `NS_SIMULATE = false`) |
-| non-calendar (Ads, Teams, SP, Other, IAPs; River Rush current side) | — | flat ÷33 (diff uniform) |
+| Season Pass (Free) | ∝ reach(inst) over the `Season Pass` lane | ∝ p_day within instance (tier claims are continuous — same as RM; the lane covers all 33 days today) |
+| non-calendar (Ads, Teams, Other, IAPs; River Rush current side) | — | flat ÷33 (diff uniform) |
 
 Expected reading: weekday/weekend texture from always-on sources, end-day spikes from leaderboard
 instances, RM/collection humps across instance days.
@@ -1063,7 +1181,7 @@ window-earner denominator so the 33 days sum to `data_econ`'s window totals; see
   held constant; since 2026-07-10 §13.3 uses the SAME additive model, so the two views reconcile:
   Daily net-Δ TOTAL == SPS net Δ == M − G), so **net Δ ≡ the DIFF block** and the 33 days still
   sum to the window totals.
-- **Blank semantics:** the NET blocks spill a 33×11 grid of `''` when the Source filter ≠ ALL
+- **Blank semantics:** the NET blocks spill a 33×13 grid of `''` when the Source filter ≠ ALL
   (spend is game-wide, not attributable to one event) or when `data_econ_daily` is missing / lacks
   the expected headers / has no rows for the segment. The `''` cells (not empty, not 0) are
   load-bearing: the net-Δ sheet formulas subtract them, error, and IFERROR to blank — truly empty
@@ -1095,12 +1213,14 @@ window-earner denominator so the 33 days sum to `data_econ`'s window totals; see
   document properties (so even a manual delete un-deletes on the next refresh; after restructuring a
   sheet, run one refresh to update the snapshot). `builders/_restore_formulas.py` remains the manual
   fallback.
-- **Custom functions & spills:** `ECOGAINS_SIM/ECOGAINS_DIFF(payer, segment)` spill 25×11 per segment
-  block (blocks anchored at `$B$6/35/64/93/122/151`, the last being A. 0);
+- **Custom functions & spills:** `ECOGAINS_SIM/ECOGAINS_DIFF(payer, segment)` spill 25×13 per segment
+  block (blocks anchored at `$B$6/35/64/93/122/151`, the last being A. 0; since the 13-resource
+  layout the sim block is C..O and the DIFF anchor moved from O to **Q** — Q..AC);
   `ECOGAINS_CAL_STATS("cal_curr"|"cal_new")` spills 25×2 (instance count, total event-days — REAL
-  days) for the AB:AC / AE:AF columns. Spill target ranges must be empty.
+  days) for the AE:AF / AH:AI columns (moved from AB/AE, which now sit inside the diff block).
+  Spill target ranges must be empty.
 - **`SimPerSegmentFill.gs`** is deliberately NOT a custom function: `fillSimPerSegment()` (menu ▸ Fill
-  Sim per Segment) writes the grouped rollup (PAID/ADS/CORE/META × segments × payers × 11 resources,
+  Sim per Segment) writes the grouped rollup (PAID/ADS/CORE/META × segments × payers × 13 resources,
   `SPS_GROUPS` editable at the top) as static values + Total/Δ formulas.
 - **Sheet-generation:** display sheets are generated by Python/openpyxl builders (`builders/_build_*.py`)
   and imported into the Google workbook. Google-only formulas (LET, custom functions) are written as
@@ -1115,8 +1235,10 @@ window-earner denominator so the 33 days sum to `data_econ`'s window totals; see
 | Observation | Verdict |
 |---|---|
 | Event HC = 0 for a low segment, boosters nonzero | REAL (rank-gated economics) |
-| Flash Race ≈ 0 everywhere | REAL (pays SPT, outside the 11 resources) |
+| Flash Race HC ≈ 0 everywhere | REAL (it pays SPT — check the SPT column, live since D16) |
 | Missing `data_gains` row | REAL measured 0 (query emits only >0) |
+| Season Pass row == measured on every resource | EXPECTED when `SP_v2` is absent AND the tier didn't move (SPT_sim lands in the same Cumul band); with workbook (10) data the tier DROPS, so an all-equal row means the coupling isn't running — check the `SP` sheet headers (row 4) and the `Season Pass` calendar lane |
+| Season Pass SPT (its own row) diff = 0 while other resources move | SPEC (the track pays no SPT → no anchor → carried; D16 fallback rule) |
 | River Rush SIMULATED = 0, diff = −measured | SPEC (removed from cal_new) |
 | Night Sky diff = 0 everywhere | EXPECTED (`NS_SIMULATE = false` — carried) |
 | A source with measured>0 sims 0 and it's not River Rush | BUG — check calendar labels, `cal_parsed` staleness, seg/payer labels |
@@ -1146,8 +1268,16 @@ and `eval` the `.gs` files. Checks that must stay green:
   Day HC ×2; `J_v2` Coins ×0.5 → Jigsaw HC ×0.5; `J_v2` reqs ×10 → Jigsaw HC collapses (requirement
   edits flow); `Race_v2` Red Coins = 0 → Red Challenge HC 0; all mutations restore to baseline.
 - **Daily NET gates** (2026-07-09, `_mock_daily.js`, synthetic `data_econ_daily` fixture): missing
-  sheet → 33×11 grid of `''`; SPEND == fixture; CURNET == gain − spend; **NEWNET − CURNET == DIFF**
+  sheet → 33×13 grid of `''`; SPEND == fixture; CURNET == gain − spend; **NEWNET − CURNET == DIFF**
   elementwise; blank when Source ≠ ALL; blank for a segment absent from the sheet.
+- **SPT gates** (2026-07-10, D16 — all data-aware: tiers/ratios recomputed through the engine's own
+  functions, never hardcoded, because 40-99 NP sits ~1.65 pts above a tier edge): spill width 13;
+  **Kite SPT == measured × R_SPT × T with R_SPT ≠ 1** (the real `Ki_v2` SPT cut, pot 2960→1890 —
+  the SPT canary); `SP_v2`/`SP_lb_v2` absent → base-sheet fallback; SPT_sim < SPT_meas (RR removal
+  et al.) → tier drops → the Season Pass row matches the tier-coupling identity per resource
+  (workbook (10): Chuck ×0.5, UL Lives ×0.8, HC ×1) with its own SPT carried; synthetic `SP_v2`
+  with Cumul ×0.5 → tier rises, the no-anchor additive path pays newly unlocked rewards, and the
+  mutation restores to baseline.
 - **NS gates** (behind the switch): default OFF → NS carried (diff 0) for every segment; flip ON →
   simulated NS HC nonzero, E_day monotonic in segment (window TOTAL not asserted monotone), NS still
   carried for A. 0, daily NS sums == the simulated 33-day NS row, PBP seed-averaged Sampled NS ≈ E_day.
@@ -1175,6 +1305,19 @@ and `eval` the `.gs` files. Checks that must stay green:
 9. Measured anchors reflect a specific telemetry window; re-running the SQL refreshes the world —
    labels/headers must stay stable. Note the Athena 0–9999 currency-gain cap and that Night Sky logs
    as *Dream Heist*.
+10. **Season Pass (D16) standing flags:** (a) *paid-track-in-measured* — the FREE+PAID cum for
+    PAYERs presumes the measured 'Season Pass (Free)' row contains paid-track claims (telemetry
+    label doesn't split; unverified). (b) *Dream Pass telemetry is empty* in `data_event_inst`
+    (participation 0, balances blank) — no position pricing for the challenge R (pot ratio used)
+    and no independent validation of the tier mapping; re-request if the pipeline ever fixes it.
+    (c) The no-anchor ADDITIVE fallback mixes absolute `SP_v2` config values into a measured row
+    (the only hybrid outside RM/NS). (d) *seasonDays* defaults to 33 (window = season) until the
+    `Season Length (days)` config panels exist on SP / SP_v2. (e) The PBP session view tracks SPT
+    as event payouts only — season-pass tier claims are NOT simulated there. (f) The repo SQL's
+    SPT/SPTx2 CTEs stay commented: the delivered `m_item` identifiers aren't recorded in the repo
+    (confirm with the Query LLM before any re-run, or the refresh silently drops the SPT rows).
+    (g) Measured SPT under 'Season Pass (Free)' exists (~3–9/earner) although the track config
+    pays 0 SPT — likely the Season Pass Challenge bucketed under the category; carried.
 
 ---
 
@@ -1187,9 +1330,11 @@ simulated play by play, to show how concurrently-running events interact inside 
 
 **Custom functions** (all spill, header row included):
 - `ECOGAINS_PBP(calendar, day, segment, payer, mode, luck, seed, [levels], [startLevel])` — the
-  22-column ledger, ONE CLAIM PER ROW: **S block** (session-start claims: Daily Gift, Flock Flurry
-  60-min UL opt-in) + **N play rows** + **E block** (day-end claims: leaderboard payouts + Night Sky
-  nightly milestones) + Session Summary per source × 11 resources.
+  24-column ledger (11 chrome + 13 resources since D16), ONE CLAIM PER ROW: **S block**
+  (session-start claims: Daily Gift, Flock Flurry 60-min UL opt-in) + **N play rows** + **E block**
+  (day-end claims: leaderboard payouts + Night Sky nightly milestones) + Session Summary per source
+  × 13 resources. SPT/SPTx2 appear as event payouts only — season-pass tier claims are NOT
+  simulated in the session view.
 - `ECOGAINS_PBP_EVENTS(...)` — the Active Events table (6 columns).
 - `ECOGAINS_PBP_PROFILE(segment, payer)` — the 7-row behaviour block with plain-language notes.
 

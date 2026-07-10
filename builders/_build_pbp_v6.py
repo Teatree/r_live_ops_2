@@ -108,20 +108,20 @@ LEGEND = [
     '9. Saga pays the FULL node bundle (HC + boosters + Unlimited minutes) from c_saga / c_saga_v2 at node boundaries anchored to the absolute level. Core chapter chests are NOT simulated (cadence unknown).',
     '10. Daily Gift is ALWAYS claimed at session start: cycle day from login streak p50, bundle = ONE config variant (Expected: Variant 1; Sampled: seeded pick) - never an average. Flock Flurry opt-in = 60 min Unlimited Lives (design-PDF constant).',
     '11. Night Sky pays at day end: effective streak = max win streak x 1.25 (Expected: the p50 from data_streaks; Sampled: the longest run actually produced by the play trace). EVERY milestone whose Cum Streak Req is cleared pays, each on its own row; unreached milestones never pay.',
-    '12. SPT / COOP Token / Avatar / star-daily rewards are outside the 11-resource universe and are not tracked.',
+    '12. SPT / SPTx2 are TRACKED since 2026-07-10 (13-resource universe, D16) as event payouts only; season-pass TIER claims are NOT simulated in the session view (window-sim only). COOP Token / Avatar / star-daily rewards remain outside the resource set.',
 ]
 for i, txt in enumerate(LEGEND):
     ws.cell(39 + i, 1, txt).font = leg_f
 
-# ---------------- play-by-play ledger (22 cols, one row per claim; summary inherits style) ---
-bar(51, 'Play-by-Play Sim (one row per play; extra claims spill onto their own rows; Session Summary at the end)', 1, 22)
+# ---------------- play-by-play ledger (24 cols, one row per claim; summary inherits style) ---
+bar(51, 'Play-by-Play Sim (one row per play; extra claims spill onto their own rows; Session Summary at the end)', 1, 24)
 ws.cell(52, 1, '=ECOGAINS_PBP($B$3,$B$4,$B$5,$B$6,$B$7,$B$8,$B$9,$B$10,$B$11)')
-for c in range(1, 23):
+for c in range(1, 25):
     ws.cell(52, c).fill = fill(F_LABEL); ws.cell(52, c).font = lbl_f
 led_f = Font(name='Arial', size=11)
 claims_f = Font(name='Arial', size=11, italic=True)
 for r in range(53, 313):     # up to ~147 plays + claim rows + Session Summary, all one style
-    for c in range(1, 23):
+    for c in range(1, 25):
         cell = ws.cell(r, c)
         cell.fill = fill(F_SPILL)
         cell.font = claims_f if c == 7 else led_f
@@ -129,7 +129,7 @@ for r in range(53, 313):     # up to ~147 plays + claim rows + Session Summary, 
 # ---------------- widths ----------------
 widths = {'A': 31.8, 'B': 12.2, 'C': 10.5, 'D': 12.2, 'E': 11.4, 'F': 15.9, 'G': 56.0}
 for c in range(8, 12):  widths[CL(c)] = 11.4     # H-K: event-progress slots
-for c in range(12, 23): widths[CL(c)] = 7.6      # L-V: 11 resource columns
+for c in range(12, 25): widths[CL(c)] = 7.6      # L-X: 13 resource columns
 for col, w in widths.items():
     ws.column_dimensions[col].width = w
 

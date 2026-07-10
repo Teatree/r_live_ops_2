@@ -194,11 +194,16 @@ lives_pp AS (
       AND TRY_CAST(ce.m_amount_item AS INTEGER) > 0
     GROUP BY 1, 2, 3, 4
 ),
--- 5) SPT — ⚠ pending identifier; fill m_item and add to gains_pp union
+-- 5) SPT / SPTx2 — DELIVERED 2026-07-10: the Query LLM's own run pushed 'SPT' and 'SPTx2'
+--    rows into data_gains (workbook (10)); the two are distinct resources there (SPTx2 = the
+--    double-value token; the engine weights it x2 for season-pass tier progression, D16).
+--    ⚠ The exact m_item identifiers used in that run are NOT recorded in this repo — this block
+--    stays commented until they're confirmed with the Query LLM; re-running this file today
+--    would silently DROP the SPT rows the workbook already has. Shape as delivered:
 -- spt_pp AS (
 --     SELECT ap.event_date, ap.engagement_segment, ap.player_id,
 --            COALESCE(NULLIF(ce.m_action_sub1,''), ce.m_action) AS source_detail,
---            'SPT' AS resource, 'count' AS unit,
+--            'SPT' AS resource, 'count' AS unit,                       -- 'SPTx2' in the twin CTE
 --            CAST(SUM(TRY_CAST(ce.m_amount_item AS BIGINT)) AS DOUBLE) AS amount
 --     FROM active_player_days ap
 --     INNER JOIN abgbproduction_174525b3_gdpr.client_events ce
@@ -206,10 +211,11 @@ lives_pp AS (
 --        AND CAST(date_parse(CAST(ce.processdate AS VARCHAR),'%Y%m%d') AS DATE) = ap.event_date
 --     CROSS JOIN date_bounds db
 --     WHERE ce.processdate BETWEEN db.start_date_pd AND db.end_date_pd
---       AND ce.eventtype='item_gain' AND ce.m_item='<<SET_SPT_ITEM_ID>>'
+--       AND ce.eventtype='item_gain' AND ce.m_item='<<SPT_ITEM_ID_AS_DELIVERED>>'
 --       AND ce.m_action<>'purchase' AND ce.t_geo NOT IN ('FI','PL')
 --     GROUP BY 1,2,3,4
 -- ),
+-- sptx2_pp AS ( ... same shape, m_item='<<SPTX2_ITEM_ID_AS_DELIVERED>>', resource 'SPTx2' ),
 
 gains_pp AS (
     SELECT * FROM hc_pp
@@ -217,6 +223,7 @@ gains_pp AS (
     UNION ALL SELECT * FROM ul_pp
     UNION ALL SELECT * FROM lives_pp
     -- UNION ALL SELECT * FROM spt_pp
+    -- UNION ALL SELECT * FROM sptx2_pp
 ),
 
 -- Map to category; collapse to player x resource x category OVER THE PERIOD -----

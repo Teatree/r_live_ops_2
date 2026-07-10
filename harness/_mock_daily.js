@@ -36,14 +36,14 @@ const colSum = (grid, j) => grid.reduce((s, row) => s + row[j], 0);
 // ---- 1. conservation: sum of days == window totals, per resource ----
 for (const payer of ['NONPAYER', 'PAYER']) {
   for (const seg of ['0-9', '100+']) {
-    const winSim = ECOGAINS_SIM(payer, seg);          // 25 cats x 11
+    const winSim = ECOGAINS_SIM(payer, seg);          // 25 cats x 13
     const winDiff = ECOGAINS_DIFF(payer, seg);
     const ctx = Context.get();
     const dCur = ECOGAINS_DAILY(payer, seg, 'ALL', 'CURRENT');
     const dNew = ECOGAINS_DAILY(payer, seg, 'ALL', 'NEW');
     const dDif = ECOGAINS_DAILY(payer, seg, 'ALL', 'DIFF');
     let maxE = 0;
-    for (let j = 0; j < 11; j++) {
+    for (let j = 0; j < RESOURCES.length; j++) {
       let wCur = 0, wNew = 0, wDif = 0;
       CATEGORY_ORDER.forEach((cat, i) => {
         wNew += winSim[i][j]; wDif += winDiff[i][j];
@@ -73,7 +73,7 @@ check('Night Sky NEW pays every day', ns.every(row => row[HC] > 0));
   for (const seg of ['0-9', '100+']) {
     const win = ECOGAINS_SIM('NONPAYER', seg)[NS_I];
     const g = ECOGAINS_DAILY('NONPAYER', seg, 'Daily Night Sky Prize', 'NEW');
-    for (let j = 0; j < 11; j++) maxE = Math.max(maxE, Math.abs(colSum(g, j) - win[j]));
+    for (let j = 0; j < RESOURCES.length; j++) maxE = Math.max(maxE, Math.abs(colSum(g, j) - win[j]));
   }
   check('NS daily sums reconcile with simulated 33-day NS row', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
 }
@@ -104,13 +104,13 @@ check('HH marginal spread (4d instance): day2 > day1 and day4 ≈ 0',
 // ---- 3. source filter consistency: sum of all single-source series == ALL ----
 {
   const all = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'NEW');
-  const acc = Array.from({length: 33}, () => Array(11).fill(0));
+  const acc = Array.from({length: 33}, () => Array(RESOURCES.length).fill(0));
   CATEGORY_ORDER.forEach(cat => {
     const g = ECOGAINS_DAILY('NONPAYER', '0-9', cat, 'NEW');
-    for (let d = 0; d < 33; d++) for (let j = 0; j < 11; j++) acc[d][j] += g[d][j];
+    for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) acc[d][j] += g[d][j];
   });
   let maxE = 0;
-  for (let d = 0; d < 33; d++) for (let j = 0; j < 11; j++) maxE = Math.max(maxE, Math.abs(acc[d][j] - all[d][j]));
+  for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) maxE = Math.max(maxE, Math.abs(acc[d][j] - all[d][j]));
   check('Σ single-source series == ALL', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
 }
 
@@ -120,15 +120,15 @@ check('unknown block -> message', String(ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL'
 
 // ---- 5. NET blocks (SPEND / CURNET / NEWNET — data_econ_daily, per earner) ----
 const isBlankGrid = g => Array.isArray(g) && g.length === 33 &&
-  g.every(row => Array.isArray(row) && row.length === 11 && row.every(x => x === ''));
+  g.every(row => Array.isArray(row) && row.length === RESOURCES.length && row.every(x => x === ''));
 
-// 5a. fail-safe: without a data_econ_daily sheet every NET block spills a 33x11 grid of ''
+// 5a. fail-safe: without a data_econ_daily sheet every NET block spills a 33x13 grid of ''
 {
   const stash = data['data_econ_daily'];
   delete data['data_econ_daily'];
   _sheetValsCache = {};                                   // eval'd var leaks into module scope
   const g = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'CURNET');
-  check("NET fail-safe: no data_econ_daily -> 33x11 grid of ''", isBlankGrid(g));
+  check("NET fail-safe: no data_econ_daily -> 33x13 grid of ''", isBlankGrid(g));
   if (stash !== undefined) data['data_econ_daily'] = stash;
 }
 
@@ -157,7 +157,7 @@ function synthEconDaily() {
       const newnet = ECOGAINS_DAILY(payer, seg, 'ALL', 'NEWNET');
       const dif = ECOGAINS_DAILY(payer, seg, 'ALL', 'DIFF');
       let eS = 0, eC = 0, eN = 0;
-      for (let d = 0; d < 33; d++) for (let j = 0; j < 11; j++) {
+      for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) {
         const gain = 10 + 0.1 * (d + 1) + j, sp = 8 + 0.05 * (d + 1);
         eS = Math.max(eS, Math.abs(spend[d][j] - sp));
         eC = Math.max(eC, Math.abs(curnet[d][j] - (gain - sp)));
