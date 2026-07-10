@@ -49,7 +49,9 @@
  *                  streak factor); window = E_day x Σ p_day. Measured is A/B-diluted → the DIFF
  *                  row is the ROLLOUT EFFECT (full-rollout sim minus diluted measured).
  *   Rainbow Maker  bottom-up survival-weighted (D6/D7): per cal_new instance,
- *                  Σ_k S_dur(ReqAccum_k) x reward_k x reach(inst); data_RM percentiles
+ *                  Σ_k S_dur(ReqAccum_k) x reward_k x reach(inst); data_RM percentiles.
+ *                  Split configs since 2026-07-10 (HARDCODED, see CLAUDE.md): start-sorted
+ *                  instances #1-#3 read RM_1st, #4-#5 RM_2nd (SPTx2); fallback to RM.
  *   River Rush     calendar-driven branches (D4): no cal_new instances today → 0
  *
  * CALENDARS drive cadence + duration: merge = one instance (width = duration), lone filled
@@ -538,28 +540,71 @@ function simNightSky(seg, payer, ctx){
 // data_RM matchables percentiles scaled by (instanceDur / configured EventDuration) — the
 // clipped 2-day instance halves the matchables axis (flagged linear-scaling assumption).
 // RM[res] = Σ instances E[res] x reach(inst). Measured rows are soft-launch traces (kept in diff).
+//
+// PER-INSTANCE CONFIG SPLIT (2026-07-10, user decision — HARDCODED, see the CLAUDE.md
+// "Rainbow Maker split configs" note for the planned un-hardcoding): the 5 cal_new instances,
+// ordered by START DAY (the clipped 2-day instance at days 1-2 counts as #1), use:
+//   #1-#3 -> 'RM_1st' (no SPTx2)   ·   #4-#5 -> 'RM_2nd' (SPTx2 rewards)
+// A split sheet that is missing or has no readable ladder falls back to 'RM' (keeps older
+// workbook exports and the offline harness working). All four views share this mapping:
+// the 33-day sim + Sim per Segment via simRainbowMaker/resultRow_, the daily view via
+// rmInstanceRows_ (per-instance rows so SPTx2 lands only on RM_2nd instance days), the PBP
+// session sim via rmConfigFor_ (day -> running instance -> its config).
+var RM_INSTANCE_SHEETS = ['RM_1st', 'RM_1st', 'RM_1st', 'RM_2nd', 'RM_2nd'];
+
+function rmSortedInsts_(cal){
+  return ((cal && cal['Rainbow Maker']) || []).slice()
+    .sort(function(x, y){ return x.start - y.start; });
+}
+// instance ordinal (0-based, start-sorted) -> {sheet, ladder, cfgDur}; fallback chain to 'RM'.
+function rmConfigFor_(i){
+  var name = RM_INSTANCE_SHEETS[Math.max(0, Math.min(i, RM_INSTANCE_SHEETS.length - 1))] || 'RM';
+  var ladder = readRMLadder_(name);
+  if (!ladder.length && name !== 'RM'){ name = 'RM'; ladder = readRMLadder_('RM'); }
+  return { sheet: name, ladder: ladder, cfgDur: readRMDuration_(name) || 4 };
+}
+
 function simRainbowMaker(seg, payer, ctx){
-  var ds = ctx.ds, meas = measuredRow_('Rainbow Maker', seg, payer, ds);
+  var meas = measuredRow_('Rainbow Maker', seg, payer, ctx.ds);
   if (!ctx.calNewOk) return meas;
-  var insts = ctx.calNew['Rainbow Maker'] || [];
-  if (!insts.length) return zeroRow_();
-  var ladder = readRMLadder_(), pct = ds.rmPct(seg, payer), cfgDur = readRMDuration_() || 4;
-  if (!ladder.length || !pct) return meas;               // no ladder / no matchables -> carry
-  var b = ds.beh(seg, payer);
-  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!rmSortedInsts_(ctx.calNew).length) return zeroRow_();
+  var parts = rmInstanceRows_(seg, payer, ctx);
+  if (!parts) return meas;                               // no ladder / no matchables -> carry
   var out = zeroRow_();
-  insts.forEach(function(inst){
-    var scale = Math.min(1, inst.dur / cfgDur);
-    var S = survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],
-                       [pct.p75*scale,.75],[pct.p90*scale,.90]]);
-    if (!S) return;
-    var reach = reachOne_(inst, pWd, pWe);
-    ladder.forEach(function(ms){
-      var s = S(ms.req);
-      for (var res in ms.rew) out[res] = num(out[res]) + ms.rew[res] * s * reach;
-    });
+  parts.forEach(function(p){
+    RESOURCES.forEach(function(r){ out[r] = num(out[r]) + num(p.row[r]); });
   });
   return out;
+}
+
+// Per-instance contributions over cal_new (start-sorted): [{inst, row}] — simRainbowMaker sums
+// them; the daily view places each instance's OWN row on its days (so RM_2nd-only resources
+// like SPTx2 never leak onto RM_1st instance days). Returns null when there is no matchables
+// distribution or no readable ladder anywhere (callers carry measured, as before the split).
+function rmInstanceRows_(seg, payer, ctx){
+  var ds = ctx.ds, pct = ds.rmPct(seg, payer);
+  if (!pct) return null;
+  var b = ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  var any = false;
+  var parts = rmSortedInsts_(ctx.calNew).map(function(inst, i){
+    var cfg = rmConfigFor_(i), row = zeroRow_();
+    if (cfg.ladder.length){
+      any = true;
+      var scale = Math.min(1, inst.dur / cfg.cfgDur);
+      var S = survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],
+                         [pct.p75*scale,.75],[pct.p90*scale,.90]]);
+      if (S){
+        var reach = reachOne_(inst, pWd, pWe);
+        cfg.ladder.forEach(function(ms){
+          var s = S(ms.req);
+          for (var res in ms.rew) row[res] = num(row[res]) + ms.rew[res] * s * reach;
+        });
+      }
+    }
+    return { inst: inst, row: row };
+  });
+  return any ? parts : null;
 }
 
 // ============================== SEASON PASS (D16 — SPT tier coupling) ========================
@@ -962,7 +1007,7 @@ function onOpen(){
 
 // ---- auto-refresh (AUTO_REFRESH switch) ----
 // Every sheet the engine reads; a user edit on any of them re-touches the sim formulas.
-var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','NS','NS_v2','Race','Race_v2',
+var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','NS','NS_v2','Race','Race_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
   'F','F_v2','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
@@ -1185,14 +1230,15 @@ function readDayLadder_(name){
     out.push(num(v[r][1])); }
   return out;
 }
-// RM sheet: EventDuration in the config panel; ladder under the 'Milestone' header row.
-function readRMDuration_(){
-  var v = sheetVals_('RM');
+// RM config sheets (RM / RM_1st / RM_2nd share one layout): EventDuration in the config panel;
+// ladder under the 'Milestone' header row. sheetName optional -> 'RM' (pre-split behavior).
+function readRMDuration_(sheetName){
+  var v = sheetVals_(sheetName || 'RM');
   for (var r = 0; r < Math.min(v.length, 12); r++)
     if (String(v[r][0]) === 'EventDuration') return num(v[r][1]);
   return 0;
 }
-function readRMLadder_(){ return readLadder_(sheetVals_('RM'), 'Req Accum'); }
+function readRMLadder_(sheetName){ return readLadder_(sheetVals_(sheetName || 'RM'), 'Req Accum'); }
 
 // NS sheet (config-segmented, D14): per-segment blocks — a cell in col A holding the segment
 // label, then a header row ('Round' ...), then milestone rows. Gate = 'Cum Streak Req'.

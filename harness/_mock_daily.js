@@ -176,7 +176,41 @@ function synthEconDaily() {
   _sheetValsCache = {};
 }
 
-// ---- 6. eyeball: HC daily NEW totals, 0-9 NONPAYER ----
+// ---- 6. RM split configs (2026-07-10 hardcode): SPTx2 only on RM_2nd instance days ----
+{
+  const v4Src = fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8');
+  const dailySrc = fs.readFileSync(ENGINE('EcoGainsSim_Daily.gs'), 'utf8');
+  const rm2 = JSON.parse(JSON.stringify(data['RM']));
+  let hdrR = -1, x2C = -1;
+  for (let r = 0; r < rm2.values.length; r++) {
+    const row = rm2.values[r].map(x => String(x).trim());
+    if (row.indexOf('Req Accum') >= 0 && row.indexOf('SPT x2') >= 0) { hdrR = r; x2C = row.indexOf('SPT x2'); break; }
+  }
+  for (let r = hdrR + 1; r < rm2.values.length; r++) {
+    const first = rm2.values[r][0];
+    if (first === '' || first == null || isNaN(parseFloat(first))) break;
+    rm2.values[r][x2C] = 2;
+  }
+  data['RM_1st'] = JSON.parse(JSON.stringify(data['RM']));
+  data['RM_2nd'] = rm2;
+  eval(v4Src); eval(dailySrc); _sheetValsCache = {};
+  const g = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'NEW');
+  const iX2 = RESOURCES.indexOf('SPTx2');
+  const insts = rmSortedInsts_(Context.get().calNew);
+  const lastDays = new Set(insts.slice(3).flatMap(i => i.days));
+  const x2Days = g.map((row, d) => row[iX2] > 1e-12 ? d + 1 : 0).filter(Boolean);
+  check('RM split: daily SPTx2 only on instance #4-#5 days',
+    x2Days.length > 0 && x2Days.every(d => lastDays.has(d)) && x2Days.length === lastDays.size,
+    `days ${JSON.stringify(x2Days)} expect ${JSON.stringify([...lastDays].sort((a, b) => a - b))}`);
+  const win = ECOGAINS_SIM('NONPAYER', '0-9')[CATEGORY_ORDER.indexOf('Rainbow Maker')];
+  let maxE = 0;
+  for (let j = 0; j < RESOURCES.length; j++) maxE = Math.max(maxE, Math.abs(colSum(g, j) - win[j]));
+  check('RM split: daily sums == 33-day RM row (incl. SPTx2)', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
+  delete data['RM_1st']; delete data['RM_2nd'];
+  eval(v4Src); eval(dailySrc); _sheetValsCache = {};
+}
+
+// ---- 7. eyeball: HC daily NEW totals, 0-9 NONPAYER ----
 const allNew = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'NEW');
 const allDif = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DIFF');
 const DOW = ['Wed','Thu','Fri','Sat','Sun','Mon','Tue'];

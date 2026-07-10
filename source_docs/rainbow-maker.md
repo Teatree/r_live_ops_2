@@ -29,6 +29,14 @@ The PDF's Economy Design section is only an external link ("Click here", PDF p.1
 
 The ladder the live engine reads (**NEW_LIVEOPS_CALENDAR_ECO.xlsx → sheet RM**, `EventDuration = 4.0`) is **identical row-for-row to `milestone_4day_new`** in the RM sim workbook (verified: all 30 Matchables Req, Req Accum, Chest flags and rewards match). The RM sheet also carries empty columns (SPT, SPT x2, Unlimited Bomb, COOP Token, Avatar, star-Dly) that are never populated for this event.
 
+> **2026-07-10 — split configs (HARDCODED):** the sheet now has two siblings with the same layout,
+> **`RM_1st`** (start-sorted `cal_new` instances #1–#3, no SPTx2) and **`RM_2nd`** (instances
+> #4–#5, pays SPTx2) — the engine's `RM_INSTANCE_SHEETS` map in `EcoGainsSim_v4.gs` assigns
+> instances to sheets, falling back to `RM` when a split sheet is missing/unreadable. The SPT x2
+> column is therefore no longer "never populated" — on `RM_2nd` it is live. All four views share
+> the mapping; the daily view places each instance's own row (SPTx2 only on days 20–23 / 27–30).
+> Un-hardcoding TODO tracked in CLAUDE.md / METHODOLOGY §11.4.
+
 **4-day ladder (live config = RM sheet = milestone_4day_new):**
 
 | M | Matchables Req | Req Accum | Chest | Reward | Reward HC value |

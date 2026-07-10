@@ -315,9 +315,17 @@ function pbpEventState_(spec, label, inst, a, ctx, st, expWins){
     return ev;
   }
   if (spec.family === 'rm'){
-    var pct = ctx.ds.rmPct(a.seg, a.payer), cfgDur = readRMDuration_() || 4;
+    // split configs (2026-07-10, hardcoded in v4's RM_INSTANCE_SHEETS): find this instance's
+    // ordinal among the calendar's start-sorted RM instances -> RM_1st / RM_2nd (fallback RM)
+    var rmList = rmSortedInsts_((a.cal === CAL_CUR) ? ctx.calCur : ctx.calNew), ri = 0;
+    for (var q = 0; q < rmList.length; q++){
+      if (rmList[q].start === inst.start && rmList[q].dur === inst.dur){ ri = q; break; }
+    }
+    var rmCfg = rmConfigFor_(ri);
+    var pct = ctx.ds.rmPct(a.seg, a.payer), cfgDur = rmCfg.cfgDur;
     var fb = (pct ? num(pct[a.luck]) : 0) * Math.min(1, inst.dur / cfgDur);
-    ev.ladder = readRMLadder_();
+    ev.ladder = rmCfg.ladder;
+    ev.rmSheet = rmCfg.sheet;                                  // shown nowhere yet; debug aid
     ev.start = fb * (k - 1) / inst.dur;
     ev.today = fb / inst.dur;
     ev.cum = ev.start;

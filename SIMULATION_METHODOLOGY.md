@@ -877,6 +877,16 @@ the composite terms expand to:
 **Overview.** A brand-new milestone event (accumulate matchables, claim thresholds) with **no
 measured anchor**, so bottom-up survival-weighted, per instance, over the matchables distribution.
 
+**Per-instance config split (2026-07-10, user decision — HARDCODED, see the CLAUDE.md "Rainbow
+Maker split configs" note):** the 5 `cal_new` instances, ordered by **start day** (the clipped
+2-day instance at days 1–2 counts as #1), read different config sheets — **#1–#3 → ⚙️ `RM_1st`**
+(no SPTx2) and **#4–#5 → ⚙️ `RM_2nd`** (SPTx2 rewards). The map is the `RM_INSTANCE_SHEETS` array;
+a missing/unreadable split sheet **falls back to ⚙️ `RM`** (older exports and the offline harness
+keep working). All views share the mapping: 33-day + Sim per Segment via `simRainbowMaker`, the
+daily view via `rmInstanceRows_` (each instance's OWN per-resource row lands on its days, so
+SPTx2 shows only on the RM_2nd instances — days 20–23 / 27–30 today), PBP via `rmConfigFor_`
+(day → running instance ordinal → its sheet).
+
 **Flow.**
 ```mermaid
 flowchart TD
@@ -888,14 +898,16 @@ flowchart TD
   EI --> OUT["SIMULATED[res] = Σ_instances E_inst[res]"]
 ```
 
-**Step by step (`simRainbowMaker`).**
-1. instances ← 🗓️ `cal_new['Rainbow Maker']`; none → 0.
-2. ladder ← ⚙️ `RM` (`Req Accum` gate); matchables `pct` ← 📊 `data_RM`; `cfgDur` ← ⚙️ `RM`
-   `EventDuration` (default 4).
+**Step by step (`simRainbowMaker` → `rmInstanceRows_`).**
+1. instances ← 🗓️ `cal_new['Rainbow Maker']`, start-sorted; none → 0.
+2. Per instance i: config ← `rmConfigFor_(i)` (⚙️ `RM_1st` for #1–#3, ⚙️ `RM_2nd` for #4–#5,
+   fallback ⚙️ `RM`): ladder (`Req Accum` gate) + that sheet's own `EventDuration` (default 4).
+   Matchables `pct` ← 📊 `data_RM` (shared — the split changes REWARDS, not player behaviour).
 3. Per instance: `scale = min(1, inst.dur / cfgDur)` (a clipped 2-day instance halves the matchables
    axis — flagged linear assumption). Build [S](#s-survival-function) over `p10..p90 × scale`.
    `reach = ` [reach(inst)](#reach-and-p_day) (📊 `data_seg_beh`).
-4. `E_inst[res] = Σ_k S(ReqAccum_k) × reward_k[res] × reach`; sum over instances.
+4. `E_inst[res] = Σ_k S(ReqAccum_k) × reward_k[res] × reach` **using instance i's own ladder**;
+   sum over instances. (`rmInstanceRows_` keeps the per-instance rows for the daily view.)
 5. **Tail sensitivity:** milestones past p90 (e.g. m30 = 1000 HC for 100+) are priced by the
    extrapolated tail — always report the conservative `S = 0 beyond p90` bound too.
 
@@ -1159,7 +1171,7 @@ simulated) and ONLY distribute them over days — column sums reconcile with the
 |---|---|---|
 | leaderboard (incl. Kite, Target Day) | ∝ [reach(inst)](#reach-and-p_day) | **all on the LAST day** (rank rewards at event end) |
 | collections | ∝ reach(inst) | accrual-curve **marginal** share/day (`share(d) − share(d−1)`) |
-| Rainbow Maker | ∝ reach(inst) | ∝ [p_day](#reach-and-p_day) within instance (no curve — flagged) |
+| Rainbow Maker | each instance places its OWN per-resource row (`rmInstanceRows_` — split configs RM_1st ×3 / RM_2nd ×2, so SPTx2 lands only on RM_2nd instance days; the clipped 2-day instance gets its true smaller share, not a reach-proportional slice) | ∝ [p_day](#reach-and-p_day) within instance (no curve — flagged) |
 | Core/Saga/Daily Gift | — | every day ∝ p_day |
 | Night Sky | — | over its 33×1d instances ∝ p_day (carried while `NS_SIMULATE = false`) |
 | Season Pass (Free) | ∝ reach(inst) over the `Season Pass` lane | ∝ p_day within instance (tier claims are continuous — same as RM; the lane covers all 33 days today) |
@@ -1281,6 +1293,11 @@ and `eval` the `.gs` files. Checks that must stay green:
 - **NS gates** (behind the switch): default OFF → NS carried (diff 0) for every segment; flip ON →
   simulated NS HC nonzero, E_day monotonic in segment (window TOTAL not asserted monotone), NS still
   carried for A. 0, daily NS sums == the simulated 33-day NS row, PBP seed-averaged Sampled NS ≈ E_day.
+- **RM split gates** (2026-07-10 hardcode): `RM_1st`/`RM_2nd` absent → every instance falls back to
+  `RM` and the per-instance rows sum to the baseline RM row exactly; synthetic split (`RM_2nd` =
+  `RM` clone with `SPT x2` = 2 per milestone) → RM SPTx2 comes ONLY from start-sorted instances
+  #4–#5, HC unchanged, mutation restores; daily: SPTx2 lands only on instance #4–#5 days and the
+  daily sums still equal the 33-day RM row per resource.
 - **Collision resilience:** engine results identical when a foreign `{start,end,dur}` parser overrides
   `parseCalendarInstances_`.
 
@@ -1296,7 +1313,10 @@ and `eval` the `.gs` files. Checks that must stay green:
    milestone family; reconcile its calendar (7d) vs data (`instance_length = 2`) duration.
 3. **Level Race:** no accrual curve (D forced 1 — fine for rank rewards, revisit if ever priced on D).
 4. **Rainbow Maker:** per-instance vs per-window interpretation of `data_RM` (verify); 2-day ×0.5
-   linear scaling; tail sensitivity (report both bounds).
+   linear scaling; tail sensitivity (report both bounds). **Split configs are HARDCODED**
+   (2026-07-10: `RM_INSTANCE_SHEETS = ['RM_1st'×3, 'RM_2nd'×2]`, start-sorted, fallback `RM`) —
+   revisit with a general per-instance-config mechanism; if the calendar's RM instance count or
+   order changes, the 3+2 split silently mis-assigns (see the CLAUDE.md note).
 5. **HH endless gate:** p50 curve can't see tail loopers on an added day (§6.6).
 6. **Photoshoot:** n=1 instance both calendars → T is placement-noise-sensitive.
 7. **Saga items:** base-0 → v2-positive additions carried (need bottom-up if it ever happens); same

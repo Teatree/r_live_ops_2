@@ -43,7 +43,10 @@
  *   marginal    Hatchling Hideaway, Bomb's Ballet, Jigsaw, Photoshoot — spread across instance
  *               days by the accrual curve's marginal share (share(d) - share(d-1)).
  *   RM          Rainbow Maker — no accrual curve: spread within each instance prop p_day
- *               (flagged assumption; milestones auto-claim while playing).
+ *               (flagged assumption; milestones auto-claim while playing). NEW side uses the
+ *               engine's PER-INSTANCE rows (RM_1st x3 / RM_2nd x2 split, 2026-07-10): each
+ *               instance's own per-resource contribution lands on its days, so SPTx2 shows
+ *               only on the RM_2nd instances (days 20-23 / 27-30 in the current cal_new).
  * DIFF = NEW(day) - CURRENT(day). Column totals therefore reconcile with ECOGAINS_SIM/_DIFF.
  ************************************************************************************************/
 
@@ -115,6 +118,31 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
   var W = isNew ? resultRow_(cat, seg, payer, ctx) : measuredRow_(cat, seg, payer, ds);
   var days = emptyDays_();
   if (!hasAmount_(W)) return days;
+  // Rainbow Maker NEW side: split configs (RM_1st x3 / RM_2nd x2, hardcoded 2026-07-10) make
+  // the instances pay DIFFERENT per-resource rows — place each instance's OWN contribution
+  // (from the engine's per-instance breakdown) on its days prop p_day, so RM_2nd-only
+  // resources (SPTx2) never land on RM_1st instance days. Sums stay exactly the 33-day RM row.
+  // parts == null (carried: no matchables/ladder) falls through to the generic placement.
+  if (isNew && cat === 'Rainbow Maker'){
+    var parts = rmInstanceRows_(seg, payer, ctx);
+    if (parts && parts.length){
+      var bb = ds.beh(seg, payer);
+      var qWd = num(bb.weekday_active_rate), qWe = num(bb.weekend_active_rate);
+      if (!(qWd > 0) && !(qWe > 0)){ qWd = 1; qWe = 1; }
+      parts.forEach(function(p){
+        var dl = (p.inst && p.inst.days) || [];
+        if (!dl.length) return;
+        var wts = dl.map(function(day){ return isWeekend_(day) ? qWe : qWd; });
+        var sum = 0; wts.forEach(function(x){ sum += x; });
+        dl.forEach(function(day, j){
+          if (day < 1 || day > DAILY_DAYS) return;
+          var w = sum > 0 ? wts[j] / sum : 1 / dl.length;
+          RESOURCES.forEach(function(r){ days[day - 1][r] += num(p.row[r]) * w; });
+        });
+      });
+      return days;
+    }
+  }
   var label = DAILY_CAL_LABEL[cat];
   var insts = label ? ((isNew ? ctx.calNew : ctx.calCur)[label] || []) : [];
   var b = ds.beh(seg, payer);

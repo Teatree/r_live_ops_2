@@ -360,5 +360,59 @@ gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && R
   gate('SP_v2 mutation restored (baseline reproduces)',
        CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
 }
+// ---------- Rainbow Maker split-config gates (2026-07-10 hardcode: RM_1st x3 / RM_2nd x2) ----
+console.log('\n================ RM SPLIT GATES ================');
+// Fallback path first: with RM_1st/RM_2nd absent from the dump, every instance must read 'RM'
+// and reproduce the pre-split simRainbowMaker exactly (== the baseline row).
+{
+  gate('RM_1st/RM_2nd absent -> all instances fall back to RM',
+       rmConfigFor_(0).sheet === 'RM' && rmConfigFor_(4).sheet === 'RM');
+  const parts = rmInstanceRows_('40-99', 'NONPAYER', Context.get());
+  const sum = parts.reduce((s, p) => s + num(p.row['HC']), 0);
+  gate('per-instance rows sum to the RM row (fallback)',
+       Math.abs(sum - baseline[idx('Rainbow Maker')][0]) < 1e-9,
+       `${sum.toFixed(2)} vs ${baseline[idx('Rainbow Maker')][0].toFixed(2)}`);
+}
+// Synthetic split: RM_1st = clone of RM; RM_2nd = clone with 'SPT x2' = 2 on every milestone.
+// Expect: SPTx2 flows ONLY from the last two start-sorted instances; HC identical to baseline.
+{
+  const findLadder = (sh) => {
+    for (let r = 0; r < sh.values.length; r++) {
+      const row = sh.values[r].map(x => String(x).trim());
+      const req = row.indexOf('Req Accum'), x2 = row.indexOf('SPT x2');
+      if (req >= 0 && x2 >= 0) return { hdr: r, x2 };
+    }
+    return null;
+  };
+  const rm2 = JSON.parse(JSON.stringify(data['RM']));
+  const lad = findLadder(rm2);
+  let msRows = 0;
+  for (let r = lad.hdr + 1; r < rm2.values.length; r++) {
+    const first = rm2.values[r][0];
+    if (first === '' || first == null || isNaN(parseFloat(first))) break;
+    rm2.values[r][lad.x2] = 2;
+    msRows++;
+  }
+  data['RM_1st'] = JSON.parse(JSON.stringify(data['RM']));
+  data['RM_2nd'] = rm2;
+  eval(engineSrc); resetSheetCache();
+  const iX2 = RESOURCES.indexOf('SPTx2');
+  const parts = rmInstanceRows_('40-99', 'NONPAYER', Context.get());
+  const firstX2 = parts.slice(0, 3).reduce((s, p) => s + num(p.row['SPTx2']), 0);
+  const lastX2 = parts.slice(3).reduce((s, p) => s + num(p.row['SPTx2']), 0);
+  const row = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Rainbow Maker')];
+  gate(`RM split: SPTx2 only from instances #4-#5 (${msRows} milestones injected)`,
+       parts.length === 5 && firstX2 < 1e-12 && lastX2 > 0 &&
+       Math.abs(row[iX2] - lastX2) < 1e-9,
+       `first3 ${firstX2.toFixed(3)} · last2 ${lastX2.toFixed(3)} · row ${row[iX2].toFixed(3)}`);
+  gate('RM split: HC unchanged (both configs share the HC ladder)',
+       Math.abs(row[0] - baseline[idx('Rainbow Maker')][0]) < 1e-9,
+       `${row[0].toFixed(2)} vs ${baseline[idx('Rainbow Maker')][0].toFixed(2)}`);
+  delete data['RM_1st']; delete data['RM_2nd'];
+  eval(engineSrc); resetSheetCache();
+  const again = ECOGAINS_SIM('NONPAYER', '40-99');
+  gate('RM split mutation restored (baseline reproduces)',
+       CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
+}
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
 process.exit(failures ? 1 : 0);

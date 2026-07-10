@@ -287,6 +287,14 @@ the one challenge that grows. `Race_v2` r6 duration only. Confidence HIGH.
 8. **Flags:** none. 9. **Confidence:** HIGH.
 
 ### 2.15 Rainbow Maker  [new-additive; survival-weighted milestone sum — D6/D7]
+
+> **2026-07-10 — per-instance config split (HARDCODED, user decision):** the 5 `cal_new`
+> instances, start-sorted (the clipped 2-day instance = #1), read **`RM_1st` (#1–#3, no SPTx2)**
+> / **`RM_2nd` (#4–#5, SPTx2)**; missing/unreadable split sheet → fallback `RM`. Map =
+> `RM_INSTANCE_SHEETS` in `EcoGainsSim_v4.gs`. Point 1 below still describes the shared sheet
+> LAYOUT (all three RM sheets are identical in structure); E_inst (point 4) now uses each
+> instance's own ladder + EventDuration, and the daily view places per-instance rows (SPTx2 only
+> on RM_2nd days). Un-hardcoding is an open TODO — see CLAUDE.md / METHODOLOGY §11.4.
 1. **Ladder:** `RM` sheet, header r15 (`Milestone | Matchables Req | Req Accum | Chest | Coins | SPT |
    SPT x2 | Red | Chuck | Bomb | Slingshot | Shuffle | Comet`); 30 milestones, ReqAccum 160→352,260; HC
    at m2/9/12/18/24/27/30 = 10/20/35/50/100/250/1000. `Chest` = visual only (D11). No UL columns → UL

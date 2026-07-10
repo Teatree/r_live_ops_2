@@ -30,6 +30,9 @@ SHEETS = [
     # user duplicates SP -> SP_v2 / SP_lb -> SP_lb_v2 in the live workbook (the engine then falls
     # back to the base sheets — that fallback path is exactly what the offline gates exercise).
     'SP', 'SP_lb', 'SP_v2', 'SP_lb_v2',
+    # Rainbow Maker split configs (2026-07-10, hardcoded RM_1st x3 / RM_2nd x2 — see CLAUDE.md):
+    # expected MISSING until the next workbook export; the engine falls back to 'RM'.
+    'RM_1st', 'RM_2nd',
 ]
 
 wb = openpyxl.load_workbook(SRC, data_only=True)
