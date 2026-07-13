@@ -4,7 +4,7 @@
 how the calendar drives cadence and duration, how segmentation flows through everything, and the
 conceptual differences between leaderboard, streak, and milestone events. It reflects the code as
 shipped in `EcoGainsSim_v4.gs` / `EcoGainsSim_Daily.gs` / `EcoGainsSim_PBP.gs` /
-`SimPerSegmentFill.gs` against workbook `NEW_LIVEOPS_CALENDAR_ECO (6).xlsx`.
+`SimPerSegmentFill.gs` against workbook `NEW_LIVEOPS_CALENDAR_ECO (10).xlsx`.
 
 **Reading order for a new session:** `HAND_OFF.md` (project history) → `SIMULATION_PLAN.md`
 (per-source specs + decisions log D1–D15) → this document (method) → `source_docs/` (per-source
@@ -12,7 +12,7 @@ game mechanics) → the code. `CLAUDE.md` holds workspace conventions.
 
 **How this document is organised**
 - **Part A — Model & machinery** (§1–§5): the core equation, the [variable glossary](#3-variables--data-sources-the-glossary) (every formula symbol links here), and the shared machinery.
-- **Part B — Per-source simulations** (§6): one subsection per source, each written as **Overview → Flow chart → Step by step → In plain words → The formula** (In plain words = a low-jargon ELI-11 recap; The formula = the source's full math with every variable linked to the [glossary](#3-variables--data-sources-the-glossary), expanded sub-formulas, a plain-word key, and Wikipedia links for the maths terms). The three families you most often touch have their own clearly-named sections:
+- **Part B — Per-source simulations** (§6): one subsection per source, each written as **Overview → Flow chart → Step by step → In plain words → The formula → How did you simulate this?** (In plain words = a low-jargon ELI-11 recap; The formula = the source's full math with every variable linked to the [glossary](#3-variables--data-sources-the-glossary), expanded sub-formulas, a plain-word key, and Wikipedia links for the maths terms; How did you simulate this? = a first-person "first I… then I…" walkthrough for a reader with no project context, closing with two worked examples hand-traced from real workbook (10) data). The three families you most often touch have their own clearly-named sections:
   - [§6.4 Score-based leaderboards: Kite Festival & Target Day](#64-score-based-leaderboards-kite-festival--target-day)
   - [§6.5 Rank leaderboards: Bomb's / Chuck's / Red's Challenge, Level Race, Flash Race](#65-rank-leaderboards-bombs--chucks--reds-challenge-level-race-flash-race)
   - [§6.6 Collections: Hatchling Hideaway, Jigsaw, Bomb's Ballet, Photoshoot](#66-collections-hatchling-hideaway-jigsaw-bombs-ballet-photoshoot)
@@ -306,14 +306,20 @@ calendar read failed → run Precompute.
 
 # Part B — Per-source simulations
 
-Each subsection below is **Overview → Flow chart → Step by step → In plain words → The formula**.
+Each subsection below is **Overview → Flow chart → Step by step → In plain words → The formula →
+How did you simulate this?**.
 Formulas declare their variables and link them to the
 [glossary](#3-variables--data-sources-the-glossary); data sources are marked 📊 (telemetry) /
 ⚙️ (config) / 🗓️ (calendar). The **In plain words** block is a deliberately low-jargon recap — read it
-first if the formal description doesn't click. The closing **The formula** block restates the whole
+first if the formal description doesn't click. **The formula** block restates the whole
 computation: every variable links to where its logic is explained, composite variables get their own
 expanded sub-formula, each symbol is then decoded in plain words, and every maths term (mean, CDF,
-percentile, …) links to an explainer.
+percentile, …) links to an explainer. The closing **How did you simulate this?** block answers the
+question as if asked by someone with no context on the project: a first-person "first I… then I…"
+walkthrough in game terms, ending with two worked examples that use real workbook (10) numbers and
+deliberately exercise different arithmetic paths (so together they show when T, D, R and the
+survival function do and don't act). §6.1 (carried) and §6.10 (A. 0) skip that block — nothing is
+actually simulated there.
 
 All calendar-driven sources ([§6.4](#64-score-based-leaderboards-kite-festival--target-day)–[§6.6](#66-collections-hatchling-hideaway-jigsaw-bombs-ballet-photoshoot),
 [§6.9](#69-river-rush)) share one dispatcher, `timedCore_`, whose branch logic is identical
@@ -361,9 +367,9 @@ simulated column, and the difference is zero by definition.
 
 > **SIMULATED\[res] = [measured](#measured)\[res]** &nbsp;&nbsp; (and therefore **DIFF\[res] = SIMULATED\[res] − measured\[res] = 0**)
 
-- **SIMULATED\[res]** — the simulation's answer for one resource (`res` runs over the 11 tracked
-  resources: coins, boosters, unlimited-lives minutes…): what a player will earn from this source
-  under the new calendar.
+- **SIMULATED\[res]** — the simulation's answer for one resource (`res` runs over the 13 tracked
+  resources: coins, boosters, unlimited-lives minutes, season-pass tokens…): what a player will earn
+  from this source under the new calendar.
 - **[measured](#measured)\[res]** — what players of this segment actually earned from this source in
   real life, read straight from telemetry (📊 `data_gains`). For a carried source the simulated value
   *is* the measured value, so the difference is exactly zero.
@@ -390,7 +396,8 @@ flowchart TD
 1. **measured** ← 📊 `data_gains` for `Saga`.
 2. **HC ratio** = `sagaCycleAvg_(v2) / sagaCycleAvg_(base)` where `cycleAvg = Σ HC_reward / Σ Levels_req`
    over the node ladder. Base ladder ← ⚙️ `c_saga`; v2 ladder ← ⚙️ `c_saga_v2` **segment column pair**
-   (config-segmented D14; `readSagaV2_(seg)` picks the segment's own columns). Today ≈ 0.357.
+   (config-segmented D14; `readSagaV2_(seg)` picks the segment's own columns). Today = 0.80 on
+   workbook (10) (0.60 v2 HC/level ÷ 0.75 base; an earlier v2 tuning gave ≈ 0.357).
 3. **item ratios** (`sagaItemRatios_`) = `Σ v2 item / Σ base item` per level, from the per-node item
    columns (SPT..Unlimited Bomb) on both ⚙️ sheets. Column missing in v2 → **carry** (don't zero on a
    layout edit); base total 0 → **carry** (no anchor; a new saga item needs bottom-up).
@@ -402,7 +409,7 @@ copy what players actually earned. Saga (the reward path along the level map) ha
 so we ask one question: *per level played, how much does the new reward ladder pay compared to the old
 one?* For coins, we add up all the coins on the old ladder and divide by the number of levels it spans,
 do the same for the new ladder, and divide the two numbers. That gives the HC ratio (how much richer or
-poorer the new saga is per level — today ≈ 0.357, meaning players get about a third of the coins they
+poorer the new saga is per level — today 0.80, meaning players keep four fifths of the coins they
 used to). We then multiply what players actually earned (the measured value) by that ratio — players
 who only got halfway along the path in real life are still only halfway along in the simulation,
 because their real progress is baked into the measured number. The same idea applies to each booster
@@ -426,11 +433,36 @@ where the two [ratios](https://en.wikipedia.org/wiki/Ratio) expand to:
 - **[Σ (sigma)](https://en.wikipedia.org/wiki/Summation)** — the maths shorthand for "add all of these up".
 - **cycleAvg** — "coins per level": all the coins printed on a saga ladder, divided by the total
   number of levels a player must clear to walk that ladder.
-- **HC_ratio** — how coin-generous the new saga is per level compared to the old one (today ≈ 0.357,
-  i.e. roughly a third of the coins).
+- **HC_ratio** — how coin-generous the new saga is per level compared to the old one (today 0.80:
+  the v2 ladder pays 0.60 HC per level vs the base ladder's 0.75).
 - **item_ratio\[item]** — the same comparison done separately for each booster item: total of that
   item on the new ladder ÷ total on the old ladder.
 - **carried** — left at the measured value, because a ratio can't be formed (you can't scale a zero).
+
+**How did you simulate this?** First I check what the redesign actually touches here: only the
+reward config of the saga path (⚙️ `c_saga` → `c_saga_v2`). The saga runs every day in both
+calendars, so there is no schedule to compare and no event length to compare — [T](#t-cadence-and-reach)
+and [D](#d-duration-multiplier) never enter, and no [survival function](#s-survival-function) is
+needed either (how far a player really gets along the path is already baked into their measured
+number). Then I walk both config ladders node by node: I total the coins printed along one full
+cycle of the path and divide by the levels it takes to walk it — "coins per level" for the old
+ladder and for the new one — and divide the two, giving the HC ratio. Then I do the same per
+booster item (total of that item on the new ladder ÷ total on the old). Finally I multiply what
+players of this segment actually earned from the saga (📊 `data_gains`) by those ratios, resource
+by resource. If the old ladder never paid an item at all, there is no anchor to scale, so that item
+stays at its measured value (flagged). Core is even simpler: nothing changed, copy measured.
+
+*Example 1 — Saga coins, 40-99 nonpayer.* The base ladder pays 75 HC across the 100 levels of one
+cycle → 0.75 HC/level. The segment's `c_saga_v2` columns pay 60 HC across the same 100 levels →
+0.60 HC/level. HC_ratio = 0.60 ÷ 0.75 = **0.80**. Measured saga coins are 400.44/earner, so
+SIMULATED = 400.44 × 0.80 = **320.35 HC** (DIFF −80.09) — the player's real progress is kept, just
+re-priced at the leaner coin tuning.
+
+*Example 2 — booster items, same segment: one mechanism, four different fates.* Bomb boosters drop
+from 0.03 to 0.01 per level → ratio ⅓ → measured 5.77 becomes **1.92**. Slingshot drops 0.01 → 0 →
+ratio 0 → measured 4.31 becomes **0** (v2 deleted it, so the sim deletes it). Unlimited Lives is
+untouched (2.65 → 2.65 per level, ratio 1) → the measured 577.02 minutes stay put. UL Red pays 0
+on the BASE ladder → no anchor, ratio impossible → its measured 0.0004 is carried unchanged.
 
 ---
 
@@ -455,7 +487,8 @@ flowchart TD
 2. Build [S](#s-survival-function) over `login_streak_p50/75/90` (📊 `data_seg_beh`). Weight
    `w_n = P(login streak ≥ n) = S(n−1)` for day `n = 1..7`.
 3. `R_HC = Σ_n (v2_n · w_n) / Σ_n (base_n · w_n)`. Day 7's untouched 100 HC shields long-streak
-   players; low-streak segments eat more of the nerf (R ≈ 0.74 @0-9 NP vs a naive 0.835).
+   players; low-streak segments eat more of the nerf (workbook (10): R ≈ 0.61 @0-9 NP vs 0.65
+   @40-99 NP vs a naive unweighted 0.714).
 4. `SIMULATED[HC] = measured[HC] × R_HC`; other resources = measured.
 
 **In plain words.** Daily Gift is a 7-day login ladder: log in day after day and each day's gift gets
@@ -494,6 +527,35 @@ where R_HC expands to:
 - **R_HC** — the ratio of two [weighted averages](https://en.wikipedia.org/wiki/Weighted_arithmetic_mean):
   the typical *collected* gift under the new ladder ÷ under the old ladder, using the same weights on
   both sides so only the config change moves it.
+
+**How did you simulate this?** First I read both 7-day gift ladders (⚙️ `c_day` / `c_day_v2`); if
+they were identical I would stop right there with R = 1. Daily Gift is always-on, so — like the
+saga — [T](#t-cadence-and-reach) and [D](#d-duration-multiplier) never enter. The one subtlety is
+that comparing the two ladders by their plain totals would be wrong: the day-7 gift is only real
+for players who actually log in seven days in a row. So I build a
+[survival function](#s-survival-function) — this source's ONLY use of it — over the segment's
+login-streak percentiles (📊 `data_seg_beh` p50/75/90): S(x) = the share of players whose login
+streak reaches at least x days. Then I weight each ladder day n by wₙ = S(n−1), the share of
+players who actually collect that day's gift. Then I compute the weighted total of the old ladder
+and of the new ladder with the SAME weights and divide — that is R_HC. Finally I multiply the
+segment's measured Daily Gift coins by R_HC; every other resource is copied unchanged (only coins
+were edited).
+
+*Example 1 — 0-9 nonpayer.* Ladders: base 22/0/0/27/0/33/100 HC, v2 10/0/0/10/0/10/100 (day 7
+untouched). Login streaks p50 = 2, p75 = 5, p90 = 10 give weights w₁…w₇ = 1, .75, .50, .417, .333,
+.25, .22. Weighted old = 22×1 + 27×.417 + 33×.25 + 100×.22 = 63.50; weighted new = 10 + 4.17 +
+2.50 + 22.00 = 38.67. R_HC = 38.67 ÷ 63.50 = **0.609** — harsher than the naive unweighted
+130 ÷ 182 = 0.714, because this casual segment rarely reaches the protected day-7 gift. Measured
+120.66 HC × 0.609 = **73.47 HC**.
+
+*Example 2 — 40-99 nonpayer, same config edit.* Longer login streaks (p50 = 3, p75 = 8, p90 = 20)
+give fatter late-day weights (w₇ = 0.35): weighted old = 83.70, weighted new = 54.00, R_HC =
+**0.645**. Measured 103.85 × 0.645 = **67.01 HC**. Identical nerf on paper, but the streakier
+segment escapes more of it — exactly the effect the survival weighting exists to capture.
+
+---
+
+### 6.4 Score-based leaderboards: Kite Festival & Target Day
 
 **Overview.** Both are **score events** — you accumulate a score/target across an instance and are
 paid at instance end. **Kite Festival** pays by **rank in a zero-sum league of 60** (fixed pot
@@ -605,6 +667,46 @@ the composite terms expand to:
 - **[p_day](#reach-and-p_day)** — the chance this segment plays on a given day: the weekend rate on
   Fri/Sat/Sun, the weekday rate otherwise (📊 `data_seg_beh`).
 
+**How did you simulate this?** First I take what players of this segment actually earned from the
+event (📊 `data_gains`). Then I deliberately DON'T touch duration: rank payouts are end-state —
+give the whole league an extra day and everyone's kite score rises together, so the finishing
+order (and the payout) barely moves — which is why [D](#d-duration-multiplier) is pinned at 1 and
+run-length edits change nothing here. What the calendar IS allowed to move is cadence: for each
+run in each calendar I compute the chance the player shows up at least once (from their
+weekday/weekend activity rates), sum those chances per calendar, and divide new by current —
+that is [T](#t-cadence-and-reach), the only place the calendar enters. Then the prize tables:
+telemetry gives the segment's three typical finishing ranks (`position_p25/50/75`, 📊
+`data_event_inst`); I look up what the old ladder (⚙️ `Ki`/`TaD`) pays at exactly those three
+ranks, average them, do the same on the `_v2` ladder, and divide — that is [R](#r-reward-ratio),
+per resource. Kite has one extra piece, its score milestones: for those I use the
+[survival function](#s-survival-function) over players' real final kite scores
+(`final_balance_p25/50/75`) — S(scoreReq) = the share of players whose banked score reaches the
+threshold — and add S × reward to both sides' expected payout. (That is the only survival use in
+this family; rank pricing never needs one.) The answer is measured × R × T.
+
+*Example 1 — Kite Festival, 40-99 nonpayer.* Typical finishing ranks 3 / 6 / 14. Base ⚙️ `Ki` at
+those ranks pays 150 HC + 240 SPT + 1 Shuffle · 140 SPT + 1 Slingshot · 90 SPT + 1 Chuck; ⚙️
+`Ki_v2` pays 125 HC + 150 SPT + 1 Shuffle · 90 SPT + 1 Slingshot · 60 SPT + 1 Red. So E_HC drops
+(150+0+0)/3 = 50 → 125/3 = 41.67 → R_HC = **0.833**, and E_SPT drops 156.67 → 100 → R_SPT =
+**0.638**. The single score milestone (100 kite score → 30 min Unlimited Lives) is passed by
+virtually everyone — final scores start at p25 ≈ 19,424, so S(100) = 0.999 — and is identical on
+both sheets, so it contributes ratio 1. Calendar: three runs (7d + 7d + 3d, summed reach 2.48)
+become five 3-day runs (reach 3.25) → T = **1.31**. Results: HC 33.11 × 0.833 × 1.31 = **36.15**;
+SPT 81.28 × 0.638 × 1.31 = **67.97** (a ladder nerf that survives a cadence buff); Chuck
+0.018 × 0 = **0** (rank 14's Chuck was swapped for a Red — and since the base ladder pays no Red
+at these ranks there is no Red anchor, so the measured Red 0.014 is carried and just rides T).
+
+*Example 2 — Target Day, 40-99 payer.* A pure rank event (its milestone ladder pays 0 by design,
+so no survival term at all). Typical ranks 1 / 2 / 5: base ⚙️ `TaD` pays 200 HC + 1 Comet ·
+100 HC + 1 Shuffle · 1 Shuffle; ⚙️ `TaD_v2` pays 50 HC + 1 Comet · 25 HC + 1 Shuffle · 1 Bomb.
+E_HC = 100 → 25 → R_HC = **0.25**. Calendar: three boards (7d, 7d, and a 2-day window clip; reach
+2.31) become fifteen one-day boards, all sitting on Fri–Sun (reach 15 × 0.288 = 4.33) → T =
+**1.87** — fifteen separate podiums instead of three. Net: 38.73 × 0.25 × 1.87 = **18.11 HC**. The
+schedule nearly doubles this segment's opportunities, but the top-rank reward nerf outweighs it —
+two dials, opposite directions, one multiplication.
+
+---
+
 ### 6.5 Rank leaderboards: Bomb's / Chuck's / Red's Challenge, Level Race, Flash Race
 
 **Overview.** Pure rank races: your payout depends on where you **place** against other players, from
@@ -672,6 +774,31 @@ the composite terms expand to (identical to [§6.4](#64-score-based-leaderboards
   the summed chance of showing up to each scheduled run, new calendar ÷ current, where each run's
   chance uses the [complement trick](https://en.wikipedia.org/wiki/Complementary_event)
   1 − [Π](https://en.wikipedia.org/wiki/Product_%28mathematics%29)(1 − daily activity rate).
+
+**How did you simulate this?** Exactly the §6.4 recipe minus the score-milestone piece — so the
+[survival function](#s-survival-function) is never used in this family. First I take the measured
+earnings. Then [D](#d-duration-multiplier) = 1 on purpose: a race is relative, so a longer board
+doesn't change who beats whom. Then [T](#t-cadence-and-reach): sum the show-up chances over each
+calendar's runs (weekday/weekend rate per day, 1 − Π(1 − p_day) per run) and divide new by
+current. Then [R](#r-reward-ratio): read the segment's typical finishing ranks from 📊
+`data_event_inst`, price the event's ⚙️ `Race` prize block at those three ranks, price `Race_v2`
+at the SAME three ranks, divide the averages per resource. A rank past the paid rows prices 0 —
+and if the BASE side prices 0 for some resource, there is no anchor and that resource is carried
+(factor 1). Multiply the three factors together.
+
+*Example 1 — Red's Challenge, 40-99 nonpayer.* Typical ranks 1 / 2 / 4: the prize table pays
+200 HC + 1 Comet, 100 HC + 1 Shuffle, 1 Shuffle → E_HC = (200+100+0)/3 = 100. `Race_v2` is
+untouched, so E_v2 is identical and R = 1 for every resource. Calendar: four one-day boards
+(summed reach 1.18) become three two-day boards (reach 3 × 0.505 = 1.52) → T = **1.28**. HC:
+47.84 × 1 × 1.28 = **61.22** — the whole movement is scheduling. (Chuck's Challenge is the same
+machinery pointing the other way: five boards shrink to two, T = 0.68, measured 11.98 → 8.16 HC.)
+
+*Example 2 — Red's Challenge, 0-9 nonpayer: same event, different rank band.* This segment
+typically finishes 5 / 10 / 14, and at those ranks the table pays no coins at all (1 Shuffle,
+1 Slingshot, nothing) — on BOTH sheets. So E_HC(base) = 0 → no HC anchor → the small measured
+1.27 HC is carried through R and just rides the schedule: 1.27 × 1.30 = **1.65 HC**. The boosters
+price normally (R = 1): Slingshot 0.214 × 1.30 = 0.28. A low segment earning ≈ 0 coins from races
+is real rank economics, not a missing row — check the booster columns before calling it dead.
 
 ---
 
@@ -783,6 +910,40 @@ the composite terms expand to:
   1 − [Π](https://en.wikipedia.org/wiki/Product_%28mathematics%29)(1 − daily activity rate) (the
   [complement trick](https://en.wikipedia.org/wiki/Complementary_event)).
 
+**How did you simulate this?** Collections are the one family where BOTH time dials turn, and each
+has its own tool — this is exactly where T-vs-D confusion usually starts, so, bluntly:
+**[T](#t-cadence-and-reach)** answers *"how many runs does the player catch?"* (schedule — from
+the calendars × activity rates, identical machinery to the leaderboards), while
+**[D](#d-duration-multiplier)** answers *"how much can they bank inside one run?"* (run length —
+from the accrual curve; leaderboards pin this to 1, collections don't). So: first I take the
+measured earnings. Then T as usual: summed show-up chances, new calendar ÷ current. Then D: 📊
+`data_event_accrual` tells me what share of their eventual token haul the median participant has
+banked by each event day; D = share-by-new-length ÷ share-by-current-length (using each calendar's
+modal run length). Shortening reads inside the observed curve (reliable interpolation);
+lengthening reads past its end, where the curve is usually already flat, so D ≈ 1. Then
+[R](#r-reward-ratio), where the [survival function](#s-survival-function) earns its keep: S built
+over the segment's real final token balances (`final_balance_p25/50/75`, 📊 `data_event_inst`)
+gives the chance of reaching each milestone requirement; E = Σ S(req) × reward, priced once on the
+base sheet and once on `_v2`, and R = E_v2 ÷ E_base per resource — which is why BOTH reward edits
+and requirement edits move it. Finally: measured × R × D × T.
+
+*Example 1 — Jigsaw, 40-99 nonpayer (run shortened 4d → 3d).* Accrual curve: by day 1 the median
+participant has banked 27% of their eventual puzzle-piece haul, day 2 63%, day 3 92%, day 4 100% →
+D = 0.92 ÷ 1.00 = **0.92**. Schedule: T = **0.90**. R: final balances 774 / 1,410 / 1,931 pieces
+give S(30) = 0.99 down to S(1,930) = 0.25 across the twelve milestones — but `J_v2` is identical
+to `J`, so the two expected payouts cancel and R = **1** (the survival table is built and priced,
+it just moves nothing yet). HC: 25.24 × 1 × 0.92 × 0.90 = **20.93** — the whole change is time,
+split into its two distinct causes.
+
+*Example 2 — Hatchling Hideaway, 0-9 nonpayer (run lengthened 3d → 4d).* The curve saturates:
+day 1 17%, day 2 71%, day 3 100% — by the old length the median participant has already banked
+everything they were ever going to, so the added day contributes nothing: D = **1**
+(the flagged-low-confidence extrapolation, here simply flat). T = **1.16** (the new schedule's
+runs are easier to catch). The survival side shows how shallow a casual's event really is: final
+balances of 6.3 / 13.4 / 25.4 hatchlings mean S(20) = 0.36 for the first nest gate and
+S(51.25) = 0 for every later one — this segment's expected config payout is one partial gate.
+`HH_v2` is untouched → R = 1. HC: 2.31 × 1 × 1 × 1.16 = **2.68**.
+
 ---
 
 ### 6.7 Night Sky
@@ -872,6 +1033,36 @@ the composite terms expand to:
   weekend or weekday rate, 📊 `data_seg_beh`), and adding up 33 daily chances gives the expected count
   of days played.
 
+**How did you simulate this?** Today, honestly: I don't — `NS_SIMULATE = false`, so the row is
+copied at its measured value in every view. The reason is instructive, so here is what the ON
+branch does and why it is parked. Night Sky ran as an A/B test, which means its measured number is
+watered down by players who never had the event — useless as an anchor, so there is nothing to
+scale and no R, [D](#d-duration-multiplier) or [T](#t-cadence-and-reach) at all. Instead the ON
+branch prices the event from scratch (bottom-up, the same pattern as Rainbow Maker). First I read
+the segment's own three-milestone win-streak ladder (⚙️ `NS`). Then I build a
+[survival function](#s-survival-function) over the segment's real best-daily-win-streak
+percentiles (📊 `data_streaks` p25/50/75/90), each stretched ×1.25 ([NS_STREAK_N](#ns_streak_n) —
+players tend to land roughly a second similar-sized streak over a day). S(req) × reward, summed
+over the ladder, gives E_day: the expected prize haul for ONE day of showing up. Then the
+calendar, entered as an absolute rather than a ratio: Night Sky is 33 one-day slots, the reach of
+a one-day slot is just that day's activity rate, so the expected number of active days is
+Σ p_day. SIMULATED = E_day × days.
+
+*Example 1 — 20-39 nonpayer, the full ON-branch trace.* Streak percentiles 7 / 14 / 25 / 38 wins →
+×1.25 → 8.75 / 17.5 / 31.25 / 47.5. The ladder gates at 11 / 26 / 42 wins → S = 0.686 / 0.345 /
+0.151. E_day[HC] = 15×0.686 + 50×0.345 + 100×0.151 = **42.64 HC per active day**. Days = 18
+weekdays × 0.330 + 15 weekend days × 0.317 = **10.69**. Window total = 42.64 × 10.69 =
+**455.6 HC** — versus **86.9 HC actually measured**. That ≈ 5× gap, present even with untouched
+configs, is the unexplained overestimate: until it is understood, the switch stays OFF and the
+shipped answer is the measured 86.9 with diff 0.
+
+*Example 2 — 40-99 nonpayer: same trace, same verdict.* Streaks 13 / 28 / 50 / 78 → ×1.25 → S over
+gates 28 / 60 / 100 = 0.593 / 0.273 / 0.089; E_day[HC] = 50×0.593 + 120×0.273 + 250×0.089 = 84.72;
+days = 9.76; total **826.8 HC** vs **180.7 measured** (≈ 4.6×). The overestimate is systematic
+across segments — which is why one flag gates the whole source rather than any per-segment patch.
+
+---
+
 ### 6.8 Rainbow Maker
 
 **Overview.** A brand-new milestone event (accumulate matchables, claim thresholds) with **no
@@ -954,13 +1145,45 @@ the composite terms expand to:
   miss-chances (the [complement trick](https://en.wikipedia.org/wiki/Complementary_event)), with
   [p_day](#reach-and-p_day) = the weekday/weekend activity rate (📊 `data_seg_beh`).
 
+**How did you simulate this?** Rainbow Maker has never run, so there is nothing measured to
+scale — this is a pure bottom-up pricing of the new calendar, run by run. First I list the
+`cal_new` Rainbow Maker runs (five today), sorted by start day, and hand each its config sheet
+(#1–#3 → ⚙️ `RM_1st`, #4–#5 → ⚙️ `RM_2nd` — the hardcoded split; a missing sheet falls back to
+⚙️ `RM`). Then, per run: 📊 `data_RM` tells me how many matchables (pieces cleared during normal
+level play) players of this segment collect in a standard 4-day window, as percentiles p10…p90.
+If the run is shorter than the sheet's `EventDuration` I shrink that whole matchables axis
+proportionally (a 2-day run = half the matchables — flagged linear assumption). I build the
+[survival function](#s-survival-function) over the scaled percentiles and walk the milestone
+ladder: S(requirement) × reward, summed — the expected haul of a player who participates in that
+run. Then the calendar enters exactly once, as an absolute: multiply by
+[reach](#reach-and-p_day)(run), the chance this player touches the run at all. There is no
+[T](#t-cadence-and-reach) (nothing to divide by — `cal_curr` has no runs) and no
+[D](#d-duration-multiplier) (run length already acted, through the axis scaling). Finally I add
+the runs up.
+
+*Example 1 — full-length run #2 (days 6–9), 40-99 nonpayer.* Matchables percentiles 24,408 /
+44,118 / 83,292 / 128,357 / 185,129 (p10…p90); scale = 4/4 = 1. Survival at the coin milestones:
+S(460) = 0.998, S(8,610) = 0.965, S(67,810) = 0.599, S(151,760) = 0.188, S(352,260) = 0 (beyond
+p90). Expected HC = 10×0.998 + 20×0.965 + 30×0.599 + 100×0.188 + 500×0 = 66.06; × reach(4
+weekdays) = 0.755 → **49.89 HC** from this run (every booster and UL-minutes column is priced the
+same way from its own milestones).
+
+*Example 2 — the clipped 2-day run #1 (days 1–2), same segment.* scale = 2/4 = 0.5 halves the
+whole matchables axis (p50 becomes 41,646), so the SAME milestones suddenly sit much deeper in the
+distribution: S(8,610) = 0.929, S(67,810) collapses 0.599 → 0.231, S(151,760) → 0. Expected HC =
+9.96 + 18.59 + 6.92 + 0 = 35.47; × reach(2 days) = 0.505 → **17.92 HC** — roughly a third of a
+full run, from fewer matchables AND a lower show-up chance at once. Summing all five runs gives
+the 33-day row: 217.47 HC (plus 312.9 min Unlimited Lives, 16.4 Red, …). *Caveat: the workbook
+(10) dump predates the `RM_1st`/`RM_2nd` sheets, so both examples price the shared ⚙️ `RM` ladder
+via the fallback; in the live workbook runs #4–#5 read `RM_2nd` and add its SPTx2 payouts.*
+
 ---
 
 ### 6.9 River Rush
 
 **Overview.** A real simulator on the generic collection path that today evaluates to **removal**:
 `cal_new` has 0 River Rush instances, so the `timedCore_` removal branch returns 0 and
-DIFF = −measured (up to −102.6 HC/earner @100+ NP).
+DIFF = −measured (up to −85.6 HC/earner @100+ NP on workbook (10)).
 
 **Flow.**
 ```mermaid
@@ -990,6 +1213,23 @@ automatically, because all its supporting data is still on file.
 - **[R](#r-reward-ratio) / [D](#d-duration-multiplier) / [T](#t-cadence-and-reach)** — the collection
   dials (reward-config change, run-length change, schedule change) explained under §6.6; River Rush's
   8-day accrual curve is already in 📊 `data_event_accrual`, so no code change is needed to re-price it.
+
+**How did you simulate this?** First I parse both calendars and look for River Rush lanes.
+`cal_new` has none — and that is the entire computation: the removal branch fires and every
+resource is 0. No [R](#r-reward-ratio), [D](#d-duration-multiplier), [T](#t-cadence-and-reach) or
+[survival function](#s-survival-function) is ever built; the DIFF is simply minus everything
+players currently earn from the event. (If runs existed in both calendars, the §6.6 collection
+recipe would price it — the data is all still on file.)
+
+*Example 1 — 100+ nonpayer.* Measured: 85.61 HC, 22.46 SPT, 49.93 SPTx2, 20.5 min UL Red, … →
+SIMULATED all-zero, DIFF = −85.61 HC and so on down the row. Note the token side: −22.46 − 2×49.93
+= **−122.3 SPT-equivalents per earner**, which is why this removal also drags the [§6.11 Season
+Pass](#611-season-pass-spt-tier-coupling) row down two tiers for heavy players.
+
+*Example 2 — 10-19 nonpayer: same branch, different loss profile.* Only −10.15 HC, but −5.67 min
+UL Bomb and −12.40 SPTx2. For low-mid segments River Rush was mostly a booster-and-token source,
+so the removal reads as a small coin line and a big token line — check the non-HC columns before
+judging the impact of a removal.
 
 ---
 
@@ -1155,6 +1395,37 @@ with the composite terms expanding to:
   ladder ÷ the current one (no per-rank pricing — the Dream Pass telemetry needed for it is empty).
 - **[T](#t-cadence-and-reach)** — the usual cadence×reach ratio on the `Season Pass` calendar lane
   (1 today: the lane is identical in both calendars).
+
+**How did you simulate this?** This source is a coupling, not an event: the pass pays by TIER, and
+tiers are bought with season-pass tokens earned everywhere else in the game. So first I total, per
+earner, SPT + 2×SPTx2 across every category in 📊 `data_gains` — the measured token income. Then I
+total the same thing AFTER simulation, i.e. with each category's own R·D·T already applied (River
+Rush contributes 0, Kite's nerfed ladder less, rescheduled races more or less; the Season Pass row
+itself enters as measured on both sides — that is the recursion guard). Each total × seasonDays/33
+becomes points on the ⚙️ `SP` `Cumul` ladder, and the highest tier whose cumulative cost is
+covered is the tier reached — once for the measured world, once for the simulated one. Then I sum
+the track's rewards from tier 1 through each of those tiers (FREE track for nonpayers, FREE+PAID
+for payers — flagged assumption), and the ratio of the two sums scales the measured row per
+resource, × the `SP_lb_v2`/`SP_lb` challenge pot ratio × calendar [T](#t-cadence-and-reach) (both
+1 today; [D](#d-duration-multiplier) pinned 1 — tier rewards are end-state claims). No
+[survival function](#s-survival-function) appears anywhere: tier reach is a deterministic ladder
+lookup, not a probability. And where a resource has no measured anchor, I only ever ADD newly
+unlocked tier rewards on top — never delete a measured value.
+
+*Example 1 — 40-99 nonpayer.* Measured tokens: 318.65 (Level Race 98.9 + Kite 81.3 + Other 43.2 +
+Flock Flurry 24.5 + River Rush 14.8 + 2×25.8 + …). Simulated: 224.44 (River Rush → 0, Kite
+81.3 → 68.0, Level Race 98.9 → 84.3). Points (season = window, so ×1): 318.65 lands on tier 8
+(Cumul 317 — only 1.65 points above the edge, which is why tier numbers must never be hardcoded in
+checks); 224.44 lands on tier 6 (177 ≤ 224 < 247). Free-track sums through tier 8 vs tier 6: HC
+20 → 20 (×1), Chuck 2 → 1 (×0.5), UL Lives 75 → 60 (×0.8). Row: HC 67.92 unchanged; Chuck
+2.289 × 0.5 = **1.144**; UL Lives 73.83 × 0.8 = **59.06**. The event was not touched at all — the
+row moves purely because the rest of the redesign starves it of tokens.
+
+*Example 2 — 100+ payer (the paid track counts too).* Tokens 416.40 → tier 9; simulated 303.86 →
+tier 7. FREE+PAID sums through 9 vs 7: HC 70 → 70 (166.62 unchanged), UL Red 20 → 10 →
+32.68 × 0.5 = **16.34**, and Slingshot 1 → 0 — the track's only slingshot sits on tier 8 or 9, so
+the anchored ratio is 0/1 and the measured 1.50 drops to **0**. Same coupling, but on the payer
+track a two-tier slip can zero a resource outright.
 
 ---
 
