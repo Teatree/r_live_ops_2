@@ -71,7 +71,10 @@
  *   9. Ladders are read from the _v2 config sheets for BOTH calendars (project fact: _v2
  *      changed only EventDuration). HH/Ph milestone requirements come from the EventReach
  *      helper columns imported on HH_v2 (AV5:AV9) / Ph_v2 (AU5:AU34) - keep those sheets.
- *  10. SPT / COOP / Avatar / Dly rewards are outside the 11-resource universe -> not tracked.
+ *  10. COOP / Avatar / Dly rewards are outside the 13-resource universe -> not tracked. SPT/SPTx2
+ *      ARE tracked (since D16): event payouts land per claim, and Core level-completion SPT (D17)
+ *      is one aggregate day-end claim = (wins x E_SPT), E_SPT = Σ mix x per-level reward priced off
+ *      SP (cal_curr) / SP_v2 (cal_new). Season-pass TIER claims remain window-sim only (note 18).
  ************************************************************************************************/
 
 var PBP_SHEET = 'EcoGainsSim_PlybyPly';
@@ -298,6 +301,20 @@ function pbpSimulate_(a){
                 ' x ' + NS_STREAK_N + ')' });
     });
   }
+
+  // --- Core level-completion SPT (D17): every win completes a level worth E_SPT expected tokens
+  // (Σ mix x reward, difficulty-weighted). cal_curr prices off SP (live rewards), cal_new off
+  // SP_v2 (redesign), so editing the per-level SPT rewards moves this. ONE aggregate day-end claim
+  // (the per-win value is an expectation over the difficulty mix, not a per-level draw — we do not
+  // model which levels are Normal/Hard/Extreme). Panel absent / E=0 -> nothing emitted (Core stays
+  // unmodeled, exactly as before). Core pays no SPTx2 (measured 0). Reuses the v4 helpers.
+  var coreSheet = (a.cal === CAL_NEW) ? spV2Sheet_('SP') : 'SP';
+  var eSPT = coreSptE_(coreSheet, coreSptMix_('SP')), winCount = 0;
+  plays.forEach(function(pl){ if (pl.win) winCount++; });
+  if (eSPT > 1e-9 && winCount > 0)
+    grantsE.push({ cat: 'Core', rew: { 'SPT': Math.round(eSPT * winCount * 100) / 100 },
+                   note: winCount + ' level completions x ' + (Math.round(eSPT * 100) / 100) +
+                         ' SPT (difficulty mix)' });
 
   return { N: N, p: p, q: q, startLevel: startLevel, plays: plays, active: active,
            progress: progress, grantsS: grantsS, grantsE: grantsE, beh: beh, st: st };

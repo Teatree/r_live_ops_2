@@ -360,6 +360,58 @@ gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && R
   gate('SP_v2 mutation restored (baseline reproduces)',
        CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
 }
+// ---------- Core SPT gates (D17: level-completion tokens priced off the SP / SP_v2 panel) -----
+console.log('\n================ CORE SPT GATES ================');
+// Baseline: SP_v2 == SP (panel present-but-unedited, or absent) -> R=1 -> Core carried.
+{
+  const c = Context.get();
+  const R0 = coreSptR_(c);
+  const iSPT = RESOURCES.indexOf('SPT');
+  const measCore = num(measuredRow_('Core', '40-99', 'NONPAYER', c.ds)['SPT']);
+  const coreSPT = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Core')][iSPT];
+  gate('SP_v2 == SP -> Core SPT R=1 (carried)', Math.abs(R0 - 1) < 1e-12, `R=${R0}`);
+  gate('Core SPT sim == measured at baseline', Math.abs(coreSPT - measCore) < 1e-9,
+       `sim ${coreSPT.toFixed(2)} == meas ${measCore.toFixed(2)}`);
+}
+// Synthetic edit: force SP's panel to 10/20/30 + mix and SP_v2's Normal to 15 (edit the existing
+// panel IN PLACE, or append the pair if the export has no panel — robust either way). Expect
+// R = E_v2/E_base, Core SPT scales, and the Season Pass tier coupling lifts off the extra SPT
+// (Core is ~92% of the SPT faucet).
+{
+  const origSP    = JSON.parse(JSON.stringify(data['SP']));
+  const origSP_v2 = data['SP_v2'] ? JSON.parse(JSON.stringify(data['SP_v2'])) : null;
+  const setLabel = (sh, label, val) => {                          // first exact match -> set neighbour; else append
+    for (const row of sh.values) for (let c = 0; c < row.length; c++)
+      if (String(row[c]).trim().toLowerCase() === label.toLowerCase()) { row[c + 1] = val; return; }
+    sh.values.push([label, val]);
+  };
+  const withPanel = (normal) => { const cl = JSON.parse(JSON.stringify(origSP));
+    setLabel(cl, 'Normal', normal); setLabel(cl, 'Hard', 20); setLabel(cl, 'Extreme', 30);
+    setLabel(cl, 'Normal (%)', 0.55); setLabel(cl, 'Hard (%)', 0.30); setLabel(cl, 'Extreme (%)', 0.15);
+    return cl; };
+  data['SP']    = withPanel(10);
+  data['SP_v2'] = withPanel(15);                                                  // Normal bumped 10 -> 15
+  eval(engineSrc); resetSheetCache();
+  const c = Context.get(), iSPT = RESOURCES.indexOf('SPT');
+  const eBase = 0.55 * 10 + 0.30 * 20 + 0.15 * 30, eV2 = 0.55 * 15 + 0.30 * 20 + 0.15 * 30;
+  const Rexp = eV2 / eBase, R = coreSptR_(c);
+  gate('Core SPT R = E_v2/E_base (Normal 10->15)', Math.abs(R - Rexp) < 1e-9, `R ${R.toFixed(4)} vs ${Rexp.toFixed(4)}`);
+  const measCore = num(measuredRow_('Core', '40-99', 'NONPAYER', c.ds)['SPT']);
+  const coreSPT = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Core')][iSPT];
+  gate('Core SPT sim = measured x R', Math.abs(coreSPT - measCore * Rexp) < 1e-6,
+       `sim ${coreSPT.toFixed(2)} vs ${(measCore * Rexp).toFixed(2)}`);
+  const spRow = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Season Pass (Free)')];
+  const measSP = measuredRow_('Season Pass (Free)', '40-99', 'NONPAYER', c.ds);
+  let moved = false;
+  RESOURCES.forEach((r, j) => { if (num(measSP[r]) > 0 && Math.abs(spRow[j] - num(measSP[r])) > 1e-9) moved = true; });
+  gate('Season Pass row moves off the Core SPT bump (tier coupling live)', moved);
+  data['SP'] = origSP;
+  if (origSP_v2) data['SP_v2'] = origSP_v2; else delete data['SP_v2'];
+  eval(engineSrc); resetSheetCache();
+  const again = ECOGAINS_SIM('NONPAYER', '40-99');
+  gate('Core SPT mutation restored (baseline reproduces)',
+       CATEGORY_ORDER.every((cat, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
+}
 // ---------- Rainbow Maker split-config gates (2026-07-10 hardcode: RM_1st x3 / RM_2nd x2) ----
 console.log('\n================ RM SPLIT GATES ================');
 // Fallback path first: with RM_1st/RM_2nd absent from the dump, every instance must read 'RM'
@@ -375,7 +427,9 @@ console.log('\n================ RM SPLIT GATES ================');
 }
 // Synthetic split: RM_1st = clone of RM; RM_2nd = clone with 'SPT x2' = 2 on every milestone.
 // Expect: SPTx2 flows ONLY from the last two start-sorted instances; HC identical to baseline.
-{
+if (!data['RM']) {
+  gate('RM split synthetic (RM sheet absent in this workbook -> skipped)', true);
+} else {
   const findLadder = (sh) => {
     for (let r = 0; r < sh.values.length; r++) {
       const row = sh.values[r].map(x => String(x).trim());

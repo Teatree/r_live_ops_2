@@ -58,9 +58,9 @@ carried**:
 
 | Category | Simulator | §  | Model |
 |---|---|---|---|
-| Ads, Core, Other, Team Event, Team Race, FlowerCoop, IAPs, Flock Flurry | *(carried)* | [6.1](#61-carried-sources) | = measured |
+| Ads, Other, Team Event, Team Race, FlowerCoop, IAPs, Flock Flurry | *(carried)* | [6.1](#61-carried-sources) | = measured |
 | Season Pass (Free) | `simSeasonPass` | [6.11](#611-season-pass-spt-tier-coupling) | measured × tier-cum ratio × R_challenge × T (D=1) — since 2026-07-10 (D16) |
-| Core | `simCore` | [6.2](#62-core--saga) | = measured (carried) |
+| Core | `simCore` | [6.2](#62-core--saga) | measured (carried); **SPT × R_SPT** (level-completion difficulty ladder) since D17 |
 | Saga | `simSaga` | [6.2](#62-core--saga) | measured × per-resource ratio |
 | Daily Gift | `simDailyGift` | [6.3](#63-daily-gift) | measured, HC × streak-weighted ratio |
 | Kite Festival, Target Day | `simKiteFestival`, `simTargetDay` | [6.4](#64-score-based-leaderboards-kite-festival--target-day) | measured × R × T (D=1) |
@@ -379,9 +379,25 @@ simulated column, and the difference is zero by definition.
 ### 6.2 Core & Saga
 
 **Overview.** `data_gains` splits base-game progression into **Core** (`chapter_complete`,
-`PlayerLevelUpChest` — unchanged → carried) and **Saga** (`SagaPath` / `SagaChestRewards` — the nerf
-line). Both are always-on, so [D](#d-duration-multiplier) = [T](#t-cadence-and-reach) = 1; only a
-per-resource config ratio moves Saga.
+`PlayerLevelUpChest`, and **level-completion SPT**) and **Saga** (`SagaPath` / `SagaChestRewards` —
+the nerf line). Both are always-on, so [D](#d-duration-multiplier) = [T](#t-cadence-and-reach) = 1;
+only a per-resource config ratio moves them. Core's chapter/level-up chests are unchanged → carried,
+but since **D17 (2026-07-14) Core's SPT is simulated**: every level completion pays a difficulty-tiered
+SPT reward, so editing those rewards on `SP_v2` moves the SPT earned (and, because Core is ~92% of the
+whole SPT faucet, the Season Pass tier along with it — [§6.11](#611-season-pass-spt-tier-coupling)).
+
+**Core SPT model (`simCore`, D17).** Level completions pay **10 / 20 / 30 SPT** by difficulty
+(Normal / Hard / Extreme) under an assumed level-difficulty **mix** (0.55 / 0.30 / 0.15 — an
+[assumption](#the-data-sheets-telemetry), flagged; lives in the panel, falls back to the
+`CORE_SPT_MIX` code constant). Expected SPT per level completion `E = Σ_d mix_d · reward_d` (base = 16).
+Then, like every anchored source, `SIMULATED[Core, SPT] = measured[Core, SPT] × R_SPT` with
+`R_SPT = E_v2 / E_base` (D = T = 1). Rewards + weights are **label-scanned** off the `SP` / `SP_v2`
+config panel — cells `Normal` / `Hard` / `Extreme` and `… (%)` (`readSPLabel_`, the same
+placement-independent reader as `Season Length (days)`; the panel sits on the tier-ladder's unused
+`A:B` columns, which `readSPTrack_` never reads, so there is no collision). Base = live rewards →
+`R_SPT = 1` (Core SPT == measured) until `SP_v2` is edited; **panel absent → `E_base = 0` → R = 1**,
+the carried fail-safe. Every other Core resource stays carried, and measured Core SPTx2 = 0. The
+[A. 0 appendix](#610-a-0-appendix) applies the same scalar (config-only change, segment-uniform).
 
 **Flow.**
 ```mermaid
@@ -402,10 +418,17 @@ flowchart TD
    columns (SPT..Unlimited Bomb) on both ⚙️ sheets. Column missing in v2 → **carry** (don't zero on a
    layout edit); base total 0 → **carry** (no anchor; a new saga item needs bottom-up).
 4. `SIMULATED[HC] = measured[HC] × HC_ratio`; `SIMULATED[item] = measured[item] × item_ratio` (else
-   measured). Core just returns measured.
+   measured). `simCore` returns measured for every resource **except SPT**, which it scales by
+   `R_SPT` (`coreSptR_`; = 1 → measured, so Core is untouched until the `SP_v2` panel is edited).
 
-**In plain words.** Core (rewards for finishing chapters and levelling up) didn't change, so we just
-copy what players actually earned. Saga (the reward path along the level map) had its rewards re-tuned,
+**In plain words.** Core is rewards for finishing chapters, levelling up, and — the one part we now
+model — the **season-pass tokens (SPT) you get for beating a level** (10, 20, or 30 depending on how
+hard the level is). The chapter/level-up chests didn't change, so we copy what players actually earned;
+but for SPT we ask *how much does the new per-level reward pay versus the old one?* — add up the reward
+for each difficulty weighted by how common that difficulty is (55% easy, 30% hard, 15% extreme), do the
+same for the redesign, and divide. That ratio scales the SPT players actually earned. Because almost all
+SPT comes from beating levels, this one knob also decides how far players climb the Season Pass. Saga
+(the reward path along the level map) had its rewards re-tuned,
 so we ask one question: *per level played, how much does the new reward ladder pay compared to the old
 one?* For coins, we add up all the coins on the old ladder and divide by the number of levels it spans,
 do the same for the new ladder, and divide the two numbers. That gives the HC ratio (how much richer or

@@ -209,12 +209,19 @@ function measuredRow_(cat, seg, payer, ds){ return ds.dataRow(cat, seg, payer); 
 
 // ============================== A. 0 APPENDIX (§3 — carried & annotated, not simulated) ======
 // A.0 players have no behaviour/accrual/matchables data. Config-only changes are applied
-// (Saga ratio; Daily Gift ratio with 0-9 weights as PROXY — flagged); RR removal is universal;
-// everything else (incl. Night Sky, Rainbow Maker and the Season Pass tier coupling — D16)
-// carries its measured value.
+// (Saga ratio; Daily Gift ratio with 0-9 weights as PROXY — flagged; Core SPT R_SPT, which is
+// segment-uniform so needs no A.0 telemetry — D17); RR removal is universal; everything else
+// (incl. Night Sky, Rainbow Maker and the Season Pass tier coupling — D16) carries its measured value.
 function appendixRow_(cat, payer, ctx){
   var ds = ctx.ds, meas = measuredRow_(cat, 'A. 0', payer, ds);
   if (cat === 'River Rush') return zeroRow_();
+  if (cat === 'Core'){
+    var Rspt = coreSptR_(ctx);                            // config-only SPT ratio (segment-uniform)
+    if (Rspt === 1) return meas;
+    var oc = {}; RESOURCES.forEach(function(r){ oc[r] = num(meas[r]); });
+    oc['SPT'] = num(oc['SPT']) * Rspt;
+    return oc;
+  }
   if (cat === 'Saga'){
     var ratio = sagaRatio_('0-9'), itemR = sagaItemRatios_();   // config-only ratios
     var out = {};
@@ -233,8 +240,23 @@ function appendixRow_(cat, payer, ctx){
 }
 
 // ============================== ALWAYS-ON SOURCES ============================================
-// Core — carried: chapter_complete / PlayerLevelUpChest rewards did not change.
-function simCore(seg, payer, ctx){ return measuredRow_('Core', seg, payer, ctx.ds); }
+// Core — SPT simulated (D17), everything else carried. Level completions pay 10/20/30 SPT by
+// difficulty (Normal/Hard/Extreme) under an assumed level-difficulty mix, so editing those
+// per-level rewards on SP_v2 moves the SPT earned:
+//   SIM[SPT] = measured[SPT] x R_SPT     (D=T=1, always-on; measured is ~92% of the SPT faucet)
+// R_SPT = coreSptR_ (E_v2/E_base, scalar). chapter_complete / PlayerLevelUpChest rewards did not
+// change, so every OTHER Core resource stays carried (and measured Core SPTx2 = 0). Base = live
+// rewards -> R=1 until SP_v2 is edited, then Core SPT AND the Season Pass tier (sptTotals_ sums
+// resultRow_ per category) both move off the same edit.
+function simCore(seg, payer, ctx){
+  var meas = measuredRow_('Core', seg, payer, ctx.ds);
+  var R = coreSptR_(ctx);
+  if (R === 1) return meas;                               // panel absent / SP_v2 unedited -> carried
+  var out = {};
+  RESOURCES.forEach(function(r){ out[r] = num(meas[r]); });
+  out['SPT'] = num(meas['SPT']) * R;
+  return out;
+}
 
 // Saga — reward-ratio per resource:
 //   HC:      measured x (Σ c_saga_v2 HC [segment column] / Σ c_saga HC)   — per-segment
@@ -693,16 +715,24 @@ function spV2Sheet_(base){
   return sheetVals_(v2).length ? v2 : base;
 }
 
-// SP / SP_v2 track: header row 4 (0-based 3: Tier | Incr real | Cumul | D..W FREE | X..AQ PAID),
-// tier rows 5+ until Cumul stops being numeric (the 'Total' row has Cumul = NA). The two tracks
+// SP / SP_v2 track: header = the row whose col C is 'Cumul' (Tier | Incr real | Cumul | D..W FREE |
+// X..AQ PAID); tier rows below it until Cumul stops being numeric (the 'Total' row has Cumul = NA).
+// The header is LOCATED, not fixed at row 4 — a config panel prepended above the ladder (D17: the
+// 'Season Length (days)' + level-difficulty block) shifts every ladder row down, and a fixed offset
+// would then read the panel as an empty ladder (tier 0 -> Season Pass silently carried). Column
+// layout is stable, so the reward-column offsets (D..W free, X..AQ paid) stay fixed. The two tracks
 // repeat the same reward headers ('Coins', 'SPT', ...), so each range maps through rewCols_
 // separately — a single whole-row scan would collapse them onto the first (free) match.
 function readSPTrack_(sheetName){
   var v = sheetVals_(sheetName);
   var out = { cum: [], free: [], paid: [] };
   if (!v.length) return out;
-  var fCols = rewCols_(v, 3, 3, 22), pCols = rewCols_(v, 3, 23, 42);
-  for (var r = 4; r < v.length; r++){
+  var hdr = -1;
+  for (var i = 0; i < v.length; i++)
+    if (String((v[i] || [])[2]).trim().toLowerCase() === 'cumul'){ hdr = i; break; }
+  if (hdr < 0) return out;                                  // no ladder found -> caller carries
+  var fCols = rewCols_(v, hdr, 3, 22), pCols = rewCols_(v, hdr, 23, 42);
+  for (var r = hdr + 1; r < v.length; r++){
     var c = num(v[r] && v[r][2]);
     if (!(c > 0)) break;
     out.cum.push(c);
@@ -712,16 +742,58 @@ function readSPTrack_(sheetName){
   return out;
 }
 
-// 'Season Length (days)' config label anywhere on the sheet; value = the cell to its right.
-function readSPSeasonDays_(sheetName){
-  var v = sheetVals_(sheetName);
+// value in the cell to the RIGHT of an exact (case-insensitive) label anywhere on the sheet;
+// null if the label is absent, '' if it exists but the neighbour is blank. Label-scan (not a
+// fixed cell) = placement-independent, so the SP config panel can sit anywhere — including on
+// top of the tier-ladder's unused Tier/Incr columns (A:B), which the ladder reader ignores.
+function readSPLabel_(sheetName, label){
+  var v = sheetVals_(sheetName), want = String(label).trim().toLowerCase();
   for (var r = 0; r < v.length; r++){
     var row = v[r] || [];
     for (var c = 0; c < row.length; c++){
-      if (String(row[c]).trim().toLowerCase() === 'season length (days)') return num(row[c + 1]);
+      if (String(row[c]).trim().toLowerCase() === want) return (row[c + 1] == null ? '' : row[c + 1]);
     }
   }
-  return 0;
+  return null;
+}
+// 'Season Length (days)' config value; absent -> 0 (caller defaults to 33).
+function readSPSeasonDays_(sheetName){ return num(readSPLabel_(sheetName, 'Season Length (days)')); }
+
+// ---- Core SPT (D17): expected SPT per level completion, priced off the SP / SP_v2 panel ------
+// Level completions pay a difficulty-tiered SPT reward (Normal/Hard/Extreme) under a fixed mix.
+//   R_SPT = E_v2 / E_base,  E = Σ_d mix_d x reward_d
+// reward_d from the '<Difficulty>' panel cell; mix_d (an ASSUMPTION — not measured) from the
+// '<Difficulty> (%)' cell, else the fallback constant below. Mix is a single SHARED set (read
+// from the base SP sheet, applied to both sides — not a per-side lever, per the design call);
+// tweak it here or in the panel. Uniform across segments/payers -> one scalar, cached on ctx.
+// Base E=0 (panel absent) -> R=1 (Core carried, exactly as before the panel exists).
+var CORE_SPT_MIX = { 'Normal': 0.55, 'Hard': 0.30, 'Extreme': 0.15 };   // fallback if panel omits '(%)' cells
+var CORE_SPT_DIFFICULTIES = ['Normal', 'Hard', 'Extreme'];
+
+function coreSptR_(ctx){
+  if (ctx && ctx._coreSptR != null) return ctx._coreSptR;
+  var mix = coreSptMix_('SP');
+  var eBase = coreSptE_('SP', mix);
+  var v2 = spV2Sheet_('SP');
+  var eV2 = (v2 === 'SP') ? eBase : coreSptE_(v2, mix);
+  var R = (eBase > 1e-9) ? eV2 / eBase : 1;
+  if (ctx) ctx._coreSptR = R;
+  return R;
+}
+// expected SPT per level completion on a given SP sheet: Σ mix_d x reward_d.
+function coreSptE_(sheetName, mix){
+  var E = 0;
+  CORE_SPT_DIFFICULTIES.forEach(function(d){ E += num(mix[d]) * num(readSPLabel_(sheetName, d)); });
+  return E;
+}
+// difficulty mix from the '<Difficulty> (%)' cells; any missing -> the fallback constant.
+function coreSptMix_(sheetName){
+  var mix = {};
+  CORE_SPT_DIFFICULTIES.forEach(function(d){
+    var raw = readSPLabel_(sheetName, d + ' (%)');
+    mix[d] = (raw == null || raw === '') ? CORE_SPT_MIX[d] : num(raw);
+  });
+  return mix;
 }
 
 // Highest 1-based tier whose cumulative points requirement is met; 0 below tier 1, capped at
