@@ -108,28 +108,34 @@ LEGEND = [
     '9. Saga pays the FULL node bundle (HC + boosters + Unlimited minutes) from c_saga / c_saga_v2 at node boundaries anchored to the absolute level. Core chapter chests are NOT simulated (cadence unknown).',
     '10. Daily Gift is ALWAYS claimed at session start: cycle day from login streak p50, bundle = ONE config variant (Expected: Variant 1; Sampled: seeded pick) - never an average. Flock Flurry opt-in = 60 min Unlimited Lives (design-PDF constant).',
     '11. Night Sky pays at day end: effective streak = max win streak x 1.25 (Expected: the p50 from data_streaks; Sampled: the longest run actually produced by the play trace). EVERY milestone whose Cum Streak Req is cleared pays, each on its own row; unreached milestones never pay.',
-    '12. SPT / SPTx2 are TRACKED since 2026-07-10 (13-resource universe, D16) as event payouts only; season-pass TIER claims are NOT simulated in the session view (window-sim only). COOP Token / Avatar / star-daily rewards remain outside the resource set.',
+    '12. SPT / SPTx2 are TRACKED since 2026-07-10 (D16) as event payouts only; season-pass TIER claims are NOT simulated in the session view (window-sim only). COOP Token / Avatar remain outside the resource set.',
+    '13. PACKS are TRACKED since 2026-08-03 (19-resource universe, D19): the six card-collection pack tiers are ordinary ledger resources - whenever a ladder row this session pays a 1-star..6-star pack, it lands in the bundle and the running inventory like any coin. Opening those packs is NOT simulated here; that is the card sim (SimOutput, menu EcoGainsSim > Simulate card pack openings), which consumes the 33-day pack flow.',
 ]
 for i, txt in enumerate(LEGEND):
     ws.cell(39 + i, 1, txt).font = leg_f
 
-# ---------------- play-by-play ledger (24 cols, one row per claim; summary inherits style) ---
-bar(51, 'Play-by-Play Sim (one row per play; extra claims spill onto their own rows; Session Summary at the end)', 1, 24)
+# ---------------- play-by-play ledger (one row per claim; summary inherits style) -------------
+# Width is DERIVED: the ledger is CHROME_COLS chrome columns (7 fixed + 4 event-progress slots)
+# followed by one column per resource. 24 at 13 resources, 30 at 19 (D19 packs).
+CHROME_COLS = 11
+N_RES = 19                                       # keep in sync with RESOURCES in EcoGainsSim_v4.gs
+LEDGER_COLS = CHROME_COLS + N_RES                # 30
+bar(51, 'Play-by-Play Sim (one row per play; extra claims spill onto their own rows; Session Summary at the end)', 1, LEDGER_COLS)
 ws.cell(52, 1, '=ECOGAINS_PBP($B$3,$B$4,$B$5,$B$6,$B$7,$B$8,$B$9,$B$10,$B$11)')
-for c in range(1, 25):
+for c in range(1, LEDGER_COLS + 1):
     ws.cell(52, c).fill = fill(F_LABEL); ws.cell(52, c).font = lbl_f
 led_f = Font(name='Arial', size=11)
 claims_f = Font(name='Arial', size=11, italic=True)
 for r in range(53, 313):     # up to ~147 plays + claim rows + Session Summary, all one style
-    for c in range(1, 25):
+    for c in range(1, LEDGER_COLS + 1):
         cell = ws.cell(r, c)
         cell.fill = fill(F_SPILL)
         cell.font = claims_f if c == 7 else led_f
 
 # ---------------- widths ----------------
 widths = {'A': 31.8, 'B': 12.2, 'C': 10.5, 'D': 12.2, 'E': 11.4, 'F': 15.9, 'G': 56.0}
-for c in range(8, 12):  widths[CL(c)] = 11.4     # H-K: event-progress slots
-for c in range(12, 25): widths[CL(c)] = 7.6      # L-X: 13 resource columns
+for c in range(8, CHROME_COLS + 1):  widths[CL(c)] = 11.4     # H-K: event-progress slots
+for c in range(CHROME_COLS + 1, LEDGER_COLS + 1): widths[CL(c)] = 7.6   # L..: resource columns
 for col, w in widths.items():
     ws.column_dimensions[col].width = w
 

@@ -156,9 +156,17 @@ function synthEconDaily() {
       const curnet = ECOGAINS_DAILY(payer, seg, 'ALL', 'CURNET');
       const newnet = ECOGAINS_DAILY(payer, seg, 'ALL', 'NEWNET');
       const dif = ECOGAINS_DAILY(payer, seg, 'ALL', 'DIFF');
-      let eS = 0, eC = 0, eN = 0;
+      // D19/8: the six PACK columns are deliberately BLANK ('') in every NET block — packs are
+      // gains-only, so a net pack position does not exist. The fixture above feeds all 19
+      // resources precisely so this stays asserted rather than assumed.
+      let eS = 0, eC = 0, eN = 0, packLeak = 0, packBlank = 0;
       for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) {
         const gain = 10 + 0.1 * (d + 1) + j, sp = 8 + 0.05 * (d + 1);
+        if (isPackRes_(RESOURCES[j])) {
+          packBlank++;
+          if (spend[d][j] !== '' || curnet[d][j] !== '' || newnet[d][j] !== '') packLeak++;
+          continue;
+        }
         eS = Math.max(eS, Math.abs(spend[d][j] - sp));
         eC = Math.max(eC, Math.abs(curnet[d][j] - (gain - sp)));
         eN = Math.max(eN, Math.abs(newnet[d][j] - curnet[d][j] - dif[d][j]));
@@ -166,6 +174,8 @@ function synthEconDaily() {
       check(`NET SPEND == fixture (${seg} ${payer})`, eS < 1e-9, 'max err ' + eS.toExponential(2));
       check(`NET CURNET == gain - spend (${seg} ${payer})`, eC < 1e-9, 'max err ' + eC.toExponential(2));
       check(`NET NEWNET - CURNET == DIFF (${seg} ${payer})`, eN < 1e-9, 'max err ' + eN.toExponential(2));
+      check(`NET pack columns blank, never 0 (${seg} ${payer})`, packLeak === 0 && packBlank === 33 * 6,
+        `${packLeak} numeric of ${packBlank} pack cells`);
     }
   }
   // blank-unless-ALL: spend is game-wide, single-source views must stay blank
@@ -177,37 +187,53 @@ function synthEconDaily() {
 }
 
 // ---- 6. RM split configs (2026-07-10 hardcode): SPTx2 only on RM_2nd instance days ----
+// Snapshot-and-restore, base-sheet agnostic: workbook (13) DELETED the base 'RM' sheet and ships
+// real RM_1st / RM_2nd ladders, so this gate must not assume any particular sheet exists. It
+// clones whichever ladder it can find, forces SPTx2 to 0 on the 1st-half config and 2 on the
+// 2nd-half one, asserts the placement, then puts the originals back untouched.
 {
   const v4Src = fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8');
   const dailySrc = fs.readFileSync(ENGINE('EcoGainsSim_Daily.gs'), 'utf8');
-  const rm2 = JSON.parse(JSON.stringify(data['RM']));
-  let hdrR = -1, x2C = -1;
-  for (let r = 0; r < rm2.values.length; r++) {
-    const row = rm2.values[r].map(x => String(x).trim());
-    if (row.indexOf('Req Accum') >= 0 && row.indexOf('SPT x2') >= 0) { hdrR = r; x2C = row.indexOf('SPT x2'); break; }
+  const baseName = data['RM_1st'] ? 'RM_1st' : (data['RM_2nd'] ? 'RM_2nd' : (data['RM'] ? 'RM' : null));
+  if (!baseName) {
+    console.log('SKIP RM split gates — no RM / RM_1st / RM_2nd sheet in the dump');
+  } else {
+    const stash1 = data['RM_1st'], stash2 = data['RM_2nd'];
+    const setX2 = (sheet, val) => {
+      let hdrR = -1, x2C = -1;
+      for (let r = 0; r < sheet.values.length; r++) {
+        const row = sheet.values[r].map(x => String(x).trim());
+        if (row.indexOf('Req Accum') >= 0 && row.indexOf('SPT x2') >= 0) { hdrR = r; x2C = row.indexOf('SPT x2'); break; }
+      }
+      if (hdrR < 0) return false;
+      for (let r = hdrR + 1; r < sheet.values.length; r++) {
+        const first = sheet.values[r][0];
+        if (first === '' || first == null || isNaN(parseFloat(first))) break;
+        sheet.values[r][x2C] = val;
+      }
+      return true;
+    };
+    const clone = (n) => JSON.parse(JSON.stringify(data[n] || data[baseName]));
+    const first = clone('RM_1st'), second = clone('RM_2nd');
+    const ok = setX2(first, 0) && setX2(second, 2);
+    data['RM_1st'] = first; data['RM_2nd'] = second;
+    eval(v4Src); eval(dailySrc); _sheetValsCache = {};
+    const g = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'NEW');
+    const iX2 = RESOURCES.indexOf('SPTx2');
+    const insts = rmSortedInsts_(Context.get().calNew);
+    const lastDays = new Set(insts.slice(3).flatMap(i => i.days));
+    const x2Days = g.map((row, d) => row[iX2] > 1e-12 ? d + 1 : 0).filter(Boolean);
+    check('RM split: daily SPTx2 only on instance #4-#5 days',
+      ok && x2Days.length > 0 && x2Days.every(d => lastDays.has(d)) && x2Days.length === lastDays.size,
+      `days ${JSON.stringify(x2Days)} expect ${JSON.stringify([...lastDays].sort((a, b) => a - b))}`);
+    const win = ECOGAINS_SIM('NONPAYER', '0-9')[CATEGORY_ORDER.indexOf('Rainbow Maker')];
+    let maxE = 0;
+    for (let j = 0; j < RESOURCES.length; j++) maxE = Math.max(maxE, Math.abs(colSum(g, j) - win[j]));
+    check('RM split: daily sums == 33-day RM row (incl. SPTx2)', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
+    if (stash1 !== undefined) data['RM_1st'] = stash1; else delete data['RM_1st'];
+    if (stash2 !== undefined) data['RM_2nd'] = stash2; else delete data['RM_2nd'];
+    eval(v4Src); eval(dailySrc); _sheetValsCache = {};
   }
-  for (let r = hdrR + 1; r < rm2.values.length; r++) {
-    const first = rm2.values[r][0];
-    if (first === '' || first == null || isNaN(parseFloat(first))) break;
-    rm2.values[r][x2C] = 2;
-  }
-  data['RM_1st'] = JSON.parse(JSON.stringify(data['RM']));
-  data['RM_2nd'] = rm2;
-  eval(v4Src); eval(dailySrc); _sheetValsCache = {};
-  const g = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'NEW');
-  const iX2 = RESOURCES.indexOf('SPTx2');
-  const insts = rmSortedInsts_(Context.get().calNew);
-  const lastDays = new Set(insts.slice(3).flatMap(i => i.days));
-  const x2Days = g.map((row, d) => row[iX2] > 1e-12 ? d + 1 : 0).filter(Boolean);
-  check('RM split: daily SPTx2 only on instance #4-#5 days',
-    x2Days.length > 0 && x2Days.every(d => lastDays.has(d)) && x2Days.length === lastDays.size,
-    `days ${JSON.stringify(x2Days)} expect ${JSON.stringify([...lastDays].sort((a, b) => a - b))}`);
-  const win = ECOGAINS_SIM('NONPAYER', '0-9')[CATEGORY_ORDER.indexOf('Rainbow Maker')];
-  let maxE = 0;
-  for (let j = 0; j < RESOURCES.length; j++) maxE = Math.max(maxE, Math.abs(colSum(g, j) - win[j]));
-  check('RM split: daily sums == 33-day RM row (incl. SPTx2)', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
-  delete data['RM_1st']; delete data['RM_2nd'];
-  eval(v4Src); eval(dailySrc); _sheetValsCache = {};
 }
 
 // ---- 7. eyeball: HC daily NEW totals, 0-9 NONPAYER ----

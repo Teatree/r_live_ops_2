@@ -12,9 +12,16 @@ from openpyxl.utils import get_column_letter as CL
 
 DISPLAY = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'display')
 
-# 13 since 2026-07-10 (append-only): SPT/SPTx2 = season pass tokens (D16)
+# 19 since 2026-08-03 (append-only): the six card-collection pack tiers (D19).
+# 13 since 2026-07-10: SPT/SPTx2 = season pass tokens (D16).
 RES = ['HC', 'Slingshot', 'Shuffle', 'Comet', 'Red', 'Chuck', 'Bomb',
-       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2']
+       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2',
+       '1-star Pack', '2-star Pack', '3-star Pack', '4-star Pack', '5-star Pack', '6-star Pack']
+# Packs are gains-only (D19/8): there is no spend model for them, so their NET cells would only
+# restate the gain. ECOGAINS_DAILY blanks the six pack columns inside the SPEND / CURNET / NEWNET
+# spills (netGrid_), and the net-Δ block's IFERROR turns the resulting '' arithmetic into blanks
+# too. Every block therefore stays the SAME width — blanking is a value concern, not a layout one
+# (a narrower NET block would be overrun by the spill, which is always RESOURCES-wide).
 CATS = ['Ads', 'Bomb Challenge', "Bomb's Ballet", 'Chuck Challenge', 'Core', 'Daily Gift',
         'Daily Night Sky Prize', 'Flock Flurry', 'Hatchling Hideaway', 'Jigsaw', 'Kite Festival',
         'Level Race', 'Other', 'Photoshoot', 'Red Challenge', 'River Rush', 'Saga',
@@ -33,19 +40,30 @@ BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
 FMT_VAL, FMT_DIFF = '#,##0.00', '#,##0.00;-#,##0.00'
 FMT_NET = '#,##0.00;[Red]-#,##0.00'             # net can be negative (spend > gain)
 
-# 13-wide blocks (since 2026-07-10) + 1 gap col: pitch 14
-BLOCKS = [(4, 'CURRENT', '◄ CURRENT (cal_curr, measured) ►', F_CUR, F_HCUR, FMT_VAL),
-          (18, 'NEW', '◄ NEW (cal_new, simulated) ►', F_NEW, F_HNEW, FMT_VAL),
-          (32, 'DIFF', 'Δ  NEW − CURRENT (same day)', F_DIF, F_HDIF, FMT_DIFF)]
-# NET blocks (v2): three ECOGAINS_DAILY spills reading data_econ_daily (per earner, actual data)
-NET_SPILL = [(46, 'SPEND', '◄ ACTUAL SPEND / earner (data_econ_daily) ►', F_NET, F_HNET, FMT_VAL),
-             (60, 'CURNET', '◄ CURRENT NET / earner (gain − spend) ►', F_NET, F_HNET, FMT_NET),
-             (74, 'NEWNET', '◄ NEW NET / earner (gain + sim Δ − spend) ►', F_NET, F_HNET, FMT_NET)]
-# net Δ = NEWNET − CURNET, plain sheet formulas (== the DIFF block when NET is filled)
-NETD = (88, 'NETD', 'Δ  NET (new − cur; == sim Δ)', F_DIF, F_HDIF, FMT_DIFF)
-STYLE_BLOCKS = BLOCKS + NET_SPILL + [NETD]      # everything that gets band/header/day styling
-GAPS = ['Q', 'AE', 'AS', 'BG', 'BU', 'CI', 'CW']
-DROP_COL = 102                                  # CX — source dropdown list
+# Block geometry is DERIVED from len(RES): 7 blocks of len(RES) columns, one gap column between
+# them, starting at column D. Widening the resource universe must never mean re-deriving column
+# letters by hand (pitch was 12 at 11 resources, 14 at 13, 20 at 19).
+BLOCK_SPECS = [
+    ('CURRENT', '◄ CURRENT (cal_curr, measured) ►', F_CUR, F_HCUR, FMT_VAL),
+    ('NEW', '◄ NEW (cal_new, simulated) ►', F_NEW, F_HNEW, FMT_VAL),
+    ('DIFF', 'Δ  NEW − CURRENT (same day)', F_DIF, F_HDIF, FMT_DIFF),
+    # NET blocks (v2): ECOGAINS_DAILY spills reading data_econ_daily (per earner, actual data)
+    ('SPEND', '◄ ACTUAL SPEND / earner (data_econ_daily) ►', F_NET, F_HNET, FMT_VAL),
+    ('CURNET', '◄ CURRENT NET / earner (gain − spend) ►', F_NET, F_HNET, FMT_NET),
+    ('NEWNET', '◄ NEW NET / earner (gain + sim Δ − spend) ►', F_NET, F_HNET, FMT_NET),
+    # net Δ = NEWNET − CURNET, plain sheet formulas (== the DIFF block when NET is filled)
+    ('NETD', 'Δ  NET (new − cur; == sim Δ)', F_DIF, F_HDIF, FMT_DIFF),
+]
+FIRST_COL, PITCH = 4, len(RES) + 1              # D; 20 columns per block at 19 resources
+STYLE_BLOCKS, GAPS = [], []
+for _i, (_k, _t, _b, _h, _f) in enumerate(BLOCK_SPECS):
+    _c0 = FIRST_COL + _i * PITCH
+    STYLE_BLOCKS.append((_c0, _k, _t, _b, _h, _f))
+    GAPS.append(CL(_c0 + len(RES)))
+BLOCKS = STYLE_BLOCKS[:3]                       # CURRENT / NEW / DIFF
+NET_SPILL = STYLE_BLOCKS[3:6]                   # SPEND / CURNET / NEWNET
+NETD = STYLE_BLOCKS[6]
+DROP_COL = FIRST_COL + len(BLOCK_SPECS) * PITCH  # first free column after the last gap
 D0, DN = 9, 41            # data rows (33 days)
 TOT = 42
 
@@ -183,8 +201,10 @@ legend = [
     'Collections (Hatchling Hideaway, Bomb’s Ballet, Jigsaw, Photoshoot) spread across instance days by the accrual curve’s marginal share; Rainbow Maker spreads ∝ active rate within its instances (no curve — flagged).',
     'Core / Saga / Daily Gift pay daily ∝ weekday/weekend active rate; Night Sky over its daily instances. Season Pass (Free) spreads ∝ active rate across its season-lane instances (tier claims are continuous — same treatment as Rainbow Maker). Non-calendar sources (Ads, Teams, Other, IAPs; River Rush current side) are flat ÷33 — their DIFF is uniform.',
     'Weekend rows (Fri/Sat/Sun) are tinted. Filters: Payer / Segment / Source — Source=ALL sums every category; pick one to isolate its daily contribution.',
-    'NET blocks (AT:CH, per EARNER; 13 resources incl. SPT/SPTx2): ACTUAL SPEND and the gain side come from the data_econ_daily sheet (real per-day telemetry, window-earner denominator). CURRENT NET = actual gain − spend; NEW NET = actual gain + the sim’s day shift (NEW − CURRENT) − spend, so spend is held constant and net Δ == the DIFF block.',
+    'NET blocks (per EARNER): ACTUAL SPEND and the gain side come from the data_econ_daily sheet (real per-day telemetry, window-earner denominator). CURRENT NET = actual gain − spend; NEW NET = actual gain + the sim’s day shift (NEW − CURRENT) − spend, so spend is held constant and net Δ == the DIFF block.',
     'NET blocks are BLANK when Source ≠ ALL (spend is game-wide, not attributable to one event) and until the data_econ_daily sheet exists in the workbook. Their TOTAL row blanks out too (no data ≠ zero net).',
+    'PACKS (19-resource universe since 2026-08-03, D19): the six card-collection pack tiers. Simulated-side only — data_gains has no pack rows, so the CURRENT block reads 0 and DIFF equals the NEW value. Placement follows the source: leaderboard packs land on the instance LAST day, collection packs spread by the accrual curve. The six pack columns are deliberately BLANK in all four NET blocks — packs are gains-only, so a net pack position does not exist.',
+    'Team Event / Team Race / Flock Flurry LEFT the flat ÷33 family on 2026-08-03 (D19): they pay packs, which are end-of-instance rank rewards, so they are now placed on their calendar instances. Window totals are unchanged — only the per-day distribution.',
 ]
 for i, txt in enumerate(legend):
     cell = ws.cell(TOT + 2 + i, 2, txt)
@@ -192,5 +212,5 @@ for i, txt in enumerate(legend):
 
 wb.save(os.path.join(DISPLAY, 'EcoGainsSim_Daily_v2.xlsx'))
 print('written EcoGainsSim_Daily_v2.xlsx — blocks at',
-      '/'.join(CL(c0) for c0, *_ in STYLE_BLOCKS), '(13 res each), data rows',
-      D0, '-', DN, ', TOTAL', TOT)
+      '/'.join(CL(c0) for c0, *_ in STYLE_BLOCKS), f'({len(RES)} res each, pitch {PITCH}), data rows',
+      D0, '-', DN, ', TOTAL', TOT, ', dropdown col', CL(DROP_COL))

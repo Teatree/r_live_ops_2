@@ -83,7 +83,7 @@ for (const r of L.slice(0, 16))
 console.log('   ...');
 for (const r of L.slice(sumRowIdx(L))) console.log('  ', r.slice(1, 8).map(x => String(x).slice(0, 14)).join(' | '));
 
-check('ledger rectangular 24 cols (11 chrome + 13 resources)',
+check(`ledger rectangular ${11 + RESOURCES.length} cols (11 chrome + ${RESOURCES.length} resources)`,
   L.every(r => r.length === L[0].length) && L[0].length === 11 + RESOURCES.length);
 const eIdx = L.findIndex(r => r[0] === 'E');
 const playRows = ledgerBody(L).filter(r => typeof r[0] === 'number' || /^\d+$/.test(String(r[0])));
@@ -109,6 +109,11 @@ check('Expected mode seed-independent', JSON.stringify(E1) === JSON.stringify(E2
 // TOTAL row vs sum of ledger bundles
 const totRow = L[L.length - 1];
 const hdr = L[0];
+// D19: the six pack tiers are ordinary ledger resources — present as columns, and payable if a
+// ladder row this session grants one. (They read 0 until pack values are authored on the sheets.)
+check('ledger carries the six pack columns',
+  PACK_RES.every(r => hdr.indexOf(PBP_RES_DISPLAY[r] || r) >= 0),
+  PACK_RES.map(r => `${r}@${hdr.indexOf(PBP_RES_DISPLAY[r] || r)}`).join(' '));
 const bundles = parseBundles(L);
 const DISP = { HC: 'Coins', 'UL Red': 'Unlimited Red', 'UL Chuck': 'Unlimited Chuck',
                'UL Bomb': 'Unlimited Bomb', SPTx2: 'SPT x2' };   // mirrors PBP_RES_DISPLAY
@@ -144,7 +149,22 @@ check('TaD day score == measured target', tadSlot > 0 && Math.abs(L[eIdx][tadSlo
 // day-end LB claims (each on its own row inside the E block)
 const eClaims = eBlock(L).map(r => String(r[CLAIMS_COL])).join(' || ');
 check('Kite E claim = below ladder', /Kite Festival.*(below ladder|pays nothing)/.test(eClaims), eClaims);
-check('Flash Race E claim has Coins 50', /Flash Race[^|]*Coins: 50/.test(eClaims), eClaims);
+// Refreshed 2026-08-03: the Race sheet was regenerated from the live server config on
+// 2026-07-10, so the Flash Race ladder pays Coins 10 + SPT 50 at rank 3 (it used to pay Coins 50).
+// Assert against the LADDER, not a baked number, so a future config change can't rot this again.
+{
+  const want = pbpLbLadder_(PBP_EVENTS['Flash Race']);
+  const m = /Flash Race[^|]*rank (\d+) -> \{([^}]*)\}/.exec(eClaims);
+  const rank = m ? +m[1] : -1;
+  const paid = m ? m[2] : '';
+  const expect = want[rank] || {};
+  // the claim string renders DISPLAY names (HC -> 'Coins', SPTx2 -> 'SPT x2')
+  const shown = (k) => PBP_RES_DISPLAY[k] || k;
+  const ok = m && Object.keys(expect).length > 0 &&
+             Object.entries(expect).every(([k, v]) => paid.includes(`${shown(k)}: ${v}`));
+  check('Flash Race E claim matches the Race_v2 ladder at the reached rank', ok,
+        `rank ${rank} paid {${paid}} vs ladder ${JSON.stringify(expect)}`);
+}
 
 // Jigsaw: Completion Bonus tiers - every play-row delta is 0 (loss) or a tier point (win)
 const jigSlot = hdr.indexOf('Jigsaw tokens');

@@ -1,0 +1,494 @@
+// Offline harness for CardOpenings.gs (card-collection pack simulator, D19).
+// Mocks a WRITABLE SpreadsheetApp over _mockdata.json, runs SimulatePackOpenings end-to-end and
+// checks the acquisition seam (dailyPacksFor_), the pool/draw semantics, both pity mechanisms,
+// chest purchasing and determinism.
+//
+// Requires PackConfig / SimOutput in _mockdata.json — _dump_mockdata.py overlays the freshly
+// built display/PackConfig_v2.xlsx and display/SimOutput_v2.xlsx (PENDING_IMPORT), so this runs
+// against the layout the engine expects even before the sheets are imported into the workbook.
+const fs = require('fs');
+const path = require('path');
+const ENGINE = (f) => path.join(__dirname, '..', 'engine', f);
+const RAW = fs.readFileSync(path.join(__dirname, '_mockdata.json'), 'utf8');
+let data = JSON.parse(RAW);
+
+let failures = 0;
+const check = (name, ok, detail) => {
+  if (!ok) failures++;
+  console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? ' — ' + detail : ''));
+};
+const f2 = (x) => (Math.round(x * 100) / 100);
+
+// ---------------------------------------------------------------- writable sheet mock
+function ensure(sheet, r, c) {
+  while (sheet.values.length < r) sheet.values.push([]);
+  const row = sheet.values[r - 1];
+  while (row.length < c) row.push('');
+  return row;
+}
+function colToNum(s) { return s.split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0); }
+
+function mkRange(name, r1, c1, nr, nc) {
+  const sh = data[name];
+  return {
+    getRow: () => r1, getColumn: () => c1,
+    getNumRows: () => nr, getNumColumns: () => nc,
+    getValues: () => {
+      const out = [];
+      for (let r = r1; r < r1 + nr; r++) {
+        const row = [];
+        for (let c = c1; c < c1 + nc; c++)
+          row.push((sh.values[r - 1] && sh.values[r - 1][c - 1] !== undefined) ? sh.values[r - 1][c - 1] : '');
+        out.push(row);
+      }
+      return out;
+    },
+    getMergedRanges: () => (sh.merges || [])
+      .filter(m => m.r >= r1 && m.r + m.nr - 1 <= r1 + nr - 1 && m.c >= c1 && m.c + m.nc - 1 <= c1 + nc - 1)
+      .map(m => ({ getRow: () => m.r, getColumn: () => m.c, getNumRows: () => m.nr, getNumColumns: () => m.nc })),
+    getValue: () => { const row = sh.values[r1 - 1] || []; return row[c1 - 1] !== undefined ? row[c1 - 1] : ''; },
+    setValue: (v) => { ensure(sh, r1, c1)[c1 - 1] = v; },
+    setValues: (grid) => {
+      for (let i = 0; i < grid.length; i++)
+        for (let j = 0; j < grid[i].length; j++) ensure(sh, r1 + i, c1 + j)[c1 + j - 1] = grid[i][j];
+    },
+    clearContent: () => {
+      for (let r = r1; r < r1 + nr; r++)
+        for (let c = c1; c < c1 + nc; c++) if (sh.values[r - 1]) ensure(sh, r, c)[c - 1] = '';
+    },
+    setHorizontalAlignment: () => {},
+  };
+}
+function mkSheet(name) {
+  const sh = data[name];
+  if (!sh) return null;
+  return {
+    getName: () => name,
+    getLastRow: () => sh.values.length,
+    getDataRange: () => mkRange(name, 1, 1, sh.values.length,
+      sh.values.reduce((m, r) => Math.max(m, r.length), 0)),
+    getRange: (a, b, c, d) => {
+      if (typeof a === 'string') {
+        const m = a.match(/^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/);
+        const c1 = colToNum(m[1]), r1 = +m[2];
+        if (!m[3]) return mkRange(name, r1, c1, 1, 1);
+        return mkRange(name, r1, c1, +m[4] - r1 + 1, colToNum(m[3]) - c1 + 1);
+      }
+      return mkRange(name, a, b, c || 1, d || 1);
+    },
+  };
+}
+const toasts = [];
+global.SpreadsheetApp = {
+  getActiveSpreadsheet: () => ({ getSheetByName: (n) => mkSheet(n) }),
+  getActive: () => ({ toast: (msg, title) => toasts.push(msg) }),
+};
+const logs = [];
+global.Logger = { log: (m) => logs.push(String(m)) };
+
+// ---------------------------------------------------------------- load engine
+const v4Src = fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8');
+const dailySrc = fs.readFileSync(ENGINE('EcoGainsSim_Daily.gs'), 'utf8');
+const cardSrc = fs.readFileSync(ENGINE('CardOpenings.gs'), 'utf8');
+// NOTE: these evals must stay at MODULE scope — inside a function the engine's `var`/`function`
+// declarations would be function-local and invisible to the checks below. Every reload point
+// below repeats the three evals for the same reason (same pattern as _mock_daily.js).
+eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+
+// strips comments so a gate can look for real code, not prose in a doc block
+const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+// ---------------------------------------------------------------- 0. namespace hygiene
+{
+  const names = (src) => {
+    const out = new Set();
+    const re = /^(?:function\s+([A-Za-z0-9_$]+)|var\s+([A-Za-z0-9_$]+)\s*=)/gm;
+    let m;
+    while ((m = re.exec(src))) out.add(m[1] || m[2]);
+    return out;
+  };
+  const v4n = names(v4Src), dn = names(dailySrc), cn = names(cardSrc);
+  const clash = [...cn].filter(n => v4n.has(n) || dn.has(n));
+  check('CardOpenings.gs declares no globals that collide with the engine files',
+    clash.length === 0, clash.length ? 'collides: ' + clash.join(', ') : 'none');
+  check('CardOpenings.gs does not define onOpen (it would kill the EcoGainsSim menu)',
+    !/^function\s+onOpen\s*\(/m.test(cardSrc));
+  check('the project has exactly one onOpen',
+    [v4Src, dailySrc, cardSrc].filter(s => /^function\s+onOpen\s*\(/m.test(s)).length === 1);
+  check('EcoGainsSim menu offers the card sim',
+    /addItem\('Simulate card pack openings',\s*'SimulatePackOpenings'\)/.test(v4Src));
+  check('EcoPackGains / PlayerBehavior are no longer read (comments aside)',
+    !/EcoPackGains|PlayerBehavior/.test(stripComments(cardSrc)));
+}
+
+// ---------------------------------------------------------------- 1. PackConfig reader
+let cfg;
+{
+  cfg = loadPackConfig_();
+  check('PackConfig: snap pool read', Object.keys(cfg.qtyByRarity).length === 6,
+    JSON.stringify(cfg.qtyByRarity));
+  check('PackConfig: TOTAL row and notes excluded from the pool',
+    cfg.qtyByRarity['TOTAL'] === undefined && !Object.keys(cfg.qtyByRarity).some(k => k.length > 6));
+  check('PackConfig: 6 pack definitions with cards/open 2..7',
+    JSON.stringify(PACK_RES.map(p => cfg.cardsPerOpen[p])) === '[2,3,4,5,6,7]',
+    JSON.stringify(PACK_RES.map(p => cfg.cardsPerOpen[p])));
+  check('PackConfig: pity table read, 6-star forces highest rarity',
+    cfg.pity['6-star Pack'].forceHighest === true &&
+    JSON.stringify(cfg.pity['6-star Pack'].probs) === '[0,0.8,0.8,1]',
+    JSON.stringify(cfg.pity['6-star Pack']));
+  check('PackConfig: 5-star pity probs read, does NOT force highest',
+    cfg.pity['5-star Pack'].forceHighest === false &&
+    cfg.pity['5-star Pack'].probs.length === 4);
+  check('PackConfig: chests sorted most-expensive-first',
+    cfg.chests.length === 3 && cfg.chests[0].cost === 1000 && cfg.chests[2].cost === 250,
+    cfg.chests.map(c => `${c.tier}@${c.cost}->${c.rewardPack}`).join(', '));
+  check('PackConfig: chest purchasing panel read',
+    cfg.buyMinStars === 250 && cfg.buyStartDay === 14 && cfg.buyEndProb === 0.95,
+    `min ${cfg.buyMinStars} start ${cfg.buyStartDay} p ${cfg.buyEndProb}`);
+  check('PackConfig: set + album reward tables read',
+    cfg.setRewards.order.length === 8 && cfg.albumRewards.order.length === 3);
+  // the grid is gone as a BLOCK (a column-A label); the builder still mentions it in a note row
+  check('PackConfig: the removed rarity-probability grid is no longer a block',
+    !data['PackConfig'].values.some(r => String(r[0]).trim() === 'PACK RARITY PROBABILITIES'));
+  check('PackConfig: retired Season Duration is not read',
+    cfg.seasonDays === undefined);
+}
+
+// ---------------------------------------------------------------- 2. acquisition seam
+{
+  const flow = dailyPacksFor_('10-19', 'NONPAYER', Context.get());
+  check('dailyPacksFor_ returns a 33 x 6 total grid',
+    flow.total.length === DAILY_DAYS && flow.total.every(r => r.length === 6));
+  check('no pack ladder authored yet -> zero pack flow (plumbing only, D19/1)',
+    flow.total.every(r => r.every(v => v === 0)) && flow.bySource.length === 0);
+}
+
+// ---------------------------------------------------------------- 3. end-to-end with a ladder
+// Author a pack ladder the way the user will: put packs on the Jigsaw _v2 milestones and on the
+// Flash Race _v2 rank ladder, then run the whole sim.
+function authorLadders() {
+  const put = (sheet, hdrRow, r0, r1, header, val) => {
+    const cols = {};
+    data[sheet].values[hdrRow].forEach((h, i) => { cols[String(h).trim()] = i; });
+    for (let r = r0; r <= Math.min(r1, data[sheet].values.length - 1); r++)
+      if (data[sheet].values[r]) data[sheet].values[r][cols[header]] = val;
+  };
+  put('J_v2', 9, 10, 21, '3-star Dly', 1);        // every Jigsaw milestone pays a 3-star pack
+  put('Race_v2', 80, 81, 87, '1-star Dly', 2);    // every Flash Race rank pays two 1-star packs
+  put('TE', 14, 15, 21, '6-star Dly', 1);         // Team Event leaderboard pays a 6-star pack
+}
+
+let firstRun = null;
+{
+  const snapshot = JSON.parse(RAW);
+  authorLadders();
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+
+  const flow = dailyPacksFor_('10-19', 'NONPAYER', Context.get());
+  const expected = flow.total.reduce((s, r) => s + r.reduce((a, b) => a + b, 0), 0);
+  check('authored ladders produce a nonzero pack flow', expected > 0, 'expected packs ' + f2(expected));
+  check('pack flow is attributed to the sources that pay them',
+    flow.bySource.map(s => s.cat).sort().join(', ') === 'Flash Race, Jigsaw, Team Event',
+    flow.bySource.map(s => s.cat).join(', '));
+
+  const seg = mkSheet('SimOutput');
+  seg.getRange('B2').setValue('10-19');
+  seg.getRange('D2').setValue('NONPAYER');
+  seg.getRange('G2').setValue(12345);
+
+  const opened = SimulatePackOpenings();
+  check('SimulatePackOpenings ran and opened packs', opened > 0, opened + ' packs');
+
+  const tally = {};
+  for (let i = 0; i < 12; i++)
+    tally[data['SimOutput'].values[41 + i][0]] = data['SimOutput'].values[41 + i][1];
+  console.log('  tally:', JSON.stringify(tally));
+
+  check('tally: cards drawn == new + dupes',
+    tally['Total Cards Drawn'] === tally['Unique Cards'] + tally['Duplicate Cards'],
+    `${tally['Total Cards Drawn']} vs ${tally['Unique Cards']} + ${tally['Duplicate Cards']}`);
+  check('tally: final balance == earned - spent',
+    tally['Final Star Balance'] === tally['Stars Earned'] - tally['Stars Spent on Chests'],
+    `${tally['Final Star Balance']} vs ${tally['Stars Earned']} - ${tally['Stars Spent on Chests']}`);
+  check('tally: segment/payer recorded', tally['Segment / Payer'] === '10-19 / NONPAYER',
+    String(tally['Segment / Payer']));
+  check('tally: expected packs is the unrounded flow',
+    Math.abs(tally['Expected Packs (fractional)'] - expected) < 0.02,
+    `${tally['Expected Packs (fractional)']} vs ${f2(expected)}`);
+  check('granted packs are within 1 per (source,tier) of the expectation (unbiased rounding)',
+    Math.abs(tally['Total Packs Opened'] - expected) <= 18,
+    `granted ${tally['Total Packs Opened']} vs expected ${f2(expected)}`);
+
+  // running totals: 33 rows, monotonic packs-opened, album tier never decreases
+  const tot = [];
+  for (let i = 0; i < 33; i++) tot.push(data['SimOutput'].values[5 + i]);
+  check('running totals: 33 day rows, days 1..33 in order',
+    tot.length === 33 && tot.every((r, i) => r[0] === i + 1));
+  check('running totals: packs-opened is monotonic non-decreasing',
+    tot.every((r, i) => i === 0 || r[6] >= tot[i - 1][6]));
+  check('running totals: album tier never goes backwards',
+    tot.every((r, i) => i === 0 || r[5] >= tot[i - 1][5]));
+  check('running totals: % complete within [0,1]', tot.every(r => r[3] >= 0 && r[3] <= 1));
+
+  // pack log
+  const log = [];
+  for (let r = 56; r < data['SimOutput'].values.length; r++) {
+    const row = data['SimOutput'].values[r];
+    if (!row || row[0] === '' || row[0] == null) break;
+    log.push(row);
+  }
+  check('pack log: every row has a day in 1..33',
+    log.length > 0 && log.every(r => r[0] >= 1 && r[0] <= 33), log.length + ' rows');
+  check('pack log: days are non-decreasing', log.every((r, i) => i === 0 || r[0] >= log[i - 1][0]));
+  check('pack log: every pack name is a known tier or blank',
+    log.every(r => r[1] === '' || PACK_RES.indexOf(r[1]) >= 0),
+    [...new Set(log.map(r => r[1]))].join(', '));
+  check('pack log: sources are real engine categories (or a chest / nothing)',
+    log.every(r => r[2] === '(nothing)' || /Chest Opened/.test(r[2]) || CATEGORY_ORDER.indexOf(r[2]) >= 0),
+    [...new Set(log.map(r => r[2]))].join(' | '));
+
+  firstRun = JSON.stringify(data['SimOutput'].values);
+  data = snapshot;   // restore for the next block
+}
+
+// ---------------------------------------------------------------- 4. determinism
+{
+  authorLadders();
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const seg = mkSheet('SimOutput');
+  seg.getRange('B2').setValue('10-19');
+  seg.getRange('D2').setValue('NONPAYER');
+  seg.getRange('G2').setValue(12345);
+  SimulatePackOpenings();
+  check('same seed + same inputs -> byte-identical SimOutput (deterministic)',
+    JSON.stringify(data['SimOutput'].values) === firstRun);
+
+  const before = JSON.stringify(data['SimOutput'].values);
+  seg.getRange('G2').setValue(999);
+  SimulatePackOpenings();
+  check('a different seed changes the run', JSON.stringify(data['SimOutput'].values) !== before);
+}
+
+// ---------------------------------------------------------------- 5. segment sensitivity
+{
+  data = JSON.parse(RAW);
+  authorLadders();
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const seg = mkSheet('SimOutput');
+  const run = (s, p) => {
+    seg.getRange('B2').setValue(s);
+    seg.getRange('D2').setValue(p);
+    seg.getRange('G2').setValue(4242);
+    SimulatePackOpenings();
+    return data['SimOutput'].values[41][1];        // Total Packs Opened
+  };
+  const light = run('0-9', 'NONPAYER');
+  const heavy = run('100+', 'PAYER');
+  check('heavier segment/payer opens more packs (real segmentation is wired)',
+    heavy > light, `0-9 NONPAYER ${light} vs 100+ PAYER ${heavy}`);
+
+  // A. 0 has no behaviour telemetry -> no pack flow at all (documented appendix semantics)
+  const appendix = run('A. 0', 'NONPAYER');
+  check('A. 0 appendix gets no packs (no behaviour telemetry to price reach)',
+    appendix === 0, 'packs ' + appendix);
+}
+
+// ---------------------------------------------------------------- 6. pool / draw semantics
+{
+  data = JSON.parse(RAW);
+  authorLadders();
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const seg = mkSheet('SimOutput');
+  seg.getRange('B2').setValue('100+');
+  seg.getRange('D2').setValue('PAYER');
+  seg.getRange('G2').setValue(7);
+  SimulatePackOpenings();
+
+  // Rarity mix of everything drawn should track the SNAP POOL shares, not any per-pack grid.
+  const log = [];
+  for (let r = 56; r < data['SimOutput'].values.length; r++) {
+    const row = data['SimOutput'].values[r];
+    if (!row || row[0] === '' || row[0] == null) break;
+    if (row[4]) log.push(String(row[4]));
+  }
+  const drawn = log.join(', ').split(', ').filter(Boolean);
+  const mix = {};
+  drawn.forEach(k => { const m = k.match(/(\d★|Gold)$/); if (m) mix[m[1]] = (mix[m[1]] || 0) + 1; });
+  const totalDrawn = Object.values(mix).reduce((a, b) => a + b, 0);
+  const poolTotal = Object.values(cfg.qtyByRarity).reduce((a, b) => a + b, 0);
+  console.log('  drawn rarity mix:', JSON.stringify(mix), 'of', totalDrawn);
+  console.log('  snap pool shares:', JSON.stringify(
+    Object.fromEntries(Object.entries(cfg.qtyByRarity).map(([k, v]) => [k, f2(v / poolTotal)]))));
+  check('no Gold cards drawn (snap pool Qty = 0 -> probability 0)',
+    !mix['Gold'], 'gold ' + (mix['Gold'] || 0));
+  check('1★ is the most-drawn rarity (largest pool share)',
+    totalDrawn === 0 || Object.keys(mix).every(k => k === '1★' || mix['1★'] >= mix[k]),
+    JSON.stringify(mix));
+
+  // The pool is finite and drawn without replacement: no card key may be drawn more times than
+  // it has copies within a single album run. Album advance rebuilds it, so check the weaker
+  // invariant the sim guarantees — the engine never emits a draw once the pool is exhausted.
+  check('no draw exceeds the per-album pool (engine never returned a null-pool card)',
+    !logs.some(l => /Pool unexpectedly exhausted/.test(l)));
+}
+
+// ---------------------------------------------------------------- 6b. rarity pity semantics
+// The PACK PITY CONFIG array is indexed by CONSECUTIVE MISSES of the target rarity (NOT by card
+// slot — that was a wrong reading, corrected 2026-08-03). [0, 0.8, 0.8, 1.0] means: no help on a
+// pull with no misses behind it; 80% after one miss; 80% after two; GUARANTEED after three.
+// Counter resets on any hit and starts at 0 every pack.
+//
+// Test: give every pack tier a hard [0, 0, 0, 1.0] pity with forceHighest. With 5★ as the top
+// stocked rarity, every run of 3 consecutive non-5★ cards inside one pack MUST be followed by a
+// 5★. That is a deterministic consequence of the rule, independent of the seed.
+{
+  data = JSON.parse(RAW);
+  authorLadders();
+  const pc = data['PackConfig'].values;
+  let b = -1;
+  for (let r = 0; r < pc.length; r++)
+    if (String(pc[r][0]).trim() === 'PACK PITY CONFIG') { b = r; break; }
+  let patched = 0;
+  for (let r = b + 2; r < pc.length; r++) {
+    if (!/^\d+[-\s]*star/i.test(String(pc[r][0]).trim())) break;
+    pc[r][1] = '[0, 0, 0, 1.0]';
+    pc[r][2] = true;
+    patched++;
+  }
+  check('pity fixture applied to all 6 pack tiers', patched === 6, patched + ' rows');
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const sh = mkSheet('SimOutput');
+  sh.getRange('B2').setValue('100+');
+  sh.getRange('D2').setValue('PAYER');
+  sh.getRange('G2').setValue(2024);
+  SimulatePackOpenings();
+
+  const rarityOfCard = (s) => { const m = String(s).match(/(\d★|Gold)$/); return m ? m[1] : null; };
+  let packs = 0, violations = 0, guaranteedHits = 0, streak = 0;
+  for (let r = 56; r < data['SimOutput'].values.length; r++) {
+    const row = data['SimOutput'].values[r];
+    if (!row || row[0] === '' || row[0] == null) break;
+    if (!row[4]) continue;
+    packs++;
+    streak = 0;                                   // counter starts at 0 on every pack
+    for (const card of String(row[4]).split(', ')) {
+      const rar = rarityOfCard(card);
+      if (!rar) continue;
+      if (streak >= 3) {                          // probs[3] == 1.0 -> this pull MUST be the target
+        if (rar === '5★') guaranteedHits++; else violations++;
+      }
+      streak = (rar === '5★') ? 0 : streak + 1;
+    }
+  }
+  console.log(`  ${packs} packs scanned · ${guaranteedHits} guaranteed pulls honoured`);
+  check('pity: after 3 consecutive misses the next pull is the target rarity (p = 1.0)',
+    violations === 0 && guaranteedHits > 0, `${violations} violations, ${guaranteedHits} honoured`);
+
+  // and the counter must NOT carry between packs: with [0,0,0,1.0] the FIRST card of a pack can
+  // never be forced, so across many packs the first card is sometimes not the target.
+  let firstCards = 0, firstIsTarget = 0;
+  for (let r = 56; r < data['SimOutput'].values.length; r++) {
+    const row = data['SimOutput'].values[r];
+    if (!row || row[0] === '' || row[0] == null) break;
+    if (!row[4]) continue;
+    const rar = rarityOfCard(String(row[4]).split(', ')[0]);
+    if (rar) { firstCards++; if (rar === '5★') firstIsTarget++; }
+  }
+  check('pity: counter does not carry between packs (first card is never forced)',
+    firstCards > 5 && firstIsTarget < firstCards,
+    `${firstIsTarget}/${firstCards} first cards were the target`);
+}
+
+// ---------------------------------------------------------------- 7. chest purchasing rules
+{
+  data = JSON.parse(RAW);
+  authorLadders();
+  // force a chest-friendly setup: everything cheap, buying starts on day 1
+  const pc = data['PackConfig'].values;
+  const setPanel = (label, key, val) => {
+    let b = -1;
+    for (let r = 0; r < pc.length; r++) if (String(pc[r][0]).trim() === label) { b = r; break; }
+    for (let r = b + 1; r < pc.length; r++)
+      if (String(pc[r][0]).trim() === key) { pc[r][1] = val; return true; }
+    return false;
+  };
+  // Chests must also be AFFORDABLE for the "buying is on" case to mean anything: the shipped
+  // Bronze chest costs 250 stars, which a 33-day run does not reach. Price them at 10/20/30 so
+  // the gate exercises the purchasing RULES (probability ramp + min-stars floor), not the economy.
+  const setChestCosts = (costs) => {
+    let b = -1;
+    for (let r = 0; r < pc.length; r++)
+      if (String(pc[r][0]).trim() === 'STAR CHEST COSTS & REWARDS') { b = r; break; }
+    let i = 0;
+    for (let r = b + 2; r < pc.length && i < costs.length; r++) {
+      if (String(pc[r][0]).trim() === '' ) break;
+      if (typeof pc[r][1] === 'number' && pc[r][1] > 0) pc[r][1] = costs[i++];
+    }
+    return i === costs.length;
+  };
+  check('chest cost override applied (harness fixture)', setChestCosts([10, 20, 30]));
+
+  const runChests = () => {
+    data['SimOutput'] = JSON.parse(RAW).SimOutput;
+    const sh = mkSheet('SimOutput');            // re-made: `data.SimOutput` was just replaced
+    sh.getRange('B2').setValue('100+');
+    sh.getRange('D2').setValue('PAYER');
+    sh.getRange('G2').setValue(31337);
+    SimulatePackOpenings();
+    let chestRows = 0;
+    for (let r = 56; r < data['SimOutput'].values.length; r++) {
+      const row = data['SimOutput'].values[r];
+      if (!row || row[0] === '' || row[0] == null) break;
+      if (/Chest Opened/.test(String(row[2]))) chestRows++;
+    }
+    return { spent: data['SimOutput'].values[46][1], chestRows };   // B47 = Stars Spent on Chests
+  };
+
+  setPanel('CHEST PURCHASING', 'End-of-Season Buy Probability', 0);
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const off = runChests();
+  check('buy probability 0 -> no chests are ever bought',
+    off.chestRows === 0 && off.spent === 0, `rows ${off.chestRows}, spent ${off.spent}`);
+
+  setPanel('CHEST PURCHASING', 'End-of-Season Buy Probability', 0.95);
+  setPanel('CHEST PURCHASING', 'Urgency Start Day', 1);
+  setPanel('CHEST PURCHASING', 'Min Stars to Consider Buying', 1);
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const on = runChests();
+  check('urgency ramp from day 1 + min stars 1 -> chests are bought',
+    on.chestRows > 0 && on.spent > 0, `rows ${on.chestRows}, spent ${on.spent}`);
+
+  setPanel('CHEST PURCHASING', 'Min Stars to Consider Buying', 99999999);
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const gated = runChests();
+  check('min-stars gate blocks purchases even with p = 0.95',
+    gated.chestRows === 0 && gated.spent === 0, `rows ${gated.chestRows}, spent ${gated.spent}`);
+}
+
+// ---------------------------------------------------------------- 8. input validation
+{
+  data = JSON.parse(RAW);
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const seg = mkSheet('SimOutput');
+  const expectThrow = (name, setup, re) => {
+    setup();
+    let msg = '';
+    try { SimulatePackOpenings(); } catch (e) { msg = String(e.message || e); }
+    check(name, re.test(msg), msg || '(no error thrown)');
+  };
+  expectThrow('unknown segment is rejected', () => {
+    seg.getRange('B2').setValue('Mid-Core (Free)');
+    seg.getRange('D2').setValue('NONPAYER');
+  }, /Unknown segment/);
+  expectThrow('bad payer flag is rejected', () => {
+    seg.getRange('B2').setValue('10-19');
+    seg.getRange('D2').setValue('Free');
+  }, /NONPAYER or PAYER/);
+  expectThrow('empty segment is rejected', () => {
+    seg.getRange('B2').setValue('');
+    seg.getRange('D2').setValue('NONPAYER');
+  }, /is empty/);
+}
+
+console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
+process.exit(failures ? 1 : 0);

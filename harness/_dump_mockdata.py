@@ -33,15 +33,22 @@ SHEETS = [
     # Rainbow Maker split configs (2026-07-10, hardcoded RM_1st x3 / RM_2nd x2 — see CLAUDE.md):
     # expected MISSING until the next workbook export; the engine falls back to 'RM'.
     'RM_1st', 'RM_2nd',
+    # Card collection (D19, 2026-08-03). TE feeds the Team Event pack overlay (PACK_ONLY_SPECS);
+    # the rest feed CardOpenings.gs / _mock_cards.js. EcoPackGains and PlayerBehavior are GONE.
+    'TE', 'PackConfig', 'AlbumConfig', 'CardPoolConfig', 'SimOutput',
 ]
 
-wb = openpyxl.load_workbook(SRC, data_only=True)
-out = {}
-for name in SHEETS:
-    if name not in wb.sheetnames:
-        print('MISSING sheet:', name)
-        continue
-    ws = wb[name]
+# Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The
+# generated display xlsx overlays whatever the workbook still has, so the offline harness tests
+# the layout the engine actually expects. Drop an entry once the sheet is imported (the overlay
+# then just reproduces the workbook).  {sheet name: display xlsx filename}
+PENDING_IMPORT = {
+    'PackConfig': 'PackConfig_v2.xlsx',
+    'SimOutput':  'SimOutput_v2.xlsx',
+}
+
+
+def dump_sheet(ws):
     vals = []
     for row in ws.iter_rows(values_only=True):
         vals.append(['' if v is None else (v if isinstance(v, (int, float, bool)) else str(v))
@@ -51,7 +58,26 @@ for name in SHEETS:
     merges = [{'r': m.min_row, 'c': m.min_col,
                'nr': m.max_row - m.min_row + 1, 'nc': m.max_col - m.min_col + 1}
               for m in ws.merged_cells.ranges]
-    out[name] = {'values': vals, 'merges': merges}
+    return {'values': vals, 'merges': merges}
+
+
+wb = openpyxl.load_workbook(SRC, data_only=True)
+out = {}
+for name in SHEETS:
+    if name not in wb.sheetnames:
+        print('MISSING sheet:', name)
+        continue
+    out[name] = dump_sheet(wb[name])
+
+for name, fname in PENDING_IMPORT.items():
+    p = os.path.join(HERE, '..', 'display', fname)
+    if not os.path.exists(p):
+        print('PENDING_IMPORT source not built yet:', fname)
+        continue
+    pw = openpyxl.load_workbook(p, data_only=True)
+    src_ws = pw[name] if name in pw.sheetnames else pw.worksheets[0]
+    out[name] = dump_sheet(src_ws)
+    print(f'OVERLAY {name} <- display/{fname} (rebuilt, not yet imported into the workbook)')
 
 with open(os.path.join(HERE, '_mockdata.json'), 'w', encoding='utf-8') as f:
     json.dump(out, f)

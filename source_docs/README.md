@@ -21,6 +21,7 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 | rainbow-maker.md | Rainbow Maker | milestone/matchables (NEW) | full PDF + dedicated sim workbook |
 | river-rush.md | River Rush | streak-competitive (carried stub) | full PDF + RR configs + prior context |
 | season-pass.md | Season Pass (Dream Pass) | always-on SPT track + challenge LB (simulated via D16 tier coupling) | SP/SP_lb configs + data_gains SPT rows (added 2026-07-10); design PDF present, thinly mined |
+| card-collection.md | Card Collection (packs/albums/chests) | pack GAINS bottom-up on every ladder (D19) + a downstream pack-OPENING sim | PackConfig/AlbumConfig configs; **every pack ladder cell is still 0 — values authored by hand**; no design PDF mined yet |
 
 ## Cross-cutting facts established while compiling
 
@@ -41,4 +42,5 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 7. **Challenge/LB ladder authenticity**: the shared "All LB Challenges" ladder may be a modeling simplification — unverified against live config.
 8. **Level Race has no accrual curve** (D forced to 1) and no data_event_inst rows — existing project TODO.
 9. **File discrepancies vs HAND_OFF**: folder has `NEW_LIVEOPS_CALENDAR_ECO.xlsx` (not `_b`); `match3_query_learnings.md` and `TestCalendarParse.gs` are not in this directory.
-10. **No design doc found at all for**: Chuck/Red Challenge (inferred from Bomb doc), saga chest ladder & daily-gift cycle rules (inferred from sim workbooks). Kite's 1-page PDF outsources rewards/streak-restoration to missing links (restoration = potential unmodeled HC sink).
+10. **Card collection (D19, 2026-08-03)** — see `card-collection.md` §7: (a) every pack reward ladder cell is 0 until authored, so nothing is measurable yet; (b) `PACK PITY CONFIG` semantics RESOLVED 2026-08-03 (consecutive-miss counter, resets on hit, per-pack, target = highest rarity with stock — gated); the only leftover is what `PityForceHighestRarity = FALSE` should target; (c) `reach × participation_rate` both encode activity → mild under-count; (d) Team Event/Team Race have no `data_event_inst` rows → flat rank-average pricing, crudest in the model; (e) packs have no spend model (gains-only, blank in NET); (f) Gold cards are unreachable (SNAP POOL Qty 0) so `Stars on Duplicate = 6` never pays — intentional?; (g) `CardPoolConfig` is now unreferenced — delete or keep as scratch?
+11. **No design doc found at all for**: Chuck/Red Challenge (inferred from Bomb doc), saga chest ladder & daily-gift cycle rules (inferred from sim workbooks). Kite's 1-page PDF outsources rewards/streak-restoration to missing links (restoration = potential unmodeled HC sink).

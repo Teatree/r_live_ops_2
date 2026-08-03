@@ -4,6 +4,7 @@ import os
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.formatting.rule import CellIsRule
+from openpyxl.utils import get_column_letter as CL
 
 DISPLAY = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'display')
 
@@ -12,9 +13,19 @@ CATS = ['Ads', 'Bomb Challenge', "Bomb's Ballet", 'Chuck Challenge', 'Core', 'Da
         'Level Race', 'Other', 'Photoshoot', 'Red Challenge', 'River Rush', 'Saga',
         'Season Pass (Free)', 'Target Day', 'Team Event', 'Team Race', 'Flash Race',
         'FlowerCoop', 'Rainbow Maker', 'IAPs']
-# 13 since 2026-07-10 (append-only): SPT/SPTx2 = season pass tokens (D16)
+# 19 since 2026-08-03 (append-only): the six card-collection pack tiers (D19).
+# 13 since 2026-07-10: SPT/SPTx2 = season pass tokens (D16).
 RES = ['HC', 'Slingshot', 'Shuffle', 'Comet', 'Red', 'Chuck', 'Bomb',
-       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2']
+       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2',
+       '1-star Pack', '2-star Pack', '3-star Pack', '4-star Pack', '5-star Pack', '6-star Pack']
+
+# Block geometry is DERIVED from len(RES) — appending a resource must never mean hunting for
+# hardcoded column letters again (that is exactly what went stale in _restore_formulas.py).
+SIM_C0 = 3                                  # column C
+DIFF_C0 = SIM_C0 + len(RES) + 1             # one gap column after the sim block -> W at 19 res
+SPACER_C = DIFF_C0 + len(RES)               # first column right of the diff block -> AP
+CAL_STATS_C1 = SPACER_C + 1                 # ECOGAINS_CAL_STATS anchors live clear of the blocks
+CAL_STATS_C2 = CAL_STATS_C1 + 3
 ALWAYS_ON = {'Daily Gift', 'Saga', 'Daily Night Sky Prize'}   # yellow label (always-on/daily sim)
 EVENT_SIM = {'Bomb Challenge', "Bomb's Ballet", 'Chuck Challenge', 'Hatchling Hideaway', 'Jigsaw',
              'Kite Festival', 'Level Race', 'Photoshoot', 'Red Challenge', 'River Rush',
@@ -40,8 +51,9 @@ wb = openpyxl.Workbook()
 ws = wb.active
 ws.title = 'EcoGainsSim_HC'
 ws.sheet_view.showGridLines = False
-for col, w in {'A': 1.75, 'B': 19.25, 'C': 8.25, 'AD': 7.63}.items():
+for col, w in {'A': 1.75, 'B': 19.25, 'C': 8.25}.items():
     ws.column_dimensions[col].width = w
+ws.column_dimensions[CL(SPACER_C)].width = 7.63
 
 ws['B2'] = 'Per-earner gains over the 33-day'
 ws['B2'].font = Font(name='Arial', size=12, bold=True)
@@ -66,13 +78,13 @@ for t, (seg, title, kind) in enumerate(BLOCKS):
     tag.alignment = Alignment(horizontal='center')
     ws.cell(hdr, 3, title).font = Font(name='Arial', size=11, bold=True)
     dtitle = (title.split('  (')[0] + ' - Difference') if kind == 'main' else 'A. 0 Appendix - Difference (config-only changes)'
-    ws.cell(hdr, 17, dtitle).font = Font(name='Arial', size=11, bold=True)   # diff block: Q..AC (13 wide, gap in P)
+    ws.cell(hdr, DIFF_C0, dtitle).font = Font(name='Arial', size=11, bold=True)
     hf = Font(name='Arial', size=9, bold=True)
     ws.cell(cols_row, 2, 'Source').font = hf
     ws.cell(cols_row, 2).fill = fill(F_HDR)
     ws.cell(cols_row, 2).border = BORDER
     for j, r in enumerate(RES):
-        for base in (3, 17):
+        for base in (SIM_C0, DIFF_C0):
             cell = ws.cell(cols_row, base + j, r)
             cell.font, cell.fill, cell.border = hf, fill(F_HDR), BORDER
             cell.alignment = Alignment(horizontal='center')
@@ -93,17 +105,23 @@ for t, (seg, title, kind) in enumerate(BLOCKS):
                 lab.fill = fill(F_PINK)
             data_fill = fill(F_GRAY) if (cat in ALWAYS_ON or cat in EVENT_SIM) else fill(F_BLUE)
         for j in range(len(RES)):
-            c1 = ws.cell(row, 3 + j)
+            c1 = ws.cell(row, SIM_C0 + j)
             c1.fill, c1.border, c1.number_format = data_fill, BORDER, FMT_SIM
-            c2 = ws.cell(row, 17 + j)
+            c2 = ws.cell(row, DIFF_C0 + j)
             c2.border, c2.number_format = BORDER, FMT_DIFF
         if t == 0 and (cat in ALWAYS_ON or cat in EVENT_SIM):
             sim_rows.append(row)
     # trailing sim_refresh!$A$1 = the engine's refresh NONCE (ignored by the function; changing
     # it is what re-runs the sim — the engine no longer clears/re-sets formulas)
-    ws.cell(d0, 3).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment, sim_refresh!$A$1))'
-    ws.cell(d0, 17).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, sim_refresh!$A$1))'
-    diff_rng = f'Q{d0}:AC{d0 + N - 1}'
+    ws.cell(d0, SIM_C0).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment, sim_refresh!$A$1))'
+    ws.cell(d0, DIFF_C0).value = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, sim_refresh!$A$1))'
+    diff_rng = f'{CL(DIFF_C0)}{d0}:{CL(DIFF_C0 + len(RES) - 1)}{d0 + N - 1}'
+    # Calendar stats, clear of the widened diff block (see ECOGAINS_CAL_STATS in EcoGainsSim_v4.gs).
+    # Written ONCE, on the first block: the counts are per CATEGORY and identical for every segment,
+    # so repeating them per block would be six copies of the same 25x2 spill.
+    if t == 0:
+        ws.cell(d0, CAL_STATS_C1).value = '=ECOGAINS_CAL_STATS("cal_curr", sim_refresh!$A$1)'
+        ws.cell(d0, CAL_STATS_C2).value = '=ECOGAINS_CAL_STATS("cal_new", sim_refresh!$A$1)'
     ws.conditional_formatting.add(diff_rng, CellIsRule(
         operator='lessThan', formula=['0'],
         font=Font(color='FF990000', bold=False), fill=fill(F_PINK)))
@@ -129,6 +147,9 @@ legend = [
     'Kite Festival is priced as a LEADERBOARD (since 2026-07-06): payouts are zero-sum per league of 60, so duration does not move them; D=1 and the row GROWS ~x1.3 via cadence.',
     'SPT / SPTx2 (13-resource universe since 2026-07-10, D16): season pass tokens, appended as the last two columns; SPTx2 counts DOUBLE toward season-pass tier progression but displays separately. Every simulated source moves its SPT via the same R x D x T as its other resources.',
     "Season Pass (Free) is SIMULATED via SPT tier coupling: per-earner SPT+2xSPTx2 window totals (measured vs simulated, summed over all sources - additive-projection convention) x seasonDays/33 land on the SP / SP_v2 'Cumul' ladder; the row scales by cum-reward ratio through the reached tier (FREE track for nonpayers, FREE+PAID for payers - ASSUMPTION: the measured '(Free)' row contains payers' paid-track claims) x SP_lb_v2/SP_lb challenge pot ratio (zero-sum; Dream Pass telemetry is empty) x calendar T (D=1). No anchor (measured 0 or base cum 0): tiers GAINED add absolute SP_v2 rewards (HYBRID, flagged); otherwise carried. SP_v2 / SP_lb_v2 missing -> base sheets serve both sides (ratios 1). Not applied to A. 0.",
+    "PACKS (19-resource universe since 2026-08-03, D19): the six card-collection pack tiers, appended as the last six columns. They are SIMULATED-SIDE ONLY - data_gains has no pack rows, so the measured anchor is 0 and 'measured x R x D x T' can never produce one. Each source instead prices packs BOTTOM-UP on cal_new: packs = E_v2 x participation_rate x SUM(reach(inst)), reusing the same expected ladder payout E the R ratio is built from (no D term - a pack is a rank/milestone payout already priced through E). Consequence: the DIFF column for a pack equals its simulated value.",
+    'PACK sources: every source with a config sheet pays packs, including Team Event and Flock Flurry, which stay CARRIED for all 13 other resources and get only a pack overlay. Team Race, Ads and IAPs have no config sheet -> 0 packs. A. 0 has no behaviour telemetry to price reach -> 0 packs. FLAGGED: reach and participation_rate both encode activity, so their product mildly UNDER-counts high-participation events; and Team Event has no data_event_inst rows, so its ladder is priced at a FLAT rank average (the crudest pricing in the model).',
+    'PACK values are AUTHORED BY HAND on the config sheets (the 1-star Dly .. 6-star Dly columns, which exist on every ladder). Until you type a number there, every pack column reads 0 - that is correct, not a plumbing failure. The card-collection sim (SimOutput, menu EcoGainsSim ▸ Simulate card pack openings) consumes this pack flow per day.',
     'After editing a calendar: menu EcoGainsSim ▸ Precompute calendars (writes hidden cal_parsed; engine prefers it). Sanity canary: the Kite Festival row must GROW ~x1.3 vs measured. If every event row equals measured, the calendar read failed.',
 ]
 for i, txt in enumerate(legend):
@@ -140,3 +161,6 @@ print('written EcoGainsSim_HC_v4.xlsx')
 print('block hdr rows:', [first_hdr + t * PITCH for t in range(len(BLOCKS))])
 print('J3 sim rows:', sim_rows)
 print('legend at row', leg0)
+print(f'sim block {CL(SIM_C0)}..{CL(SIM_C0 + len(RES) - 1)} · diff block '
+      f'{CL(DIFF_C0)}..{CL(DIFF_C0 + len(RES) - 1)} · cal stats {CL(CAL_STATS_C1)} / {CL(CAL_STATS_C2)} '
+      f'({len(RES)} resources)')

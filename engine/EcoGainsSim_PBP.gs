@@ -303,7 +303,8 @@ function pbpSimulate_(a){
   }
 
   // --- Core level-completion SPT (D17): every win completes a level worth E_SPT expected tokens
-  // (Σ mix x reward, difficulty-weighted). cal_curr prices off SP (live rewards), cal_new off
+  // (Σ mix x reward, difficulty-weighted; per-level reward = the two season-half cells averaged
+  // since D18 — the shared coreSptE_ reads both). cal_curr prices off SP (live rewards), cal_new off
   // SP_v2 (redesign), so editing the per-level SPT rewards moves this. ONE aggregate day-end claim
   // (the per-win value is an expectation over the difficulty mix, not a per-level draw — we do not
   // model which levels are Normal/Hard/Extreme). Panel absent / E=0 -> nothing emitted (Core stays

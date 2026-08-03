@@ -32,23 +32,35 @@ SRC = sys.argv[1] if len(sys.argv) > 1 else newest_workbook()
 # manual fallback). PBP keeps bare args: its sheet isn't on the engine's refresh list.
 NONCE = 'sim_refresh!$A$1'
 
-# --- HC: 6 segment blocks; SIM in col C, DIFF in col O, at data-row-0 = header row + 2 ---
+# Anchor columns are DERIVED from the resource count, exactly as the builders derive them. These
+# were stale for a year of layout changes (the HC diff anchor still said col O = the 11-resource
+# layout, and the Daily anchors still used pitch 12) — hardcoding them is what rotted, so don't.
+from openpyxl.utils import get_column_letter as CL
+
+N_RES = 19                       # keep in sync with RESOURCES in EcoGainsSim_v4.gs
+
+# --- HC: 6 segment blocks; SIM at col C, DIFF one gap column after it, at header row + 2 -------
+HC_SIM_C0 = 3                                    # C           (_build_hc_v4.py SIM_C0)
+HC_DIFF_C0 = HC_SIM_C0 + N_RES + 1               # W at 19 res (_build_hc_v4.py DIFF_C0)
+
 def hc_formulas():
     cells = {}
     for hdr in (6, 35, 64, 93, 122, 151):
         d0 = hdr + 2
-        cells[f'C{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment, {NONCE}))'
-        cells[f'O{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, {NONCE}))'
+        cells[f'{CL(HC_SIM_C0)}{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_SIM(payer, segment, {NONCE}))'
+        cells[f'{CL(HC_DIFF_C0)}{d0}'] = f'=LET(payer, $C$3, segment, $B${hdr}, ECOGAINS_DIFF(payer, segment, {NONCE}))'
+        # calendar stats, placed clear of the diff block
+        cells[f'{CL(HC_DIFF_C0 + N_RES + 1)}{d0}'] = '=ECOGAINS_CAL_STATS("cal_curr", ' + NONCE + ')'
+        cells[f'{CL(HC_DIFF_C0 + N_RES + 4)}{d0}'] = '=ECOGAINS_CAL_STATS("cal_new", ' + NONCE + ')'
     return cells
 
+# --- Daily: 7 blocks from col D, pitch len(RES)+1 (_build_daily.py FIRST_COL / PITCH) ----------
+# The net-Δ block is plain sheet formulas, not a spill — nothing to restore there.
+DAILY_FIRST_COL, DAILY_PITCH = 4, N_RES + 1
 DAILY = {
-    'D9':  f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURRENT", {NONCE}))',
-    'P9':  f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEW", {NONCE}))',
-    'AB9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "DIFF", {NONCE}))',
-    # v2 NET blocks (net Δ at BX is plain sheet formulas, not a spill — nothing to restore there)
-    'AN9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "SPEND", {NONCE}))',
-    'AZ9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURNET", {NONCE}))',
-    'BL9': f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEWNET", {NONCE}))',
+    f'{CL(DAILY_FIRST_COL + i * DAILY_PITCH)}9':
+        f'=LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "{key}", {NONCE}))'
+    for i, key in enumerate(['CURRENT', 'NEW', 'DIFF', 'SPEND', 'CURNET', 'NEWNET'])
 }
 PBP = {
     'A14': '=ECOGAINS_PBP_PROFILE($B$5,$B$6)',

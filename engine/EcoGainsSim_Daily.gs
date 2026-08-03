@@ -4,7 +4,8 @@
  * REQUIRES EcoGainsSim_v4.gs in the same project (uses Context, CATEGORY_ORDER, RESOURCES,
  * resultRow_, measuredRow_, reachOne_, isWeekend_, num).
  *
- * CUSTOM FUNCTION (six anchors on the sheet, each spilling 33 days x 13 resources):
+ * CUSTOM FUNCTION (six anchors on the sheet; the three GAIN blocks spill 33 days x 19 resources,
+ * the three NET blocks stay 33 x 13 — packs have no spend model, D19/8):
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "CURRENT"))
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "NEW"))
  *   =LET(payer,$C$3, segment,$C$4, source,$C$5, ECOGAINS_DAILY(payer, segment, source, "DIFF"))
@@ -29,9 +30,10 @@
  * ALLOCATION MODEL ("claim-day realistic") — window totals are the same numbers the main sim
  * produces (CURRENT = measured, anchored on cal_curr; NEW = simulated, anchored on cal_new);
  * this script only distributes them over the 33 calendar days, conserving totals exactly:
- *   flat        Ads, Other, Team Event, Team Race, FlowerCoop, IAPs, and any source with a
- *               nonzero total but no calendar instances (River Rush's CURRENT side runs
- *               off-grid) -> total / 33 every day.
+ *   flat        Ads, Other, FlowerCoop, IAPs, and any source with a nonzero total but no calendar
+ *               instances (River Rush's CURRENT side runs off-grid) -> total / 33 every day.
+ *               (Team Event / Team Race / Flock Flurry LEFT this family 2026-08-03, D19 — they
+ *               pay packs now, so they are placed on their calendar lanes; see DAILY_LASTDAY.)
  *   Season Pass (Free) — since 2026-07-10 (D16): spread over its 'Season Pass' lane instances
  *               proportional to p_day (tier rewards are claimed continuously while playing —
  *               same treatment as Rainbow Maker; the lane covers all 33 days today).
@@ -56,8 +58,13 @@ var DAILY_NET_BLOCKS = { 'SPEND':1, 'CURNET':1, 'NEWNET':1 };
 
 // how each source's window total is placed on days (anything not listed = flat)
 var DAILY_ALWAYS  = { 'Core':1, 'Saga':1, 'Daily Gift':1 };
+// Team Event / Team Race / Flock Flurry joined the last-day family 2026-08-03 (D19): they now pay
+// packs, which are rank rewards granted at instance END, so they can no longer sit in the flat
+// family. Their non-pack (carried) resources move with them — window totals are unchanged, only
+// the per-day distribution: flat-over-33 -> placed on their actual calendar instances.
 var DAILY_LASTDAY = { 'Bomb Challenge':1, 'Chuck Challenge':1, 'Red Challenge':1, 'Level Race':1,
-                      'Flash Race':1, 'Target Day':1, 'Kite Festival':1 };
+                      'Flash Race':1, 'Target Day':1, 'Kite Festival':1,
+                      'Team Event':1, 'Team Race':1, 'Flock Flurry':1 };
 var DAILY_MARGINAL = { 'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":'Bombs Ballet',
                        'Jigsaw':'Jigsaw', 'Photoshoot':'Photoshoot' };
 var DAILY_PDAY_INST = { 'Rainbow Maker':1, 'Daily Night Sky Prize':1 };
@@ -70,7 +77,8 @@ var DAILY_CAL_LABEL = {
   'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":"Bomb's Ballet Show",
   'Jigsaw':'Jigsaw Puzzle', 'Photoshoot':'Photoshoot', 'Rainbow Maker':'Rainbow Maker',
   'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky',
-  'Season Pass (Free)':'Season Pass'
+  'Season Pass (Free)':'Season Pass',
+  'Team Event':'Team Event', 'Team Race':'Team Race', 'Flock Flurry':'Flock Flurry'   // D19
 };
 
 /** @customfunction */
@@ -88,8 +96,8 @@ function ECOGAINS_DAILY(payer, segment, source, block){
     if (src.toUpperCase() !== 'ALL') return blankGrid_();  // spend is game-wide: NET only for ALL
     var econ = econDaily_(s, p);
     if (!econ) return blankGrid_();                        // no data_econ_daily (yet) -> blank
-    if (blk === 'SPEND')  return daysToGrid_(econ.spend);
-    if (blk === 'CURNET') return daysToGrid_(diffSeries_(econ.gain, econ.spend));
+    if (blk === 'SPEND')  return netGrid_(econ.spend);
+    if (blk === 'CURNET') return netGrid_(diffSeries_(econ.gain, econ.spend));
     // NEWNET = actual net + the sim's per-day gain shift (NEW - CURRENT over all categories)
     var ctxN = Context.get(), curN = emptyDays_(), nwN = emptyDays_();
     CATEGORY_ORDER.forEach(function(cat){
@@ -98,7 +106,7 @@ function ECOGAINS_DAILY(payer, segment, source, block){
     });
     var net = diffSeries_(econ.gain, econ.spend);
     addSeries_(net, diffSeries_(nwN, curN));
-    return daysToGrid_(net);
+    return netGrid_(net);
   }
 
   var cats = (src.toUpperCase() === 'ALL') ? CATEGORY_ORDER : [src];
@@ -260,6 +268,32 @@ function blankGrid_(){
   return out;
 }
 
+// ---- card-collection bridge (D19) -----------------------------------------------------------
+// Per-day expected PACK counts on cal_new for one (segment, payer), broken down by source.
+// This is the seam CardOpenings.gs consumes: the card sim used to read its own EcoPackGains rate
+// table and hardcoded '1/0/0/1...' schedule strings; it now takes the real simulated pack flow
+// off the same engine path this sheet renders, so the two views can never disagree.
+//   returns { total: [33][6], bySource: [{cat, days:[33][6]}, ...] }   (PACK_RES tier order)
+// Values are FRACTIONAL expectations (decision D19/13: deterministic attendance) — the caller
+// accumulates them into discrete pack-open events.
+function dailyPacksFor_(seg, payer, ctx){
+  ctx = ctx || Context.get();
+  var total = [], d, k;
+  for (d = 0; d < DAILY_DAYS; d++) total.push(PACK_RES.map(function(){ return 0; }));
+  var bySource = [];
+  CATEGORY_ORDER.forEach(function(cat){
+    var series = dailySeries_(cat, seg, payer, ctx, true);   // NEW side = simulated over cal_new
+    var grid = [], any = false;
+    for (var i = 0; i < DAILY_DAYS; i++){
+      var row = PACK_RES.map(function(r){ var v = num(series[i][r]); if (v) any = true; return v; });
+      grid.push(row);
+      for (var j = 0; j < row.length; j++) total[i][j] += row[j];
+    }
+    if (any) bySource.push({ cat: cat, days: grid });
+  });
+  return { total: total, bySource: bySource };
+}
+
 // ---- small helpers ----
 function emptyDays_(){
   var out = [];
@@ -276,6 +310,16 @@ function diffSeries_(a, b){
 }
 function daysToGrid_(days){
   return days.map(function(o){ return RESOURCES.map(function(r){ return num(o[r]); }); });
+}
+// NET-block grid: same shape, but the six PACK columns are BLANK (D19/8). Packs are gains-only —
+// there is no spend telemetry for them, so a numeric NET cell could only restate the gain and
+// would read as "net pack position", which does not exist. '' (not 0) for the same reason
+// blankGrid_ uses '': the sheet's net-Δ formulas subtract these cells and IFERROR them, so ''
+// yields a blank Δ while 0 would yield a false 0.
+function netGrid_(days){
+  return days.map(function(o){
+    return RESOURCES.map(function(r){ return isPackRes_(r) ? '' : num(o[r]); });
+  });
 }
 function normalize_(w){
   var s = 0, i;

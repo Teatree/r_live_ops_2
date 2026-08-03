@@ -15,9 +15,13 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VALS = json.load(open(os.path.join(HERE, '_sps_values.json')))
-# 13 since 2026-07-10 (append-only): SPT/SPTx2 = season pass tokens (D16)
+# 19 since 2026-08-03 (append-only): the six card-collection pack tiers (D19).
+# 13 since 2026-07-10: SPT/SPTx2 = season pass tokens (D16).
+# Resources are TABLES here (one 19-row table each), not columns — the column layout is
+# group-driven and unaffected by the width of the resource universe.
 RES = ['HC', 'Slingshot', 'Shuffle', 'Comet', 'Red', 'Chuck', 'Bomb',
-       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2']
+       'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2',
+       '1-star Pack', '2-star Pack', '3-star Pack', '4-star Pack', '5-star Pack', '6-star Pack']
 GROUPS = ['PAID', 'ADS', 'CORE', 'META']
 SEGS = ['0-9', '10-19', '20-39', '40-99', '100+']
 PAYERS = ['NONPAYER', 'PAYER']

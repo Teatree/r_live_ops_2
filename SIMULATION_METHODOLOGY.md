@@ -380,24 +380,38 @@ simulated column, and the difference is zero by definition.
 
 **Overview.** `data_gains` splits base-game progression into **Core** (`chapter_complete`,
 `PlayerLevelUpChest`, and **level-completion SPT**) and **Saga** (`SagaPath` / `SagaChestRewards` —
-the nerf line). Both are always-on, so [D](#d-duration-multiplier) = [T](#t-cadence-and-reach) = 1;
-only a per-resource config ratio moves them. Core's chapter/level-up chests are unchanged → carried,
-but since **D17 (2026-07-14) Core's SPT is simulated**: every level completion pays a difficulty-tiered
-SPT reward, so editing those rewards on `SP_v2` moves the SPT earned (and, because Core is ~92% of the
-whole SPT faucet, the Season Pass tier along with it — [§6.11](#611-season-pass-spt-tier-coupling)).
+the nerf line). Both are always-on, so [D](#d-duration-multiplier) = [T](#t-cadence-and-reach) = 1.
+Core's chapter/level-up chests are unchanged → carried, but since **D17 (2026-07-14) Core's SPT is
+simulated**: every level completion pays a difficulty-tiered SPT reward, so editing those rewards on
+`SP_v2` moves the SPT earned (and, because Core is by far the biggest SPT faucet, the Season Pass
+tier along with it — [§6.11](#611-season-pass-spt-tier-coupling)). Since **D18 (2026-07-30) the
+Core SPT anchor is SYNTHETIC**: `data_gains` carries no Core SPT rows (the level-token faucet is
+invisible to the export — user-confirmed the live game does pay it), so the measured side is built
+bottom-up from behaviour telemetry instead of read from data.
 
-**Core SPT model (`simCore`, D17).** Level completions pay **10 / 20 / 30 SPT** by difficulty
-(Normal / Hard / Extreme) under an assumed level-difficulty **mix** (0.55 / 0.30 / 0.15 — an
-[assumption](#the-data-sheets-telemetry), flagged; lives in the panel, falls back to the
-`CORE_SPT_MIX` code constant). Expected SPT per level completion `E = Σ_d mix_d · reward_d` (base = 16).
-Then, like every anchored source, `SIMULATED[Core, SPT] = measured[Core, SPT] × R_SPT` with
-`R_SPT = E_v2 / E_base` (D = T = 1). Rewards + weights are **label-scanned** off the `SP` / `SP_v2`
-config panel — cells `Normal` / `Hard` / `Extreme` and `… (%)` (`readSPLabel_`, the same
-placement-independent reader as `Season Length (days)`; the panel sits on the tier-ladder's unused
-`A:B` columns, which `readSPTrack_` never reads, so there is no collision). Base = live rewards →
-`R_SPT = 1` (Core SPT == measured) until `SP_v2` is edited; **panel absent → `E_base = 0` → R = 1**,
-the carried fail-safe. Every other Core resource stays carried, and measured Core SPTx2 = 0. The
-[A. 0 appendix](#610-a-0-appendix) applies the same scalar (config-only change, segment-uniform).
+**Core SPT model (`simCore` + `coreSptSynth_`, D17/D18).** Level completions pay a per-level SPT
+reward by difficulty (Normal / Hard / Extreme) **per season half** — the `SP` panel carries the two
+half columns (base: 12/20/30 in the 2nd half, 10/15/20 in the 1st; the `1st season half` header
+marks the second column) — under an assumed level-difficulty **mix** (0.55 / 0.30 / 0.15 — an
+[assumption](#the-data-sheets-telemetry), flagged; lives in the panel `… (%)` cells, falls back to
+the `CORE_SPT_MIX` code constant). Expected SPT per level completion
+`E = Σ_d mix_d · mean(reward_d 1st half, reward_d 2nd half)` — the **50/50 halves average** (D18,
+flagged: assumes equal-length halves and uniform play across the season; a panel without the
+1st-half column prices off its single cell). On workbook (13): E_base = 15.05, E_v2 = 7.45 →
+R_SPT ≈ 0.495 (the halving). The anchor (D18): `L = levels_completed_per_active_day`
+(📊 `data_seg_beh`) `× Σ p_day` over the 33-day window (expected active days from the
+weekday/weekend rates), then `measured[Core, SPT] = L × E_base` (synthesized inside `measuredRow_`
+— one choke point, so the DIFF spill, the daily CURRENT block and the [§6.11](#611-season-pass-spt-tier-coupling)
+measured token total all see it) and `SIMULATED[Core, SPT] = measured × R_SPT = L × E_v2`
+(same L both sides — behaviour held constant). **If a `data_gains` re-pull ever delivers real Core
+SPT rows, the raw value takes back over automatically** (the synthetic only fires when the raw read
+is 0 — no double count). Rewards + weights are **label-scanned** off the `SP` / `SP_v2` config panel
+(`readSPLabelPair_`; placement-independent like `Season Length (days)`; the panel sits on the
+tier-ladder's unused `A:B` columns, which `readSPTrack_` never reads, so there is no collision).
+**Panel absent → `E_base = 0` → synthetic off, R = 1**, the carried fail-safe; missing behaviour row
+(A. 0) → carried. Every other Core resource stays carried, and measured Core SPTx2 = 0. The
+[A. 0 appendix](#610-a-0-appendix) applies only the R scalar to its raw (zero) anchor — no
+synthesis, no behaviour data (§3).
 
 **Flow.**
 ```mermaid
@@ -419,15 +433,20 @@ flowchart TD
    layout edit); base total 0 → **carry** (no anchor; a new saga item needs bottom-up).
 4. `SIMULATED[HC] = measured[HC] × HC_ratio`; `SIMULATED[item] = measured[item] × item_ratio` (else
    measured). `simCore` returns measured for every resource **except SPT**, which it scales by
-   `R_SPT` (`coreSptR_`; = 1 → measured, so Core is untouched until the `SP_v2` panel is edited).
+   `R_SPT` (`coreSptR_`) on the D18 synthetic anchor `L × E_base` — so in practice
+   `SIMULATED[Core, SPT] = L × E_v2` until real Core SPT rows land in 📊 `data_gains`.
 
 **In plain words.** Core is rewards for finishing chapters, levelling up, and — the one part we now
-model — the **season-pass tokens (SPT) you get for beating a level** (10, 20, or 30 depending on how
-hard the level is). The chapter/level-up chests didn't change, so we copy what players actually earned;
-but for SPT we ask *how much does the new per-level reward pay versus the old one?* — add up the reward
-for each difficulty weighted by how common that difficulty is (55% easy, 30% hard, 15% extreme), do the
-same for the redesign, and divide. That ratio scales the SPT players actually earned. Because almost all
-SPT comes from beating levels, this one knob also decides how far players climb the Season Pass. Saga
+model — the **season-pass tokens (SPT) you get for beating a level** (a bigger reward the harder the
+level, and slightly bigger in the season's second half). The chapter/level-up chests didn't change, so
+we copy what players actually earned. For SPT the telemetry export simply doesn't have the Core rows,
+so we *estimate* what players earn today: how many levels a typical player of this segment beats over
+the 33-day window (their levels-per-active-day × how many days they show up), times the expected
+tokens per level (each difficulty's reward weighted by how common that difficulty is — 55% easy, 30%
+hard, 15% extreme — and averaged across the two season halves). That is the "today" number; the
+redesign number is the same level count times the *new* per-level rewards (halved in `SP_v2` → about
+half the tokens). Because almost all SPT comes from beating levels, this one knob also decides how
+far players climb the Season Pass. Saga
 (the reward path along the level map) had its rewards re-tuned,
 so we ask one question: *per level played, how much does the new reward ladder pay compared to the old
 one?* For coins, we add up all the coins on the old ladder and divide by the number of levels it spans,
@@ -442,7 +461,9 @@ that item is left at its measured value and flagged.
 
 **The formula.**
 
-> **Core:** SIMULATED\[res] = [measured](#measured)\[res]
+> **Core:** SIMULATED\[res] = [measured](#measured)\[res] &nbsp;·&nbsp; **except SPT (D17/D18):** SIMULATED\[SPT] = L × E_v2, with the synthetic anchor measured\[SPT] = L × E_base
+>
+> **L = levels_completed_per_active_day × [Σ](https://en.wikipedia.org/wiki/Summation) p_day over the 33-day window** (📊 `data_seg_beh`) &nbsp;·&nbsp; **E = Σ_d mix_d × mean(1st-half, 2nd-half reward_d)** (⚙️ `SP` / `SP_v2` panel)
 >
 > **Saga:** SIMULATED\[HC] = [measured](#measured)\[HC] × HC_ratio &nbsp;·&nbsp; SIMULATED\[item] = [measured](#measured)\[item] × item_ratio\[item]
 
@@ -473,7 +494,12 @@ ladder and for the new one — and divide the two, giving the HC ratio. Then I d
 booster item (total of that item on the new ladder ÷ total on the old). Finally I multiply what
 players of this segment actually earned from the saga (📊 `data_gains`) by those ratios, resource
 by resource. If the old ladder never paid an item at all, there is no anchor to scale, so that item
-stays at its measured value (flagged). Core is even simpler: nothing changed, copy measured.
+stays at its measured value (flagged). Core copies measured for everything except SPT: there I first
+*rebuild* the missing measured number (levels beaten over the window × expected tokens per level off
+the ⚙️ `SP` panel, difficulty-mixed and halves-averaged — D18, because 📊 `data_gains` has no Core SPT
+rows), then price the same level count at the ⚙️ `SP_v2` rewards for the simulated side. *Example
+(workbook (13), 40-99 nonpayer):* 54.0 levels/active day × 9.77 expected active days = 527.6 levels;
+× E_base 15.05 = **7,941 SPT** measured-side, × E_v2 7.45 = **3,931 SPT** simulated (R_SPT 0.495).
 
 *Example 1 — Saga coins, 40-99 nonpayer.* The base ladder pays 75 HC across the 100 levels of one
 cycle → 0.75 HC/level. The segment's `c_saga_v2` columns pay 60 HC across the same 100 levels →
@@ -1345,11 +1371,14 @@ flowchart TD
 1. Branch discipline as `timedCore_`: calendars unparsed → carry; no `Season Pass` lane in
    `cal_new` → 0 (removal); none in `cal_curr` → carry; `SP` sheet unreadable → carry.
 2. **SPT totals** (`sptTotals_`, cached on the execution context): per earner,
-   `meas = Σ over every category of [SPT + 2×SPTx2]` from 📊 `data_gains` (the additive-projection
-   convention — same as the NET blocks); `sim` = the same sum using each category's **simulated**
-   SPT/SPTx2 (i.e. after that category's own R·D·T). The Season Pass category itself contributes
-   its *measured* SPT to BOTH sides — single pass, no recursion (the track pays no SPT, so there is
-   no feedback loop through the config either; `ctx._sptBusy` is a defensive backstop).
+   `meas = Σ over every category of [SPT + 2×SPTx2]` via `measuredRow_` (the additive-projection
+   convention — same as the NET blocks; since **D18** the Core term is the SYNTHETIC anchor
+   `L × E_base` — see [§6.2](#62-core--saga-always-on) — because 📊 `data_gains` has no Core SPT
+   rows, and Core dominates the token faucet); `sim` = the same sum using each category's
+   **simulated** SPT/SPTx2 (i.e. after that category's own R·D·T; Core contributes `L × E_v2`).
+   The Season Pass category itself contributes its *measured* SPT to BOTH sides — single pass, no
+   recursion (the track pays no SPT, so there is no feedback loop through the config either;
+   `ctx._sptBusy` is a defensive backstop).
 3. **Points & tier:** `points = SPT_total × seasonDays/33` (seasonDays from the `Season Length
    (days)` label on ⚙️ `SP` for the measured side / `SP_v2` for the simulated side; absent → 33,
    i.e. window = season, **flagged assumption**). `tier(points)` = highest tier whose `Cumul` ≤
@@ -1400,7 +1429,7 @@ with the composite terms expanding to:
 
 > **T_x = tier( SPT_x × seasonDays_x ÷ 33 , Cumul ladder )** — the highest tier whose cumulative points requirement is met, capped at 30
 >
-> **SPT_meas = Σ over all categories of ( SPT + 2×SPTx2 ) per earner** (📊 `data_gains`) · **SPT_sim = the same sum after each category's own simulation** (Season Pass itself measured on both sides)
+> **SPT_meas = Σ over all categories of ( SPT + 2×SPTx2 ) per earner** (📊 `data_gains`; the Core term = the D18 synthetic anchor L × E_base) · **SPT_sim = the same sum after each category's own simulation** (Core = L × E_v2; Season Pass itself measured on both sides)
 >
 > **cum(T)\[res] = Σ tiers 1..T of track reward\[res]** — FREE track for NONPAYER, FREE+PAID for PAYER
 >
@@ -1452,12 +1481,143 @@ track a two-tier slip can zero a resource outright.
 
 ---
 
+## 6.12 Card-collection PACKS — the bottom-up pack lane (D19, 2026-08-03)
+
+The six pack tiers (`1-star Pack`…`6-star Pack`, resources 14–19) are the first resources in the
+model with **no measured anchor at all**. `data_gains` emits no pack rows — the export cannot see
+them — so `measured x R x D x T` is identically 0 for every pack column on every source. Unlike
+Core SPT (D18), we do NOT synthesize a measured anchor: the user's decision is that packs are
+**simulated-side only**, so the CURRENT column reads 0 and **DIFF equals the simulated value**.
+
+### The formula
+
+For each source, on `cal_new` only:
+
+```
+packs[res] = E_v2[res] x participation_rate x SUM_{inst in cal_new[label]} reach(inst)
+```
+
+| term | source | note |
+|---|---|---|
+| `E_v2` | `rewardE_(cat, seg, payer, ds).eV2` | the SAME expected ladder payout the R ratio is built from |
+| `participation_rate` | `data_event_inst` | E is priced CONDITIONAL on taking part; absent -> 1.0 (flagged) |
+| `reach(inst)` | `reachOne_` | the same `1 - PROD(1 - p_day)` the T term uses |
+
+There is deliberately **no D term**: a pack grant is a rank or milestone payout that E has already
+priced at the measured rank/progress distribution, so stretching the event does not multiply it.
+
+`rewardR_` was split into `rewardE_` (absolute expected payout, both sides) plus a thin ratio
+wrapper. That is the whole point of the refactor: the pack lane reuses `lbE_` / `collE_`
+**verbatim**, so a pack typed into a `_v2` ladder row is priced with exactly the same machinery as
+a coin on that row — rank quantiles for leaderboards, survival over `final_balance` percentiles for
+collections, and Kite's extra score-milestone term.
+
+### Which sources pay packs
+
+- **Every simulated source with a config sheet** — wired through `timedCore_`, which overlays the
+  six pack columns after the ordinary `measured x R x D x T` loop (`overlayPacks_`).
+- **Carried sources with a config sheet.** `Team Event` and `Flock Flurry` have no simulator and no
+  `_v2` sheet, but they do have calendar lanes and reward ladders (`TE`, `F`). `PACK_ONLY_SPECS` +
+  `packOnlyRow_` give them a pack overlay in `resultRow_` while **every other resource stays
+  measured**. `Team Event` sums its two blocks (7-place Team Leaderboard + 3-place Contribution
+  Rewards) because a participant is paid from both.
+- **Season Pass** prices the whole reached track: `SUM(tier rewards 1..Ts) x R_challenge x T`.
+  Neither the ratio path nor the newly-unlocked-tier path applies when measured is 0 — the player
+  simply earns every pack on the track up to the tier they reach.
+- **Rainbow Maker / Night Sky** need nothing beyond the `RES_MAP` entries: they were already
+  bottom-up, so `readLadder_` picks the pack columns up automatically.
+- **Zero by construction:** `Team Race`, `Ads`, `IAPs` (no config sheet); `Core`, `Saga`,
+  `Daily Gift` (`c_saga`/`c_day` have no pack columns); `A. 0` (no behaviour telemetry to price
+  reach — same appendix rule as RM/NS/Season Pass); any source with no `cal_new` instances.
+
+### Flagged assumptions
+
+1. **`reach x participation_rate` double-counts activity.** Both terms encode "does this player
+   engage", so their product mildly UNDER-counts packs for high-participation events. No joint
+   estimator is available from the current telemetry.
+2. **`Team Event` / `Team Race` have no `data_event_inst` rows**, so `packBlockE_` falls back to a
+   **flat ladder average** (pot / rank count) — it assumes every rank is equally likely, and is the
+   crudest pricing anywhere in the model.
+3. **All pack ladder cells ship at 0.** The `1-star Dly`…`6-star Dly` columns already exist on every
+   config sheet; the values are authored by hand. A pack column reading 0 is the correct answer to
+   "nobody has typed a number yet", not a plumbing failure — `_mock_run.js` asserts both directions
+   (0 before authoring; exactly the right column moves after).
+
+### NET blocks
+
+Packs are **gains-only** — there is no spend telemetry for them, so a numeric NET cell could only
+restate the gain and would read as a "net pack position", which does not exist. `netGrid_` blanks
+the six pack columns in SPEND / CURNET / NEWNET (as `''`, not 0, so the sheet's net-delta formulas
+IFERROR into a blank rather than a false 0). Block width stays uniform — the spill is always
+`RESOURCES`-wide, so a narrower NET block would be overrun.
+
+### Daily placement change
+
+`Team Event`, `Team Race` and `Flock Flurry` left the flat /33 family and joined `DAILY_LASTDAY`:
+they now pay packs, which are end-of-instance rank rewards, so they are placed on their actual
+calendar instances. **Window totals are unchanged** — only the per-day distribution moves.
+
+---
+
+## 6.13 The card sim (`CardOpenings.gs`) — a CONSUMER of the pack flow
+
+The card-collection simulator is not a source in the 25-category universe; it takes the pack flow
+as input and models what the player actually gets out of those packs. Before D19 it was a parallel
+universe (its own rate table in `EcoPackGains`, its own `1/0/0/1…` schedule strings, its own
+"Mid-Core (Free)" archetypes in `PlayerBehavior`) and never saw the redesigned calendar.
+
+**Stage 1 — acquisition.** `dailyPacksFor_(seg, payer, ctx)` (in `EcoGainsSim_Daily.gs`) returns a
+33x6 per-day grid broken down by source, computed on the NEW side — i.e. the same numbers the
+Daily sheet renders. Fractional expectations accumulate into whole packs; the **trailing fraction
+is resolved by a seeded Bernoulli** so `E[granted] == expected`. (The old code always rounded the
+remainder up, which added roughly one pack per source per tier.)
+
+**Stage 2 — opening.** Draws are **count-proportional over the `PackConfig` SNAP POOL, without
+replacement**: `weight = copies x chapterMult`. Rarity is therefore a property of the pool and
+drifts as it depletes; the pool is rebuilt only on album advance. The old per-pack rarity
+probability grid was deleted because it multiplied the pool counts — rarity was applied twice.
+**Pack tier now differs only by `Cards/Open` and the pity table.**
+
+Two independent pity mechanisms:
+
+- **rarity pity (from the sheet, newly implemented).** `PityProbabilities` is indexed by the number
+  of **consecutive misses of the target rarity**, not by card slot. `[0, 0.8, 0.8, 1.0]` reads:
+  no help on a pull with no misses behind it; miss once and the next pull has an 80% chance of the
+  target; miss again, another 80%; miss a third time and the next pull is **guaranteed**. Entries
+  past the end of the array reuse the last value. The counter **resets to 0 on any hit** — forced
+  or natural — and **starts at 0 on every pack open**; it does not carry between packs.
+  Target rarity = the highest rarity that **still has copies** when `PityForceHighestRarity` is
+  TRUE (which doubles as the empty-tier fallback: Gold ships at Qty 0, so a 6-star pack's pity
+  resolves to 5-star rather than chasing an undrawable card); otherwise any rarity above the
+  pool's most-stocked one. Because the target is recomputed off the live pool on every draw, a
+  rarity that runs out mid-pack stops counting as the thing being chased.
+  *(Corrected 2026-08-03 — the first implementation read the array as a per-card-slot index, which
+  over-forced badly: it pushed 5-star to 24% of all cards drawn versus 15% under the correct rule,
+  against an 8% pool share.)*
+- **dry-streak (unchanged):** after 3 consecutive packs with no new card, the last card of the next
+  pack is forced to be an unowned type.
+
+**Chests** read the new `PackConfig` CHEST PURCHASING panel (min stars + linear urgency ramp to the
+final day) instead of a hardcoded 0.85-of-season greedy sweep. Missing parameters degrade to
+"never buy" rather than silently reverting to the old behaviour.
+
+**Determinism.** Attendance is the deterministic expected `p_day`; randomness is confined to card
+draws and the trailing-fraction grant, both seeded from `SimOutput!G2`. Same seed + same inputs ->
+byte-identical output (gated).
+
+**Namespace.** `CardOpenings.gs` used to define its own `onOpen()`, which collided with the
+engine's in Apps Script's shared global namespace — one silently replaced the other. The menu item
+now lives in `EcoGainsSim_v4.gs`'s single `onOpen`, and `_mock_cards.js` gates that no
+CardOpenings global collides with an engine global.
+
+---
+
 # Part C — Views, plumbing, verification
 
 ## 7. The per-day view (`EcoGainsSim_Daily.gs`) — allocation, not re-simulation
 
 `ECOGAINS_DAILY(payer, segment, source, block)` (block = CURRENT | NEW | DIFF | SPEND | CURNET |
-NEWNET) spills 33×13. The gain blocks re-use the engine's window totals (CURRENT = measured, NEW =
+NEWNET) spills 33×19 (§6.12: the six pack columns are BLANK in the four NET blocks). The gain blocks re-use the engine's window totals (CURRENT = measured, NEW =
 simulated) and ONLY distribute them over days — column sums reconcile with the main sim to ~1e-13.
 "Claim-day realistic" rules:
 
@@ -1493,6 +1653,56 @@ window-earner denominator so the 33 days sum to `data_econ`'s window totals; see
   load-bearing: the net-Δ sheet formulas subtract them, error, and IFERROR to blank — truly empty
   cells would coerce to 0 and display a false "net Δ = 0". The TOTAL row uses
   `IF(COUNT(…)=0,"",SUM(…))` for the same reason.
+
+---
+
+## 7b. The windowed view (`EcoGainsSim_7Day.gs`) — a slice, not a second engine
+
+`ECOGAINS_SIM_7_DAY(payer, segment)` and `ECOGAINS_DIFF_7_DAY(payer, segment)` take the same
+arguments and spill the same 25×19 grid as the full-window pair, but cover only
+`WIN7_FIRST_DAY..WIN7_LAST_DAY` of the calendar — **days 6..13 inclusive, which is 8 days**
+(the `_7_DAY` naming is the user's; the constants are the truth). `ECOGAINS_WINDOW_7_DAY()`
+spills `[first, last, count]` so a sheet can label the window it is showing.
+
+**It is not a copy of the engine.** A copy was requested, but every `.gs` in an Apps Script project
+shares one global namespace — a second `RESOURCES` / `Context` / `timedCore_` / `onOpen` would
+silently override the engine's by load order, which is the failure mode that produced both the
+"all events zero" mystery (`calParseTest.gs`) and the vanished menu (`CardOpenings.gs`). The file
+declares seven new, prefixed names and calls the engine for everything else.
+
+**Method — sum the daily allocation, don't re-simulate.** Window totals come from
+`dailySeries_` (§7), the same claim-day allocation the EcoGainsSim_Daily sheet renders:
+
+```
+SIM_7 [cat][res] = Σ_{d = FIRST..LAST}  dailySeries_(cat, seg, payer, isNew = true )[d][res]
+DIFF_7[cat][res] = SIM_7 − Σ_{same d}   dailySeries_(cat, seg, payer, isNew = false)[d][res]
+```
+
+Both sides are measured over the SAME days, so `DIFF_7` keeps its usual meaning (redesigned
+calendar vs current one) on an equal footing.
+
+**Edge behaviour follows the placement family**, which is the point of reusing §7 rather than
+inventing a windowing rule:
+
+| family | an instance straddling the window edge |
+|---|---|
+| leaderboard | pays on its LAST day → days 4–9 counts IN FULL; days 11–16 counts not at all |
+| collection | contributes only the accrual-curve share landing inside the window |
+| always-on (Core/Saga/Daily Gift) | contributes this window's share of activity (∝ p_day) |
+| Rainbow Maker / Night Sky | per-instance rows on their own days |
+| flat (Ads/Other/FlowerCoop/IAPs) | 8/33 of the window total |
+| packs (D19) | follow their source's placement — leaderboard packs land whole on the last day |
+
+**The invariant that keeps it honest:** set the constants to 1 and 33 and these functions
+reproduce `ECOGAINS_SIM` / `ECOGAINS_DIFF` bit-for-bit (~5e-12 across every segment × payer ×
+category × resource). `harness/_mock_7day.js` asserts exactly that, so the windowed view cannot
+drift from the simulation it slices. It also independently re-derives `SIM_7` by summing rows 6–13
+of `ECOGAINS_DAILY(..., "NEW")` — the by-hand check — and asserts the leaderboard edge rule above.
+
+**Sheet setup.** The spill shape is identical to `EcoGainsSim_HC`, so that display geometry works
+as-is (SIM at column C, DIFF at column W). Keep the trailing `sim_refresh!$A$1` nonce argument, and
+name the sheet `EcoGainsSim_HC_7d` (already in `REFRESH_SHEETS`; `refreshSims_` skips names that
+don't exist, so the entry is harmless until you create it).
 
 ---
 
@@ -1558,8 +1768,47 @@ window-earner denominator so the 33 days sum to `data_econ`'s window totals; see
 
 Offline Node harness (no Sheets needed): `python harness/_dump_mockdata.py` dumps the workbook to
 `_mockdata.json` (sheets: `data_*`, config pairs incl. **both base and `_v2`** for the R term, RM,
-NS, calendars with merges); `_mock_run.js` / `_mock_daily.js` / `_mock_pbp.js` mock `SpreadsheetApp`
-and `eval` the `.gs` files. Checks that must stay green:
+NS, calendars with merges) and then OVERLAYS any sheet in its `PENDING_IMPORT` map from the freshly
+built `display/*.xlsx`, so a rebuilt sheet can be gated before it is imported into the workbook.
+Five harnesses mock `SpreadsheetApp` and `eval` the `.gs` files: `_mock_run.js` (v4),
+`_mock_daily.js`, `_mock_pbp.js`, `_mock_cards.js` (CardOpenings), `_mock_7day.js` (windowed view).
+**All five are green as of 2026-08-03 — a FAIL means a regression, not a stale gate.**
+
+### How gates rot (three failure modes, all hit in this project)
+
+Three gate blocks had been red for a whole workbook generation and were dismissed as "stale". They
+were not noise; they were gates that had stopped testing anything. The patterns are worth naming,
+because each is easy to write and impossible to notice later:
+
+1. **Asserting ABSENCE.** `SP_v2/SP_lb_v2 absent -> falls back to base` and `RM_1st/RM_2nd absent ->
+   falls back to RM` were true when written and became false the moment the workbook shipped those
+   sheets. A gate that asserts something does not exist is guaranteed to rot. Assert the BEHAVIOUR
+   instead, and exercise the fallback by *creating* the condition: snapshot the sheet, delete it,
+   assert the fallback, restore it.
+2. **Sampling a point that goes inert.** The SPT tier gates ran on segment `40-99`, whose token
+   total exceeds the 30-tier ladder on BOTH sides — so `Tm == Ts == 30` and "tier drops" could never
+   pass again, no matter how correct the engine was. Gates that pick a sample (a segment, an event,
+   a rank) must either assert the sample still has headroom, or move to one that does. `SP_SEG` is
+   now a named constant, and a separate gate REPORTS which segments are cap-masked rather than
+   failing silently.
+3. **Freezing a config value into an assertion.** `_mock_pbp`'s "Flash Race pays Coins 50" broke when
+   the `Race` sheet was regenerated from live server configs. It now re-derives the expectation from
+   the ladder (`pbpLbLadder_`) and compares, so a legitimate config change can never present as a
+   test failure.
+
+Rule of thumb: an assertion should be recomputed from the same inputs the engine reads, never copied
+out of one workbook export.
+
+### The strongest gate shape: conservation
+
+Where a view is *derived* from another (the daily allocation from the window totals; the windowed
+7-day view from the daily allocation), the best gate is that the derivation collapses to identity
+under the right parameters. `_mock_7day.js` widens the window constants to days 1..33 and asserts
+the windowed functions reproduce `ECOGAINS_SIM`/`ECOGAINS_DIFF` bit-for-bit (~5e-12) across every
+segment × payer × category × resource. That single check makes it structurally impossible for the
+derived view to drift from its parent, and it keeps working when either side changes.
+
+### Checks that must stay green
 - **Gates** (plan §5): Bomb T≈0.86, Chuck 0.69, Red 1.30, Level 0.86, Flash 0.99, TaD 1.81, HH D=1,
   BB D 0.94, Jigsaw 0.86, Photoshoot 0.91, saga HC ratio 0.357 + item ratios, Daily Gift R 0.74@0-9,
   **Kite = measured × R × T (canary: must differ from measured)**.
@@ -1594,12 +1843,38 @@ and `eval` the `.gs` files. Checks that must stay green:
   daily sums still equal the 33-day RM row per resource.
 - **Collision resilience:** engine results identical when a foreign `{start,end,dur}` parser overrides
   `parseCalendarInstances_`.
+- **Namespace hygiene** (2026-08-03, `_mock_cards.js` + `_mock_7day.js`): regex the `.gs` sources and
+  assert no cross-file duplicate globals and exactly ONE `onOpen` in the project. Cheap, and it would
+  have caught both historical collisions before they reached the workbook.
+- **Pack gates** (D19): 19-wide spill; every pack column 0 until a ladder is authored; injecting a
+  pack into `J_v2` moves ONLY Jigsaw's matching pack column and equals `E_v2 × participation × reach`
+  exactly; injecting into `TE` moves Team Event's pack column while its other 13 resources stay
+  carried; NET blocks keep pack cells blank (not 0); PBP ledger 30 wide with the six pack columns.
+- **Card sim gates** (D19, `_mock_cards.js`): PackConfig block reader (labels, not row numbers);
+  count-proportional draw (no Gold at Qty 0); **rarity pity** — patch every tier to `[0,0,0,1.0]` and
+  assert every run of 3 consecutive misses is followed by the target, plus that the counter does not
+  carry between packs; chest rules (probability 0 → never, min-stars gate blocks, urgency ramp
+  buys); determinism under a fixed seed; segment sensitivity (100+/PAYER > 0-9/NONPAYER); A. 0 → 0
+  packs; input validation rejects the old archetype names.
+- **Windowed-view gates** (D20, `_mock_7day.js`): the conservation identity above; SIM_7 equals a
+  hand-rolled Σ of rows 6–13 of `ECOGAINS_DAILY(..., "NEW")`; windowed ≤ full everywhere; leaderboard
+  sources contribute iff an instance ENDS inside the window; DIFF_7 == SIM_7 − measured over the
+  same days.
 
 ---
 
 ## 11. Open work & standing flags
 
-1. **Night Sky: RE-WIRED but SHIPPED OFF** (`NS_SIMULATE = false`). OPEN: the model overestimates
+1. **Packs (D19):** every pack ladder cell is 0 until authored by hand — nothing is broken, but
+   nothing is measurable either. Once values land, re-check: (a) the `reach x participation_rate`
+   under-count, (b) `Team Event`/`Team Race`'s flat-rank-average pricing (no `data_event_inst`
+   rows), (c) the PACK PITY CONFIG semantics, which are an assumption the sheet never documented,
+   and (d) whether packs should ever acquire a spend model (today they are gains-only and blank in
+   every NET block).
+2. **Season Pass tier-30 cap:** `40-99` and `100+` exceed the ladder on BOTH sides, so their
+   Season Pass row cannot respond to an SPT change at all. `_mock_run.js` reports which segments
+   are cap-masked; the underlying question is the Core SPT `L` calibration (D18).
+3. **Night Sky: RE-WIRED but SHIPPED OFF** (`NS_SIMULATE = false`). OPEN: the model overestimates
    actual NS gains even without config changes (cause not investigated — candidates: the N=1.25
    factor, the every-milestone-daily assumption, the linear tail). Also: N uniform across
    segments/payers; tail past p90 as-is; A/B-arm telemetry unused for validation.

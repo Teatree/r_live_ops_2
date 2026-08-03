@@ -273,7 +273,8 @@ const range = (r0, r1, c) => Array.from({length: r1 - r0 + 1}, (_, i) => [r0 + i
 // Data-aware by design: tiers/ratios are recomputed through the engine's own functions, never
 // hardcoded (40-99 NONPAYER sits only ~1.65 pts above a tier edge — a re-pull could move it).
 console.log('\n================ SPT GATES ================');
-gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && RESOURCES.length === 13,
+gate('spill width == 19 resources (13 + 6 pack tiers, D19)',
+     baseline[0].length === RESOURCES.length && RESOURCES.length === 19,
      'got ' + baseline[0].length);
 
 // SPT-1: SPT flows through the leaderboard machinery — Kite SPT == measured x R_SPT x T, with
@@ -292,27 +293,63 @@ gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && R
        `sim ${simK.toFixed(2)} vs meas ${measK.toFixed(2)} (R_SPT=${rK.toFixed(3)}, T=${tK.toFixed(2)})`);
 }
 
-// SPT-2: Season Pass tier coupling with SP_v2 / SP_lb_v2 ABSENT (fallback path — the dump has
-// no v2 sheets until the user duplicates them). Verifies the per-resource identity:
+// SPT-2: Season Pass tier coupling. Verifies the per-resource identity:
 // anchored -> measured x cum(Ts)/cum(Tm) x T_cal; no anchor + no tier gain -> carried.
+//
+// REFRESHED 2026-08-03. These gates were written when the dump had NO _v2 sheets and asserted the
+// fallback path; workbook (13) ships real SP_v2 / SP_lb_v2, so they asserted the opposite of
+// reality and had been red (documented as "stale, deferred") ever since. Two changes:
+//   1. presence is asserted, and the FALLBACK path is exercised by temporarily removing the
+//      sheets (snapshot-and-restore) instead of relying on them being missing;
+//   2. the tier gates moved off '40-99' — that segment's SPT total exceeds the 30-tier ladder on
+//      BOTH sides, so Tm == Ts == 30 (cap) and no tier movement is possible there. That cap is a
+//      real open modeling question, so it now gets its own REPORTING gate rather than silently
+//      breaking the mechanism gates.
+const SP_SEG = '10-19';        // headroom on both sides (Tm 23 -> Ts 18) — see the cap gate below
 {
   const c2 = Context.get();
-  gate('SP_v2/SP_lb_v2 absent -> engine falls back to base sheets',
-       spV2Sheet_('SP') === 'SP' && spV2Sheet_('SP_lb') === 'SP_lb');
-  const t = sptTotals_('40-99', 'NONPAYER', c2);
+  gate('SP_v2 / SP_lb_v2 present -> engine prices the redesigned track',
+       spV2Sheet_('SP') === 'SP_v2' && spV2Sheet_('SP_lb') === 'SP_lb_v2',
+       `${spV2Sheet_('SP')} / ${spV2Sheet_('SP_lb')}`);
+  {   // fallback path: with the v2 sheets gone the base sheets must serve both sides (ratios 1)
+    const s1 = data['SP_v2'], s2 = data['SP_lb_v2'];
+    delete data['SP_v2']; delete data['SP_lb_v2'];
+    eval(engineSrc); resetSheetCache();
+    const ok = spV2Sheet_('SP') === 'SP' && spV2Sheet_('SP_lb') === 'SP_lb';
+    if (s1) data['SP_v2'] = s1;
+    if (s2) data['SP_lb_v2'] = s2;
+    eval(engineSrc); resetSheetCache();
+    gate('SP_v2 / SP_lb_v2 removed -> engine falls back to the base sheets', ok);
+    gate('SP fallback mutation restored (baseline reproduces)',
+         CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) =>
+           Math.abs(ECOGAINS_SIM('NONPAYER', '40-99')[i][j] - baseline[i][j]) < 1e-12)));
+  }
+  const c2b = Context.get();
+  const t = sptTotals_(SP_SEG, 'NONPAYER', c2b);
   gate('SPT totals: simulated < measured (RR removal + Ki_v2 cut + T factors)',
        t.meas > 100 && t.sim < t.meas - 50, `meas ${t.meas.toFixed(2)} sim ${t.sim.toFixed(2)}`);
-  const track = readSPTrack_('SP');
-  const Tm = spTier_(t.meas, track.cum), Ts = spTier_(t.sim, track.cum);   // seasonDays=33 default
-  gate('tier reached drops with the SPT loss (Ts < Tm)', Tm > 0 && Ts < Tm, `Tm ${Tm} -> Ts ${Ts}`);
-  const cb = spCumTo_(track, Tm, 'NONPAYER'), cs = spCumTo_(track, Ts, 'NONPAYER');
-  const tSP = timingRatio_(c2.calCur['Season Pass'] || [], c2.calNew['Season Pass'] || [], '40-99', 'NONPAYER', c2.ds);
-  const spRow = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Season Pass (Free)')];
-  const measRow = measuredRow_('Season Pass (Free)', '40-99', 'NONPAYER', c2.ds);
+  const base = readSPTrack_('SP'), v2t = readSPTrack_(spV2Sheet_('SP'));
+  const dB = readSPSeasonDays_('SP') || 33;
+  const dV = (spV2Sheet_('SP') !== 'SP' && readSPSeasonDays_(spV2Sheet_('SP'))) || dB;
+  const Tm = spTier_(t.meas * dB / 33, base.cum), Ts = spTier_(t.sim * dV / 33, v2t.cum);
+  gate(`tier reached drops with the SPT loss (Ts < Tm) [${SP_SEG}]`, Tm > 0 && Ts < Tm,
+       `Tm ${Tm} -> Ts ${Ts}`);
+  const cb = spCumTo_(base, Tm, 'NONPAYER'), cs = spCumTo_(v2t, Ts, 'NONPAYER');
+  const Rlb = spChallengeR_();
+  const tSP = timingRatio_(c2b.calCur['Season Pass'] || [], c2b.calNew['Season Pass'] || [], SP_SEG, 'NONPAYER', c2b.ds);
+  const spRow = ECOGAINS_SIM('NONPAYER', SP_SEG)[idx('Season Pass (Free)')];
+  const measRow = measuredRow_('Season Pass (Free)', SP_SEG, 'NONPAYER', c2b.ds);
   let maxE = 0; const scaled = [];
   RESOURCES.forEach((r, j) => {
+    if (isPackRes_(r)) return;               // packs take the bottom-up lane, not this identity
     const m = num(measRow[r]);
-    const expected = (m > 0 && num(cb[r]) > 0) ? m * (num(cs[r]) / num(cb[r])) * tSP : m;
+    let expected;
+    if (m > 0 && num(cb[r]) > 0) expected = m * (num(cs[r]) / num(cb[r])) * ((Rlb[r] != null) ? Rlb[r] : 1) * tSP;
+    else if (Ts > Tm) {
+      let add = 0;
+      for (let i = Tm; i < Ts; i++) add += num(v2t.free[i] && v2t.free[i][r]);
+      expected = m + add;
+    } else expected = m;
     maxE = Math.max(maxE, Math.abs(spRow[j] - expected));
     if (m > 0 && Math.abs(expected - m) > 1e-9) scaled.push(`${r} x${(expected / m).toFixed(3)}`);
   });
@@ -323,12 +360,28 @@ gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && R
   gate("Season Pass row's own SPT carried (track pays no SPT; no-anchor + no tier gain -> carry)",
        Math.abs(spRow[iSPT] - num(measRow['SPT'])) < 1e-9,
        `sim ${spRow[iSPT].toFixed(2)} == meas ${num(measRow['SPT']).toFixed(2)}`);
+
+  // OPEN QUESTION (reported, not asserted): the SP ladder tops out at 30 tiers, so heavy segments
+  // sit at the cap on BOTH sides and their Season Pass row cannot respond to an SPT change at all.
+  // If this list ever covers every segment, the tier coupling has gone completely inert.
+  const capped = [];
+  for (const s of ['0-9', '10-19', '20-39', '40-99', '100+'])
+    for (const p of ['NONPAYER', 'PAYER']) {
+      const tt = sptTotals_(s, p, c2b);
+      const a = spTier_(tt.meas * dB / 33, base.cum), b = spTier_(tt.sim * dV / 33, v2t.cum);
+      if (a === base.cum.length && b === v2t.cum.length) capped.push(`${s}/${p}`);
+    }
+  gate(`tier-30 cap does not mask EVERY segment (open flag: L calibration)`,
+       capped.length < 10, `cap-masked: ${capped.join(', ') || '(none)'}`);
 }
 
 // SPT-3: synthetic SP_v2 with the Cumul ladder halved -> tiers RISE: anchored resources scale
 // UP (cum ratio > 1) and the no-anchor ADDITIVE path fires for resources the track pays inside
 // the newly unlocked tiers but measured never saw. Restores + re-checks baseline after.
 {
+  // (13)+: SP_v2 may already exist in the dump — save it and RESTORE it (deleting it would
+  // poison every later gate: spV2Sheet_ falls back to SP and R degrades to 1).
+  const origSP_v2 = data['SP_v2'] ? JSON.parse(JSON.stringify(data['SP_v2'])) : null;
   const clone = JSON.parse(JSON.stringify(data['SP']));
   for (let r = 4; r < clone.values.length; r++) {              // 0-based rows 4.. = tier rows 5..
     const v = +clone.values[r][2];
@@ -337,12 +390,13 @@ gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && R
   data['SP_v2'] = clone;
   eval(engineSrc); resetSheetCache();
   const c3 = Context.get();
-  const t = sptTotals_('40-99', 'NONPAYER', c3);
+  const t = sptTotals_(SP_SEG, 'NONPAYER', c3);
   const base = readSPTrack_('SP'), v2 = readSPTrack_('SP_v2');
-  const Tm = spTier_(t.meas, base.cum), Ts = spTier_(t.sim, v2.cum);
-  const row = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Season Pass (Free)')];
-  const measRow = measuredRow_('Season Pass (Free)', '40-99', 'NONPAYER', c3.ds);
-  gate('SP_v2 Cumul x0.5 -> tier rises (Ts > Tm)', Ts > Tm, `Tm ${Tm} -> Ts ${Ts}`);
+  const dB = readSPSeasonDays_('SP') || 33, dV = readSPSeasonDays_('SP_v2') || dB;
+  const Tm = spTier_(t.meas * dB / 33, base.cum), Ts = spTier_(t.sim * dV / 33, v2.cum);
+  const row = ECOGAINS_SIM('NONPAYER', SP_SEG)[idx('Season Pass (Free)')];
+  const measRow = measuredRow_('Season Pass (Free)', SP_SEG, 'NONPAYER', c3.ds);
+  gate(`SP_v2 Cumul x0.5 -> tier rises (Ts > Tm) [${SP_SEG}]`, Ts > Tm, `Tm ${Tm} -> Ts ${Ts}`);
   // any no-anchor resource paid in (Tm, Ts] must now be > measured (additive path)
   let additive = null;
   for (const r of RESOURCES) {
@@ -354,7 +408,7 @@ gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && R
   gate('no-anchor additive path pays newly unlocked tier rewards',
        additive === null || Math.abs(additive.got - additive.add) < 1e-9,
        additive ? `${additive.res}: +${additive.add.toFixed(2)} got ${additive.got.toFixed(2)}` : '(no additive-eligible resource in the gap — skipped)');
-  delete data['SP_v2'];
+  if (origSP_v2) data['SP_v2'] = origSP_v2; else delete data['SP_v2'];
   eval(engineSrc); resetSheetCache();
   const again = ECOGAINS_SIM('NONPAYER', '40-99');
   gate('SP_v2 mutation restored (baseline reproduces)',
@@ -362,51 +416,78 @@ gate('spill width == 13 resources', baseline[0].length === RESOURCES.length && R
 }
 // ---------- Core SPT gates (D17: level-completion tokens priced off the SP / SP_v2 panel) -----
 console.log('\n================ CORE SPT GATES ================');
-// Baseline: SP_v2 == SP (panel present-but-unedited, or absent) -> R=1 -> Core carried.
+// D18 model: data_gains has no Core SPT rows -> the anchor is SYNTHETIC (L x E_base) and the
+// sim side is L x E_v2 = meas x R. E is the difficulty-mix per-level SPT AVERAGED over the two
+// season-half columns of the SP / SP_v2 panel. All expectations recomputed via engine fns +
+// independent sheet reads — never hardcoded.
 {
   const c = Context.get();
-  const R0 = coreSptR_(c);
   const iSPT = RESOURCES.indexOf('SPT');
+  const rawCore = c.ds.gains('40-99', 'NONPAYER', 'Core', 'SPT');
   const measCore = num(measuredRow_('Core', '40-99', 'NONPAYER', c.ds)['SPT']);
   const coreSPT = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Core')][iSPT];
-  gate('SP_v2 == SP -> Core SPT R=1 (carried)', Math.abs(R0 - 1) < 1e-12, `R=${R0}`);
-  gate('Core SPT sim == measured at baseline', Math.abs(coreSPT - measCore) < 1e-9,
-       `sim ${coreSPT.toFixed(2)} == meas ${measCore.toFixed(2)}`);
-}
-// Synthetic edit: force SP's panel to 10/20/30 + mix and SP_v2's Normal to 15 (edit the existing
-// panel IN PLACE, or append the pair if the export has no panel — robust either way). Expect
-// R = E_v2/E_base, Core SPT scales, and the Season Pass tier coupling lifts off the extra SPT
-// (Core is ~92% of the SPT faucet).
-{
-  const origSP    = JSON.parse(JSON.stringify(data['SP']));
-  const origSP_v2 = data['SP_v2'] ? JSON.parse(JSON.stringify(data['SP_v2'])) : null;
-  const setLabel = (sh, label, val) => {                          // first exact match -> set neighbour; else append
-    for (const row of sh.values) for (let c = 0; c < row.length; c++)
-      if (String(row[c]).trim().toLowerCase() === label.toLowerCase()) { row[c + 1] = val; return; }
-    sh.values.push([label, val]);
+  const R = coreSptR_(c);
+  // independent E recompute straight off the sheet values (label row -> [2nd half, 1st half])
+  const panelE = (sheet) => {
+    const mix = { 'Normal': null, 'Hard': null, 'Extreme': null };
+    let E = 0;
+    for (const d of Object.keys(mix)) {
+      let rew = null, pct = null;
+      for (const row of data[sheet].values) for (let k = 0; k < row.length; k++) {
+        const cell = String(row[k]).trim();
+        if (cell === d) rew = [num(row[k + 1]), (row[k + 2] == null || row[k + 2] === '') ? null : num(row[k + 2])];
+        if (cell === d + ' (%)') pct = num(row[k + 1]);
+      }
+      if (!rew) return 0;
+      E += (pct != null ? pct : { 'Normal': 0.55, 'Hard': 0.30, 'Extreme': 0.15 }[d])
+           * (rew[1] != null ? (rew[0] + rew[1]) / 2 : rew[0]);
+    }
+    return E;
   };
-  const withPanel = (normal) => { const cl = JSON.parse(JSON.stringify(origSP));
-    setLabel(cl, 'Normal', normal); setLabel(cl, 'Hard', 20); setLabel(cl, 'Extreme', 30);
-    setLabel(cl, 'Normal (%)', 0.55); setLabel(cl, 'Hard (%)', 0.30); setLabel(cl, 'Extreme (%)', 0.15);
-    return cl; };
-  data['SP']    = withPanel(10);
-  data['SP_v2'] = withPanel(15);                                                  // Normal bumped 10 -> 15
+  const eBase = panelE('SP'), eV2 = panelE(spV2Sheet_('SP'));
+  gate('Core SPT E halves-averaged (engine == independent panel read)',
+       eBase > 0 && Math.abs(coreSptE_('SP', coreSptMix_('SP')) - eBase) < 1e-9,
+       `E_base ${eBase.toFixed(2)}, E_v2 ${eV2.toFixed(2)}`);
+  // independent L recompute: levels/active-day x Σ p_day over the 33-day window
+  const beh = c.ds.beh('40-99', 'NONPAYER');
+  let expDays = 0;
+  for (let d = 1; d <= 33; d++) expDays += isWeekend_(d) ? num(beh.weekend_active_rate) : num(beh.weekday_active_rate);
+  const Lexp = num(beh.levels_completed_per_active_day) * expDays;
+  gate('Core SPT anchor synthetic: raw data 0, meas = L x E_base',
+       rawCore === 0 && measCore > 0 && Math.abs(measCore - Lexp * eBase) < 1e-6,
+       `raw ${rawCore} · meas ${measCore.toFixed(2)} vs L ${Lexp.toFixed(1)} x E ${eBase.toFixed(2)}`);
+  gate('Core SPT sim = meas x R (= L x E_v2)',
+       Math.abs(coreSPT - measCore * R) < 1e-6 && Math.abs(coreSPT - Lexp * eV2) < 1e-6,
+       `sim ${coreSPT.toFixed(2)} vs ${(measCore * R).toFixed(2)} (R=${R.toFixed(3)})`);
+  // both sides of the tier coupling must include the synthetic Core faucet
+  const t = sptTotals_('40-99', 'NONPAYER', Context.get());
+  let rawMeasTotal = 0;
+  CATEGORY_ORDER.forEach((cat) => {
+    rawMeasTotal += c.ds.gains('40-99', 'NONPAYER', cat, 'SPT') + 2 * c.ds.gains('40-99', 'NONPAYER', cat, 'SPTx2');
+  });
+  gate('sptTotals_ measured side includes synthetic Core (raw total + L x E_base)',
+       Math.abs(t.meas - (rawMeasTotal + Lexp * eBase)) < 1e-6,
+       `meas ${t.meas.toFixed(2)} vs raw ${rawMeasTotal.toFixed(2)} + ${(Lexp * eBase).toFixed(2)}`);
+}
+// Real-data precedence: inject a data_gains Core SPT row -> the synthetic anchor must stand
+// down (measuredRow_ returns the raw value; sim = raw x R; no double count).
+{
+  const orig = JSON.parse(JSON.stringify(data['data_gains']));
+  const hdr = data['data_gains'].values[0];
+  const col = (n) => hdr.indexOf(n);
+  const inj = new Array(hdr.length).fill('');
+  inj[col('engagement_segment')] = 'E. 40-99'; inj[col('payer_flag')] = 'NONPAYER';
+  inj[col('resource')] = 'SPT'; inj[col('category')] = 'Core'; inj[col('amount_per_earner')] = 123.45;
+  data['data_gains'].values.push(inj);
   eval(engineSrc); resetSheetCache();
   const c = Context.get(), iSPT = RESOURCES.indexOf('SPT');
-  const eBase = 0.55 * 10 + 0.30 * 20 + 0.15 * 30, eV2 = 0.55 * 15 + 0.30 * 20 + 0.15 * 30;
-  const Rexp = eV2 / eBase, R = coreSptR_(c);
-  gate('Core SPT R = E_v2/E_base (Normal 10->15)', Math.abs(R - Rexp) < 1e-9, `R ${R.toFixed(4)} vs ${Rexp.toFixed(4)}`);
   const measCore = num(measuredRow_('Core', '40-99', 'NONPAYER', c.ds)['SPT']);
   const coreSPT = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Core')][iSPT];
-  gate('Core SPT sim = measured x R', Math.abs(coreSPT - measCore * Rexp) < 1e-6,
-       `sim ${coreSPT.toFixed(2)} vs ${(measCore * Rexp).toFixed(2)}`);
-  const spRow = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Season Pass (Free)')];
-  const measSP = measuredRow_('Season Pass (Free)', '40-99', 'NONPAYER', c.ds);
-  let moved = false;
-  RESOURCES.forEach((r, j) => { if (num(measSP[r]) > 0 && Math.abs(spRow[j] - num(measSP[r])) > 1e-9) moved = true; });
-  gate('Season Pass row moves off the Core SPT bump (tier coupling live)', moved);
-  data['SP'] = origSP;
-  if (origSP_v2) data['SP_v2'] = origSP_v2; else delete data['SP_v2'];
+  const R = coreSptR_(c);
+  gate('real Core SPT data present -> synthetic stands down (meas = raw, sim = raw x R)',
+       Math.abs(measCore - 123.45) < 1e-9 && Math.abs(coreSPT - 123.45 * R) < 1e-6,
+       `meas ${measCore.toFixed(2)}, sim ${coreSPT.toFixed(2)}, R ${R.toFixed(3)}`);
+  data['data_gains'] = orig;
   eval(engineSrc); resetSheetCache();
   const again = ECOGAINS_SIM('NONPAYER', '40-99');
   gate('Core SPT mutation restored (baseline reproduces)',
@@ -414,59 +495,75 @@ console.log('\n================ CORE SPT GATES ================');
 }
 // ---------- Rainbow Maker split-config gates (2026-07-10 hardcode: RM_1st x3 / RM_2nd x2) ----
 console.log('\n================ RM SPLIT GATES ================');
-// Fallback path first: with RM_1st/RM_2nd absent from the dump, every instance must read 'RM'
-// and reproduce the pre-split simRainbowMaker exactly (== the baseline row).
+// REFRESHED 2026-08-03: workbook (13) DELETED the base 'RM' sheet and ships real RM_1st / RM_2nd
+// ladders, so the old "RM_1st/RM_2nd absent -> fall back to RM" gate asserted the opposite of
+// reality and had been red (documented as stale). Now: assert the real split, exercise the
+// fallback by temporarily REMOVING the split sheets, and drive the SPTx2 placement gate off
+// whichever ladder actually exists.
 {
-  gate('RM_1st/RM_2nd absent -> all instances fall back to RM',
-       rmConfigFor_(0).sheet === 'RM' && rmConfigFor_(4).sheet === 'RM');
+  gate('RM split live: instances #1-#3 read RM_1st, #4-#5 read RM_2nd',
+       [0, 1, 2].every(i => rmConfigFor_(i).sheet === 'RM_1st') &&
+       [3, 4].every(i => rmConfigFor_(i).sheet === 'RM_2nd'),
+       [0, 1, 2, 3, 4].map(i => rmConfigFor_(i).sheet).join(','));
   const parts = rmInstanceRows_('40-99', 'NONPAYER', Context.get());
   const sum = parts.reduce((s, p) => s + num(p.row['HC']), 0);
-  gate('per-instance rows sum to the RM row (fallback)',
+  gate('per-instance rows sum to the 33-day RM row',
        Math.abs(sum - baseline[idx('Rainbow Maker')][0]) < 1e-9,
        `${sum.toFixed(2)} vs ${baseline[idx('Rainbow Maker')][0].toFixed(2)}`);
-}
-// Synthetic split: RM_1st = clone of RM; RM_2nd = clone with 'SPT x2' = 2 on every milestone.
-// Expect: SPTx2 flows ONLY from the last two start-sorted instances; HC identical to baseline.
-if (!data['RM']) {
-  gate('RM split synthetic (RM sheet absent in this workbook -> skipped)', true);
-} else {
-  const findLadder = (sh) => {
-    for (let r = 0; r < sh.values.length; r++) {
-      const row = sh.values[r].map(x => String(x).trim());
-      const req = row.indexOf('Req Accum'), x2 = row.indexOf('SPT x2');
-      if (req >= 0 && x2 >= 0) return { hdr: r, x2 };
-    }
-    return null;
-  };
-  const rm2 = JSON.parse(JSON.stringify(data['RM']));
-  const lad = findLadder(rm2);
-  let msRows = 0;
-  for (let r = lad.hdr + 1; r < rm2.values.length; r++) {
-    const first = rm2.values[r][0];
-    if (first === '' || first == null || isNaN(parseFloat(first))) break;
-    rm2.values[r][lad.x2] = 2;
-    msRows++;
-  }
-  data['RM_1st'] = JSON.parse(JSON.stringify(data['RM']));
-  data['RM_2nd'] = rm2;
-  eval(engineSrc); resetSheetCache();
-  const iX2 = RESOURCES.indexOf('SPTx2');
-  const parts = rmInstanceRows_('40-99', 'NONPAYER', Context.get());
-  const firstX2 = parts.slice(0, 3).reduce((s, p) => s + num(p.row['SPTx2']), 0);
-  const lastX2 = parts.slice(3).reduce((s, p) => s + num(p.row['SPTx2']), 0);
-  const row = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Rainbow Maker')];
-  gate(`RM split: SPTx2 only from instances #4-#5 (${msRows} milestones injected)`,
-       parts.length === 5 && firstX2 < 1e-12 && lastX2 > 0 &&
-       Math.abs(row[iX2] - lastX2) < 1e-9,
-       `first3 ${firstX2.toFixed(3)} · last2 ${lastX2.toFixed(3)} · row ${row[iX2].toFixed(3)}`);
-  gate('RM split: HC unchanged (both configs share the HC ladder)',
-       Math.abs(row[0] - baseline[idx('Rainbow Maker')][0]) < 1e-9,
-       `${row[0].toFixed(2)} vs ${baseline[idx('Rainbow Maker')][0].toFixed(2)}`);
+  const s1 = data['RM_1st'], s2 = data['RM_2nd'];
   delete data['RM_1st']; delete data['RM_2nd'];
   eval(engineSrc); resetSheetCache();
-  const again = ECOGAINS_SIM('NONPAYER', '40-99');
-  gate('RM split mutation restored (baseline reproduces)',
-       CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
+  const fellBack = [0, 4].every(i => rmConfigFor_(i).sheet === 'RM');
+  if (s1) data['RM_1st'] = s1;
+  if (s2) data['RM_2nd'] = s2;
+  eval(engineSrc); resetSheetCache();
+  gate('RM_1st/RM_2nd removed -> every instance falls back to RM', fellBack);
+}
+// SPTx2 placement: clone whichever split ladder exists, force SPT x2 = 0 on the 1st-half config
+// and 2 on the 2nd-half one, then assert SPTx2 flows ONLY from the last two start-sorted
+// instances. Snapshot-and-restore — never bake workbook state into the assertion.
+{
+  const baseName = data['RM_1st'] ? 'RM_1st' : (data['RM_2nd'] ? 'RM_2nd' : (data['RM'] ? 'RM' : null));
+  if (!baseName) {
+    gate('RM split SPTx2 placement (no RM ladder sheet in this dump -> skipped)', true);
+  } else {
+    const setX2 = (sh, val) => {
+      let hdr = -1, x2 = -1;
+      for (let r = 0; r < sh.values.length; r++) {
+        const row = sh.values[r].map(x => String(x).trim());
+        if (row.indexOf('Req Accum') >= 0 && row.indexOf('SPT x2') >= 0) { hdr = r; x2 = row.indexOf('SPT x2'); break; }
+      }
+      if (hdr < 0) return 0;
+      let n = 0;
+      for (let r = hdr + 1; r < sh.values.length; r++) {
+        const first = sh.values[r][0];
+        if (first === '' || first == null || isNaN(parseFloat(first))) break;
+        sh.values[r][x2] = val; n++;
+      }
+      return n;
+    };
+    const stash1 = data['RM_1st'], stash2 = data['RM_2nd'];
+    const clone = (n) => JSON.parse(JSON.stringify(data[n] || data[baseName]));
+    const first = clone('RM_1st'), second = clone('RM_2nd');
+    setX2(first, 0);
+    const msRows = setX2(second, 2);
+    data['RM_1st'] = first; data['RM_2nd'] = second;
+    eval(engineSrc); resetSheetCache();
+    const iX2 = RESOURCES.indexOf('SPTx2');
+    const parts = rmInstanceRows_('40-99', 'NONPAYER', Context.get());
+    const firstX2 = parts.slice(0, 3).reduce((s, p) => s + num(p.row['SPTx2']), 0);
+    const lastX2 = parts.slice(3).reduce((s, p) => s + num(p.row['SPTx2']), 0);
+    const row = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Rainbow Maker')];
+    gate(`RM split: SPTx2 only from instances #4-#5 (${msRows} milestones injected)`,
+         parts.length === 5 && firstX2 < 1e-12 && lastX2 > 0 && Math.abs(row[iX2] - lastX2) < 1e-9,
+         `first3 ${firstX2.toFixed(3)} · last2 ${lastX2.toFixed(3)} · row ${row[iX2].toFixed(3)}`);
+    if (stash1 !== undefined) data['RM_1st'] = stash1; else delete data['RM_1st'];
+    if (stash2 !== undefined) data['RM_2nd'] = stash2; else delete data['RM_2nd'];
+    eval(engineSrc); resetSheetCache();
+    const again = ECOGAINS_SIM('NONPAYER', '40-99');
+    gate('RM split mutation restored (baseline reproduces)',
+         CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
+  }
 }
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
 process.exit(failures ? 1 : 0);
