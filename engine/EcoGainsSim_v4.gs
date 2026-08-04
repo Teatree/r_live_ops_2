@@ -700,7 +700,7 @@ var NS_STREAK_N = 1.25;   // effective-streak factor from the standalone NS Exce
 //   false (default) -> NS is CARRIED (= measured from data_gains, diff 0) in the 33-day and
 //                      daily views, and the PBP sim skips NS milestone claims.
 //   true            -> NS is simulated bottom-up (survival x N model above) in all three views.
-var NS_SIMULATE = false;
+var NS_SIMULATE = true;
 function simNightSky(seg, payer, ctx){
   var ds = ctx.ds, meas = measuredRow_('Daily Night Sky Prize', seg, payer, ds);
   if (!NS_SIMULATE) return meas;                         // flag off -> carried (see switch above)

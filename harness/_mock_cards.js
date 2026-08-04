@@ -319,8 +319,12 @@ let firstRun = null;
   console.log('  drawn rarity mix:', JSON.stringify(mix), 'of', totalDrawn);
   console.log('  snap pool shares:', JSON.stringify(
     Object.fromEntries(Object.entries(cfg.qtyByRarity).map(([k, v]) => [k, f2(v / poolTotal)]))));
-  check('no Gold cards drawn (snap pool Qty = 0 -> probability 0)',
-    !mix['Gold'], 'gold ' + (mix['Gold'] || 0));
+  // Data-aware: Gold shipped at Qty 0 through workbook (13) and is stocked (41) from (14) on.
+  // Assert the POOL RULE ("a rarity is drawable iff it has copies"), not the old workbook state.
+  const goldQty = cfg.qtyByRarity['Gold'] || 0;
+  check('Gold cards drawn iff the snap pool stocks them',
+    goldQty > 0 ? (mix['Gold'] || 0) > 0 : !mix['Gold'],
+    `pool qty ${goldQty}, drawn ${mix['Gold'] || 0}`);
   check('1★ is the most-drawn rarity (largest pool share)',
     totalDrawn === 0 || Object.keys(mix).every(k => k === '1★' || mix['1★'] >= mix[k]),
     JSON.stringify(mix));
@@ -364,6 +368,14 @@ let firstRun = null;
   SimulatePackOpenings();
 
   const rarityOfCard = (s) => { const m = String(s).match(/(\d★|Gold)$/); return m ? m[1] : null; };
+  // PityForceHighestRarity targets "the highest rarity that STILL has copies" — which rarity that
+  // is depends on the snap pool, not on a constant: it was 5★ while Gold shipped at Qty 0, and is
+  // Gold from workbook (14) on. Derive it, and since the pool depletes mid-run (the target can
+  // fall back one step), accept the top two stocked rarities.
+  const RARITY_ORDER = ['1★', '2★', '3★', '4★', '5★', 'Gold'];
+  const stocked = RARITY_ORDER.filter(r => (cfg.qtyByRarity[r] || 0) > 0);
+  const acceptable = new Set(stocked.slice(-2));
+  console.log('  pity target rarities (top stocked):', [...acceptable].join('/'));
   let packs = 0, violations = 0, guaranteedHits = 0, streak = 0;
   for (let r = 56; r < data['SimOutput'].values.length; r++) {
     const row = data['SimOutput'].values[r];
@@ -375,9 +387,9 @@ let firstRun = null;
       const rar = rarityOfCard(card);
       if (!rar) continue;
       if (streak >= 3) {                          // probs[3] == 1.0 -> this pull MUST be the target
-        if (rar === '5★') guaranteedHits++; else violations++;
+        if (acceptable.has(rar)) guaranteedHits++; else violations++;
       }
-      streak = (rar === '5★') ? 0 : streak + 1;
+      streak = acceptable.has(rar) ? 0 : streak + 1;
     }
   }
   console.log(`  ${packs} packs scanned · ${guaranteedHits} guaranteed pulls honoured`);

@@ -1,0 +1,479 @@
+{
+  "_doc": [
+    "Pack reward ladder specification (D21). SINGLE SOURCE OF TRUTH — read by",
+    "harness/_solve_packs.js (calibration) and builders/_build_packrewards.py (xlsx emit).",
+    "",
+    "Each block is one reward ladder the engine actually reads. Row indices are 0-BASED into",
+    "sheetVals_() and match LB_R_SPECS / COLL_R_SPECS / PACK_ONLY_SPECS in EcoGainsSim_v4.gs.",
+    "colBase = column index of the '1-star Dly' column for THAT block (star N -> colBase+N-1);",
+    "given explicitly because SP_v2 carries two full reward blocks (Free track at 17, Paid at 37)",
+    "and a header-name lookup would silently bind to the wrong one.",
+    "",
+    "dir: 'rank'      -> the GOOD end of the ladder is r0 (rank 1 is best)",
+    "     'milestone' -> the GOOD end is r1 (highest milestone = most play)",
+    "",
+    "tiers: {'<star>': {frac, every}} -> take the first ceil(frac * nRows) rows from the GOOD end,",
+    "then keep every 'every'-th of those (default 1). Value written is ALWAYS 1 — the",
+    "'one pack per star per ladder row' rule. Tiers accumulate going up by construction: a",
+    "broader frac reaches further down the ladder, so better play collects strictly more tiers.",
+    "",
+    "WHITELIST (user table, 2026-08-04): 1*/2* only on Season Pass Free, Photoshoot, Jigsaw,",
+    "Hatchling Hideaway, Bomb's Ballet, Rainbow Maker. 3*/4* on Red, Chuck, Bomb, Flash Race,",
+    "Flock Flurry, Kite Festival, Target Day, Rainbow Maker, Night Sky (+Team Event on 4*).",
+    "5* on Season Pass Paid, Team Event, Rainbow Maker. 6*/Gold: no source, stays 0 everywhere.",
+    "Team Race dropped (no config sheet). Level Race deliberately absent though it shares Race_v2.",
+    "tiers may instead give an explicit 'rows' list (0-based sheet rows) for an authored ramp with uneven spacing; 'scale' does not apply to those.",
+    "tiers may set from='low' to anchor sampling at the ENTRY end of the ladder (used for 1-star, so low-progress players earn the entry tier)."
+  ],
+  "scale": 0.65,
+  "blocks": [
+    {
+      "id": "Season Pass Free",
+      "sheet": "SP_v2",
+      "hdr": 13,
+      "r0": 14,
+      "r1": 43,
+      "dir": "milestone",
+      "colBase": 17,
+      "tiers": {
+        "1": {
+          "frac": 1.0,
+          "every": 7,
+          "from": "low"
+        },
+        "2": {
+          "frac": 0.5,
+          "every": 6
+        }
+      }
+    },
+    {
+      "id": "Season Pass Paid",
+      "sheet": "SP_v2",
+      "hdr": 13,
+      "r0": 14,
+      "r1": 43,
+      "dir": "milestone",
+      "colBase": 37,
+      "tiers": {
+        "5": {
+          "rows": [
+            24,
+            27,
+            29,
+            31,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        }
+      }
+    },
+    {
+      "id": "Photoshoot",
+      "sheet": "Ph_v2",
+      "hdr": 23,
+      "r0": 24,
+      "r1": 53,
+      "dir": "milestone",
+      "colBase": 22,
+      "tiers": {
+        "1": {
+          "frac": 1.0,
+          "every": 6,
+          "from": "low"
+        },
+        "2": {
+          "frac": 0.4,
+          "every": 4
+        }
+      }
+    },
+    {
+      "id": "Jigsaw",
+      "sheet": "J_v2",
+      "hdr": 9,
+      "r0": 10,
+      "r1": 21,
+      "dir": "milestone",
+      "colBase": 17,
+      "tiers": {
+        "1": {
+          "frac": 1.0,
+          "every": 4,
+          "from": "low"
+        },
+        "2": {
+          "frac": 0.5,
+          "every": 2
+        }
+      }
+    },
+    {
+      "id": "Hatchling Hideaway",
+      "sheet": "HH_v2",
+      "hdr": 10,
+      "r0": 11,
+      "r1": 15,
+      "dir": "milestone",
+      "colBase": 16,
+      "tiers": {
+        "1": {
+          "frac": 1.0,
+          "every": 3,
+          "from": "low"
+        },
+        "2": {
+          "frac": 0.6
+        }
+      }
+    },
+    {
+      "id": "Bomb's Ballet",
+      "sheet": "BB_v2",
+      "hdr": 7,
+      "r0": 8,
+      "r1": 23,
+      "dir": "milestone",
+      "colBase": 17,
+      "tiers": {
+        "1": {
+          "frac": 1.0,
+          "every": 5,
+          "from": "low"
+        },
+        "2": {
+          "frac": 0.5,
+          "every": 3
+        }
+      }
+    },
+    {
+      "id": "Rainbow Maker (1st)",
+      "sheet": "RM_1st",
+      "hdr": 14,
+      "r0": 15,
+      "r1": 44,
+      "dir": "milestone",
+      "colBase": 19,
+      "tiers": {
+        "1": {
+          "frac": 1.0,
+          "every": 12,
+          "from": "low"
+        },
+        "2": {
+          "frac": 0.5,
+          "every": 5
+        },
+        "3": {
+          "frac": 0.5,
+          "every": 3
+        },
+        "4": {
+          "frac": 0.35,
+          "every": 3
+        },
+        "5": {
+          "frac": 0.2,
+          "every": 2
+        }
+      }
+    },
+    {
+      "id": "Rainbow Maker (2nd)",
+      "sheet": "RM_2nd",
+      "hdr": 14,
+      "r0": 15,
+      "r1": 44,
+      "dir": "milestone",
+      "colBase": 19,
+      "tiers": {
+        "1": {
+          "frac": 1.0,
+          "every": 12,
+          "from": "low"
+        },
+        "2": {
+          "frac": 0.5,
+          "every": 5
+        },
+        "3": {
+          "frac": 0.5,
+          "every": 3
+        },
+        "4": {
+          "frac": 0.35,
+          "every": 3
+        },
+        "5": {
+          "frac": 0.2,
+          "every": 2
+        }
+      }
+    },
+    {
+      "id": "Red Challenge",
+      "sheet": "Race_v2",
+      "hdr": 8,
+      "r0": 9,
+      "r1": 18,
+      "dir": "rank",
+      "colBase": 16,
+      "tiers": {
+        "3": {
+          "frac": 0.9
+        },
+        "4": {
+          "frac": 0.4
+        }
+      }
+    },
+    {
+      "id": "Chuck Challenge",
+      "sheet": "Race_v2",
+      "hdr": 26,
+      "r0": 27,
+      "r1": 36,
+      "dir": "rank",
+      "colBase": 16,
+      "tiers": {
+        "3": {
+          "frac": 0.9
+        },
+        "4": {
+          "frac": 0.4
+        }
+      }
+    },
+    {
+      "id": "Bomb Challenge",
+      "sheet": "Race_v2",
+      "hdr": 44,
+      "r0": 45,
+      "r1": 54,
+      "dir": "rank",
+      "colBase": 16,
+      "tiers": {
+        "3": {
+          "frac": 0.9
+        },
+        "4": {
+          "frac": 0.4
+        }
+      }
+    },
+    {
+      "id": "Flash Race",
+      "sheet": "Race_v2",
+      "hdr": 80,
+      "r0": 81,
+      "r1": 87,
+      "dir": "rank",
+      "colBase": 16,
+      "tiers": {
+        "3": {
+          "frac": 0.9
+        },
+        "4": {
+          "frac": 0.4
+        }
+      }
+    },
+    {
+      "id": "Flock Flurry",
+      "sheet": "F",
+      "hdr": 9,
+      "r0": 10,
+      "r1": 14,
+      "dir": "rank",
+      "colBase": 16,
+      "tiers": {
+        "3": {
+          "frac": 0.8
+        },
+        "4": {
+          "frac": 0.3
+        }
+      }
+    },
+    {
+      "id": "Kite Festival (rank)",
+      "sheet": "Ki_v2",
+      "hdr": 25,
+      "r0": 26,
+      "r1": 85,
+      "dir": "rank",
+      "colBase": 17,
+      "tiers": {
+        "3": {
+          "frac": 0.1,
+          "every": 4
+        },
+        "4": {
+          "frac": 0.04,
+          "every": 2
+        }
+      }
+    },
+    {
+      "id": "Kite Festival (score)",
+      "sheet": "Ki_v2",
+      "hdr": 21,
+      "r0": 22,
+      "r1": 22,
+      "dir": "milestone",
+      "colBase": 17,
+      "tiers": {
+        "3": {
+          "frac": 1.0
+        }
+      }
+    },
+    {
+      "id": "Target Day",
+      "sheet": "TaD_v2",
+      "hdr": 34,
+      "r0": 35,
+      "r1": 54,
+      "dir": "rank",
+      "colBase": 17,
+      "tiers": {
+        "3": {
+          "frac": 0.6,
+          "every": 2
+        },
+        "4": {
+          "frac": 0.2
+        }
+      }
+    },
+    {
+      "id": "Night Sky 0-9",
+      "sheet": "NS",
+      "hdr": 8,
+      "r0": 9,
+      "r1": 11,
+      "dir": "milestone",
+      "colBase": 22,
+      "tiers": {
+        "3": {
+          "frac": 0.5
+        },
+        "4": {
+          "frac": 0.34
+        }
+      }
+    },
+    {
+      "id": "Night Sky 10-19",
+      "sheet": "NS",
+      "hdr": 14,
+      "r0": 15,
+      "r1": 17,
+      "dir": "milestone",
+      "colBase": 22,
+      "tiers": {
+        "3": {
+          "frac": 0.5
+        },
+        "4": {
+          "frac": 0.34
+        }
+      }
+    },
+    {
+      "id": "Night Sky 20-39",
+      "sheet": "NS",
+      "hdr": 20,
+      "r0": 21,
+      "r1": 23,
+      "dir": "milestone",
+      "colBase": 22,
+      "tiers": {
+        "3": {
+          "frac": 0.5
+        },
+        "4": {
+          "frac": 0.34
+        }
+      }
+    },
+    {
+      "id": "Night Sky 40-99",
+      "sheet": "NS",
+      "hdr": 26,
+      "r0": 27,
+      "r1": 29,
+      "dir": "milestone",
+      "colBase": 22,
+      "tiers": {
+        "3": {
+          "frac": 0.5
+        },
+        "4": {
+          "frac": 0.34
+        }
+      }
+    },
+    {
+      "id": "Night Sky 100+",
+      "sheet": "NS",
+      "hdr": 32,
+      "r0": 33,
+      "r1": 35,
+      "dir": "milestone",
+      "colBase": 22,
+      "tiers": {
+        "3": {
+          "frac": 0.5
+        },
+        "4": {
+          "frac": 0.34
+        }
+      }
+    },
+    {
+      "id": "Team Event (leaderboard)",
+      "sheet": "TE",
+      "hdr": 14,
+      "r0": 15,
+      "r1": 21,
+      "dir": "rank",
+      "colBase": 16,
+      "tiers": {
+        "4": {
+          "frac": 0.5
+        },
+        "5": {
+          "frac": 0.3
+        }
+      }
+    },
+    {
+      "id": "Team Event (contribution)",
+      "sheet": "TE",
+      "hdr": 24,
+      "r0": 25,
+      "r1": 27,
+      "dir": "rank",
+      "colBase": 16,
+      "tiers": {
+        "4": {
+          "frac": 0.34
+        },
+        "5": {
+          "frac": 0.34
+        }
+      }
+    }
+  ]
+}

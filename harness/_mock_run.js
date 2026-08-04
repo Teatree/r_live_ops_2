@@ -133,14 +133,24 @@ const gate = (name, ok, detail) => {
   if (!ok) failures++;
 };
 const engineSrc = fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8');
-const engineSrcNsOn = engineSrc.replace('var NS_SIMULATE = false', 'var NS_SIMULATE = true');
+// Gate the SWITCH, not the shipped value: NS_SIMULATE flipped to true in D21 (packs must flow
+// from the NS ladder), so an assertion hardcoding `=== false` would only be testing what the
+// constant happens to say today. Build both variants and assert each behaviour.
+const nsVariant = (on) => engineSrc.replace(/var NS_SIMULATE = (?:true|false)/,
+                                            'var NS_SIMULATE = ' + (on ? 'true' : 'false'));
+const engineSrcNsOn = nsVariant(true), engineSrcNsOff = nsVariant(false);
 const NS_I = CATEGORY_ORDER.indexOf('Daily Night Sky Prize');
 const SEG5 = ['0-9', '10-19', '20-39', '40-99', '100+'];
-// default state: NS_SIMULATE = false -> NS carried (= measured, diff 0) everywhere
-gate('NS_SIMULATE default OFF -> NS carried (diff 0) for every segment',
+gate('NS_SIMULATE variants are distinct (the flip actually rewrites the source)',
+     engineSrcNsOn !== engineSrcNsOff);
+// switch OFF -> NS carried (= measured, diff 0) everywhere
+eval(engineSrcNsOff); _sheetValsCache = {};
+gate('NS_SIMULATE OFF -> NS carried (diff 0) for every segment',
      NS_SIMULATE === false && SEG5.every(s => Math.abs(ECOGAINS_DIFF('NONPAYER', s)[NS_I][0]) < 1e-9));
 // flip the switch on and gate the model itself
-eval(engineSrcNsOn);
+eval(engineSrcNsOn); _sheetValsCache = {};
+gate('NS_SIMULATE ON -> NS simulated (diff moves) for every segment',
+     NS_SIMULATE === true && SEG5.every(s => Math.abs(ECOGAINS_DIFF('NONPAYER', s)[NS_I][0]) > 1e-9));
 const nsHC = {}, nsEday = {};
 for (const seg of SEG5) {
   nsHC[seg] = ECOGAINS_SIM('NONPAYER', seg)[NS_I][0];
@@ -453,21 +463,29 @@ console.log('\n================ CORE SPT GATES ================');
   let expDays = 0;
   for (let d = 1; d <= 33; d++) expDays += isWeekend_(d) ? num(beh.weekend_active_rate) : num(beh.weekday_active_rate);
   const Lexp = num(beh.levels_completed_per_active_day) * expDays;
-  gate('Core SPT anchor synthetic: raw data 0, meas = L x E_base',
-       rawCore === 0 && measCore > 0 && Math.abs(measCore - Lexp * eBase) < 1e-6,
-       `raw ${rawCore} · meas ${measCore.toFixed(2)} vs L ${Lexp.toFixed(1)} x E ${eBase.toFixed(2)}`);
-  gate('Core SPT sim = meas x R (= L x E_v2)',
-       Math.abs(coreSPT - measCore * R) < 1e-6 && Math.abs(coreSPT - Lexp * eV2) < 1e-6,
+  // DATA-AWARE (D18): the synthetic anchor fires only while data_gains has no Core SPT rows.
+  // Workbook (14)'s re-pull DOES carry them, so the synthetic stands down and the raw value is
+  // the anchor — that is the designed takeover, not a regression. Gate whichever path is live.
+  const synthetic = (rawCore === 0);
+  const anchor = synthetic ? Lexp * eBase : rawCore;
+  gate(`Core SPT anchor ${synthetic ? 'SYNTHETIC (raw 0, meas = L x E_base)' : 'RAW (data_gains carries Core SPT)'}`,
+       measCore > 0 && Math.abs(measCore - anchor) < 1e-6,
+       `raw ${rawCore.toFixed(2)} · meas ${measCore.toFixed(2)} vs anchor ${anchor.toFixed(2)}` +
+       (synthetic ? ` (L ${Lexp.toFixed(1)} x E ${eBase.toFixed(2)})` : ''));
+  gate('Core SPT sim = meas x R' + (synthetic ? ' (= L x E_v2)' : ''),
+       Math.abs(coreSPT - measCore * R) < 1e-6 &&
+       (!synthetic || Math.abs(coreSPT - Lexp * eV2) < 1e-6),
        `sim ${coreSPT.toFixed(2)} vs ${(measCore * R).toFixed(2)} (R=${R.toFixed(3)})`);
-  // both sides of the tier coupling must include the synthetic Core faucet
+  // both sides of the tier coupling must include the Core faucet, whichever anchor is live
   const t = sptTotals_('40-99', 'NONPAYER', Context.get());
   let rawMeasTotal = 0;
   CATEGORY_ORDER.forEach((cat) => {
     rawMeasTotal += c.ds.gains('40-99', 'NONPAYER', cat, 'SPT') + 2 * c.ds.gains('40-99', 'NONPAYER', cat, 'SPTx2');
   });
-  gate('sptTotals_ measured side includes synthetic Core (raw total + L x E_base)',
-       Math.abs(t.meas - (rawMeasTotal + Lexp * eBase)) < 1e-6,
-       `meas ${t.meas.toFixed(2)} vs raw ${rawMeasTotal.toFixed(2)} + ${(Lexp * eBase).toFixed(2)}`);
+  const expectTotal = synthetic ? rawMeasTotal + Lexp * eBase : rawMeasTotal;
+  gate('sptTotals_ measured side includes the Core faucet',
+       Math.abs(t.meas - expectTotal) < 1e-6,
+       `meas ${t.meas.toFixed(2)} vs ${expectTotal.toFixed(2)}`);
 }
 // Real-data precedence: inject a data_gains Core SPT row -> the synthetic anchor must stand
 // down (measuredRow_ returns the raw value; sim = raw x R; no double count).

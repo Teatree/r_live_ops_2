@@ -262,12 +262,16 @@ if (ffDay) {
 
 // ---------- Night Sky re-wire (NIGHT_SKY_REWIRE_PLAN §4.3 / §5 + NS_SIMULATE switch) ----------
 const nsClaimRows = (ledger) => ledgerBody(ledger).filter(r => /Daily Night Sky Prize m\d+/.test(String(r[CLAIMS_COL])));
-// default state: NS_SIMULATE = false (v4 master switch) -> the ledger carries NO NS claims
-check('NS_SIMULATE default OFF -> no NS claims in the ledger',
-      NS_SIMULATE === false && nsClaimRows(L).length === 0, 'claims=' + nsClaimRows(L).length);
+// Gate the SWITCH, not the shipped value (NS_SIMULATE flipped to true in D21 so NS packs flow):
+// force the flag OFF and assert the ledger carries no NS claims.
+const nsSrc = (on) => fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')
+  .replace(/var NS_SIMULATE = (?:true|false)/, 'var NS_SIMULATE = ' + (on ? 'true' : 'false'));
+eval(nsSrc(false));
+eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
+check('NS_SIMULATE OFF -> no NS claims in the ledger',
+      NS_SIMULATE === false && nsClaimRows(ECOGAINS_PBP(...args)).length === 0);
 // flip the switch on (re-eval v4 + PBP with fresh caches) and check the model itself
-eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')
-       .replace('var NS_SIMULATE = false', 'var NS_SIMULATE = true'));
+eval(nsSrc(true));
 eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
 const LNS = ECOGAINS_PBP(...args);   // showcase scenario re-run with NS on
 // Expected mode: EVERY milestone cleared by p50 x N pays, nothing else - incl. 0-9 (which the

@@ -42,10 +42,8 @@ SHEETS = [
 # generated display xlsx overlays whatever the workbook still has, so the offline harness tests
 # the layout the engine actually expects. Drop an entry once the sheet is imported (the overlay
 # then just reproduces the workbook).  {sheet name: display xlsx filename}
-PENDING_IMPORT = {
-    'PackConfig': 'PackConfig_v2.xlsx',
-    'SimOutput':  'SimOutput_v2.xlsx',
-}
+# PackConfig / SimOutput were imported as of workbook (14) — the workbook is now the truth.
+PENDING_IMPORT = {}
 
 
 def dump_sheet(ws):
