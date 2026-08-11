@@ -1,0 +1,944 @@
+<!doctype html><html><head><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"capabilities":{"db":"db.CfOZ1CRq.js","downloads":"downloads.BXsoAvg9.js","mcp":"mcp.CYSdpjo0.js","permissions":"permissions.DdITF2Mk.js","self":"self.DtZoNC4q.js","user":"user.Cr_h1ETf.js"},"transforms":"_transforms.VaITkagF.js","comments":"_comments.Dste1LsC.js","translate":"_translate.BOzFH2D9.js"}</script><script>(function(){"use strict";var re=["light","dark","system"];function ne(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function Y(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function se(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&re.includes(r)}function oe(e){try{typeof reportError=="function"?reportError(e):setTimeout(()=>{throw e},0)}catch{}}var K=Object.freeze(Object.assign(Object.create(null),{user:Object.freeze(Object.assign(Object.create(null),{id:null,isOwner:!1,canEdit:!1,name:null,avatarUrl:null,email:null}))}));function x(e){if(window===top||e.type==="auxclick"&&e.button!==1)return;const t=e.composedPath?e.composedPath():[e.target];let r=null;for(let f=0;f<t.length;f++){const a=t[f];if(a&&a.matches&&a.matches("a[href],area[href]")){r=a;break}}if(!r&&e.target&&e.target.closest&&(r=e.target.closest("a[href],area[href]")),!r)return;const c=r.getAttribute("href");if(!c)return;let i,s;try{i=new URL(c,document.baseURI),s=new URL(document.baseURI).origin}catch{return}(i.protocol==="http:"||i.protocol==="https:")&&i.origin!==s&&(e.preventDefault(),parent.postMessage({__frame_nav:!0,url:i.href},"*"))}var J={};function I(e){if(window===top)return;const t=Date.now();t-(J[e]||0)<500||(J[e]=t,parent.postMessage({__frame_engaged:!0,kind:e},"*"))}var ie=2e3,G=["wheel","touchstart","touchmove","keydown","pointerdown"],X=0;function ae(e){e.isTrusted&&(X=Date.now())}function ce(){addEventListener("click",x,!0),addEventListener("auxclick",x,!0)}function le(){for(let e=0;e<G.length;e++)addEventListener(G[e],ae,{capture:!0,passive:!0});addEventListener("scroll",e=>{e.isTrusted&&Date.now()-X<ie&&I("scroll")},{capture:!0,passive:!0}),addEventListener("pointermove",e=>{e.isTrusted&&I("pointer")},{capture:!0,passive:!0}),addEventListener("click",e=>{e.isTrusted&&I("click")},{capture:!0,passive:!0})}var D="__frame_scroll",ue=150,fe=310,de=160,pe=3e4;function me(){let e=0,t=!1,r=!1,c=!1,i=0;const s=p=>{try{sessionStorage.setItem(D,JSON.stringify({y:p}))}catch{}},f=()=>{if(t){t=!1;return}r=!0,clearTimeout(e),e=setTimeout(()=>s(scrollY),ue)};try{addEventListener("scroll",f,{passive:!0}),addEventListener("pagehide",()=>{clearTimeout(e),s(scrollY)})}catch{}const a=()=>{let p;try{p=sessionStorage.getItem(D)}catch{return null}if(p===null)return null;let h;try{h=JSON.parse(p)}catch{h=null}const u=h?.y;if(!(typeof u=="number"&&Number.isFinite(u)&&u>=0)){try{sessionStorage.removeItem(D)}catch{}return null}return u};let _=!1;const y=p=>{try{const h=scrollY;scrollTo({top:p,left:0,behavior:"instant"}),i=p,c=!0,s(p);const u=scrollY;u!==h&&(t=!0),u!==p&&!_&&(_=!0,addEventListener("load",()=>{try{if(scrollY===u){const g=a();y(g!==null?g:i)}}catch{}},{once:!0}))}catch{}},o=()=>{try{return!!location.hash}catch{return!0}};let l=!1;const d=()=>{try{if(l||innerWidth>fe||innerHeight>de)return;l=!0;const p=Date.now(),h=()=>{try{removeEventListener("resize",h)}catch{}if(Date.now()-p>pe||r||o())return;const u=a();y(u!==null?u:i)};addEventListener("resize",h)}catch{}};let m=!1,v=!1;return{restore(){if(m||(m=!0,o()))return;const p=a();p!==null&&(y(p),d())},promoted(){if(v||(v=!0,o()))return;const p=a();p!==null?(y(p),d()):c&&y(i)}}}function he(e,t,r){const c=[...t.values()].filter(i=>i.targets.some(s=>s.startsWith(e+".")));return{wrap(i,s){const f=`${e}.${i}`,a=c.filter(_=>_.targets.includes(f));return a.length===0?(..._)=>{try{return s(..._)}catch(y){return Promise.reject(y)}}:(..._)=>{let y=_;for(const l of a){const d=l.module.parameters;if(d)try{y=d(y)}catch{return Promise.reject({code:"transform_error",id:l.id,scope:e,message:"parameters transform failed"})}}let o;try{o=s(...y)}catch(l){o=Promise.reject(l)}return o.then(l=>{for(let d=a.length-1;d>=0;d--){const m=a[d],v=m.module.returns;if(v)try{l=v(l)}catch{return r({id:m.id,scope:e,leg:"returns"}),l}}return l},l=>{for(let d=a.length-1;d>=0;d--){const m=a[d],v=m.module.throws;if(v)try{l=v(l)}catch{return r({id:m.id,scope:e,leg:"throws"}),Promise.reject(l)}}return Promise.reject(l)})}}}}function ge(e,t,r,c=()=>{}){const i=new Set(e.changes??[]),s=new Map;for(const f of i){const a=t[f];a&&s.set(f,a)}return{contract:e.contract,changes:i,flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:s,shellOrigin:r.shellOrigin,mount:r.mount,pipe:f=>he(f,s,c)}}var we="modulepreload",Oe=function(e){return"/"+e},Se={},ve=function(t,r,c){let i=Promise.resolve();function s(f){const a=new Event("vite:preloadError",{cancelable:!0});if(a.payload=f,window.dispatchEvent(a),!a.defaultPrevented)throw f}return i.then(f=>{for(const a of f||[])a.status==="rejected"&&s(a.reason);return t().catch(s)})};(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let c=0;for(let i=0;i<r.length;i++){const s=r[i];try{e(t,s,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[s]}catch{}try{e(t,s,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[s]=="function"&&c++}if(c&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:c},"*")}catch{}})();var _e=1e4,ye=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function Q(e){for(const t of ye)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var k=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),q=window.__FRAME_PREAMBLE?.transforms,z=window.__FRAME_PREAMBLE?.comments,$=window.__FRAME_PREAMBLE?.translate,N=/^[\w.-]+\.js$/,be=/^[a-z][a-z0-9_-]{0,63}$/,V=null,M=null;function B(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var F=!1;function Z(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,F=!0):F&&(delete t.dataset.theme,t.style.colorScheme="",F=!1)}var ee=256,R=Object.assign(Object.create(null),{mcp:Object.assign(Object.create(null),{watchTool:{handlerArg:3}})}),L=new Map;function te(e,t){const r=L.get(e);if(!r)return;const c=Object.assign(Object.create(null),t);Object.assign(r.impl,c),r.impl.__settled=()=>Promise.reject({code:"capability_removed",message:`${e}: method not in this runtime`});const i=r.queue;r.queue=[];for(const s of i){const f=c[s.method];if(f)if(R[e]?.[s.method])try{s.resolve(f(...s.args))}catch{T(s,R[e][s.method].handlerArg,{code:"transform_error",message:`${e}.${s.method} rejected its arguments`})}else f(...s.args).then(s.resolve,s.reject);else{const a={code:"capability_removed",message:`${e}.${s.method} is not in this runtime`},_=R[e]?.[s.method];if(_){T(s,_.handlerArg,a);continue}s.reject(a)}}}function Ee(e,t){const r=L.get(e);if(!r)return;r.impl.__settled=()=>Promise.reject(t);const c=r.queue;r.queue=[];for(const i of c){const s=R[e]?.[i.method];if(s){T(i,s.handlerArg,t);continue}i.reject(t)}}function C(e,t){const r=K[e];if(!r){Ee(e,t);return}te(e,Object.fromEntries(Object.entries(r).map(([c,i])=>[c,()=>Promise.resolve(i)])))}function T(e,t,r){if(e.syncState?.dead)return;const c=e.args[t];typeof c=="function"&&queueMicrotask(()=>{if(!e.syncState?.dead)try{c({type:"error",error:r})}catch(i){oe(i)}})}var H=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(H&&H.writable===!1)){ce(),le();let e=null;try{e=me()}catch{}const t=H?.value??{};B(window,"claude",t);const r=o=>{const l={impl:Object.create(null),queue:[]};L.set(o,l);const d=l.impl,m=h=>({code:"queue_overflow",message:`${o}.${h}: pre-init call queue is full`}),v=(h,u)=>{if(l.queue.length>=ee){const g=K[o];return g&&h in g?Promise.resolve(g[h]):Promise.reject(m(h))}return new Promise((g,b)=>{l.queue.push({method:h,args:u,resolve:g,reject:b})})},p=new Proxy(d,{get:(h,u)=>{if(typeof u!="string"||u==="then"||u==="toJSON"||u==="valueOf")return;if(u==="toString")return Object.prototype.toString;const g=R[o]?.[u];return g?(...b)=>{if(typeof b[g.handlerArg]!="function")throw new TypeError(`${o}.${u} requires a handler function`);const S=d[u];if(S)return S(...b);if(d.__settled){const E={dead:!1},P={args:[...b],syncState:E};return d.__settled().catch(U=>T(P,g.handlerArg,U)),()=>{E.dead=!0}}if(l.queue.length>=ee){const E={dead:!1};return T({args:[...b],syncState:E},g.handlerArg,m(u)),()=>{E.dead=!0}}let w=null;const j={dead:!1};return l.queue.push({method:u,args:b,resolve:E=>{w=typeof E=="function"?E:null,j.dead&&w?.()},reject:()=>{},syncState:j}),()=>{j.dead=!0,w?.()}}:(...b)=>{const S=d[u]??d.__settled;return S?S(...b):v(u,b)}},set:()=>!1});B(t,o,p)};for(const o of Object.keys(k)){if(t[o]!==void 0){B(t,o,t[o]);continue}r(o)}let c=null,i=null,s=0;const f=o=>{o.source!==parent||!Q(o.origin)||ne(o.data)&&(c=o.data.__frame_init,M=o.origin,removeEventListener("message",f),clearTimeout(s),i?.())};addEventListener("message",f),parent.postMessage({__frame_connect:!0},"*");const a=new Promise(o=>{i=o,s=setTimeout(()=>{removeEventListener("message",f),o()},_e)}),_=document.readyState==="loading"?new Promise(o=>document.addEventListener("DOMContentLoaded",()=>o(),{once:!0})):Promise.resolve();_.then(()=>{try{e?.restore()}catch{}});const y=o=>{if(!(o.source!==parent||!Q(o.origin))&&Y(o.data)){removeEventListener("message",y);try{e?.promoted()}catch{}}};addEventListener("message",y),a.then(async()=>{if(!c||!M){for(const n of L.keys())C(n,{code:"not_granted",message:"frame initialization did not arrive - capability unavailable"});return}Z(c.theme);const o=M;let l=!1,d=!1;addEventListener("message",n=>{if(n.source!==parent||n.origin!==o)return;se(n.data)&&Z(n.data.__frame_theme.theme);const O=n.data?.__fc_mode;O&&typeof O=="object"&&!l&&z&&N.test(z)&&(l=!0,m(z).then(W=>W.install?.(o,O.on===!0)).catch(()=>{}));const A=n.data?.__ft_cmd;A&&typeof A=="object"&&!d&&$&&N.test($)&&(d=!0,m($).then(W=>W.install?.(o,A)).catch(()=>{}))});const m=n=>ve(()=>import("/_runtime/"+n),void 0),v=Object.keys(c.capabilities??{});for(const n of v)Object.hasOwn(k,n)||be.test(n)&&t[n]===void 0&&(r(n),C(n,{code:"capability_disabled",message:"capability not in this runtime generation"}));const p=v.filter(n=>Object.hasOwn(k,n)).map(n=>[n,k[n]]).filter(n=>typeof n[1]=="string"&&N.test(n[1])),[h,...u]=await Promise.allSettled([q&&N.test(q)?m(q):Promise.resolve({}),...p.map(([,n])=>m(n))]),g=M;V=ge(c,h.status==="fulfilled"&&h.value?.TRANSFORMS||{},{shellOrigin:g,mount:te},n=>parent.postMessage({__frame_cap_telemetry:n},g));const b=n=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:n}},g),S=V;u.forEach((n,O)=>{const A=p[O][0];if(n.status!=="fulfilled"){b(A);return}try{n.value?.install?.(S)}catch{b(A)}});for(const[n,O]of L)if(!(O.queue.length===0&&Object.keys(O.impl).length>0)){if(v.includes(n)){C(n,{code:"capability_disabled",message:"capability not available in this session"});continue}C(n,{code:"not_granted",message:"capability not available in this session"})}await _,parent.postMessage({__frame_ready:!0},M);let w=-1,j=0;const E=()=>{j=0;const n=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);n!==w&&(w=n,parent.postMessage({__frame_size:!0,h:n},g))},P=()=>{j||(j=setTimeout(E,200))},U=new ResizeObserver(P);U.observe(document.documentElement),document.body&&U.observe(document.body),document.addEventListener("load",P,!0),document.fonts?.ready.then(P,()=>{}),addEventListener("beforeprint",()=>{w=-1,E()}),P(),addEventListener("message",n=>{if(!(n.source!==parent||n.origin!==g)&&Y(n.data)){try{e?.promoted()}catch{}w=-1,P()}})})}})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>LiveOps v2 — resource ledger read-out</title>
+<style>
+  :root{
+    color-scheme: light;
+    --plane:#f4f6f8; --surface:#fdfdfe; --ink:#12161c; --ink-2:#59616e; --ink-3:#8b929d;
+    --rule:#e2e6ec; --rule-2:#cfd5dd;
+    --pos:#2a78d6; --neg:#e34948; --pos-wash:rgba(42,120,214,.09); --neg-wash:rgba(227,73,72,.09);
+    --chip:#eef2f7;
+    --mono: ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --measure: 68ch; --wide: 1060px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --plane:#0e1116; --surface:#171b21; --ink:#eef1f5; --ink-2:#a7aeb9; --ink-3:#79808b;
+      --rule:#262c34; --rule-2:#333a44;
+      --pos:#3987e5; --neg:#e66767; --pos-wash:rgba(57,135,229,.14); --neg-wash:rgba(230,103,103,.14);
+      --chip:#1e242c;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --plane:#0e1116; --surface:#171b21; --ink:#eef1f5; --ink-2:#a7aeb9; --ink-3:#79808b;
+    --rule:#262c34; --rule-2:#333a44;
+    --pos:#3987e5; --neg:#e66767; --pos-wash:rgba(57,135,229,.14); --neg-wash:rgba(230,103,103,.14);
+    --chip:#1e242c;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --plane:#f4f6f8; --surface:#fdfdfe; --ink:#12161c; --ink-2:#59616e; --ink-3:#8b929d;
+    --rule:#e2e6ec; --rule-2:#cfd5dd;
+    --pos:#2a78d6; --neg:#e34948; --pos-wash:rgba(42,120,214,.09); --neg-wash:rgba(227,73,72,.09);
+    --chip:#eef2f7;
+  }
+
+  body{ background:var(--plane); color:var(--ink); font-family:var(--sans);
+        font-size:16px; line-height:1.62; margin:0; padding:0 24px 96px;
+        -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:var(--wide); margin:0 auto; }
+  p,ul,ol{ max-width:var(--measure); }
+  a{ color:var(--pos); }
+
+  /* ---------- masthead ---------- */
+  header.mast{ padding:56px 0 28px; border-bottom:2px solid var(--ink); margin-bottom:40px; }
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+            color:var(--ink-3); margin:0 0 14px; }
+  h1{ font-size:clamp(30px,4.4vw,46px); line-height:1.06; letter-spacing:-.023em; font-weight:800;
+      margin:0 0 16px; text-wrap:balance; max-width:20ch; }
+  .standfirst{ font-size:18px; color:var(--ink-2); margin:0; max-width:60ch; }
+  .meta{ display:flex; flex-wrap:wrap; gap:6px 28px; margin-top:26px;
+         font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+  .meta b{ color:var(--ink); font-weight:600; }
+
+  /* ---------- sections ---------- */
+  section{ margin:0 0 60px; }
+  .sec-head{ display:flex; gap:16px; align-items:baseline; border-top:1px solid var(--rule-2);
+             padding-top:14px; margin:0 0 20px; }
+  .sec-num{ font-family:var(--mono); font-size:12px; color:var(--ink-3); letter-spacing:.1em;
+            padding-top:5px; min-width:34px; }
+  h2{ font-size:clamp(21px,2.5vw,27px); line-height:1.2; letter-spacing:-.015em; font-weight:700;
+      margin:0; text-wrap:balance; }
+  h3{ font-size:17px; font-weight:650; letter-spacing:-.008em; margin:34px 0 10px; }
+  h4{ font-size:14px; font-weight:650; margin:26px 0 8px; color:var(--ink-2); }
+  .lede{ font-size:17px; color:var(--ink-2); margin:0 0 22px; }
+
+  /* ---------- data blocks ---------- */
+  .block{ background:var(--surface); border:1px solid var(--rule); border-radius:2px;
+          margin:22px 0; overflow-x:auto; }
+  .block > table{ margin:0; }
+  table{ border-collapse:collapse; width:100%; font-family:var(--mono);
+         font-variant-numeric:tabular-nums; font-size:12.5px; }
+  caption{ text-align:left; font-family:var(--sans); font-size:13px; color:var(--ink-2);
+           padding:12px 14px 10px; border-bottom:1px solid var(--rule); }
+  caption b{ color:var(--ink); font-weight:650; }
+  th,td{ padding:6px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--rule); }
+  th{ font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3);
+      font-weight:600; border-bottom:1px solid var(--rule-2); }
+  th:first-child,td:first-child{ text-align:left; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--chip); }
+  td.pos{ color:var(--pos); } td.neg{ color:var(--neg); }
+  td.k{ font-family:var(--sans); font-size:13px; }
+  tr.rule-top td{ border-top:1px solid var(--rule-2); }
+
+  /* ---------- charts ---------- */
+  figure{ margin:26px 0; }
+  figcaption{ font-size:13px; color:var(--ink-2); margin:0 0 12px; max-width:var(--measure); }
+  figcaption b{ color:var(--ink); font-weight:650; }
+  .chart-shell{ background:var(--surface); border:1px solid var(--rule); border-radius:2px;
+                padding:10px 4px; overflow-x:auto; }
+  svg.chart{ display:block; max-width:100%; height:auto; min-width:640px; }
+  .chart .grid{ stroke:var(--rule); stroke-width:1; }
+  .chart .axis{ stroke:var(--rule-2); stroke-width:1; }
+  .chart text{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .chart .tick{ font-size:10px; fill:var(--ink-3); }
+  .chart .lab{ font-size:11.5px; fill:var(--ink-2); }
+  .chart .val{ font-size:11.5px; font-weight:600; fill:var(--ink); }
+  .chart .note{ font-size:10.5px; fill:var(--ink-3); }
+  .chart .bar.pos{ fill:var(--pos); } .chart .bar.neg{ fill:var(--neg); }
+  .chart .hit{ fill:transparent; }
+  .chart .row:hover .hit, .chart .row:focus-visible .hit{ fill:var(--chip); }
+  .chart .row:focus-visible{ outline:2px solid var(--pos); outline-offset:-2px; }
+  .legend{ display:flex; gap:18px; margin:10px 2px 0; font-family:var(--mono); font-size:11px;
+           color:var(--ink-2); }
+  .legend span{ display:inline-flex; align-items:center; gap:7px; }
+  .swatch{ width:11px; height:11px; border-radius:2px; display:inline-block; }
+
+  /* ---------- highlight cards ---------- */
+  .hl{ border-top:1px solid var(--rule-2); padding:20px 0 4px; }
+  .hl-head{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .hl-id{ font-family:var(--mono); font-size:12px; color:var(--ink-3); padding-top:4px; min-width:30px; }
+  .hl h3{ margin:0; flex:1 1 22ch; font-size:18px; }
+  .chip{ font-family:var(--mono); font-size:11.5px; font-weight:600; padding:3px 8px; border-radius:2px;
+         white-space:nowrap; }
+  .chip.up{ color:var(--pos); background:var(--pos-wash); }
+  .chip.down{ color:var(--neg); background:var(--neg-wash); }
+  .chip.flat{ color:var(--ink-2); background:var(--chip); }
+  .hl .why{ margin-top:10px; }
+  .why > strong{ font-weight:650; }
+  code{ font-family:var(--mono); font-size:.9em; background:var(--chip); padding:1px 5px; border-radius:2px; }
+
+  .kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px;
+         background:var(--rule); border:1px solid var(--rule); margin:24px 0; }
+  .kpi{ background:var(--surface); padding:16px 18px; }
+  .kpi .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:.09em; text-transform:uppercase;
+           color:var(--ink-3); margin:0 0 8px; }
+  .kpi .v{ font-size:26px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .kpi .d{ font-family:var(--mono); font-size:12px; margin-top:4px; }
+
+  .callout{ border-left:2px solid var(--neg); background:var(--neg-wash); padding:14px 18px;
+            margin:24px 0; max-width:var(--measure); }
+  .callout.note{ border-left-color:var(--pos); background:var(--pos-wash); }
+  .callout p{ margin:0; font-size:14.5px; }
+  .callout p + p{ margin-top:10px; }
+
+  .unit{ font-family:var(--mono); font-size:.86em; color:var(--ink-3); }
+  footer{ border-top:1px solid var(--rule-2); padding-top:20px; color:var(--ink-3); font-size:13px; }
+
+  #tip{ position:fixed; pointer-events:none; opacity:0; z-index:9;
+        background:var(--ink); color:var(--plane); font-family:var(--mono); font-size:11.5px;
+        padding:6px 9px; border-radius:3px; max-width:280px; transition:opacity .09s linear; }
+  @media (prefers-reduced-motion:reduce){ #tip{ transition:none; } }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">LiveOps v2 · A/B read-out · 26 Jul – 3 Aug 2026</p>
+  <h1>Where the resources actually went</h1>
+  <p class="standfirst">A source-and-sink ledger for the eleven new exports: what each file is, what
+  the Variant did to every faucet, and what is really behind the 100+ net swing.</p>
+  <div class="meta">
+    <span><b>11</b> CSV exports</span>
+    <span><b>9</b> days</span>
+    <span><b>6</b> completion buckets</span>
+    <span><b>22</b> resources · <b>5</b> source families</span>
+    <span>all rates <b>per active player-day</b></span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head"><span class="sec-num">00</span><h2>What the files are</h2></div>
+  <p class="lede">Four measurement families — resource gains, an HC-only cut of the same thing,
+  resource spend, and a 100+ deep dive — each shipped at two grains (per day, and 9-day totals).
+  Everything covers 26 Jul – 3 Aug 2026, Control vs Variant.</p>
+
+  <div class="block">
+  <table>
+    <caption><b>The eleven exports</b> — grain, coverage and what each one is for.</caption>
+    <thead><tr><th>File</th><th>Grain</th><th>Rows</th><th>What it carries</th></tr></thead>
+    <tbody>
+      <tr><td class="k">resource_gains_by_source_detail_9day</td><td>day × segment × resource × source</td><td>32,384</td><td class="k" style="text-align:left">The master gains ledger. Every resource from every source, daily.</td></tr>
+      <tr><td class="k">resource_gains_by_source_detail_802C_9-day_total</td><td>segment × resource × source</td><td>5,446</td><td class="k" style="text-align:left">Same, rolled to 9-day totals; adds <code>amount_per_active_player_day</code> and <code>pct_of_resource_gained</code>. <b>The workhorse for this report.</b></td></tr>
+      <tr><td class="k">resource_gains_by_source_detail_100plus</td><td>day × resource × source</td><td>4,508</td><td class="k" style="text-align:left">100+ only, daily; adds <code>pct_gainers</code> and <code>amount_per_gainer</code>.</td></tr>
+      <tr><td class="k">resource_gains_by_source_detail_100_plus_players</td><td>resource × source</td><td>900</td><td class="k" style="text-align:left">100+ only, 9-day totals.</td></tr>
+      <tr class="rule-top"><td class="k">hc_gains_by_source_detail_daily</td><td>day × segment × source</td><td>5,214</td><td class="k" style="text-align:left">HC-only slice of the gains ledger.</td></tr>
+      <tr><td class="k">hc_gains_by_source_detail_9day</td><td>segment × source</td><td>879</td><td class="k" style="text-align:left">HC-only 9-day totals; adds <code>pct_of_segment_hc_gain</code>.</td></tr>
+      <tr><td class="k">daily_hc_gains_by_source_detail_100plus_Players</td><td>day × source</td><td>729</td><td class="k" style="text-align:left">100+ HC by day, with gainer counts and HC per gainer.</td></tr>
+      <tr class="rule-top"><td class="k">resource_spend_by_sink</td><td>day × segment × resource × sink</td><td>3,639</td><td class="k" style="text-align:left">The master spend ledger: where each resource is consumed.</td></tr>
+      <tr><td class="k">resource_spend_by_sink_802C_9-day_total</td><td>segment × resource × sink</td><td>493</td><td class="k" style="text-align:left">Spend, 9-day totals, per-active-player-day normalised.</td></tr>
+      <tr><td class="k">daily_resource_spend_by_sink_100_plus</td><td>day × resource × sink</td><td>497</td><td class="k" style="text-align:left">100+ spend by day, with spender counts.</td></tr>
+      <tr><td class="k">resource_spend_by_sink_802B_players2Fb_split</td><td>resource × sink</td><td>77</td><td class="k" style="text-align:left">100+ spend, 9-day totals — the compact companion to the file above.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Two things about the grain matter for everything downstream. Arm sizes differ, so every number
+  here is <span class="unit">per active player-day</span> — the exports' own normalisation
+  (<code>amount ÷ player_days</code>), verified to the cent. And these nine days are two days wider
+  than the 7-day window in <code>LiveOps_v2_AB_Summary.xlsx</code>, so figures will not tie out
+  exactly against that workbook.</p>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">01</span><h2>The overall picture</h2></div>
+  <p class="lede">The Variant cut the core faucet and rebuilt it out of events. Hard currency is down
+  6–8% in every segment; almost everything else is up.</p>
+
+  <p>The mechanism is consistent across buckets: <code>saga_progression</code> loses roughly 60% of its
+  HC and <code>river_rush</code> disappears entirely, while Rainbow Maker arrives from nothing, Night Sky
+  doubles, and Bomb's Ballet and Red's Challenge add more on top. The replacement is not like-for-like —
+  the new faucets pay in tokens, unlimited lives and boosters far more than in coins, so Dream Pass tokens
+  more than triple at the top while HC still ends the window down.</p>
+
+  <p>Spend fell too, in every segment and by roughly the same proportion as gains — except at 100+,
+  where it collapsed. That single divergence is what produces the net-position swing, and section 03
+  takes it apart.</p>
+
+  <div class="block">
+  <table>
+    <caption><b>Segment ledger</b> — per active player-day, Control → Variant. Boosters = powerups +
+    pre-level boosters + unlimited pre-level boosters. Unlimited Lives is shown separately: it is
+    granted in minutes and has no spend sink at all.</caption>
+    <thead>
+      <tr>
+        <th>Bucket</th><th>Player-days</th>
+        <th>HC gain</th><th>Δ</th><th>HC spend</th><th>Δ</th><th>HC net</th>
+        <th>Booster gain</th><th>Δ</th><th>Booster net</th>
+        <th>UL Lives</th><th>Δ</th><th>Dream Pass</th><th>Δ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>A. 0</td><td>31,510 → 30,647</td><td>26.6 → 22.3</td><td class="neg">−16.1%</td><td>2.5 → 2.1</td><td class="neg">−15.3%</td><td>24.1 → 20.2</td><td>3.4 → 3.4</td><td>−1.1%</td><td>2.8 → 2.8</td><td>25.2 → 24.4</td><td class="neg">−3.0%</td><td>4.0 → 4.4</td><td class="pos">+10.3%</td></tr>
+      <tr><td>B. 1-9</td><td>63,399 → 60,832</td><td>61.3 → 57.0</td><td class="neg">−7.0%</td><td>57.3 → 54.8</td><td class="neg">−4.3%</td><td>4.0 → 2.2</td><td>9.4 → 10.5</td><td class="pos">+11.2%</td><td>4.4 → 5.1</td><td>77.5 → 98.6</td><td class="pos">+27.2%</td><td>8.0 → 17.7</td><td class="pos">+121.8%</td></tr>
+      <tr><td>C. 10-19</td><td>51,683 → 52,164</td><td>112.9 → 105.4</td><td class="neg">−6.7%</td><td>112.3 → 104.8</td><td class="neg">−6.7%</td><td>0.6 → 0.6</td><td>16.9 → 18.2</td><td class="pos">+7.8%</td><td>6.7 → 7.5</td><td>115.4 → 147.6</td><td class="pos">+28.0%</td><td>16.4 → 43.9</td><td class="pos">+167.9%</td></tr>
+      <tr><td>D. 20-39</td><td>35,611 → 37,922</td><td>203.3 → 189.1</td><td class="neg">−7.0%</td><td>200.1 → 186.8</td><td class="neg">−6.6%</td><td>3.2 → 2.3</td><td>28.4 → 28.5</td><td>+0.4%</td><td>10.4 → 11.0</td><td>167.3 → 209.7</td><td class="pos">+25.3%</td><td>26.0 → 76.7</td><td class="pos">+195.3%</td></tr>
+      <tr><td>E. 40-99</td><td>21,975 → 21,526</td><td>368.3 → 342.4</td><td class="neg">−7.0%</td><td>358.0 → 333.2</td><td class="neg">−6.9%</td><td>10.3 → 9.2</td><td>44.5 → 38.6</td><td class="neg">−13.3%</td><td>14.1 → 12.4</td><td>264.7 → 327.5</td><td class="pos">+23.7%</td><td>41.2 → 138.0</td><td class="pos">+234.9%</td></tr>
+      <tr><td>F. 100+</td><td>3,183 → 2,679</td><td>665.3 → 608.8</td><td class="neg">−8.5%</td><td>804.9 → 565.5</td><td class="neg">−29.7%</td><td class="pos">−139.6 → +43.2</td><td>76.2 → 55.0</td><td class="neg">−27.9%</td><td>19.5 → 14.8</td><td>459.9 → 568.0</td><td class="pos">+23.5%</td><td>70.0 → 253.3</td><td class="pos">+261.9%</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">02</span><h2>Highlights</h2></div>
+  <p class="lede">Eleven things worth flagging, each with the mechanism I think produced it. The first
+  two change how the whole test should be read.</p>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H1</span>
+      <h3>Night Sky doubled in every segment — with an unchanged reward table</h3>
+      <span class="chip up">×1.95 avg</span></div>
+    <p class="why"><strong>What:</strong> <code>dreamheist_event</code> HC per active player-day —
+    1-9 <b>2.4→4.8</b>, 10-19 <b>8.8→17.1</b>, 20-39 <b>19.7→37.7</b>, 40-99 <b>40.7→79.9</b>,
+    100+ <b>71.3→125.1</b>. It is now the largest single event faucet in the game.</p>
+    <p class="why"><strong>Why:</strong> this is exposure, not economy. HC <em>per gainer</em> is flat or
+    slightly down (100+ 265.7→233.9, ×0.88; every other bucket ×0.96–1.00), while the share of
+    player-days that earn from it lands on almost exactly double: 26.8%→53.5% at 100+, 28.3%→58.0%,
+    31.0%→61.0%, 28.8%→56.4%, 15.3%→30.1%. The clean reading is that Night Sky ran at roughly 50%
+    rollout in Control and 100% in the Variant. The ladder didn't change; the audience did.</p>
+    <p class="why"><strong>So what:</strong> any model that treats Night Sky as neutral between the arms
+    is wrong by a factor of two, and half of the "new events replaced the nerf" story is actually
+    "the existing event was un-diluted".</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H2</span>
+      <h3>The saga nerf swapped hard currency for unlimited lives</h3>
+      <span class="chip down">HC ×0.39</span><span class="chip up">UL Lives ×1.25</span></div>
+    <p class="why"><strong>What:</strong> <code>saga_progression</code> at 100+ pays <b>193.4→74.5</b> HC
+    per player-day, but <b>260.3→326.1</b> minutes of Unlimited Lives. Same at 20-39
+    (HC 39.8→17.5, UL Lives 56.8→73.3). Gainer share is untouched (100+ 0.99→0.98) — the same players
+    clear the same nodes.</p>
+    <p class="why"><strong>Why:</strong> the reward table was re-mixed, not just cut. Coins were pulled
+    out and replaced with a time-boxed consumable that expires if unused — cheaper for the economy,
+    and it never shows up as a sink. One line was deleted outright: saga's powerup grant went
+    <b>1.87→0.01</b> at 100+, gainer share 0.88→0.00.</p>
+    <p class="why"><strong>Also note the scaling:</strong> per gainer the cut is progressive —
+    ×0.68 at 1-9, ×0.59, ×0.51, ×0.44, ×0.39 at 100+. Deep players lost proportionally more, which
+    is why the HC drop is flat across buckets even though saga is a much bigger share of their income.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H3</span>
+      <h3>Dream Pass tokens more than tripled — Rainbow Maker is a token firehose</h3>
+      <span class="chip up">+262% at 100+</span></div>
+    <p class="why"><strong>What:</strong> <b>70.0→253.3</b> tokens per player-day at 100+; +235% at
+    40-99, +195% at 20-39, +168% at 10-19, +122% at 1-9. Rainbow Maker alone supplies <b>186.6</b> of
+    the 253.3 — <b>74%</b> of all token income at 100+, and 56–68% in every other bucket.</p>
+    <p class="why"><strong>Why:</strong> RM's milestone ladder pays tokens at nearly every step and the
+    event runs for days; nothing else on the calendar pays them at that density. <strong>Watch-out:</strong>
+    tokens drive Season Pass tier progression, so this is a direct tier-inflation vector — the paid and
+    free tracks will be reached far earlier than the old calendar assumed.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H4</span>
+      <h3>One Rainbow Maker day paid 926 HC per gainer to a third of the cohort</h3>
+      <span class="chip up">×10 vs its other days</span></div>
+    <p class="why"><strong>What:</strong> on 30 Jul, 93 of 280 100+ players (33%) took 86,100 HC from RM —
+    <b>925.8 per gainer</b>, against 50–95 on its other days. The next day, 22 players (7.6%) took 731 each.</p>
+    <p class="why"><strong>Why:</strong> the deep tail of the milestone ladder clearing at instance end —
+    the grand-prize band. It is working as designed, but it means RM's average is a poor summary of RM:
+    a third of the cohort collects most of its value, and the tail is where the HC actually sits. If the
+    ladder's top milestones are re-priced, that day moves more than any other lever in the event.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H5</span>
+      <h3>One account per day accounts for most of the 100+ spend collapse</h3>
+      <span class="chip down">−176.6 HC/day</span></div>
+    <p class="why"><strong>What:</strong> the pre-level booster shop (<code>map_pre_level_booster</code>)
+    went from <b>176.8</b> HC per active player-day to <b>0.19</b> — that one sink is <b>74%</b> of the
+    entire 239-point HC spend drop. In Control it ran on <b>33 spender-days</b> across the nine days, at
+    <b>11,840–20,523 HC</b> and <b>102–118 purchase events</b> per spender-day. The Variant side is three
+    spender-days with one purchase each.</p>
+    <p class="why"><strong>How thin, exactly:</strong> the daily export reports spenders per booster tier,
+    and on eight of nine days it is <b>one spender per tier</b> (0.27–0.36% of ~350 players) with
+    near-identical event counts across the three tiers — 105/100/100 on 26 Jul, 278/271/272 on 27 Jul.
+    That is one account buying one of each in a loop. Two days show two. So: <b>1–2 distinct accounts a
+    day</b>, at most 13 across the window, and on 27 Jul a single account made 821 purchases worth
+    123,450 HC.</p>
+    <p class="why"><strong>Why it is not a feature change:</strong> the shop still operates in the
+    Variant — other buckets keep buying from it (40-99 has <em>more</em> spender-days in the Variant,
+    36→43) and no renamed sink appears in the Variant's 100+ ledger to absorb it. What changed is who is
+    in the 100+ cell, not whether the shop exists. At ~110 purchases a day this also does not look like
+    ordinary play; worth deciding whether it belongs in the analysis at all.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H6</span>
+      <h3>The 100+ cell isn't comparable across arms — for two independent reasons</h3>
+      <span class="chip down">12% of Variant dropped</span><span class="chip down">−16% player-days</span></div>
+    <p class="why"><strong>An HC cleaning rule fires on one arm only.</strong> In the summary workbook's
+    per-day counts, <code>hc_excluded_players</code> removes <b>zero players from Control in every
+    bucket</b>, and 0.2–0.8% of the Variant in every bucket <em>except</em> 100+, where it removes
+    <b>12.0%</b> (281 of 2,343 player-days). The CSV player-day counts line up with the cleaned
+    population, so these exports inherit it. A filter that trims extreme HC accounts from one arm and not
+    the other will remove precisely the kind of account described in H5 — from the Variant, while Control
+    keeps its own.</p>
+    <p class="why"><strong>And the cohort itself moved.</strong> 100+ player-days fell 3,183→2,679 while
+    20-39 gained 6.5%. Buckets are defined by 7-day level completions and the Variant lowered the pass
+    rate, so players slip down a bucket. Per-bucket comparisons are partly comparing different people —
+    strongest exactly where the sample is smallest.</p>
+    <p class="why"><strong>So what:</strong> together these make the 100+ HC comparison the weakest number
+    in the read-out. The rest of this report rests on cohorts of 20k–60k player-days with symmetric
+    treatment; the 100+ net swing does not.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H7</span>
+      <h3>Target Day tripled its Unlimited Lives payout, identically in every segment</h3>
+      <span class="chip up">×2.75 – ×3.07</span></div>
+    <p class="why"><strong>What:</strong> <code>ArcheryArena</code> UL Lives per player-day —
+    1-9 2.10→6.46, 10-19 2.29→6.31, 20-39 2.16→6.35, 40-99 2.00→5.90, 100+ 1.94→5.33.</p>
+    <p class="why"><strong>Why:</strong> a uniform multiplier across five very different cohorts is the
+    signature of a config edit, not behaviour — the UL Lives line on the Target Day reward table was
+    raised roughly threefold. Worth confirming it was intended: it is the largest single relative
+    increase of any unchanged-schedule event.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H8</span>
+      <h3>The calendar swap is visible as clean on/off switches</h3>
+      <span class="chip up">4 in</span><span class="chip down">4 out</span></div>
+    <p class="why"><strong>What (100+ HC per player-day):</strong> in — Rainbow Maker 0→63.0,
+    Bomb's Ballet 0.02→10.1. Out — River Rush 39.4→0.0, Photoshoot 11.3→0.1, bomb_event 14.5→0.9,
+    Jigsaw 4.2→0.0. Photoshoot also took 30.2 UL Lives per player-day with it.</p>
+    <p class="why"><strong>Why:</strong> nothing subtle — these events left or joined the calendar.
+    Recorded here because River Rush's removal alone is a 39-point hole at 100+, roughly a third of the
+    saga cut, and it is easy to attribute that to the nerf by mistake.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H9</span>
+      <h3>Red's Challenge doubled at the top — by frequency, not richness</h3>
+      <span class="chip up">×2.10 at 100+</span></div>
+    <p class="why"><strong>What:</strong> 16.2→33.9 HC per player-day at 100+, 9.1→17.1 at 40-99.</p>
+    <p class="why"><strong>Why:</strong> HC per gainer is flat (172.2→168.4) while gainer share doubles
+    (9.4%→20.2%). More instances on the calendar, same ladder — the same signature as Night Sky in H1,
+    at smaller scale.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H10</span>
+      <h3>The zero-completion cohort lost the most HC, proportionally</h3>
+      <span class="chip down">−16.1%</span></div>
+    <p class="why"><strong>What:</strong> A. 0 players complete no levels yet still take 22.3 HC and
+    24.4 minutes of UL Lives per day. Their HC fell 26.6→22.3, the steepest drop of any bucket, driven
+    almost entirely by <code>daily_reward</code> (12.75→9.24).</p>
+    <p class="why"><strong>Why:</strong> their income is pure login/social/ads — no event ladder reaches
+    them — so a change to the daily reward table hits them undiluted, and none of the new events
+    compensate. They are 30,647 player-days, the second-largest cohort in the test, and they spend
+    2.1 HC a day against 22.3 earned: a near-pure faucet with no sink. Worth a decision either way.</p>
+  </div>
+
+  <div class="hl">
+    <div class="hl-head"><span class="hl-id">H11</span>
+      <h3>Boosters split in opposite directions by depth</h3>
+      <span class="chip up">+11% at 1-9</span><span class="chip down">−28% at 100+</span></div>
+    <p class="why"><strong>What:</strong> booster gains per player-day move +11.2% / +7.8% / +0.4% /
+    −13.3% / −27.9% from shallow to deep.</p>
+    <p class="why"><strong>Why:</strong> two effects pointing opposite ways. Shallow players pick up
+    boosters from the early milestones of the new events (RM, Bomb's Ballet, Night Sky), which they can
+    actually reach. Deep players lose the saga-node boosters (H2) <em>and</em> the pre-level boosters they
+    used to buy with HC (H5) at the same time — the same event that removed their spend also removed
+    the goods it bought.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">03</span><h2>Where each resource comes from</h2></div>
+  <p class="lede">One structure explains almost all of it: shallow players are fed by scheduled and
+  social faucets, deep players by event ladders and saga nodes. Every resource shows the same gradient,
+  which is why this is a paragraph and a table rather than thirty charts.</p>
+
+  <p>Read the table down a column and you see one cohort's diet; read it across a row and you see the
+  gradient. <b>Hard currency</b> is the clearest case: at 1-9 the biggest single source is the daily
+  reward (24%), and no event breaks 10%; from 10-19 upward Night Sky is the largest source in every
+  bucket (16% → 23%), with saga and level-ups the only other double-digit lines. <b>Unlimited Lives</b>
+  runs the same way in reverse — Flock Rush leads at the shallow end (19%) and saga takes over
+  monotonically with depth, ending at 57% of all UL Lives at 100+.</p>
+
+  <p>Three resources are one-source stories. <b>Dream Pass tokens</b> are Rainbow Maker everywhere,
+  and its share rises with depth (56% → 74%) because deeper players reach more of its ladder.
+  <b>Powerups</b> are Rainbow Maker in every single bucket (19–24%) — a new event became the primary
+  powerup faucet in one release. <b>Lives</b> are the exception to the whole gradient: asking friends
+  plus buying with coins is 78–89% of life income in every bucket, with only the ad-granted share
+  sliding down with depth (20% → 10%) as players stop needing free lives.</p>
+
+  <p>The two booster families split the way H11 predicts. <b>Pre-level boosters</b> come from Rainbow
+  Maker, offers and Night Sky at the shallow end, and from saga nodes at depth (35% at 100+).
+  <b>Unlimited pre-level boosters</b> come from the daily reward at 1-9 (40%) and from Bomb's Ballet at
+  depth (25–26%).</p>
+
+  <div class="block">
+  <table>
+    <caption><b>Largest source of each resource, by bucket</b> — Variant arm, share of that resource's
+    total gains. Second place shown where the leader is under 40%.</caption>
+    <thead><tr><th>Resource</th><th>B. 1-9</th><th>C. 10-19</th><th>D. 20-39</th><th>E. 40-99</th><th>F. 100+</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Hard currency</td><td>daily_reward 24%</td><td>dreamheist 16%</td><td>dreamheist 20%</td><td>dreamheist 23%</td><td>dreamheist 21%</td></tr>
+      <tr><td class="k">— runner-up</td><td>team_versus_contrib 12%</td><td>daily_reward 14%</td><td>saga 9%</td><td>saga 10%</td><td>saga 12% · level_up 12%</td></tr>
+      <tr><td class="k">Unlimited Lives</td><td>FlockRush 19%</td><td>saga 25%</td><td>saga 35%</td><td>saga 47%</td><td>saga 57%</td></tr>
+      <tr><td class="k">— runner-up</td><td>daily_reward 16% · saga 16%</td><td>FlockRush 16%</td><td>FlockRush 13%</td><td>FlockRush 9%</td><td>level_up 8%</td></tr>
+      <tr><td class="k">Dream Pass tokens</td><td>Rainbow Maker 56%</td><td>Rainbow Maker 63%</td><td>Rainbow Maker 65%</td><td>Rainbow Maker 68%</td><td>Rainbow Maker 74%</td></tr>
+      <tr><td class="k">Powerups</td><td>Rainbow Maker 19%</td><td>Rainbow Maker 24%</td><td>Rainbow Maker 23%</td><td>Rainbow Maker 20%</td><td>Rainbow Maker 23%</td></tr>
+      <tr><td class="k">— runner-up</td><td>daily_reward 16%</td><td>daily_reward 10%</td><td>saga 11%</td><td>saga 16%</td><td>saga 20%</td></tr>
+      <tr><td class="k">Pre-level boosters</td><td>Rainbow Maker 20%</td><td>Rainbow Maker 16%</td><td>saga 16%</td><td>saga 25%</td><td>saga 35%</td></tr>
+      <tr><td class="k">— runner-up</td><td>offer_free_items 17%</td><td>dream_pass 15%</td><td>dream_pass 15%</td><td>Rainbow Maker 16%</td><td>Rainbow Maker 17%</td></tr>
+      <tr><td class="k">UL pre-level boosters</td><td>daily_reward 40%</td><td>daily_reward 26%</td><td>dream_pass 19%</td><td>bomb_ballet 25%</td><td>bomb_ballet 26%</td></tr>
+      <tr><td class="k">Lives</td><td>ask_for_lives 42%</td><td>ask_for_lives 40%</td><td>ask_for_lives 43%</td><td>ask_for_lives 46%</td><td>ask_for_lives 54%</td></tr>
+      <tr><td class="k">— runner-up</td><td>coin_purchase 38%</td><td>coin_purchase 39%</td><td>coin_purchase 41%</td><td>coin_purchase 43%</td><td>coin_purchase 35%</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">04</span><h2>The 100+ net swing, taken apart</h2></div>
+  <p class="lede">Hard-currency net position went from −139.6 to +43.2 per active player-day. Four fifths
+  of that is the spend side, and most of the spend side is five people.</p>
+
+  <div class="kpis">
+    <div class="kpi"><p class="k">HC net / player-day</p><div class="v">−139.6 → +43.2</div>
+      <div class="d" style="color:var(--pos)">+182.8 swing</div></div>
+    <div class="kpi"><p class="k">from gains</p><div class="v">−56.5</div>
+      <div class="d" style="color:var(--ink-2)">19% of the swing</div></div>
+    <div class="kpi"><p class="k">from spend</p><div class="v">−239.3</div>
+      <div class="d" style="color:var(--ink-2)">81% of the swing</div></div>
+    <div class="kpi"><p class="k">one sink alone</p><div class="v">−176.6</div>
+      <div class="d" style="color:var(--neg)">74% of the spend drop</div></div>
+  </div>
+
+  <h3>Where the HC comes from now</h3>
+  <figure>
+    <figcaption><b>Share of the Variant's 100+ HC gains, by source.</b> Night Sky is now the largest
+    single faucet at 20.6%; the saga nodes that used to lead have fallen to 12.2%. Right-hand figures
+    are the absolute rate per active player-day.</figcaption>
+    <div class="chart-shell"><svg viewBox="0 0 688 492" width="688" role="img" aria-labelledby="ca-t" class="chart">
+<title id="ca-t">% of the 100+ arm’s HC gains</title>
+<line class="axis" x1="208.0" y1="20" x2="208.0" y2="466"/>
+<text class="tick" x="208.0" y="480" text-anchor="middle">0</text>
+<line class="grid" x1="295.1" y1="20" x2="295.1" y2="466"/>
+<text class="tick" x="295.1" y="480" text-anchor="middle">5</text>
+<line class="grid" x1="382.2" y1="20" x2="382.2" y2="466"/>
+<text class="tick" x="382.2" y="480" text-anchor="middle">10</text>
+<line class="grid" x1="469.4" y1="20" x2="469.4" y2="466"/>
+<text class="tick" x="469.4" y="480" text-anchor="middle">15</text>
+<line class="grid" x1="556.5" y1="20" x2="556.5" y2="466"/>
+<text class="tick" x="556.5" y="480" text-anchor="middle">20</text>
+<g class="row" tabindex="0">
+<title>dreamheist_event: 20.6% % of the 100+ arm’s HC gains  ·  125/day</title>
+<rect class="hit" x="0" y="26.0" width="688" height="27"/>
+<text class="lab" x="196" y="43.0" text-anchor="end">dreamheist_event</text>
+<path class="bar pos" d="M208.0 30.0 H562.9 a4.0 4.0 0 0 1 4.0 4.0 V44.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="572.9" y="43.0" text-anchor="start">20.6%</text>
+<text class="note" x="682" y="43.0" text-anchor="end">125/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>saga_progression: 12.2% % of the 100+ arm’s HC gains  ·  74/day</title>
+<rect class="hit" x="0" y="53.0" width="688" height="27"/>
+<text class="lab" x="196" y="70.0" text-anchor="end">saga_progression</text>
+<path class="bar pos" d="M208.0 57.0 H416.6 a4.0 4.0 0 0 1 4.0 4.0 V71.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="426.6" y="70.0" text-anchor="start">12.2%</text>
+<text class="note" x="682" y="70.0" text-anchor="end">74/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>player_level_up: 12.0% % of the 100+ arm’s HC gains  ·  73/day</title>
+<rect class="hit" x="0" y="80.0" width="688" height="27"/>
+<text class="lab" x="196" y="97.0" text-anchor="end">player_level_up</text>
+<path class="bar pos" d="M208.0 84.0 H413.1 a4.0 4.0 0 0 1 4.0 4.0 V98.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="423.1" y="97.0" text-anchor="start">12.0%</text>
+<text class="note" x="682" y="97.0" text-anchor="end">73/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>IAP / offer SKUs (all): 11.0% % of the 100+ arm’s HC gains  ·  67/day</title>
+<rect class="hit" x="0" y="107.0" width="688" height="27"/>
+<text class="lab" x="196" y="124.0" text-anchor="end">IAP / offer SKUs (all)</text>
+<path class="bar pos" d="M208.0 111.0 H395.7 a4.0 4.0 0 0 1 4.0 4.0 V125.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="405.7" y="124.0" text-anchor="start">11.0%</text>
+<text class="note" x="682" y="124.0" text-anchor="end">67/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>Rainbow Maker: 10.3% % of the 100+ arm’s HC gains  ·  63/day</title>
+<rect class="hit" x="0" y="134.0" width="688" height="27"/>
+<text class="lab" x="196" y="151.0" text-anchor="end">Rainbow Maker</text>
+<path class="bar pos" d="M208.0 138.0 H383.5 a4.0 4.0 0 0 1 4.0 4.0 V152.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="393.5" y="151.0" text-anchor="start">10.3%</text>
+<text class="note" x="682" y="151.0" text-anchor="end">63/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>All other sources (13): 8.1% % of the 100+ arm’s HC gains  ·  49/day</title>
+<rect class="hit" x="0" y="161.0" width="688" height="27"/>
+<text class="lab" x="196" y="178.0" text-anchor="end">All other sources (13)</text>
+<path class="bar pos" d="M208.0 165.0 H345.1 a4.0 4.0 0 0 1 4.0 4.0 V179.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="355.1" y="178.0" text-anchor="start">8.1%</text>
+<text class="note" x="682" y="178.0" text-anchor="end">49/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>red_event: 5.6% % of the 100+ arm’s HC gains  ·  34/day</title>
+<rect class="hit" x="0" y="188.0" width="688" height="27"/>
+<text class="lab" x="196" y="205.0" text-anchor="end">red_event</text>
+<path class="bar pos" d="M208.0 192.0 H301.6 a4.0 4.0 0 0 1 4.0 4.0 V206.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="311.6" y="205.0" text-anchor="start">5.6%</text>
+<text class="note" x="682" y="205.0" text-anchor="end">34/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>kite_festival_event: 4.1% % of the 100+ arm’s HC gains  ·  25/day</title>
+<rect class="hit" x="0" y="215.0" width="688" height="27"/>
+<text class="lab" x="196" y="232.0" text-anchor="end">kite_festival_event</text>
+<path class="bar pos" d="M208.0 219.0 H275.4 a4.0 4.0 0 0 1 4.0 4.0 V233.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="285.4" y="232.0" text-anchor="start">4.1%</text>
+<text class="note" x="682" y="232.0" text-anchor="end">25/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>ArcheryArena: 3.7% % of the 100+ arm’s HC gains  ·  22/day</title>
+<rect class="hit" x="0" y="242.0" width="688" height="27"/>
+<text class="lab" x="196" y="259.0" text-anchor="end">ArcheryArena</text>
+<path class="bar pos" d="M208.0 246.0 H268.5 a4.0 4.0 0 0 1 4.0 4.0 V260.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="278.5" y="259.0" text-anchor="start">3.7%</text>
+<text class="note" x="682" y="259.0" text-anchor="end">22/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>daily_reward: 3.0% % of the 100+ arm’s HC gains  ·  18/day</title>
+<rect class="hit" x="0" y="269.0" width="688" height="27"/>
+<text class="lab" x="196" y="286.0" text-anchor="end">daily_reward</text>
+<path class="bar pos" d="M208.0 273.0 H256.3 a4.0 4.0 0 0 1 4.0 4.0 V287.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="266.3" y="286.0" text-anchor="start">3.0%</text>
+<text class="note" x="682" y="286.0" text-anchor="end">18/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>single_collection: 2.4% % of the 100+ arm’s HC gains  ·  15/day</title>
+<rect class="hit" x="0" y="296.0" width="688" height="27"/>
+<text class="lab" x="196" y="313.0" text-anchor="end">single_collection</text>
+<path class="bar pos" d="M208.0 300.0 H245.8 a4.0 4.0 0 0 1 4.0 4.0 V314.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="255.8" y="313.0" text-anchor="start">2.4%</text>
+<text class="note" x="682" y="313.0" text-anchor="end">15/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>Hatchling Hideaway: 1.9% % of the 100+ arm’s HC gains  ·  12/day</title>
+<rect class="hit" x="0" y="323.0" width="688" height="27"/>
+<text class="lab" x="196" y="340.0" text-anchor="end">Hatchling Hideaway</text>
+<path class="bar pos" d="M208.0 327.0 H237.1 a4.0 4.0 0 0 1 4.0 4.0 V341.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="247.1" y="340.0" text-anchor="start">1.9%</text>
+<text class="note" x="682" y="340.0" text-anchor="end">12/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>team_collection: 1.8% % of the 100+ arm’s HC gains  ·  11/day</title>
+<rect class="hit" x="0" y="350.0" width="688" height="27"/>
+<text class="lab" x="196" y="367.0" text-anchor="end">team_collection</text>
+<path class="bar pos" d="M208.0 354.0 H235.4 a4.0 4.0 0 0 1 4.0 4.0 V368.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="245.4" y="367.0" text-anchor="start">1.8%</text>
+<text class="note" x="682" y="367.0" text-anchor="end">11/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>bomb_ballet_event: 1.7% % of the 100+ arm’s HC gains  ·  10/day</title>
+<rect class="hit" x="0" y="377.0" width="688" height="27"/>
+<text class="lab" x="196" y="394.0" text-anchor="end">bomb_ballet_event</text>
+<path class="bar pos" d="M208.0 381.0 H233.6 a4.0 4.0 0 0 1 4.0 4.0 V395.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="243.6" y="394.0" text-anchor="start">1.7%</text>
+<text class="note" x="682" y="394.0" text-anchor="end">10/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>race_event: 1.4% % of the 100+ arm’s HC gains  ·  9/day</title>
+<rect class="hit" x="0" y="404.0" width="688" height="27"/>
+<text class="lab" x="196" y="421.0" text-anchor="end">race_event</text>
+<path class="bar pos" d="M208.0 408.0 H228.4 a4.0 4.0 0 0 1 4.0 4.0 V422.0 a4.0 4.0 0 0 1 -4.0 4.0 H208.0 Z"/>
+<text class="val pos" x="238.4" y="421.0" text-anchor="start">1.4%</text>
+<text class="note" x="682" y="421.0" text-anchor="end">9/day</text>
+</g>
+<g class="row" tabindex="0">
+<title>Everything below 1% (4 sources): 0.1% % of the 100+ arm’s HC gains  ·  1/day</title>
+<rect class="hit" x="0" y="431.0" width="688" height="27"/>
+<text class="lab" x="196" y="448.0" text-anchor="end">Everything below 1% (4 sources)</text>
+<path class="bar pos" d="M208.0 435.0 H208.0 a1.7 1.7 0 0 1 1.7 1.7 V451.3 a1.7 1.7 0 0 1 -1.7 1.7 H208.0 Z"/>
+<text class="val pos" x="215.7" y="448.0" text-anchor="start">0.1%</text>
+<text class="note" x="682" y="448.0" text-anchor="end">1/day</text>
+</g>
+</svg></div>
+  </figure>
+
+  <h3>What changed against Control</h3>
+  <figure>
+    <figcaption><b>Change in HC gains per active player-day, Variant minus Control</b>, sorted.
+    Right-hand figures are each source's share of the Variant's HC. The whole −56.5 net decline is
+    two lines — the saga nerf and River Rush's removal — against which the new and expanded events
+    recover most, but not all, of the gap.</figcaption>
+    <div class="chart-shell"><svg viewBox="0 0 688 573" width="688" role="img" aria-labelledby="cb-t" class="chart">
+<title id="cb-t">HC per active player-day vs Control</title>
+<line class="grid" x1="268.3" y1="20" x2="268.3" y2="547"/>
+<text class="tick" x="268.3" y="561" text-anchor="middle">-100</text>
+<line class="grid" x1="366.3" y1="20" x2="366.3" y2="547"/>
+<text class="tick" x="366.3" y="561" text-anchor="middle">-50</text>
+<line class="axis" x1="464.3" y1="20" x2="464.3" y2="547"/>
+<text class="tick" x="464.3" y="561" text-anchor="middle">0</text>
+<line class="grid" x1="562.3" y1="20" x2="562.3" y2="547"/>
+<text class="tick" x="562.3" y="561" text-anchor="middle">+50</text>
+<g class="row" tabindex="0">
+<title>Rainbow Maker: +63.0 HC per active player-day vs Control  ·  10.3% share</title>
+<rect class="hit" x="0" y="26.0" width="688" height="27"/>
+<text class="lab" x="196" y="43.0" text-anchor="end">Rainbow Maker</text>
+<path class="bar pos" d="M464.3 30.0 H583.8 a4.0 4.0 0 0 1 4.0 4.0 V44.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="593.8" y="43.0" text-anchor="start">+63.0</text>
+<text class="note" x="682" y="43.0" text-anchor="end">10.3% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>dreamheist_event: +53.8 HC per active player-day vs Control  ·  20.6% share</title>
+<rect class="hit" x="0" y="53.0" width="688" height="27"/>
+<text class="lab" x="196" y="70.0" text-anchor="end">dreamheist_event</text>
+<path class="bar pos" d="M464.3 57.0 H565.8 a4.0 4.0 0 0 1 4.0 4.0 V71.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="575.8" y="70.0" text-anchor="start">+53.8</text>
+<text class="note" x="682" y="70.0" text-anchor="end">20.6% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>red_event: +17.8 HC per active player-day vs Control  ·  5.6% share</title>
+<rect class="hit" x="0" y="80.0" width="688" height="27"/>
+<text class="lab" x="196" y="97.0" text-anchor="end">red_event</text>
+<path class="bar pos" d="M464.3 84.0 H495.1 a4.0 4.0 0 0 1 4.0 4.0 V98.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="505.1" y="97.0" text-anchor="start">+17.8</text>
+<text class="note" x="682" y="97.0" text-anchor="end">5.6% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>bomb_ballet_event: +10.1 HC per active player-day vs Control  ·  1.7% share</title>
+<rect class="hit" x="0" y="107.0" width="688" height="27"/>
+<text class="lab" x="196" y="124.0" text-anchor="end">bomb_ballet_event</text>
+<path class="bar pos" d="M464.3 111.0 H480.2 a4.0 4.0 0 0 1 4.0 4.0 V125.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="490.2" y="124.0" text-anchor="start">+10.1</text>
+<text class="note" x="682" y="124.0" text-anchor="end">1.7% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>IAP / offer SKUs (all): +9.3 HC per active player-day vs Control  ·  11.0% share</title>
+<rect class="hit" x="0" y="134.0" width="688" height="27"/>
+<text class="lab" x="196" y="151.0" text-anchor="end">IAP / offer SKUs (all)</text>
+<path class="bar pos" d="M464.3 138.0 H478.5 a4.0 4.0 0 0 1 4.0 4.0 V152.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="488.5" y="151.0" text-anchor="start">+9.3</text>
+<text class="note" x="682" y="151.0" text-anchor="end">11.0% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>ArcheryArena: +5.3 HC per active player-day vs Control  ·  3.7% share</title>
+<rect class="hit" x="0" y="161.0" width="688" height="27"/>
+<text class="lab" x="196" y="178.0" text-anchor="end">ArcheryArena</text>
+<path class="bar pos" d="M464.3 165.0 H470.7 a4.0 4.0 0 0 1 4.0 4.0 V179.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="480.7" y="178.0" text-anchor="start">+5.3</text>
+<text class="note" x="682" y="178.0" text-anchor="end">3.7% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>kite_festival_event: +3.6 HC per active player-day vs Control  ·  4.1% share</title>
+<rect class="hit" x="0" y="188.0" width="688" height="27"/>
+<text class="lab" x="196" y="205.0" text-anchor="end">kite_festival_event</text>
+<path class="bar pos" d="M464.3 192.0 H467.5 a4.0 4.0 0 0 1 4.0 4.0 V206.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="477.5" y="205.0" text-anchor="start">+3.6</text>
+<text class="note" x="682" y="205.0" text-anchor="end">4.1% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>Hatchling Hideaway: +2.9 HC per active player-day vs Control  ·  1.9% share</title>
+<rect class="hit" x="0" y="215.0" width="688" height="27"/>
+<text class="lab" x="196" y="232.0" text-anchor="end">Hatchling Hideaway</text>
+<path class="bar pos" d="M464.3 219.0 H466.1 a4.0 4.0 0 0 1 4.0 4.0 V233.0 a4.0 4.0 0 0 1 -4.0 4.0 H464.3 Z"/>
+<text class="val pos" x="476.1" y="232.0" text-anchor="start">+2.9</text>
+<text class="note" x="682" y="232.0" text-anchor="end">1.9% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>All other sources (13): -0.5 HC per active player-day vs Control  ·  8.1% share</title>
+<rect class="hit" x="0" y="242.0" width="688" height="27"/>
+<text class="lab" x="196" y="259.0" text-anchor="end">All other sources (13)</text>
+<path class="bar neg" d="M464.3 246.0 H464.3 a1.0 1.0 0 0 0 -1.0 1.0 V263.0 a1.0 1.0 0 0 0 1.0 1.0 H464.3 Z"/>
+<text class="val neg" x="457.3" y="259.0" text-anchor="end">-0.5</text>
+<text class="note" x="682" y="259.0" text-anchor="end">8.1% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>team_collection: -2.3 HC per active player-day vs Control  ·  1.8% share</title>
+<rect class="hit" x="0" y="269.0" width="688" height="27"/>
+<text class="lab" x="196" y="286.0" text-anchor="end">team_collection</text>
+<path class="bar neg" d="M464.3 273.0 H463.8 a4.0 4.0 0 0 0 -4.0 4.0 V287.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="453.8" y="286.0" text-anchor="end">-2.3</text>
+<text class="note" x="682" y="286.0" text-anchor="end">1.8% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>daily_reward: -3.4 HC per active player-day vs Control  ·  3.0% share</title>
+<rect class="hit" x="0" y="296.0" width="688" height="27"/>
+<text class="lab" x="196" y="313.0" text-anchor="end">daily_reward</text>
+<path class="bar neg" d="M464.3 300.0 H461.6 a4.0 4.0 0 0 0 -4.0 4.0 V314.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="451.6" y="313.0" text-anchor="end">-3.4</text>
+<text class="note" x="682" y="313.0" text-anchor="end">3.0% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>Jigsaw: -4.1 HC per active player-day vs Control  ·  0.0% share</title>
+<rect class="hit" x="0" y="323.0" width="688" height="27"/>
+<text class="lab" x="196" y="340.0" text-anchor="end">Jigsaw</text>
+<path class="bar neg" d="M464.3 327.0 H460.2 a4.0 4.0 0 0 0 -4.0 4.0 V341.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="450.2" y="340.0" text-anchor="end">-4.1</text>
+<text class="note" x="682" y="340.0" text-anchor="end">0.0% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>player_level_up: -4.6 HC per active player-day vs Control  ·  12.0% share</title>
+<rect class="hit" x="0" y="350.0" width="688" height="27"/>
+<text class="lab" x="196" y="367.0" text-anchor="end">player_level_up</text>
+<path class="bar neg" d="M464.3 354.0 H459.4 a4.0 4.0 0 0 0 -4.0 4.0 V368.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="449.4" y="367.0" text-anchor="end">-4.6</text>
+<text class="note" x="682" y="367.0" text-anchor="end">12.0% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>race_event: -9.0 HC per active player-day vs Control  ·  1.4% share</title>
+<rect class="hit" x="0" y="377.0" width="688" height="27"/>
+<text class="lab" x="196" y="394.0" text-anchor="end">race_event</text>
+<path class="bar neg" d="M464.3 381.0 H450.6 a4.0 4.0 0 0 0 -4.0 4.0 V395.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="440.6" y="394.0" text-anchor="end">-9.0</text>
+<text class="note" x="682" y="394.0" text-anchor="end">1.4% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>Photoshoot: -11.2 HC per active player-day vs Control  ·  0.0% share</title>
+<rect class="hit" x="0" y="404.0" width="688" height="27"/>
+<text class="lab" x="196" y="421.0" text-anchor="end">Photoshoot</text>
+<path class="bar neg" d="M464.3 408.0 H446.4 a4.0 4.0 0 0 0 -4.0 4.0 V422.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="436.4" y="421.0" text-anchor="end">-11.2</text>
+<text class="note" x="682" y="421.0" text-anchor="end">0.0% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>bomb_event: -13.6 HC per active player-day vs Control  ·  0.1% share</title>
+<rect class="hit" x="0" y="431.0" width="688" height="27"/>
+<text class="lab" x="196" y="448.0" text-anchor="end">bomb_event</text>
+<path class="bar neg" d="M464.3 435.0 H441.6 a4.0 4.0 0 0 0 -4.0 4.0 V449.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="431.6" y="448.0" text-anchor="end">-13.6</text>
+<text class="note" x="682" y="448.0" text-anchor="end">0.1% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>single_collection: -15.3 HC per active player-day vs Control  ·  2.4% share</title>
+<rect class="hit" x="0" y="458.0" width="688" height="27"/>
+<text class="lab" x="196" y="475.0" text-anchor="end">single_collection</text>
+<path class="bar neg" d="M464.3 462.0 H438.3 a4.0 4.0 0 0 0 -4.0 4.0 V476.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="428.3" y="475.0" text-anchor="end">-15.3</text>
+<text class="note" x="682" y="475.0" text-anchor="end">2.4% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>river_rush: -39.4 HC per active player-day vs Control  ·  0.0% share</title>
+<rect class="hit" x="0" y="485.0" width="688" height="27"/>
+<text class="lab" x="196" y="502.0" text-anchor="end">river_rush</text>
+<path class="bar neg" d="M464.3 489.0 H391.1 a4.0 4.0 0 0 0 -4.0 4.0 V503.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="381.1" y="502.0" text-anchor="end">-39.4</text>
+<text class="note" x="682" y="502.0" text-anchor="end">0.0% share</text>
+</g>
+<g class="row" tabindex="0">
+<title>saga_progression: -118.9 HC per active player-day vs Control  ·  12.2% share</title>
+<rect class="hit" x="0" y="512.0" width="688" height="27"/>
+<text class="lab" x="196" y="529.0" text-anchor="end">saga_progression</text>
+<path class="bar neg" d="M464.3 516.0 H235.3 a4.0 4.0 0 0 0 -4.0 4.0 V530.0 a4.0 4.0 0 0 0 4.0 4.0 H464.3 Z"/>
+<text class="val neg" x="225.3" y="529.0" text-anchor="end">-118.9</text>
+<text class="note" x="682" y="529.0" text-anchor="end">12.2% share</text>
+</g>
+</svg></div>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--pos)"></i> more than Control</span>
+      <span><i class="swatch" style="background:var(--neg)"></i> less than Control</span>
+    </div>
+  </figure>
+
+  <h3>And where the spending went</h3>
+  <figure>
+    <figcaption><b>Change in HC spend per active player-day, by sink.</b> One sink carries the story:
+    the pre-level booster shop, which 13 spender-days out of 3,183 were keeping alive.</figcaption>
+    <div class="chart-shell"><svg viewBox="0 0 688 195" width="688" role="img" aria-labelledby="cc-t" class="chart">
+<title id="cc-t">HC spent per active player-day vs Control</title>
+<line class="grid" x1="296.9" y1="20" x2="296.9" y2="169"/>
+<text class="tick" x="296.9" y="183" text-anchor="middle">-150</text>
+<line class="grid" x1="397.3" y1="20" x2="397.3" y2="169"/>
+<text class="tick" x="397.3" y="183" text-anchor="middle">-100</text>
+<line class="grid" x1="497.6" y1="20" x2="497.6" y2="169"/>
+<text class="tick" x="497.6" y="183" text-anchor="middle">-50</text>
+<line class="axis" x1="598.0" y1="20" x2="598.0" y2="169"/>
+<text class="tick" x="598.0" y="183" text-anchor="middle">0</text>
+<g class="row" tabindex="0">
+<title>Team created: +0.1 HC spent per active player-day vs Control  ·  was 0</title>
+<rect class="hit" x="0" y="26.0" width="688" height="27"/>
+<text class="lab" x="196" y="43.0" text-anchor="end">Team created</text>
+<path class="bar pos" d="M598.0 30.0 H598.0 a0.6 0.6 0 0 1 0.6 0.6 V47.4 a0.6 0.6 0 0 1 -0.6 0.6 H598.0 Z"/>
+<text class="val pos" x="604.1" y="43.0" text-anchor="start">+0.1</text>
+<text class="note" x="682" y="43.0" text-anchor="end">was 0</text>
+</g>
+<g class="row" tabindex="0">
+<title>In-level powerups: -0.9 HC spent per active player-day vs Control  ·  was 6</title>
+<rect class="hit" x="0" y="53.0" width="688" height="27"/>
+<text class="lab" x="196" y="70.0" text-anchor="end">In-level powerups</text>
+<path class="bar neg" d="M598.0 57.0 H598.0 a1.9 1.9 0 0 0 -1.9 1.9 V73.1 a1.9 1.9 0 0 0 1.9 1.9 H598.0 Z"/>
+<text class="val neg" x="590.1" y="70.0" text-anchor="end">-0.9</text>
+<text class="note" x="682" y="70.0" text-anchor="end">was 6</text>
+</g>
+<g class="row" tabindex="0">
+<title>Lives: -2.1 HC spent per active player-day vs Control  ·  was 5</title>
+<rect class="hit" x="0" y="80.0" width="688" height="27"/>
+<text class="lab" x="196" y="97.0" text-anchor="end">Lives</text>
+<path class="bar neg" d="M598.0 84.0 H597.7 a4.0 4.0 0 0 0 -4.0 4.0 V98.0 a4.0 4.0 0 0 0 4.0 4.0 H598.0 Z"/>
+<text class="val neg" x="587.7" y="97.0" text-anchor="end">-2.1</text>
+<text class="note" x="682" y="97.0" text-anchor="end">was 5</text>
+</g>
+<g class="row" tabindex="0">
+<title>Extra moves (all tiers): -59.7 HC spent per active player-day vs Control  ·  was 617</title>
+<rect class="hit" x="0" y="107.0" width="688" height="27"/>
+<text class="lab" x="196" y="124.0" text-anchor="end">Extra moves (all tiers)</text>
+<path class="bar neg" d="M598.0 111.0 H482.1 a4.0 4.0 0 0 0 -4.0 4.0 V125.0 a4.0 4.0 0 0 0 4.0 4.0 H598.0 Z"/>
+<text class="val neg" x="472.1" y="124.0" text-anchor="end">-59.7</text>
+<text class="note" x="682" y="124.0" text-anchor="end">was 617</text>
+</g>
+<g class="row" tabindex="0">
+<title>Pre-level booster shop: -176.6 HC spent per active player-day vs Control  ·  was 177</title>
+<rect class="hit" x="0" y="134.0" width="688" height="27"/>
+<text class="lab" x="196" y="151.0" text-anchor="end">Pre-level booster shop</text>
+<path class="bar neg" d="M598.0 138.0 H247.5 a4.0 4.0 0 0 0 -4.0 4.0 V152.0 a4.0 4.0 0 0 0 4.0 4.0 H598.0 Z"/>
+<text class="val neg" x="237.5" y="151.0" text-anchor="end">-176.6</text>
+<text class="note" x="682" y="151.0" text-anchor="end">was 177</text>
+</g>
+</svg></div>
+  </figure>
+
+  <div class="callout">
+    <p><strong>The honest headline:</strong> the 100+ net improvement is not the Variant making players
+    richer. Their gross income fell 8.5%. Three quarters of the spend drop is one account per day that
+    exists in Control and not in the Variant (H5), sitting inside a cell where a one-sided cleaning rule
+    has already removed 12% of the Variant and 0% of Control (H6). Treat the +182.8 swing as unproven.</p>
+    <p><strong>The part that is real:</strong> extra moves, −59.7 HC per player-day, and it is broad.
+    Sink-rows per player-day are essentially flat (112.3% → 110.1% — a player can buy at several move
+    tiers, so this counts rows, not people), the price per purchase is unchanged at 100 HC, and what
+    falls is <b>purchases per buyer, 5.49 → 5.06 (−7.8%)</b>. Same people, same price, fewer buys. That
+    is consistent with smaller balances (P50 −9%, P75 −12%, P90 −10%) and rationing — a second-order
+    effect of the gains cut, and the part of the swing that would survive a rerun.</p>
+  </div>
+
+  <h3>Boosters</h3>
+  <p>On this data the 100+ booster <em>net</em> position does not inflate — it falls, 19.5→14.8 per
+  player-day, because booster gains (76.2→55.0) dropped further than booster spend (56.7→40.1). Both
+  sides shrink for the reasons in H11 and H5.</p>
+  <p>What does inflate is <b>Unlimited Lives</b>: 459.9→568.0 minutes per player-day, +23.5%, and
+  <b>zero</b> against it in the spend ledger — there is no UL Lives sink at all. Of the Variant's 568,
+  57% comes from saga nodes, 8% from level-ups, 7% from Rainbow Maker, 4.4% from Night Sky and 2.9%
+  from Bomb's Ballet. So the booster-side inflation is really the saga reward-mix swap (H2) plus the
+  new events, landing in a resource that is granted in time and never consumed on the books.</p>
+
+  <div class="block">
+  <table>
+    <caption><b>100+ resource families, gains and spend</b> — per active player-day.</caption>
+    <thead><tr><th>Family</th><th>Gain C</th><th>Gain V</th><th>Δ</th><th>Spend C</th><th>Spend V</th><th>Δ</th><th>Net C</th><th>Net V</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Hard currency</td><td>665.3</td><td>608.8</td><td class="neg">−8.5%</td><td>804.9</td><td>565.5</td><td class="neg">−29.7%</td><td class="neg">−139.6</td><td class="pos">+43.2</td></tr>
+      <tr><td class="k">Boosters (3 families)</td><td>76.2</td><td>55.0</td><td class="neg">−27.9%</td><td>56.7</td><td>40.1</td><td class="neg">−29.3%</td><td>+19.5</td><td>+14.8</td></tr>
+      <tr><td class="k">— powerups</td><td>13.9</td><td>12.1</td><td class="neg">−12.8%</td><td>14.4</td><td>11.6</td><td class="neg">−19.6%</td><td>−0.5</td><td>+0.6</td></tr>
+      <tr><td class="k">— pre-level boosters</td><td>20.4</td><td>10.5</td><td class="neg">−48.4%</td><td>15.2</td><td>9.7</td><td class="neg">−36.4%</td><td>+5.2</td><td>+0.8</td></tr>
+      <tr><td class="k">— UL pre-level boosters</td><td>41.9</td><td>32.3</td><td class="neg">−22.9%</td><td>27.1</td><td>18.9</td><td class="neg">−30.3%</td><td>+14.8</td><td>+13.4</td></tr>
+      <tr class="rule-top"><td class="k">Unlimited Lives <span class="unit">(min)</span></td><td>459.9</td><td>568.0</td><td class="pos">+23.5%</td><td>0.0</td><td>0.0</td><td>—</td><td class="pos">+459.9</td><td class="pos">+568.0</td></tr>
+      <tr><td class="k">Dream Pass tokens</td><td>70.0</td><td>253.3</td><td class="pos">+261.9%</td><td>0.0</td><td>0.0</td><td>—</td><td class="pos">+70.0</td><td class="pos">+253.3</td></tr>
+      <tr><td class="k">Lives</td><td>1.1</td><td>0.8</td><td class="neg">−24.8%</td><td>23.6</td><td>16.1</td><td class="neg">−31.8%</td><td>−22.5</td><td>−15.3</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">05</span><h2>What would change my mind</h2></div>
+  <ul>
+    <li><b>The one-sided exclusion (H6) is the first thing to fix.</b> Zero Control players are dropped
+    in any bucket; 12% of the Variant's 100+ is. Until the same rule runs on both arms, no 100+ HC number
+    here — gains, spend or net — can be attributed to the Variant. This is a query fix, not a re-run.</li>
+    <li><b>The 100+ sample.</b> 2,679 player-days, ~300 players a day, and the biggest single number in
+    the analysis rests on 33 spender-days from 1–2 accounts. A distinct-player count, or the same read
+    with those accounts excluded from both arms, would settle H5 immediately.</li>
+    <li><b>Bucket migration.</b> Completion buckets are an outcome the Variant changed, so the cohorts
+    are not fixed. A read against a pre-assignment bucket would remove the confound.</li>
+    <li><b>The Night Sky rollout assumption (H1).</b> Doubled participation with flat per-gainer payout is
+    consistent with a 50%→100% rollout, but a scheduling change would look the same in this data.
+    Someone with the arm configs can confirm in a minute, and a lot depends on it.</li>
+    <li><b>Nine days vs seven.</b> These files cover 26 Jul – 3 Aug; the summary workbook covers
+    27 Jul – 2 Aug. Booster aggregates in particular are defined differently there and will not tie out.</li>
+  </ul>
+</section>
+
+<footer>
+  <p>Sources: the eleven exports listed in section 00, all figures computed from
+  <code>resource_gains_by_source_detail_802C_9-day_total</code>,
+  <code>resource_spend_by_sink_802C_9-day_total</code> and the daily 100+ files. All rates are per
+  active player-day unless stated.</p>
+</footer>
+
+</div>
+
+<div id="tip" role="status" aria-live="polite"></div>
+<script>
+(function(){
+  var tip = document.getElementById('tip');
+  function show(e, text){
+    tip.textContent = text;
+    tip.style.opacity = '1';
+    var pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    var x = Math.min(e.clientX + pad, window.innerWidth - w - 8);
+    var y = Math.max(8, e.clientY - h - pad);
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  function hide(){ tip.style.opacity = '0'; }
+  document.querySelectorAll('svg.chart g.row').forEach(function(row){
+    var t = row.querySelector('title');
+    var text = t ? t.textContent : '';
+    row.addEventListener('mousemove', function(e){ show(e, text); });
+    row.addEventListener('mouseleave', hide);
+    row.addEventListener('focus', function(){
+      var b = row.getBoundingClientRect();
+      show({clientX: b.left + 40, clientY: b.top + 30}, text);
+    });
+    row.addEventListener('blur', hide);
+  });
+  window.addEventListener('scroll', hide, {passive:true});
+})();
+</script>
+
+</body></html>
