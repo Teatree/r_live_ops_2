@@ -1,0 +1,3 @@
+ab_group,players,avg_milestone_all,p25_milestone_all,median_milestone_all,p75_milestone_all,avg_milestone_participants,median_milestone_participants
+Control,114589,7.33,0,1,12,13.42,11
+Variant,115178,6.76,0,1,10,12.5,9

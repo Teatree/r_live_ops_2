@@ -1,0 +1,11 @@
+saga_completes_bucket,ab_group,players,avg_saga_completes,avg_spt_grants_non_rainbow,avg_spt_grants_rainbow_maker,avg_pass_score_count,pass_tokens_per_saga_level,avg_milestone
+A. <25,Control,65771,6.2,5.1,0.0,30.6,4.94,0.91
+A. <25,Variant,66331,6.1,4.6,1.7,25.4,4.15,0.8
+B. 25-74,Control,21534,44.1,42.0,0.0,355.8,8.07,7.17
+B. 25-74,Variant,22068,43.9,40.5,21.8,301.4,6.86,6.45
+C. 75-149,Control,11586,107.1,161.2,0.0,2210.0,20.63,17.06
+C. 75-149,Variant,11248,107.6,163.5,183.7,1956.9,18.19,15.8
+D. 150-299,Control,8342,213.4,203.5,0.1,2820.8,13.22,24.97
+D. 150-299,Variant,8340,214.0,205.8,245.3,2484.3,11.61,23.13
+E. 300+,Control,7356,620.5,443.5,0.0,8147.0,13.13,29.89
+E. 300+,Variant,7191,609.3,449.5,678.7,6788.5,11.14,29.53

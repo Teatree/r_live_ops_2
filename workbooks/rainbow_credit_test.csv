@@ -1,0 +1,7 @@
+ab_group,rainbow_band,players,avg_saga_completes,avg_rainbow_spt,avg_other_event_spt,avg_pass_score,median_pass_score_per_level
+Control,no rainbow SPT,11662,107.1,0.0,160.7,2196.7,11.501
+Control,rainbow 100-499,2,95.0,262.5,127.5,1795.5,21.973
+Variant,no rainbow SPT,2200,101.1,0.0,93.6,840.8,8.039
+Variant,rainbow 1-99,3705,103.2,54.5,112.6,970.9,9.278
+Variant,rainbow 100-499,4673,112.5,191.9,134.0,1421.6,11.377
+Variant,rainbow 500+,713,118.5,1354.8,829.8,13899.1,97.843

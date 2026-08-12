@@ -4,7 +4,7 @@
  * Brand-new engine based on EcoGainsSim.gs. One named function per source (D15); everything
  * numeric is read LIVE from the workbook (D12): config sheets, both calendars, data_* sheets.
  *
- * CUSTOM FUNCTIONS (per segment block, spills 25x19):
+ * CUSTOM FUNCTIONS (per segment block, spills 25x13):
  *   =LET(payer, $C$3, segment, $B$6, ECOGAINS_SIM(payer, segment))     // C<firstDataRow>
  *   =LET(payer, $C$3, segment, $B$6, ECOGAINS_DIFF(payer, segment))    // O<firstDataRow>
  *   segment = '0-9' | '10-19' | '20-39' | '40-99' | '100+' | 'A. 0' (appendix, carried+annotated)
@@ -58,15 +58,6 @@
  *                  Split configs since 2026-07-10 (HARDCODED, see CLAUDE.md): start-sorted
  *                  instances #1-#3 read RM_1st, #4-#5 RM_2nd (SPTx2); fallback to RM.
  *   River Rush     calendar-driven branches (D4): no cal_new instances today → 0
- *   PACKS (D19)    the six card-collection pack tiers are SIMULATED-SIDE ONLY — data_gains has no
- *                  pack rows, so measured is 0 and the multiplicative model can never produce one.
- *                  Every source instead prices packs bottom-up on cal_new (packLane_):
- *                    packs = E_v2 x participation_rate x Σ_inst reach(inst)      (no D term)
- *                  reusing the SAME E the R ratio is built from. RM / Night Sky were already
- *                  bottom-up (packs flow via RES_MAP alone). Season Pass prices the whole reached
- *                  track. Team Event + Flock Flurry are CARRIED for every other resource but get
- *                  a pack overlay from their config sheets (PACK_ONLY_SPECS); Team Race, Ads and
- *                  IAPs have no config sheet → 0. A. 0 has no behaviour telemetry → 0.
  *
  * CALENDARS drive cadence + duration: merge = one instance (width = duration), lone filled
  * cell = one 1-day instance, neighbours never collapsed, day = column - 1, weekend =
@@ -103,19 +94,10 @@ var PAYER_CELL = 'C3';
 var SEG_CELL   = 'C4';   // fallback only
 var CAL_CUR = 'cal_curr', CAL_NEW = 'cal_new';
 
-// Append-only (19 since 2026-08-03, D19: the six card-collection PACK tiers. 13 since
-// 2026-07-10: SPT + SPTx2 — season pass tokens; SPTx2 counts double toward season-pass tier
-// progression but is displayed as its own column).
-// Packs are SIMULATED-SIDE ONLY (D19/2): data_gains has no pack rows, so the measured anchor is
-// 0 and `measured x R x D x T` can never produce one — every pack number comes from packLane_
-// (bottom-up, cal_new). Consequence: the DIFF column for packs equals the simulated value.
+// Append-only (13 since 2026-07-10: SPT + SPTx2 — season pass tokens; SPTx2 counts double
+// toward season-pass tier progression but is displayed as its own column).
 var RESOURCES = ['HC','Slingshot','Shuffle','Comet','Red','Chuck','Bomb',
-                 'UL Bomb','UL Chuck','UL Red','Unlimited Lives','SPT','SPTx2',
-                 '1-star Pack','2-star Pack','3-star Pack','4-star Pack','5-star Pack','6-star Pack'];
-
-// The pack slice of RESOURCES, in tier order. Everything pack-specific keys off this.
-var PACK_RES = ['1-star Pack','2-star Pack','3-star Pack','4-star Pack','5-star Pack','6-star Pack'];
-function isPackRes_(r){ return PACK_RES.indexOf(r) !== -1; }
+                 'UL Bomb','UL Chuck','UL Red','Unlimited Lives','SPT','SPTx2'];
 
 // Sheet row order (must match EcoGainsSim_HC blocks; 25 rows, Saga between River Rush and SP).
 var CATEGORY_ORDER = [
@@ -152,16 +134,11 @@ var SOURCES = {
 };
 
 // config/ladder column header -> engine resource name (shared by RM + NS readers)
-// The 'N-star Dly' headers are the card-collection packs (D19). Every reward block on every
-// config sheet already spans Coins..6-star Dly, so mapping them here is all it takes for
-// rewCols_/rewRow_, readLadder_, the saga node reader and PBP's ladder readers to pick packs up.
 var RES_MAP = {'Coins':'HC','HC Reward':'HC','Red':'Red','Chuck':'Chuck','Bomb':'Bomb',
                'Slingshot':'Slingshot','Shuffle':'Shuffle','Comet':'Comet',
                'Unlimited Lives':'Unlimited Lives','Unlimited Red':'UL Red',
                'Unlimited Chuck':'UL Chuck','Unlimited Bomb':'UL Bomb',
-               'SPT':'SPT','SPT x2':'SPTx2',   // config sheets write 'SPT x2' with a space
-               '1-star Dly':'1-star Pack','2-star Dly':'2-star Pack','3-star Dly':'3-star Pack',
-               '4-star Dly':'4-star Pack','5-star Dly':'5-star Pack','6-star Dly':'6-star Pack'};
+               'SPT':'SPT','SPT x2':'SPTx2'};   // config sheets write 'SPT x2' with a space
 
 // category -> calendar row label, for ECOGAINS_CAL_STATS (keep in sync with the per-source sim
 // wiring above and with DAILY_CAL_LABEL in EcoGainsSim_Daily.gs). Categories not listed have no
@@ -199,10 +176,10 @@ function ECOGAINS_DIFF(payer, segment){
 /**
  * Calendar stats per category: [instance count, total event-days] for one calendar.
  * Spills 25 rows x 2 cols (matches the EcoGainsSim_HC block rows 8-32).
- * (19-resource layout since 2026-08-03: sim C..U, diff W..AO — the old AE8/AH8 anchors now sit
- * inside the widened diff block; place these clear of it:)
- *   AQ8: =ECOGAINS_CAL_STATS("cal_curr")   -> fills AQ (instances) + AR (event-days)
- *   AT8: =ECOGAINS_CAL_STATS("cal_new")    -> fills AT + AU
+ * (13-resource layout since 2026-07-10: sim C..O, diff Q..AC — the old AB8/AE8 anchors now sit
+ * inside the diff block; place these clear of it:)
+ *   AE8: =ECOGAINS_CAL_STATS("cal_curr")   -> fills AE (instances) + AF (event-days)
+ *   AH8: =ECOGAINS_CAL_STATS("cal_new")    -> fills AH + AI
  * Event-days count REAL days (clipped instances count what actually fits in the window).
  * Non-calendar categories (Core, Saga, Daily Gift, Ads, Teams, ...) return blanks.
  * Auto-updates like the gains: refreshSims_ bumps the nonce argument every ECOGAINS_* formula
@@ -228,15 +205,8 @@ function ECOGAINS_CAL_STATS(cal){
 function resultRow_(cat, seg, payer, ctx){
   if (seg === 'A. 0' || seg === 'A.0') return appendixRow_(cat, payer, ctx);   // §3 block
   var fn = SOURCES[cat];
-  var row = fn ? (fn(seg, payer, ctx, cat) || measuredRow_(cat, seg, payer, ctx.ds))
-               : measuredRow_(cat, seg, payer, ctx.ds);                        // carried
-  // D19: a carried source can still pay packs bottom-up (Team Event, Flock Flurry) — overlay the
-  // six pack columns, leave every other resource exactly as the simulator/carry produced it.
-  if (PACK_ONLY_SPECS[cat]){
-    var packs = packOnlyRow_(cat, seg, payer, ctx);
-    if (packs) row = overlayPacks_(copyRow_(row), packs);
-  }
-  return row;
+  if (!fn) return measuredRow_(cat, seg, payer, ctx.ds);                       // carried
+  return fn(seg, payer, ctx, cat) || measuredRow_(cat, seg, payer, ctx.ds);
 }
 
 // measured anchor. Core and Saga are separate rows (data_gains emits both) — no folding.
@@ -410,121 +380,16 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   var meas = measuredRow_(cat, seg, payer, ctx.ds);
   if (!ctx.calCurOk || !ctx.calNewOk) return meas;
   var cur = ctx.calCur[calLabel] || [], nw = ctx.calNew[calLabel] || [];
-  if (!nw.length) return zeroRow_();                     // removed from the new calendar (packs too)
+  if (!nw.length) return zeroRow_();
   if (!cur.length) return meas;
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
   var D = dFn(modalDur_(cur), modalDur_(nw));
-  var E = rewardE_(cat, seg, payer, ctx.ds);             // absolute ladder payout, both sides
-  var R = {};
-  if (E) RESOURCES.forEach(function(r){
-    var b = num(E.eBase[r]);
-    if (b > 1e-9) R[r] = num(E.eV2[r]) / b;              // base 0 -> carry (no anchor)
-  });
+  var R = rewardR_(cat, seg, payer, ctx.ds);             // per-resource v2/base ratio (or null)
   var out = {};
   RESOURCES.forEach(function(r){
-    out[r] = num(meas[r]) * ((R[r] != null) ? R[r] : 1) * D * T;
+    out[r] = num(meas[r]) * ((R && R[r] != null) ? R[r] : 1) * D * T;
   });
-  return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx, E && E.eV2, E && E.inst));
-}
-
-// ============================== PACK LANE (D19 — bottom-up, simulated side only) ==============
-// Card-collection packs have NO measured anchor: data_gains emits no pack rows, so `measured x R
-// x D x T` is identically 0 for every pack column. Each source therefore prices its packs
-// bottom-up on cal_new:
-//
-//   packs[res] = E_v2[res] x participation x Σ_{inst in cal_new} reach(inst)
-//
-//   E_v2         the SAME expected ladder payout the R ratio is built from (rank quantiles for
-//                leaderboards, survival-weighted milestones for collections), reused verbatim —
-//                so a pack typed into a _v2 ladder row is priced exactly like a coin on that row.
-//   participation data_event_inst participation_rate — E is priced CONDITIONAL on taking part.
-//   reach(inst)  the same 1 - Π(1 - p_day) used by T.
-//
-// D is deliberately NOT applied: a pack grant is a rank/milestone payout already priced through E.
-// FLAGGED (SIMULATION_METHODOLOGY §): reach and participation_rate both encode activity, so their
-// product mildly under-counts high-participation events; no joint estimator is available.
-// FLAGGED: no participation telemetry -> priced at full participation (1.0).
-function packLane_(calLabel, seg, payer, ctx, eV2, inst){
-  var out = {};
-  PACK_RES.forEach(function(r){ out[r] = 0; });
-  if (!eV2 || !ctx.calNewOk) return out;
-  var nw = ctx.calNew[calLabel] || [];
-  if (!nw.length) return out;
-  var beh = ctx.ds.beh(seg, payer);
-  var reach = reachSum_(nw, num(beh.weekday_active_rate), num(beh.weekend_active_rate));
-  if (!(reach > 0)) return out;
-  var part = inst ? num(inst.participation_rate) : 0;
-  if (!(part > 0)) part = 1;                             // no telemetry -> full participation
-  PACK_RES.forEach(function(r){ out[r] = num(eV2[r]) * part * reach; });
   return out;
-}
-
-// Writes the six pack columns of `packs` over `row`, leaving every other resource untouched.
-function overlayPacks_(row, packs){
-  if (!packs) return row;
-  PACK_RES.forEach(function(r){ row[r] = num(packs[r]); });
-  return row;
-}
-function copyRow_(row){ var o = {}; RESOURCES.forEach(function(r){ o[r] = num(row[r]); }); return o; }
-
-// ---- pack-only sources (D19/3) -------------------------------------------------------------
-// Team Event and Flock Flurry are CARRIED in the gains model (no simulator, no _v2 sheet), but
-// they do have a config sheet with the pack columns and a calendar lane — so their pack columns
-// are simulated bottom-up while every other resource stays measured.
-//   TE  — 'Team Event' sheet: a 7-place Team Leaderboard block AND a 3-place Contribution
-//         Rewards block; a participant is paid from both, so the two are SUMMED.
-//   F   — 'Flock Flurry' sheet: one 5-position goal ladder.
-// Team Race has a calendar lane but NO config sheet -> no packs (same rule as Ads / IAPs).
-// 0-based row/col indices into sheetVals_(); reward blocks span Coins..6-star Dly (c0..c1).
-var PACK_ONLY_SPECS = {
-  'Team Event'  : {sheet:'TE', cal:'Team Event',   inst:'Team Event',
-                   blocks:[{hdr:14, r0:15, r1:21, c0:1, c1:21},    // Team Leaderboard, 1st..7th
-                           {hdr:24, r0:25, r1:27, c0:1, c1:21}]},  // Contribution Rewards, 1st..3rd
-  'Flock Flurry': {sheet:'F',  cal:'Flock Flurry', inst:'Flock Flurry',
-                   blocks:[{hdr:9,  r0:10, r1:14, c0:1, c1:21}]}   // Goals and Rewards, pos 1..5
-};
-
-// Expected payout of one rank ladder block. With measured rank quantiles -> their mean payout
-// (same treatment as lbE_). WITHOUT rank telemetry -> a FLAT ladder average (pot / rank count):
-// the crudest pricing in the model, because it assumes every rank is equally likely.
-// Team Event has no data_event_inst rows, so it always takes the flat path — FLAGGED.
-function packBlockE_(sheetName, blk, positions){
-  var v = sheetVals_(sheetName), cols = rewCols_(v, blk.hdr, blk.c0, blk.c1);
-  var rows = [], byPos = {};
-  for (var r = blk.r0; r <= blk.r1; r++){
-    var rew = rewRow_(v, r, cols);
-    rows.push(rew);
-    byPos[r - blk.r0 + 1] = rew;      // ladders are position-ordered ('1st','2nd',... or 1,2,3)
-  }
-  var E = zeroRow_(), res;
-  if (positions && positions.length){
-    positions.forEach(function(p){
-      var rew = byPos[p] || {};
-      for (res in rew) E[res] = num(E[res]) + rew[res] / positions.length;
-    });
-  } else if (rows.length){
-    rows.forEach(function(rew){
-      for (res in rew) E[res] = num(E[res]) + rew[res] / rows.length;
-    });
-  }
-  return E;
-}
-
-// Pack row for a pack-only source, or null when it cannot be priced (sheet/calendar missing).
-function packOnlyRow_(cat, seg, payer, ctx){
-  var spec = PACK_ONLY_SPECS[cat];
-  if (!spec || !ctx.calNewOk) return null;
-  if (!(ctx.calNew[spec.cal] || []).length) return null;
-  var inst = ctx.ds.eventInst(spec.inst, seg, payer);
-  var pos = inst ? [inst.position_p25, inst.position_p50, inst.position_p75]
-                     .map(function(p){ return Math.round(num(p)); })
-                     .filter(function(p){ return p > 0; }) : [];
-  var E = zeroRow_();
-  spec.blocks.forEach(function(blk){
-    var e = packBlockE_(spec.sheet, blk, pos);
-    PACK_RES.forEach(function(r){ E[r] = num(E[r]) + num(e[r]); });
-  });
-  return packLane_(spec.cal, seg, payer, ctx, E, inst);
 }
 
 // ============================== REWARD-CONFIG RATIO R (added 2026-07-06) =====================
@@ -568,36 +433,29 @@ var COLL_R_SPECS = {
                           reqR0:4, c0:7, c1:27, inst:'Photoshoot'}
 };
 
-// Absolute expected ladder payout for a source, both sides. Split out of rewardR_ (D19) because
-// the pack lane needs E_v2 in ABSOLUTE units — packs have no measured anchor, so the v2/base
-// ratio the rest of the model uses is meaningless for them.
-// Returns {inst, eBase, eV2} or null (source not priceable -> carry / no packs).
-function rewardE_(cat, seg, payer, ds){
+function rewardR_(cat, seg, payer, ds){
   var lb = LB_R_SPECS[cat], coll = COLL_R_SPECS[cat];
   if (!lb && !coll) return null;
   var inst = ds.eventInst((lb || coll).inst, seg, payer);
+  var eBase, eV2;
   if (lb){
     var pos = inst ? [inst.position_p25, inst.position_p50, inst.position_p75]
                        .map(function(p){ return Math.max(1, Math.round(num(p))); })
                        .filter(function(p){ return p > 0; }) : [];
-    return { inst: inst, eBase: lbE_(lb.base, lb, pos, inst), eV2: lbE_(lb.v2, lb, pos, inst) };
+    eBase = lbE_(lb.base, lb, pos, inst);
+    eV2   = lbE_(lb.v2,   lb, pos, inst);
+  } else {
+    var S = inst ? survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
+                              [num(inst.final_balance_p75),.75]]) : null;
+    if (!S) return null;                                   // no progress distribution -> carry
+    var reqs = collReqs_(coll);
+    if (!reqs.length) return null;
+    eBase = collE_(coll.base, coll, reqs, S);
+    eV2   = collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, S);
   }
-  var S = inst ? survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
-                            [num(inst.final_balance_p75),.75]]) : null;
-  if (!S) return null;                                     // no progress distribution -> carry
-  var reqs = collReqs_(coll);
-  if (!reqs.length) return null;
-  return { inst: inst,
-           eBase: collE_(coll.base, coll, reqs, S),
-           eV2:   collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, S) };
-}
-
-function rewardR_(cat, seg, payer, ds){
-  var E = rewardE_(cat, seg, payer, ds);
-  if (!E) return null;
   var R = {};
   RESOURCES.forEach(function(r){
-    var b = num(E.eBase[r]), v = num(E.eV2[r]);
+    var b = num(eBase[r]), v = num(eV2[r]);
     if (b > 1e-9) R[r] = v / b;                            // base 0 -> carry (no anchor)
   });
   return R;
@@ -743,10 +601,7 @@ function simNightSky(seg, payer, ctx){
     out[r] = num(meas[r]) * (base > 1e-9 ? v2 / base : 1) * T;
     if (base <= 1e-9 && v2 > 0) out[r] += v2 * days;      // base-0 addition: no anchor -> bottom-up
   });
-  // Packs (D19) never have an anchor, so the base-0 addition above would price them without the
-  // participation term every other source carries. Overlay the standard pack lane instead (D22).
-  return overlayPacks_(out, packLane_('Night Sky', seg, payer, ctx, E.eV2,
-                                      ds.eventInst('Night Sky', seg, payer)));
+  return out;
 }
 
 // Expected per-DAY payout of the NS ladder, both sides, under one survival curve.
@@ -898,15 +753,7 @@ function simSeasonPass(seg, payer, ctx){
       out[r] = m;                                      // no anchor, no tier gain -> carry
     }
   });
-  // Packs (D19): no measured anchor at all, so neither the ratio path nor the newly-unlocked-tier
-  // path applies — the player simply earns every pack on the track up to the tier they reach.
-  // Priced off the whole reached track (season-cumulative by construction, so no per-instance
-  // reach term) x the challenge pot ratio x calendar T.
-  var packs = {};
-  PACK_RES.forEach(function(r){
-    packs[r] = num(cs[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
-  });
-  return overlayPacks_(out, packs);
+  return out;
 }
 
 // Per-earner SPT window totals, measured vs simulated, summed over every category (additive-
@@ -1340,22 +1187,16 @@ function onOpen(){
     .addItem('Refresh simulations', 'refreshSims_')
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
     .addSeparator()
-    .addItem('Simulate card pack openings', 'SimulatePackOpenings')   // CardOpenings.gs
-    .addSeparator()
     .addItem('Mark v2 config diffs (red)', 'markV2ConfigDiffs')   // V2Diff.gs
     .addItem('Clear v2 config diff marks', 'clearV2ConfigDiffs')  // V2Diff.gs
     .addToUi();
 }
-// NOTE: this is the project's ONLY onOpen. All .gs files in an Apps Script project share one
-// global namespace, so a second onOpen() in another file silently overrides this one and the
-// menu disappears (CardOpenings.gs used to define its own 'Sim' menu — removed 2026-08-03, D19).
-// Add menu items here; never declare onOpen anywhere else.
 
 // ---- auto-refresh (AUTO_REFRESH switch) ----
 // Every sheet the engine reads; a user edit on any of them re-touches the sim formulas.
 var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','NS','NS_v2','Race','Race_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
-  'F','F_v2','TE','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,   // TE: D19 pack lane
+  'F','F_v2','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
   'data_streaks','data_event_inst',
   // NET inputs: data_econ_daily feeds ECOGAINS_DAILY's NET blocks (live custom function);
@@ -1396,9 +1237,7 @@ function onEdit(e){
 //     Deliberately deleting an anchor therefore un-deletes on the next refresh — that's wanted
 //     (the anchors are the product); after RESTRUCTURING a sheet, run one refresh so the
 //     snapshot follows the new layout before relying on it.
-// cal_new: ECOGAINS_CAL_COUNTS (CalStats.gs). 'EcoGainsSim_HC_7d': the windowed view
-// (EcoGainsSim_7Day.gs) — listed pre-emptively; refreshSims_ skips names that don't exist.
-var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'EcoGainsSim_HC_7d', 'cal_new'];
+var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'cal_new'];   // cal_new: ECOGAINS_CAL_COUNTS (CalStats.gs)
 var SIM_NONCE_SHEET = 'sim_refresh';
 var SIM_NONCE_REF = SIM_NONCE_SHEET + '!$A$1';
 
@@ -1607,6 +1446,7 @@ function nsLadderOn_(sheetName, seg){
   }
   return [];
 }
+
 
 // Generic ladder reader: finds the header row containing reqCol, maps reward columns through
 // RES_MAP, reads rows until the first blank first-cell. Returns [{req, rew:{res:amount}}].

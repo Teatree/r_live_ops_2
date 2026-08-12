@@ -17,7 +17,7 @@ SHEETS = [
     # v4 engine
     'data_gains', 'data_seg_beh', 'data_event_accrual', 'data_event_kite_accrual', 'data_RM',
     'cal_curr', 'cal_new', 'cal_parsed',
-    'c_saga', 'c_saga_v2', 'c_day', 'c_day_v2', 'RM', 'NS', 'Sim per Segment',
+    'c_saga', 'c_saga_v2', 'c_day', 'c_day_v2', 'RM', 'NS', 'NS_v2', 'Sim per Segment',
     # PBP engine additions
     'data_streaks', 'data_event_inst',
     'J_v2', 'HH_v2', 'BB_v2', 'Ph_v2', 'Ki_v2', 'TaD_v2', 'Race_v2', 'F_v2',

@@ -288,8 +288,9 @@ function pbpSimulate_(a){
   // the data_streaks max_streak_per_day p50; Sampled mode uses the longest win run the play
   // trace actually produced. Cumulative gate, honest: EVERY milestone whose Cum Streak Req is
   // cleared pays (each on its own ledger row); an unreached milestone never pays.
-  // NS_SIMULATE (v4 master switch) off -> no NS claims here either: all three views stay
-  // consistent (NS carried in the window/daily sims, silent in the ledger).
+  // NS_SIMULATE (v4 master switch, ON since 2026-08-05) gates this so all three views stay
+  // consistent: flag on -> NS milestones are claimed here and simulated in the window/daily
+  // sims; flag off -> NS carried there and silent in the ledger.
   // EXCEPTION to note 9 (D22, 2026-08-05): NS reads the SIDE-APPROPRIATE ladder — 'NS' on
   // cal_curr, 'NS_v2' on cal_new — because the window sim now anchors NS on measured and prices
   // the redesign as E(NS_v2)/E(NS). Reading _v2 for both calendars would make the ledger show the
@@ -310,8 +311,7 @@ function pbpSimulate_(a){
   }
 
   // --- Core level-completion SPT (D17): every win completes a level worth E_SPT expected tokens
-  // (Σ mix x reward, difficulty-weighted; per-level reward = the two season-half cells averaged
-  // since D18 — the shared coreSptE_ reads both). cal_curr prices off SP (live rewards), cal_new off
+  // (Σ mix x reward, difficulty-weighted). cal_curr prices off SP (live rewards), cal_new off
   // SP_v2 (redesign), so editing the per-level SPT rewards moves this. ONE aggregate day-end claim
   // (the per-win value is an expectation over the difficulty mix, not a per-level draw — we do not
   // model which levels are Normal/Hard/Extreme). Panel absent / E=0 -> nothing emitted (Core stays

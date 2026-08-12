@@ -19,6 +19,7 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 | photoshoot.md | Photoshoot | collection | full PDF + Ph configs |
 | target-day.md | Target Day (Archery Arena) | milestone/score (SPECIAL) | PDF + TaD configs — but milestone rewards are all zeros in config |
 | rainbow-maker.md | Rainbow Maker | milestone/matchables (NEW) | full PDF + dedicated sim workbook |
+| night-sky.md | Night Sky (Dream Heist) | daily-reset win-streak milestone ladder | NS/NS_v2 configs + data_streaks + the standalone NS study; live config is 3 flat milestones/segment, NOT the 5-round branching design (added 2026-08-05, D22) |
 | river-rush.md | River Rush | streak-competitive (carried stub) | full PDF + RR configs + prior context |
 | season-pass.md | Season Pass (Dream Pass) | always-on SPT track + challenge LB (simulated via D16 tier coupling) | SP/SP_lb configs + data_gains SPT rows (added 2026-07-10); design PDF present, thinly mined |
 | card-collection.md | Card Collection (packs/albums/chests) | pack GAINS bottom-up on every ladder (D19) + a downstream pack-OPENING sim | PackConfig/AlbumConfig configs; **every pack ladder cell is still 0 — values authored by hand**; no design PDF mined yet |

@@ -125,7 +125,12 @@ function rmBound(seg, payer) {
 console.log('RM conservative bound HC (0-9):', fmt(rmBound('0-9', 'NONPAYER')));
 console.log('RM conservative bound HC (100+):', fmt(rmBound('100+', 'NONPAYER')));
 
-// ---------- NS re-wire release gates (NIGHT_SKY_REWIRE_PLAN §5 + NS_SIMULATE switch) ----------
+// ---------- NS gates (D22 anchored model + NS_SIMULATE switch) ----------
+// NS was re-anchored 2026-08-05 (D22): sim = measured x R x T with R = E(NS_v2)/E(NS), instead of
+// the old bottom-up absolute total. These gates assert the MECHANISM (the reconstruction identity,
+// the R=1-when-configs-match property, the switch) rather than any particular number — NS_v2 is a
+// verbatim clone of NS in workbook (14), so "the diff moves" is no longer a valid assertion and
+// would red the moment someone clones the sheet honestly.
 console.log('\n================ NS GATES ================');
 let failures = 0;
 const gate = (name, ok, detail) => {
@@ -149,27 +154,91 @@ gate('NS_SIMULATE OFF -> NS carried (diff 0) for every segment',
      NS_SIMULATE === false && SEG5.every(s => Math.abs(ECOGAINS_DIFF('NONPAYER', s)[NS_I][0]) < 1e-9));
 // flip the switch on and gate the model itself
 eval(engineSrcNsOn); _sheetValsCache = {};
-gate('NS_SIMULATE ON -> NS simulated (diff moves) for every segment',
-     NS_SIMULATE === true && SEG5.every(s => Math.abs(ECOGAINS_DIFF('NONPAYER', s)[NS_I][0]) > 1e-9));
-const nsHC = {}, nsEday = {};
+gate('NS_SIMULATE ON -> NS is priced through the anchored model (not carried raw)',
+     NS_SIMULATE === true && typeof nsE_ === 'function' && !!nsE_('40-99', 'NONPAYER', ds));
+gate('NS_v2 sheet present (dumped by _dump_mockdata)', !!data['NS_v2']);
+
+// Reconstruction identity: the NS row IS measured x R x T (+ bottom-up base-0 additions),
+// rebuilt here from the engine's own parts. This is the gate that can't rot — it holds for any
+// NS/NS_v2 pair, edited or not.
+{
+  const c2 = Context.get(), ds2 = c2.ds;
+  let worstErr = 0, worstWhere = '';
+  const nsPart = {};
+  for (const seg of SEG5) {
+    const E = nsE_(seg, 'NONPAYER', ds2);
+    const b = ds2.beh(seg, 'NONPAYER');
+    const T = timingRatio_(c2.calCur['Night Sky'] || [], c2.calNew['Night Sky'] || [], seg, 'NONPAYER', ds2);
+    const days = reachSum_(c2.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
+    const meas = measuredRow_('Daily Night Sky Prize', seg, 'NONPAYER', ds2);
+    const row = ECOGAINS_SIM('NONPAYER', seg)[NS_I];
+    nsPart[seg] = { T, days };
+    RESOURCES.forEach((r, i) => {
+      if (typeof isPackRes_ === 'function' && isPackRes_(r)) return;   // packs gated separately
+      const base = num(E.eBase[r]), v2 = num(E.eV2[r]);
+      let want = num(meas[r]) * (base > 1e-9 ? v2 / base : 1) * T;
+      if (base <= 1e-9 && v2 > 0) want += v2 * days;
+      const err = Math.abs(row[i] - want);
+      if (err > worstErr) { worstErr = err; worstWhere = `${seg}/${r}`; }
+    });
+  }
+  gate('NS row == measured x R x T (+ base-0 bottom-up additions), every segment x resource',
+       worstErr < 1e-9, `worst |err| ${worstErr.toExponential(2)} at ${worstWhere}`);
+  console.log('  T/Σp_day per segment: ' + SEG5.map(s => `${s} T=${fmt(nsPart[s].T)} days=${fmt(nsPart[s].days)}`).join(' · '));
+}
+
+// The property the re-anchor exists for: identical configs => identical rewards. Asserted only
+// when NS_v2 really is a clone of NS; once you edit NS_v2 the gate REPORTS the resulting R
+// instead (the feature working), and the mutation gates below cover the edited path.
+{
+  const nsRegion = (sheet) => JSON.stringify((data[sheet] || { values: [] }).values.map(r => (r || []).slice(0, 20)));
+  const clone = data['NS_v2'] && nsRegion('NS') === nsRegion('NS_v2');
+  const ds2 = Context.get().ds;
+  const offs = [];
+  for (const seg of SEG5) {
+    const E = nsE_(seg, 'NONPAYER', ds2);
+    RESOURCES.forEach(r => {
+      const b = num(E.eBase[r]), v = num(E.eV2[r]);
+      if (b > 1e-9 && Math.abs(v / b - 1) > 1e-9) offs.push(`${seg}/${r}=${(v / b).toFixed(3)}`);
+      else if (b <= 1e-9 && v > 0) offs.push(`${seg}/${r}=+${fmt(v)}/day (no anchor)`);
+    });
+  }
+  if (clone) {
+    gate('NS_v2 == NS -> R == 1 for every segment x resource (same config, same rewards)',
+         offs.length === 0, offs.join(' '));
+    gate('NS_v2 == NS -> sim == measured x T, diff = 0 while both calendars run NS daily',
+         SEG5.every(s => Math.abs(ECOGAINS_DIFF('NONPAYER', s)[NS_I][0]) < 1e-6));
+  } else {
+    console.log('  NS_v2 carries real edits vs NS: ' + (offs.join(' ') || '(no priced effect)'));
+    gate('NS_v2 edited -> R departs from 1 somewhere (the edit reaches the sim)', offs.length > 0);
+  }
+}
+
+// E_day monotonicity is a property of the ladder+streak model that still feeds R, so keep it.
+const nsEday = {};
 for (const seg of SEG5) {
-  nsHC[seg] = ECOGAINS_SIM('NONPAYER', seg)[NS_I][0];
   const st = ds.nsStreak(seg, 'NONPAYER');
   const S = survival_([[st.p25 * NS_STREAK_N, .25], [st.p50 * NS_STREAK_N, .5],
                        [st.p75 * NS_STREAK_N, .75], [st.p90 * NS_STREAK_N, .9]]);
-  let e = 0; readNSLadder_(seg).forEach(ms => { e += (ms.rew.HC || 0) * S(ms.req); });
+  let e = 0; readNSLadder_(seg, 'NS').forEach(ms => { e += (ms.rew.HC || 0) * S(ms.req); });
   nsEday[seg] = e;
-  console.log(`NS ${seg.padEnd(6)} NONPAYER: simHC=${fmt(nsHC[seg]).padStart(8)}  E_day=${fmt(e).padStart(7)}  conservative(S=0>p90xN)=${fmt(nsBound(seg, 'NONPAYER')).padStart(8)}  measured(diluted)=${fmt(ds.dataRow('Daily Night Sky Prize', seg, 'NONPAYER').HC).padStart(8)}`);
+  console.log(`NS ${seg.padEnd(6)} NONPAYER: simHC=${fmt(ECOGAINS_SIM('NONPAYER', seg)[NS_I][0]).padStart(8)}  E_day=${fmt(e).padStart(7)}  conservative(S=0>p90xN)=${fmt(nsBound(seg, 'NONPAYER')).padStart(8)}  measured(anchor)=${fmt(ds.dataRow('Daily Night Sky Prize', seg, 'NONPAYER').HC).padStart(8)}`);
 }
-gate('NS simulated HC nonzero for every segment', SEG5.every(s => nsHC[s] > 0), JSON.stringify(nsHC));
-// monotonicity is asserted on E_day (the model quantity): window totals also fold in the
-// cohort's Σ p_day active-day factor, which the data says is NOT monotone (100+ plays fewer
-// days than 40-99), so the 100+ TOTAL legitimately lands below 40-99.
 gate('NS E_day (HC per active day) monotonic in segment', SEG5.every((s, i) => i === 0 || nsEday[s] > nsEday[SEG5[i - 1]]),
      SEG5.map(s => fmt(nsEday[s])).join(' < '));
-gate('NS carried for A. 0 (appendix, no streak data)',
+gate('NS carried for A. 0 (appendix, intercepted before the sim)',
      Math.abs(ECOGAINS_DIFF('NONPAYER', 'A. 0')[NS_I][0]) < 1e-9);
-eval(engineSrc);   // back to the shipped default (NS_SIMULATE = false) for the R gates
+// Removal semantics: no cal_new Night Sky instances -> 0 (same rule as River Rush). Asserted on a
+// doctored ctx rather than by editing the calendar, because the engine reads cal_parsed.
+{
+  const c2 = Context.get();
+  const gone = { ds: c2.ds, calCur: c2.calCur, calNewOk: c2.calNewOk,
+                 calNew: Object.assign({}, c2.calNew, { 'Night Sky': [] }) };
+  const row = simNightSky('40-99', 'NONPAYER', gone);
+  gate('NS removed from cal_new -> 0 for every resource (removal semantics)',
+       RESOURCES.every(r => Math.abs(num(row[r])) < 1e-9));
+}
+eval(engineSrc);   // back to the shipped value for the R gates
 
 // ---------- R-term gates (reward-config ratio v2/base, added 2026-07-06) ----------
 // Mutate _v2 rewards/requirements in the in-memory mock data, re-eval the engine (fresh
@@ -244,6 +313,100 @@ const mutate = (sheet, cells, factorOrValue, fn) => {
   return out;
 };
 const range = (r0, r1, c) => Array.from({length: r1 - r0 + 1}, (_, i) => [r0 + i, c]);
+
+// ---------- NS anchor gates (D22): mutate NS_v2 and assert the R term reaches the sim ----------
+// These are the edited-config half of the NS gates above (which cover the clone case). Every
+// expectation is recomputed through the engine's own functions, so nothing here bakes in a number.
+console.log('\n================ NS ANCHOR GATES ================');
+{
+  // locate a segment's ladder block on an NS-shaped sheet: header row + 0-based ladder row indices
+  const nsBlock = (sheet, seg) => {
+    const v = (data[sheet] || { values: [] }).values;
+    for (let r = 0; r < v.length; r++) {
+      if (String(v[r][0]).trim() !== seg) continue;
+      const hdr = r + 1, h = {};
+      (v[hdr] || []).forEach((x, i) => { if (x !== '' && x != null) h[String(x).trim()] = i; });
+      const rows = [];
+      for (let k = hdr + 1; k < v.length && String(v[k][0]).trim() !== ''; k++) rows.push(k);
+      return { hdr, h, rows };
+    }
+    return null;
+  };
+  const SEG = '40-99';
+  const blk = data['NS_v2'] && nsBlock('NS_v2', SEG);
+  const nsHCOf = (seg) => ECOGAINS_SIM('NONPAYER', seg)[NS_I][0];
+  const nsResOf = (seg, res) => ECOGAINS_SIM('NONPAYER', seg)[NS_I][RESOURCES.indexOf(res)];
+  // sptTotals_ memoises on the ctx (ctx._spt), which would survive a mutation in this process —
+  // drop the memo so each read prices the CURRENT config.
+  const sptSim = (seg) => { const c = Context.get(); delete c._spt; return sptTotals_(seg, 'NONPAYER', c).sim; };
+
+  if (!blk) {
+    gate('NS_v2 has a readable ' + SEG + ' ladder block', false);
+  } else {
+    const hcCells = blk.rows.map(r => [r, blk.h['HC Reward']]);
+    const reqCells = blk.rows.map(r => [r, blk.h['Cum Streak Req']]);
+    const base = nsHCOf(SEG);
+
+    // rewards: doubling every NS_v2 HC reward doubles E_v2 -> doubles R -> doubles the NS row
+    const dbl = mutate('NS_v2', hcCells, (x) => x * 2, () => nsHCOf(SEG));
+    gate('NS_v2 HC rewards x2 -> NS row x2 (R = E_v2/E_base flows)',
+         base > 0 && Math.abs(dbl - 2 * base) < 1e-6, `${fmt(base)} -> ${fmt(dbl)}`);
+
+    // requirements: pushing the streak gates out lowers survival on the v2 side only -> R < 1
+    const harder = mutate('NS_v2', reqCells, (x) => x * 3, () => nsHCOf(SEG));
+    gate('NS_v2 requirements x3 -> NS row falls (requirement edits flow through the same S)',
+         harder < base - 1e-9, `${fmt(base)} -> ${fmt(harder)}`);
+
+    // base-0 addition: SPT is 0 on both ladders and 0 in data_gains, so typing it into NS_v2 has
+    // no anchor -> the engine must ADD E_v2[SPT] x Σp_day. Expectation recomputed via nsE_.
+    if (blk.h['SPT'] != null) {
+      const sptCells = blk.rows.map(r => [r, blk.h['SPT']]);
+      const got = mutate('NS_v2', sptCells, 5, () => {
+        const c3 = Context.get(), b = c3.ds.beh(SEG, 'NONPAYER');
+        const E = nsE_(SEG, 'NONPAYER', c3.ds);
+        const days = reachSum_(c3.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
+        return { sim: nsResOf(SEG, 'SPT'), want: num(E.eV2['SPT']) * days,
+                 measSPT: num(measuredRow_('Daily Night Sky Prize', SEG, 'NONPAYER', c3.ds)['SPT']) };
+      });
+      gate('NS_v2 SPT with no measured anchor -> added bottom-up (E_v2 x Σp_day)',
+           got.measSPT < 1e-9 && got.want > 0 && Math.abs(got.sim - got.want) < 1e-6,
+           `sim ${fmt(got.sim)} vs ${fmt(got.want)}`);
+      const sptBefore = sptSim(SEG);
+      const sptAfter = mutate('NS_v2', sptCells, 5, () => sptSim(SEG));
+      gate('NS SPT reaches the Season Pass faucet (sptTotals_ sees it)',
+           sptAfter > sptBefore + 1e-9, `${fmt(sptBefore)} -> ${fmt(sptAfter)}`);
+    }
+
+    // packs: no anchor either, but they take the standard pack lane (participation x reach), NOT
+    // the base-0 bottom-up addition — that distinction is the whole of the D22 pack decision.
+    if (blk.h['3-star Dly'] != null && typeof packLane_ === 'function') {
+      const packCells = blk.rows.map(r => [r, blk.h['3-star Dly']]);
+      const got = mutate('NS_v2', packCells, 1, () => {
+        const c5 = Context.get(), b = c5.ds.beh(SEG, 'NONPAYER');
+        const E = nsE_(SEG, 'NONPAYER', c5.ds);
+        const inst = c5.ds.eventInst('Night Sky', SEG, 'NONPAYER');
+        const part = (inst && num(inst.participation_rate) > 0) ? num(inst.participation_rate) : 1;
+        const reach = reachSum_(c5.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
+        return { sim: nsResOf(SEG, '3-star Pack'), want: num(E.eV2['3-star Pack']) * part * reach, part };
+      });
+      gate('NS packs priced through packLane_ (E_v2 x participation x Σreach)',
+           got.want > 0 && Math.abs(got.sim - got.want) < 1e-6,
+           `sim ${fmt(got.sim)} vs ${fmt(got.want)} (participation ${fmt(got.part)})`);
+    }
+
+    // missing NS_v2 entirely -> fall back to NS -> R = 1 -> sim == measured x T
+    const savedSheet = data['NS_v2'];
+    delete data['NS_v2'];
+    eval(engineSrc); resetSheetCache();
+    const c4 = Context.get();
+    const T4 = timingRatio_(c4.calCur['Night Sky'] || [], c4.calNew['Night Sky'] || [], SEG, 'NONPAYER', c4.ds);
+    const meas4 = num(measuredRow_('Daily Night Sky Prize', SEG, 'NONPAYER', c4.ds)['HC']);
+    gate('NS_v2 sheet absent -> falls back to NS (R = 1): sim == measured x T',
+         Math.abs(nsHCOf(SEG) - meas4 * T4) < 1e-6, `sim ${fmt(nsHCOf(SEG))} vs ${fmt(meas4 * T4)}`);
+    data['NS_v2'] = savedSheet;
+    eval(engineSrc); resetSheetCache();
+  }
+}
 
 // 1. LB reward edit: double every TaD_v2 ladder Coins cell -> Target Day HC exactly x2
 {

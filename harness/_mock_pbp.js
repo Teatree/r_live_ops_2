@@ -282,7 +282,7 @@ let nsExpectTotal = 0;
 for (const seg of ['0-9', '10-19', '100+']) {
   const stq = PBPData.streaks(seg, 'NONPAYER');
   const eff = num(stq.max_streak_per_day_p50) * NS_STREAK_N;
-  const expect = readNSLadder_(seg).filter(ms => ms.req <= eff + 1e-9).length;
+  const expect = readNSLadder_(seg, NS_V2_SHEET).filter(ms => ms.req <= eff + 1e-9).length;
   const LX = ECOGAINS_PBP('cal_new', 5, seg, 'NONPAYER', 'Expected', 'p50', 1);
   const got = nsClaimRows(LX).length;
   nsExpectTotal += expect;
@@ -295,7 +295,7 @@ check('NS Expected: some segment reaches a milestone (ladder/streak read sane)',
 {
   const pr = ledgerBody(LNS).filter(r => typeof r[0] === 'number' || /^\d+$/.test(String(r[0])));
   const best = Math.max(...pr.map(r => +r[4] || 0));
-  const expect = readNSLadder_('10-19').filter(ms => ms.req <= best * NS_STREAK_N + 1e-9).length;
+  const expect = readNSLadder_('10-19', NS_V2_SHEET).filter(ms => ms.req <= best * NS_STREAK_N + 1e-9).length;
   check('NS Sampled: claims == milestones cleared by best run x N', nsClaimRows(LNS).length === expect,
         `best=${best} expect=${expect} got=${nsClaimRows(LNS).length}`);
 }
@@ -305,7 +305,7 @@ check('NS Expected: some segment reaches a milestone (ladder/streak read sane)',
   const S = survival_([[stq.p25 * NS_STREAK_N, .25], [stq.p50 * NS_STREAK_N, .5],
                        [stq.p75 * NS_STREAK_N, .75], [stq.p90 * NS_STREAK_N, .9]]);
   let eDay = 0;
-  readNSLadder_('10-19').forEach(ms => { eDay += (ms.rew.HC || 0) * S(ms.req); });
+  readNSLadder_('10-19', NS_V2_SHEET).forEach(ms => { eDay += (ms.rew.HC || 0) * S(ms.req); });
   let acc = 0; const M = 60;
   for (let sd = 1; sd <= M; sd++) {
     const LX = ECOGAINS_PBP('cal_new', 5, '10-19', 'NONPAYER', 'Sampled', 'p50', sd);
@@ -319,7 +319,37 @@ check('NS Expected: some segment reaches a milestone (ladder/streak read sane)',
   check('NS Sampled seed-average ~ 33-day E_day (within x0.5..x2)', avg > eDay * 0.5 && avg < eDay * 2,
         `avg=${avg.toFixed(2)} eDay=${eDay.toFixed(2)}`);
 }
-// back to the shipped defaults (NS_SIMULATE = false) for the smoke tests
+// D22: the ledger reads NS on cal_curr and NS_v2 on cal_new (exception to note 9), so an edit to
+// NS_v2 must move the cal_new ledger and leave the cal_curr one untouched. Mutated in-memory and
+// restored; expectations recomputed, nothing hardcoded.
+{
+  const nsHCsum = (cal) => nsClaimRows(ECOGAINS_PBP(cal, 5, '10-19', 'NONPAYER', 'Expected', 'p50', 1))
+    .reduce((s, r) => { const m = String(r[CLAIMS_COL]).match(/Coins: ([\d.]+)/); return s + (m ? +m[1] : 0); }, 0);
+  const v = data['NS_v2'].values;
+  let hdr = -1, rows = [];
+  for (let r = 0; r < v.length; r++) {
+    if (String(v[r][0]).trim() !== '10-19') continue;
+    hdr = r + 1;
+    for (let k = hdr + 1; k < v.length && String(v[k][0]).trim() !== ''; k++) rows.push(k);
+    break;
+  }
+  const hcCol = (v[hdr] || []).findIndex(x => String(x).trim() === 'HC Reward');
+  const beforeNew = nsHCsum('cal_new'), beforeCur = nsHCsum('cal_curr');
+  const saved = rows.map(r => v[r][hcCol]);
+  rows.forEach(r => { v[r][hcCol] = (+v[r][hcCol] || 0) * 3; });
+  _sheetValsCache = {};
+  const afterNew = nsHCsum('cal_new'), afterCur = nsHCsum('cal_curr');
+  rows.forEach((r, i) => { v[r][hcCol] = saved[i]; });
+  _sheetValsCache = {};
+  check('NS_v2 HC x3 -> cal_new ledger NS claims x3 (cal_new reads NS_v2)',
+        beforeNew > 0 && Math.abs(afterNew - 3 * beforeNew) < 1e-6, `${beforeNew} -> ${afterNew}`);
+  check('NS_v2 HC x3 -> cal_curr ledger NS claims unchanged (cal_curr reads NS)',
+        Math.abs(afterCur - beforeCur) < 1e-9, `${beforeCur} -> ${afterCur}`);
+  check('NS_v2 == NS today -> both calendars claim the same NS rewards',
+        Math.abs(beforeNew - beforeCur) < 1e-9, `${beforeNew} vs ${beforeCur}`);
+}
+
+// back to the shipped defaults for the smoke tests
 eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
 eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
 

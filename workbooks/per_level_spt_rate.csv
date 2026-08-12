@@ -1,0 +1,11 @@
+play_bucket,ab_group,players,avg_saga_completes,avg_pass_score,spt_per_saga_level,median_spt_per_level
+A <25,Control,774,21.8,205.0,9.393,9.567
+A <25,Variant,597,21.7,140.3,6.453,6.16
+B 25-74,Control,8002,38.9,200.8,5.156,3.186
+B 25-74,Variant,6935,36.9,107.3,2.908,1.67
+C 75-149,Control,1060,101.1,991.9,9.807,9.419
+C 75-149,Variant,288,99.3,647.8,6.52,6.452
+D 150-299,Control,341,203.3,2242.3,11.029,11.196
+D 150-299,Variant,54,185.8,1441.7,7.761,8.126
+E 300+,Control,78,434.1,5076.9,11.695,11.98
+E 300+,Variant,4,342.5,2637.8,7.701,10.564

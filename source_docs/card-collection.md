@@ -60,7 +60,7 @@ For a pack to appear anywhere, type a quantity into the `N-star Dly` column of a
 | Kite Festival | `Ki_v2` | rank ladder + the score milestone |
 | Jigsaw / Hatchling Hideaway / Bomb's Ballet / Photoshoot | `J_v2` / `HH_v2` / `BB_v2` / `Ph_v2` | milestone ladders |
 | Rainbow Maker | `RM_1st` / `RM_2nd` | milestone ladders |
-| Night Sky | `NS_v2` | per-segment daily ladders (only if `NS_SIMULATE` is flipped on) |
+| Night Sky | `NS_v2` | per-segment daily ladders (gated on `NS_SIMULATE`, on since D21; since D22 NS is anchored and its packs go through `packLane_` like every other source) |
 | Season Pass | `SP_v2` (track), `SP_lb_v2` (challenge) | tier rows |
 | Team Event / Team Race | `TE` | Team Leaderboard + Contribution Rewards (no `_v2` sheet — base serves both sides) |
 | Flock Flurry | `F` | Goals and Rewards |

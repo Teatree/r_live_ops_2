@@ -1,0 +1,3 @@
+cohort,players,avg_reward_rows_per_player,max_reward_rows_per_player,largest_single_reward,avg_hc_logged_per_player,avg_actual_balance_change,pct_players_with_20plus_reward_rows
+A. milestone 0-19,783,4.0,12,100,128.0,1714214.0,0.0
+B. milestone 20+,91,56.7,527,300,15811.0,113.0,64.8
