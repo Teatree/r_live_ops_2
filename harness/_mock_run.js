@@ -505,7 +505,10 @@ const SP_SEG = '10-19';        // headroom on both sides (Tm 23 -> Ts 18) — se
   const dB = readSPSeasonDays_('SP') || 33;
   const dV = (spV2Sheet_('SP') !== 'SP' && readSPSeasonDays_(spV2Sheet_('SP'))) || dB;
   const Tm = spTier_(t.meas * dB / 33, base.cum), Ts = spTier_(t.sim * dV / 33, v2t.cum);
-  gate(`tier reached drops with the SPT loss (Ts < Tm) [${SP_SEG}]`, Tm > 0 && Ts < Tm,
+  // (15)+: whether the loss CROSSES a tier boundary is workbook state (wb13/14 R=0.495 -> Ts 18;
+  // wb15 R=0.812 -> Ts 23 == Tm). Assert direction only; the SP_v2 Cumul x2 mutation below
+  // exercises the actual drop mechanism regardless of the shipped panel magnitude.
+  gate(`tier does not rise with the SPT loss (Ts <= Tm) [${SP_SEG}]`, Tm > 0 && Ts <= Tm,
        `Tm ${Tm} -> Ts ${Ts}`);
   const cb = spCumTo_(base, Tm, 'NONPAYER'), cs = spCumTo_(v2t, Ts, 'NONPAYER');
   const Rlb = spChallengeR_();
@@ -527,8 +530,7 @@ const SP_SEG = '10-19';        // headroom on both sides (Tm 23 -> Ts 18) — se
     if (m > 0 && Math.abs(expected - m) > 1e-9) scaled.push(`${r} x${(expected / m).toFixed(3)}`);
   });
   gate('Season Pass row == tier-coupling identity per resource', maxE < 1e-9,
-       `max err ${maxE.toExponential(2)}; moved: ${scaled.join(', ') || '(none — suspicious)'}`);
-  gate('at least one Season Pass resource moved (coupling is live)', scaled.length > 0, scaled.join(', '));
+       `max err ${maxE.toExponential(2)}; moved: ${scaled.join(', ') || `(none — Ts==Tm ${Ts}==${Tm}, ladders/pot/timing flat; movement mechanism gated by the x2 mutation below)`}`);
   const iSPT = RESOURCES.indexOf('SPT');
   gate("Season Pass row's own SPT carried (track pays no SPT; no-anchor + no tier gain -> carry)",
        Math.abs(spRow[iSPT] - num(measRow['SPT'])) < 1e-9,
@@ -586,6 +588,40 @@ const SP_SEG = '10-19';        // headroom on both sides (Tm 23 -> Ts 18) — se
   const again = ECOGAINS_SIM('NONPAYER', '40-99');
   gate('SP_v2 mutation restored (baseline reproduces)',
        CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
+}
+
+// SPT-3b: mirrored mutation — SP_v2 Cumul ladder DOUBLED -> tiers DROP (Ts < Tm) and anchored
+// resources scale DOWN through the cum ratio. Magnitude-independent replacement for the old
+// "tier drops with the shipped panel" gate, which rotted when wb15 softened SP_v2 (R 0.495 -> 0.812).
+{
+  const origSP_v2 = data['SP_v2'] ? JSON.parse(JSON.stringify(data['SP_v2'])) : null;
+  const clone = JSON.parse(JSON.stringify(data['SP']));
+  for (let r = 4; r < clone.values.length; r++) {              // 0-based rows 4.. = tier rows 5..
+    const v = +clone.values[r][2];
+    if (v > 0) clone.values[r][2] = v * 2;                     // Cumul col C doubled
+  }
+  data['SP_v2'] = clone;
+  eval(engineSrc); resetSheetCache();
+  const c4 = Context.get();
+  const t = sptTotals_(SP_SEG, 'NONPAYER', c4);
+  const base = readSPTrack_('SP'), v2 = readSPTrack_('SP_v2');
+  const dB = readSPSeasonDays_('SP') || 33, dV = readSPSeasonDays_('SP_v2') || dB;
+  const Tm = spTier_(t.meas * dB / 33, base.cum), Ts = spTier_(t.sim * dV / 33, v2.cum);
+  gate(`SP_v2 Cumul x2 -> tier drops (Ts < Tm) [${SP_SEG}]`, Ts < Tm, `Tm ${Tm} -> Ts ${Ts}`);
+  const cb = spCumTo_(base, Tm, 'NONPAYER'), cs = spCumTo_(v2, Ts, 'NONPAYER');
+  const row = ECOGAINS_SIM('NONPAYER', SP_SEG)[idx('Season Pass (Free)')];
+  const measRow = measuredRow_('Season Pass (Free)', SP_SEG, 'NONPAYER', c4.ds);
+  const moved = RESOURCES.filter(r => !isPackRes_(r) && num(measRow[r]) > 0 && num(cb[r]) > 0 &&
+        Math.abs(num(cs[r]) / num(cb[r]) - 1) > 1e-9 &&
+        Math.abs(row[RESOURCES.indexOf(r)] - num(measRow[r])) > 1e-9);
+  gate('forced tier drop -> at least one anchored Season Pass resource moves (coupling is live)',
+       moved.length > 0,
+       moved.map(r => `${r} ${num(measRow[r]).toFixed(2)}->${row[RESOURCES.indexOf(r)].toFixed(2)}`).join(', ') || '(none moved)');
+  if (origSP_v2) data['SP_v2'] = origSP_v2; else delete data['SP_v2'];
+  eval(engineSrc); resetSheetCache();
+  const again2 = ECOGAINS_SIM('NONPAYER', '40-99');
+  gate('SP_v2 x2 mutation restored (baseline reproduces)',
+       CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again2[i][j] - baseline[i][j]) < 1e-12)));
 }
 // ---------- Core SPT gates (D17: level-completion tokens priced off the SP / SP_v2 panel) -----
 console.log('\n================ CORE SPT GATES ================');

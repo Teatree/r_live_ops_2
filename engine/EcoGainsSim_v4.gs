@@ -331,7 +331,7 @@ function simSaga(seg, payer, ctx){
   return out;
 }
 function sagaRatio_(seg){
-  var baseAvg = sagaCycleAvg_(readSagaBase_()), v2Avg = sagaCycleAvg_(readSagaV2_(seg));
+  var baseAvg = sagaCycleAvg_(readSagaBase_(seg)), v2Avg = sagaCycleAvg_(readSagaV2_(seg));
   return (baseAvg && baseAvg > 0 && v2Avg != null) ? v2Avg/baseAvg : 1;
 }
 function sagaItemRatios_(){
@@ -1519,23 +1519,57 @@ function readPrecomputedCal_(calName){
 }
 
 // ============================== CONFIG READERS ===============================================
-// c_saga: header r3, nodes r4+ (Node | Levels Req | HC Reward).
-function readSagaBase_(){
-  var v = sheetVals_('c_saga'), out = [];
-  for (var r = 3; r < v.length; r++){ if (v[r][0] == null || v[r][0] === '') break;
-    out.push([num(v[r][1]), num(v[r][2])]); }
-  return out;
-}
-// c_saga_v2 (config-segmented, D14): 5 per-segment (Levels Req | HC Reward) column pairs.
-function readSagaV2_(seg){
-  var v = sheetVals_('c_saga_v2');
-  var col = {'0-9':1, '10-19':3, '20-39':5, '40-99':7, '100+':9}[seg];
-  if (col == null) return null;
+// Header-driven saga ladder reader (workbook (15) layout change, 2026-08-13: each per-segment
+// block gained a RewardChestId column between 'Levels Req' and 'HC Reward', and the BASE sheet
+// is now segmented like the v2 sheet). Finds the header row ('Node' + 'Levels Req'), picks the
+// block whose segment label (row above the header) matches seg — first block when no label
+// matches (the old single-ladder base layout) — and pairs that block's 'Levels Req' with the
+// next 'HC Reward' to its right, so pair and triple layouts both parse. The old fixed-column
+// readers silently read chest IDs as HC on the (15) sheets (Saga R exploded to x7-10).
+function readSagaLadder_(sheetName, seg){
+  var v = sheetVals_(sheetName);
+  if (!v) return null;
+  var hr = -1;
+  for (var r = 0; r < v.length; r++){
+    var row = v[r] || [], hasNode = false, hasReq = false;
+    for (var i = 0; i < row.length; i++){
+      var s = String(row[i] == null ? '' : row[i]).trim();
+      if (s === 'Node') hasNode = true;
+      if (s === 'Levels Req') hasReq = true;
+    }
+    if (hasNode && hasReq){ hr = r; break; }
+  }
+  if (hr < 0) return null;
+  var hdr = v[hr] || [], above = v[hr - 1] || [];
+  var reqCols = [];
+  for (var c = 0; c < hdr.length; c++)
+    if (String(hdr[c] == null ? '' : hdr[c]).trim() === 'Levels Req') reqCols.push(c);
+  var pick = null;
+  if (seg != null){
+    for (var k = 0; k < reqCols.length; k++){
+      var lbl = String(above[reqCols[k]] == null ? '' : above[reqCols[k]]).trim() ||
+                String(above[reqCols[k] - 1] == null ? '' : above[reqCols[k] - 1]).trim();
+      if (lbl === seg){ pick = reqCols[k]; break; }
+    }
+  }
+  if (pick == null) pick = reqCols[0];
+  var hcCol = -1;
+  for (var c2 = pick + 1; c2 < hdr.length; c2++){
+    var s2 = String(hdr[c2] == null ? '' : hdr[c2]).trim();
+    if (s2 === 'HC Reward'){ hcCol = c2; break; }
+    if (s2 === 'Levels Req') break;                // ran into the next segment block
+  }
+  if (hcCol < 0) return null;
   var out = [];
-  for (var r = 4; r < v.length; r++){ if (v[r][0] == null || v[r][0] === '') break;
-    out.push([num(v[r][col]), num(v[r][col+1])]); }
-  return out;
+  for (var r2 = hr + 1; r2 < v.length; r2++){
+    var row2 = v[r2];
+    if (!row2 || row2[0] == null || row2[0] === '' || isNaN(parseFloat(row2[0]))) break;
+    out.push([num(row2[pick]), num(row2[hcCol])]);
+  }
+  return out.length ? out : null;
 }
+function readSagaBase_(seg){ return readSagaLadder_('c_saga', seg); }
+function readSagaV2_(seg){ return readSagaLadder_('c_saga_v2', seg); }
 function sagaCycleAvg_(l){
   if (!l || !l.length) return null;
   var hc = 0, lv = 0; l.forEach(function(n){ lv += n[0]; hc += n[1]; });

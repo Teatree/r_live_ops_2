@@ -52,7 +52,9 @@
  * DIFF = NEW(day) - CURRENT(day). Column totals therefore reconcile with ECOGAINS_SIM/_DIFF.
  ************************************************************************************************/
 
-var DAILY_DAYS = 33;
+// 21, not 33: the A/B window this workbook simulates on top of (see SIM_DAYS in EcoGainsSim_v4.gs
+// — separate declaration because Apps Script loads this file first; the harness gates that they match)
+var DAILY_DAYS = 21;
 var DAILY_ECON_SHEET = 'data_econ_daily';                 // actual per-day gain/spend (per earner)
 var DAILY_NET_BLOCKS = { 'SPEND':1, 'CURNET':1, 'NEWNET':1 };
 
@@ -131,7 +133,11 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
   // (from the engine's per-instance breakdown) on its days prop p_day, so RM_2nd-only
   // resources (SPTx2) never land on RM_1st instance days. Sums stay exactly the 33-day RM row.
   // parts == null (carried: no matchables/ladder) falls through to the generic placement.
-  if (isNew && cat === 'Rainbow Maker'){
+  // RM_SIMULATE (EcoGainsSim_v4.gs) off -> RM is carried, so the NEW side is just the measured
+  // total and must be placed by the generic rules; using the bottom-up per-instance rows here would
+  // put a DIFFERENT total on the days than the 33/21-day row carries and break conservation.
+  // Read at run time, not load time: Apps Script loads this file before the v4 one.
+  if (isNew && cat === 'Rainbow Maker' && (typeof RM_SIMULATE === 'undefined' || RM_SIMULATE)){
     var parts = rmInstanceRows_(seg, payer, ctx);
     if (parts && parts.length){
       var bb = ds.beh(seg, payer);

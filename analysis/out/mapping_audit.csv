@@ -1,0 +1,126 @@
+source_detail,category,provenance,free_hc,free_all_resources,share_of_free_hc
+saga_progression,Saga,extended,10979465.0,27759584.0,0.20877
+player_level_up,Core,extended,10811805.0,17168694.0,0.205582
+daily_reward,Daily Gift,repo_sql,6184700.0,13102159.0,0.1176
+dreamheist_event,Daily Night Sky Prize,repo_sql,4008740.0,6093737.0,0.076225
+team_collection,Team Event,repo_sql,2755530.0,2809469.0,0.052395
+race_event,Team Race,repo_sql,1916335.0,4985889.0,0.036438
+team_versus,Team Race,repo_sql,1897215.0,1968294.0,0.036075
+dream_pass_event,Season Pass (Free),repo_sql,1804270.0,5750501.0,0.034307
+team_versus_contribution,Team Race,repo_sql,1686420.0,1750904.0,0.032067
+ArcheryArena,Target Day,repo_sql,1355665.0,3037319.0,0.025777
+ad_chest,Ads,extended,1245050.0,1730614.0,0.023674
+Rainbow Maker,Rainbow Maker,repo_sql,1145463.0,8461406.0,0.021781
+Hatchling Hideaway,Hatchling Hideaway,repo_sql,1008485.0,5873723.0,0.019176
+chuck_event,Chuck Challenge,repo_sql,892150.0,915845.0,0.016964
+single_collection,Other,else,857050.0,877927.0,0.016296
+Jigsaw,Jigsaw,repo_sql,853550.0,3912368.0,0.01623
+river_rush,River Rush,repo_sql,520070.0,918282.0,0.009889
+red_event,Red Challenge,repo_sql,508750.0,522161.0,0.009674
+reward_chest,Other,else,437205.0,591064.0,0.008313
+bomb_event,Bomb Challenge,repo_sql,437125.0,449100.0,0.008312
+kite_festival_event,Kite Festival,repo_sql,371225.0,2336296.0,0.007059
+dream_peak,Other,else,256500.0,258950.0,0.004877
+facebook_like,Other,else,223300.0,227764.0,0.004246
+bomb_ballet_event,Bomb's Ballet,repo_sql,210375.0,1029933.0,0.004
+heart_gift,Other,else,99889.0,99889.0,0.001899
+season_pass_event,Season Pass (Free),repo_sql,58245.0,412171.0,0.001108
+offer_free_items,Other,else,39730.0,3189614.0,0.000755
+gift,Daily Gift,repo_sql,14200.0,65006.0,0.00027
+Photoshoot,Photoshoot,repo_sql,3975.0,17540.0,7.6e-05
+wager_event,Level Race,extended,2950.0,10500.0,5.6e-05
+reds_club,Other,else,2800.0,2800.0,5.3e-05
+league_rank_up,Other,else,920.0,11635.0,1.7e-05
+event_progress,Other,else,820.0,4324.0,1.6e-05
+special_event,Other,else,700.0,2370.0,1.3e-05
+treasure_dive_event,Daily Night Sky Prize,repo_sql,120.0,225.0,2e-06
+unknown,Other,else,105.0,323.0,2e-06
+surprise_chest,Other,else,100.0,103.0,2e-06
+shop_purchase,IAPs,repo_sql,70.0,72.0,1e-06
+minigame_event,Other,else,30.0,30.0,1e-06
+SagaPath,Core,repo_sql,20.0,206.0,0.0
+Bomb,Other,else,20.0,21.0,0.0
+DreamAdventure,Other,else,10.0,56.0,0.0
+SeasonPassHoliday,Season Pass (Free),repo_sql,10.0,386.0,0.0
+SeasonPassHalloween,Season Pass (Free),repo_sql,10.0,132.0,0.0
+xs_coins_tier3,Other,else,0.0,0.0,0.0
+s_coins2,Other,else,0.0,0.0,0.0
+bundle_6_with_prelevel_boosters_tier3,Other,else,0.0,0.0,0.0
+xs_coins2,Other,else,0.0,0.0,0.0
+Hard_Level_Offer1,Other,else,0.0,0.0,0.0
+bundle_2_with_prelevel_boosters2,Other,else,0.0,0.0,0.0
+bundle_2_with_prelevel_boosters,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p299,Other,else,0.0,0.0,0.0
+bundle_3_with_prelevel_boosters_tier3,Other,else,0.0,0.0,0.0
+bundle_4_with_prelevel_boosters_tier3,Other,else,0.0,0.0,0.0
+Hard_level_offer1_tier3,Other,else,0.0,0.0,0.0
+rolling_offer_p799_VarA,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p499_VarA,Other,else,0.0,0.0,0.0
+rolling_offer_p1999_VarA,Other,else,0.0,0.0,0.0
+bundle_7_with_prelevel_boosters,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p1499_VarA,Other,else,0.0,0.0,0.0
+bundle_3_with_prelevel_boosters,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p199_tier3,Other,else,0.0,0.0,0.0
+rolling_offer_p3999,Other,else,0.0,0.0,0.0
+l_coins2,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p2999_VARIANT_VarA,Other,else,0.0,0.0,0.0
+special_offer9,Other,else,0.0,0.0,0.0
+special_offer8,Other,else,0.0,0.0,0.0
+bundle_7_with_prelevel_boosters2,Other,else,0.0,0.0,0.0
+s_coins_tier3,Other,else,0.0,0.0,0.0
+bundle_3_with_prelevel_boosters2,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p299_tier3,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p1499_VARIANT_tier3,Other,else,0.0,0.0,0.0
+special_offer10,Other,else,0.0,0.0,0.0
+rolling_offer_p999_tier3,Other,else,0.0,0.0,0.0
+special_offer1_tier3,Other,else,0.0,0.0,0.0
+rolling_offer_p349_tier3,Other,else,0.0,0.0,0.0
+rolling_offer_tier1_p799_tier3,Other,else,0.0,0.0,0.0
+bundle_2_with_prelevel_boosters_tier3,Other,else,0.0,0.0,0.0
+m_coins_tier3,Other,else,0.0,0.0,0.0
+special_offer3,Other,else,0.0,0.0,0.0
+great_offer1_299,Other,else,0.0,0.0,0.0
+special_offer8_tier3,Other,else,0.0,0.0,0.0
+special_offer11,Other,else,0.0,0.0,0.0
+great_offer1_199_tier3,Other,else,0.0,0.0,0.0
+special_offer1,Other,else,0.0,0.0,0.0
+xs_coins,Other,else,0.0,0.0,0.0
+special_offer10_tier3,Other,else,0.0,0.0,0.0
+s_coins,Other,else,0.0,0.0,0.0
+great_offer1_199,Other,else,0.0,0.0,0.0
+bundle_7_with_prelevel_boosters_tier3,Other,else,0.0,0.0,0.0
+special_offer9_tier3,Other,else,0.0,0.0,0.0
+bundle_1_with_prelevel_boosters,Other,else,0.0,0.0,0.0
+FlockRush,Flock Flurry,repo_sql,0.0,8669556.0,0.0
+ask_for_lives,Other,else,0.0,78878.0,0.0
+ad_life,Ads,extended,0.0,30480.0,0.0
+coin_purchase,Other,else,0.0,119035.0,0.0
+ingame,Other,else,0.0,0.0,0.0
+FlowerCoop,FlowerCoop,repo_sql,0.0,117.0,0.0
+January,Other,else,0.0,75.0,0.0
+bundle_6_with_prelevel_boosters2,Other,else,0.0,0.0,0.0
+bundle_5_with_prelevel_boosters_tier3,Other,else,0.0,0.0,0.0
+m_coins2,Other,else,0.0,0.0,0.0
+special_offer3_tier3,Other,else,0.0,0.0,0.0
+rolling_offer_p099_VarA,Other,else,0.0,0.0,0.0
+league_same_rank,Other,else,0.0,290.0,0.0
+xl_coins_tier3,Other,else,0.0,0.0,0.0
+bundle_1_with_prelevel_boosters_tier3,Other,else,0.0,0.0,0.0
+rolling_offer_p049_tier3,Other,else,0.0,0.0,0.0
+season_pass_challenge_event,Other,else,0.0,1348.0,0.0
+xxl_coins_tier3,Other,else,0.0,0.0,0.0
+balloon_event,Other,else,0.0,84.0,0.0
+SeasonPass,Season Pass (Free),repo_sql,0.0,200.0,0.0
+special_offer11_tier3,Other,else,0.0,0.0,0.0
+SeasonPassSummer,Season Pass (Free),repo_sql,0.0,61.0,0.0
+xxl_coins2,Other,else,0.0,0.0,0.0
+bundle_4_with_prelevel_boosters2,Other,else,0.0,0.0,0.0
+bundle_5_with_prelevel_boosters,Other,else,0.0,0.0,0.0
+special_offer12,Other,else,0.0,0.0,0.0
+special_offer5_tier3,Other,else,0.0,0.0,0.0
+bundle_4_with_prelevel_boosters,Other,else,0.0,0.0,0.0
+purchase,Other,else,0.0,0.0,0.0
+bundle_5_with_prelevel_boosters2,Other,else,0.0,0.0,0.0
+rolling_offer_p1999_tier3,Other,else,0.0,0.0,0.0
+special_offer4_tier3,Other,else,0.0,0.0,0.0
+solo_race_event,Flash Race,repo_sql,0.0,15.0,0.0

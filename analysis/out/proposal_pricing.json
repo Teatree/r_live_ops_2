@@ -1,0 +1,6173 @@
+{
+ "generated": "2026-08-17T10:01:38.496Z",
+ "day_list": [
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13
+ ],
+ "bridge_note": "papd = per-earner windowed delta x (a_C / M_win) from comparison.json",
+ "scenarios": {
+  "BASE": {
+   "label": "Workbook (16) as shipped (NS_v2 = the proposed coin ladder)",
+   "sheets": [],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 99.45099088929051,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 138.56288614872796,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 205.43570451739527,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 367.12256067033786,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 499.168936219272,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.830923165225,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.06360926152496,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.2739016818518,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 10,
+       "e_hc": 3.75
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 15,
+       "e_hc": 2.062499999999999
+      }
+     ],
+     "e_hc_day": 5.812499999999999
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 10,
+       "e_hc": 6.375
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 35,
+       "e_hc": 12.541666666666668
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 70,
+       "e_hc": 5.8
+      }
+     ],
+     "e_hc_day": 24.71666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 15,
+       "e_hc": 10.285714285714286
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 75,
+       "e_hc": 25.90909090909091
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 140,
+       "e_hc": 21.107692307692307
+      }
+     ],
+     "e_hc_day": 57.3024975024975
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 60,
+       "e_hc": 35.599999999999994
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 160,
+       "e_hc": 43.63636363636363
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 300,
+       "e_hc": 26.785714285714292
+      }
+     ],
+     "e_hc_day": 106.02207792207791
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 500,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "A-ns-gates": {
+   "label": "NS gates re-cut to reach targets 75/50/25% (NS_v2 Cum Streak Req)",
+   "sheets": [
+    "NS_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 101.80764973274258,
+       "delta_win": 2.3566588434520668,
+       "delta_papd": 0.997765956309952,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 148.08854065648825,
+       "delta_win": 9.525654507760294,
+       "delta_papd": 5.787318802298094,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 219.3075820113097,
+       "delta_win": 13.87187749391444,
+       "delta_papd": 9.570074759159326,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 417.96338831047444,
+       "delta_win": 50.84082764013658,
+       "delta_papd": 36.66809482026666,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 631.6754500361234,
+       "delta_win": 132.5065138168514,
+       "delta_papd": 149.04929207741614,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 12.484755556891034,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 187.5669825070428,
+       "delta_win": 2.736059341817821,
+       "delta_papd": 0.8877046858089168,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 230.8786654977192,
+       "delta_win": 1.8150562361942377,
+       "delta_papd": 0.8786539721829013,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 286.0791608316347,
+       "delta_win": 0.8052591497828985,
+       "delta_papd": 0.46459579615088437,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 433.35797993264447,
+       "delta_win": 3.096876888809902,
+       "delta_papd": 1.8649596807310906,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 553.0992007400814,
+       "delta_win": 5.4991190136204295,
+       "delta_papd": 5.051608715697764,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 1.0204021428519643,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.894526029877561,
+       "delta_win": 0.10911564192141299,
+       "delta_papd": 0.030166542896066312,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 4.341673711014411,
+       "delta_win": 0.3657198632447427,
+       "delta_papd": 0.1677001152770975,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.947461274701944,
+       "delta_win": 0.13287205272787173,
+       "delta_papd": 0.07908313316981332,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 6.449511938175194,
+       "delta_win": 0.4602035327873599,
+       "delta_papd": 0.33315892817617754,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 7.084021471953646,
+       "delta_win": 0.44388875659636096,
+       "delta_papd": 0.5299438605586346,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0.13229121716920544,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.8123502703482863,
+       "delta_win": 0.05909169105890566,
+       "delta_papd": 0.01759454328232199,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.4617052589603845,
+       "delta_win": 0.114503160548308,
+       "delta_papd": 0.05791895922822408,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.425951087892245,
+       "delta_win": 0.12604260042082593,
+       "delta_papd": 0.07976415279574382,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.937801382437093,
+       "delta_win": 0.3014120530322133,
+       "delta_papd": 0.22450425849958117,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.866830029456889,
+       "delta_win": 0.539763106137702,
+       "delta_papd": 0.6343809803289613,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0.08526839309379251,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.523888970180792,
+       "delta_win": 0.09015153554576028,
+       "delta_papd": 0.04046927865251684,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.6334929653059818,
+       "delta_win": 0.32623256600836426,
+       "delta_papd": 0.20566536820417736,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.128573418012006,
+       "delta_win": 0.12344296103618468,
+       "delta_papd": 0.09209986789908645,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0.08923469867971072,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0.9977659563099508
+     },
+     "10-19": {
+      "delta_papd": 5.78731880229809
+     },
+     "20-39": {
+      "delta_papd": 9.57007475915934
+     },
+     "40-99": {
+      "delta_papd": 36.66809482026665
+     },
+     "100+": {
+      "delta_papd": 149.04929207741574
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 1,
+       "reach": 0.8,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 4,
+       "reach": 0.475,
+       "hc": 10,
+       "e_hc": 4.75
+      },
+      {
+       "round": 3,
+       "req": 6,
+       "reach": 0.275,
+       "hc": 15,
+       "e_hc": 4.125
+      }
+     ],
+     "e_hc_day": 8.875
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 4,
+       "reach": 0.7375,
+       "hc": 10,
+       "e_hc": 7.375
+      },
+      {
+       "round": 2,
+       "req": 9,
+       "reach": 0.4916666666666667,
+       "hc": 35,
+       "e_hc": 17.208333333333336
+      },
+      {
+       "round": 3,
+       "req": 16,
+       "reach": 0.2583333333333333,
+       "hc": 70,
+       "e_hc": 18.083333333333332
+      }
+     ],
+     "e_hc_day": 42.66666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 9,
+       "reach": 0.7428571428571429,
+       "hc": 15,
+       "e_hc": 11.142857142857142
+      },
+      {
+       "round": 2,
+       "req": 18,
+       "reach": 0.49090909090909096,
+       "hc": 75,
+       "e_hc": 36.81818181818182
+      },
+      {
+       "round": 3,
+       "req": 31,
+       "reach": 0.2545454545454545,
+       "hc": 140,
+       "e_hc": 35.63636363636363
+      }
+     ],
+     "e_hc_day": 83.5974025974026
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 16,
+       "reach": 0.7538461538461538,
+       "hc": 60,
+       "e_hc": 45.230769230769226
+      },
+      {
+       "round": 2,
+       "req": 35,
+       "reach": 0.5,
+       "hc": 160,
+       "e_hc": 80
+      },
+      {
+       "round": 3,
+       "req": 63,
+       "reach": 0.2478571428571429,
+       "hc": 300,
+       "e_hc": 74.35714285714286
+      }
+     ],
+     "e_hc_day": 199.5879120879121
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 36,
+       "reach": 0.7517241379310344,
+       "hc": 125,
+       "e_hc": 93.9655172413793
+      },
+      {
+       "round": 2,
+       "req": 79,
+       "reach": 0.49903846153846154,
+       "hc": 350,
+       "e_hc": 174.66346153846155
+      },
+      {
+       "round": 3,
+       "req": 144,
+       "reach": 0.24945454545454548,
+       "hc": 500,
+       "e_hc": 124.72727272727275
+      }
+     ],
+     "e_hc_day": 393.3562515071136
+    }
+   }
+  },
+  "A2-ns-gate-r1": {
+   "label": "NS round-1 gate only, lowered to ~75% reach for 0-9/10-19/20-39 (NS_v2 Cum Streak Req)",
+   "sheets": [
+    "NS_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 99.45099088929051,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 139.1636747074962,
+       "delta_win": 0.6007885587682438,
+       "delta_papd": 0.3650095559871974,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 205.89197080396403,
+       "delta_win": 0.4562662865687628,
+       "delta_papd": 0.31477371930819364,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 367.12256067033786,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 499.168936219272,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 0.1674589256043961,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 187.5669825070428,
+       "delta_win": 2.736059341817821,
+       "delta_papd": 0.8877046858089168,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 230.8786654977192,
+       "delta_win": 1.8150562361942377,
+       "delta_papd": 0.8786539721829013,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 286.0791608316347,
+       "delta_win": 0.8052591497828985,
+       "delta_papd": 0.46459579615088437,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0.6429676938423332,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0.3650095559871931
+     },
+     "20-39": {
+      "delta_papd": 0.31477371930820586
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 1,
+       "reach": 0.8,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 10,
+       "e_hc": 3.75
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 15,
+       "e_hc": 2.062499999999999
+      }
+     ],
+     "e_hc_day": 5.812499999999999
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 4,
+       "reach": 0.7375,
+       "hc": 10,
+       "e_hc": 7.375
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 35,
+       "e_hc": 12.541666666666668
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 70,
+       "e_hc": 5.8
+      }
+     ],
+     "e_hc_day": 25.71666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 9,
+       "reach": 0.7428571428571429,
+       "hc": 15,
+       "e_hc": 11.142857142857142
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 75,
+       "e_hc": 25.90909090909091
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 140,
+       "e_hc": 21.107692307692307
+      }
+     ],
+     "e_hc_day": 58.15964035964036
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 60,
+       "e_hc": 35.599999999999994
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 160,
+       "e_hc": 43.63636363636363
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 300,
+       "e_hc": 26.785714285714292
+      }
+     ],
+     "e_hc_day": 106.02207792207791
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 500,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "B-ns-reshape": {
+   "label": "NS rewards re-weighted onto reachable rounds at constant expected cost",
+   "sheets": [
+    "NS_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 99.56800264686879,
+       "delta_win": 0.11701175757828253,
+       "delta_papd": 0.04954062338042353,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 138.38971629251114,
+       "delta_win": -0.17316985621681624,
+       "delta_papd": -0.10520948078248918,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 205.08485075988807,
+       "delta_win": -0.3508537575071955,
+       "delta_papd": -0.24205063015794595,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 367.019086110951,
+       "delta_win": -0.10347455938688199,
+       "delta_papd": -0.07462929167754417,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 499.168936219272,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": -0.07588436813564563,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.830923165225,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.06360926152496,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.2739016818518,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0.049540623380424656
+     },
+     "10-19": {
+      "delta_papd": -0.10520948078249781
+     },
+     "20-39": {
+      "delta_papd": -0.2420506301579288
+     },
+     "40-99": {
+      "delta_papd": -0.07462929167753392
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 1,
+       "e_hc": 0.675
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 11,
+       "e_hc": 4.125
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 8,
+       "e_hc": 1.0999999999999996
+      }
+     ],
+     "e_hc_day": 5.8999999999999995
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 13,
+       "e_hc": 8.2875
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 37,
+       "e_hc": 13.258333333333336
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 35,
+       "e_hc": 2.9
+      }
+     ],
+     "e_hc_day": 24.445833333333333
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 27,
+       "e_hc": 18.514285714285716
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 81,
+       "e_hc": 27.98181818181818
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 70,
+       "e_hc": 10.553846153846154
+      }
+     ],
+     "e_hc_day": 57.04995004995005
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 79,
+       "e_hc": 46.87333333333333
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 169,
+       "e_hc": 46.090909090909086
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 150,
+       "e_hc": 13.392857142857146
+      }
+     ],
+     "e_hc_day": 106.35709956709957
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 250,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "C-daily-gift": {
+   "label": "Daily Gift early rungs restored to the Control ladder (c_day_v2 days 1-6)",
+   "sheets": [
+    "c_day_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 114.06911811041005,
+       "delta_win": 14.618127221119536,
+       "delta_papd": 6.189045871771527,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 148.8360745670476,
+       "delta_win": 10.273188418319648,
+       "delta_papd": 6.2414836108591345,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 214.62970634991888,
+       "delta_win": 9.194001832523611,
+       "delta_papd": 6.342853367303641,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 376.6514392264477,
+       "delta_win": 9.528878556109817,
+       "delta_papd": 6.87254395029557,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 505.3459462989751,
+       "delta_win": 6.177010079703109,
+       "delta_papd": 6.948179021654449,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 6.352771551844702,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.830923165225,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.06360926152496,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.2739016818518,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 6.189045871771523
+     },
+     "10-19": {
+      "delta_papd": 6.241483610859113
+     },
+     "20-39": {
+      "delta_papd": 6.342853367303641
+     },
+     "40-99": {
+      "delta_papd": 6.87254395029557
+     },
+     "100+": {
+      "delta_papd": 6.948179021654436
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 10,
+       "e_hc": 3.75
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 15,
+       "e_hc": 2.062499999999999
+      }
+     ],
+     "e_hc_day": 5.812499999999999
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 10,
+       "e_hc": 6.375
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 35,
+       "e_hc": 12.541666666666668
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 70,
+       "e_hc": 5.8
+      }
+     ],
+     "e_hc_day": 24.71666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 15,
+       "e_hc": 10.285714285714286
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 75,
+       "e_hc": 25.90909090909091
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 140,
+       "e_hc": 21.107692307692307
+      }
+     ],
+     "e_hc_day": 57.3024975024975
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 60,
+       "e_hc": 35.599999999999994
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 160,
+       "e_hc": 43.63636363636363
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 300,
+       "e_hc": 26.785714285714292
+      }
+     ],
+     "e_hc_day": 106.02207792207791
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 500,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "C2-daily-gift-half": {
+   "label": "Daily Gift early rungs restored HALFWAY (c_day_v2 days 1-6)",
+   "sheets": [
+    "c_day_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 106.9653492033038,
+       "delta_win": 7.514358314013293,
+       "delta_papd": 3.181440932814257,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 143.85513472786232,
+       "delta_win": 5.292248579134366,
+       "delta_papd": 3.2153097389274343,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 210.17158377821,
+       "delta_win": 4.735879260814727,
+       "delta_papd": 3.2672375167840193,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 372.0313768962126,
+       "delta_win": 4.908816225874716,
+       "delta_papd": 3.5404014289401147,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 502.3432392414682,
+       "delta_win": 3.174303022196227,
+       "delta_papd": 3.570598943924375,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 3.270032746859831,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.830923165225,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.06360926152496,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.2739016818518,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 3.1814409328142528
+     },
+     "10-19": {
+      "delta_papd": 3.2153097389274214
+     },
+     "20-39": {
+      "delta_papd": 3.2672375167840415
+     },
+     "40-99": {
+      "delta_papd": 3.54040142894014
+     },
+     "100+": {
+      "delta_papd": 3.570598943924455
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 10,
+       "e_hc": 3.75
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 15,
+       "e_hc": 2.062499999999999
+      }
+     ],
+     "e_hc_day": 5.812499999999999
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 10,
+       "e_hc": 6.375
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 35,
+       "e_hc": 12.541666666666668
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 70,
+       "e_hc": 5.8
+      }
+     ],
+     "e_hc_day": 24.71666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 15,
+       "e_hc": 10.285714285714286
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 75,
+       "e_hc": 25.90909090909091
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 140,
+       "e_hc": 21.107692307692307
+      }
+     ],
+     "e_hc_day": 57.3024975024975
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 60,
+       "e_hc": 35.599999999999994
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 160,
+       "e_hc": 43.63636363636363
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 300,
+       "e_hc": 26.785714285714292
+      }
+     ],
+     "e_hc_day": 106.02207792207791
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 500,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "D-saga-lowseg": {
+   "label": "Saga coin give-back for 0-9 and 10-19 only (c_saga_v2 HC Reward: fill the 0 nodes)",
+   "sheets": [
+    "c_saga_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 103.31398625115459,
+       "delta_win": 3.8629953618640798,
+       "delta_papd": 1.6355210989322895,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 145.9679089959078,
+       "delta_win": 7.4050228471798505,
+       "delta_papd": 4.498927388140932,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 205.43570451739527,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 367.12256067033786,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 499.168936219272,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 1.7601528111831137,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.830923165225,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.06360926152496,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.2739016818518,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 1.6355210989322875
+     },
+     "10-19": {
+      "delta_papd": 4.498927388140932
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 10,
+       "e_hc": 3.75
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 15,
+       "e_hc": 2.062499999999999
+      }
+     ],
+     "e_hc_day": 5.812499999999999
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 10,
+       "e_hc": 6.375
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 35,
+       "e_hc": 12.541666666666668
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 70,
+       "e_hc": 5.8
+      }
+     ],
+     "e_hc_day": 24.71666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 15,
+       "e_hc": 10.285714285714286
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 75,
+       "e_hc": 25.90909090909091
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 140,
+       "e_hc": 21.107692307692307
+      }
+     ],
+     "e_hc_day": 57.3024975024975
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 60,
+       "e_hc": 35.599999999999994
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 160,
+       "e_hc": 43.63636363636363
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 300,
+       "e_hc": 26.785714285714292
+      }
+     ],
+     "e_hc_day": 106.02207792207791
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 500,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "E-river-rush": {
+   "label": "Restore the River Rush lane on cal_new (4 weekly 4-day instances)",
+   "sheets": [
+    "cal_new"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 100.96232916337983,
+       "delta_win": 1.5113382740893258,
+       "delta_papd": 0.6398727938684943,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 142.56661999199153,
+       "delta_win": 4.003733843263575,
+       "delta_papd": 2.4324716093408387,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 213.92593042606936,
+       "delta_win": 8.490225908674091,
+       "delta_papd": 5.857325131641883,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 387.83468251366037,
+       "delta_win": 20.712121843322507,
+       "delta_papd": 14.93827073500068,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 534.3391272779861,
+       "delta_win": 35.170191058714124,
+       "delta_papd": 39.56101423643486,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 5.179926455389373,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.8078181356675,
+       "delta_win": 0.10900900026433646,
+       "delta_papd": 0.029403582893055162,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 706.090665598891,
+       "delta_win": 0.5448099440981196,
+       "delta_papd": 0.12961188741026888,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1200.6159391498882,
+       "delta_win": 1.9518510869968395,
+       "delta_papd": 0.5213894926333169,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2178.4202746547626,
+       "delta_win": 5.2500451032506135,
+       "delta_papd": 1.677504903586084,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3292.221518595905,
+       "delta_win": 8.025197984879014,
+       "delta_papd": 4.036320451364305,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0.48990021409101303,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.89202159831783,
+       "delta_win": 0.06109843309283747,
+       "delta_papd": 0.019823168497529527,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.79006945609675,
+       "delta_win": 0.7264601945717857,
+       "delta_papd": 0.35167347593132897,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.8241584909475,
+       "delta_win": 0.5502568090957425,
+       "delta_papd": 0.31747171128475254,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 431.7593643295055,
+       "delta_win": 1.4982612856709352,
+       "delta_papd": 0.9022628245485088,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 549.7110121772162,
+       "delta_win": 2.110930450755177,
+       "delta_papd": 1.9391460044517423,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0.3433437352151097,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7861209429172193,
+       "delta_win": 0.00071055496107153,
+       "delta_papd": 0.00019644284115209528,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.987535907895865,
+       "delta_win": 0.01158206012619667,
+       "delta_papd": 0.005310930615244281,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.868357760692153,
+       "delta_win": 0.05376853871808063,
+       "delta_papd": 0.032002098413403075,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 6.179220036691688,
+       "delta_win": 0.18991163130385402,
+       "delta_papd": 0.1374842890713229,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 7.001342253057562,
+       "delta_win": 0.36120953770027686,
+       "delta_papd": 0.4312359212412944,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0.03768600508733499,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.758591851143035,
+       "delta_win": 0.005333271853654509,
+       "delta_papd": 0.0015879809967186893,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.37863057604707,
+       "delta_win": 0.031428477634993346,
+       "delta_papd": 0.015897418953587393,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.3814453857513715,
+       "delta_win": 0.08153689827995247,
+       "delta_papd": 0.0515993925163301,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.797189848132937,
+       "delta_win": 0.160800518728057,
+       "delta_papd": 0.11977092773901857,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.482318775473683,
+       "delta_win": 0.1552518521544961,
+       "delta_papd": 0.18246675448493913,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0.037563012390917694,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.4463409495907924,
+       "delta_win": 0.01260351495576062,
+       "delta_papd": 0.005657753422147087,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3535940815806637,
+       "delta_win": 0.04633368228304624,
+       "delta_papd": 0.02920994045319729,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.053569303427888,
+       "delta_win": 0.04843884645206664,
+       "delta_papd": 0.03613986023967588,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.30135566156851,
+       "delta_win": 0.08815903047492135,
+       "delta_papd": 0.07185888782004526,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.403905928164702,
+       "delta_win": 0.10199052227604533,
+       "delta_papd": 0.12888631301187156,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0.03095592711104862,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0.6398727938684937
+     },
+     "10-19": {
+      "delta_papd": 2.4324716093408387
+     },
+     "20-39": {
+      "delta_papd": 5.8573251316418915
+     },
+     "40-99": {
+      "delta_papd": 14.938270735000685
+     },
+     "100+": {
+      "delta_papd": 39.56101423643478
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 10,
+       "e_hc": 3.75
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 15,
+       "e_hc": 2.062499999999999
+      }
+     ],
+     "e_hc_day": 5.812499999999999
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 10,
+       "e_hc": 6.375
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 35,
+       "e_hc": 12.541666666666668
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 70,
+       "e_hc": 5.8
+      }
+     ],
+     "e_hc_day": 24.71666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 15,
+       "e_hc": 10.285714285714286
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 75,
+       "e_hc": 25.90909090909091
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 140,
+       "e_hc": 21.107692307692307
+      }
+     ],
+     "e_hc_day": 57.3024975024975
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 60,
+       "e_hc": 35.599999999999994
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 160,
+       "e_hc": 43.63636363636363
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 300,
+       "e_hc": 26.785714285714292
+      }
+     ],
+     "e_hc_day": 106.02207792207791
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 500,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "PKG-newuser": {
+   "label": "Package (full): NS gates re-cut + Daily Gift restored + saga give-back at 0-9/10-19",
+   "sheets": [
+    "NS_v2",
+    "c_day_v2",
+    "c_saga_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 120.28877231572619,
+       "delta_win": 20.837781426435683,
+       "delta_papd": 8.822332927013768,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 165.76675192198775,
+       "delta_win": 27.203865773259793,
+       "delta_papd": 16.52772980129816,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 228.50158384383332,
+       "delta_win": 23.06587932643805,
+       "delta_papd": 15.912928126462965,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 427.49226686658426,
+       "delta_win": 60.3697061962464,
+       "delta_papd": 43.54063877056223,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 637.8524601158265,
+       "delta_win": 138.6835238965545,
+       "delta_papd": 155.99747109907057,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 20.597679919918853,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 187.5669825070428,
+       "delta_win": 2.736059341817821,
+       "delta_papd": 0.8877046858089168,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 230.8786654977192,
+       "delta_win": 1.8150562361942377,
+       "delta_papd": 0.8786539721829013,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 286.0791608316347,
+       "delta_win": 0.8052591497828985,
+       "delta_papd": 0.46459579615088437,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 433.35797993264447,
+       "delta_win": 3.096876888809902,
+       "delta_papd": 1.8649596807310906,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 553.0992007400814,
+       "delta_win": 5.4991190136204295,
+       "delta_papd": 5.051608715697764,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 1.0204021428519643,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.894526029877561,
+       "delta_win": 0.10911564192141299,
+       "delta_papd": 0.030166542896066312,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 4.341673711014411,
+       "delta_win": 0.3657198632447427,
+       "delta_papd": 0.1677001152770975,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.947461274701944,
+       "delta_win": 0.13287205272787173,
+       "delta_papd": 0.07908313316981332,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 6.449511938175194,
+       "delta_win": 0.4602035327873599,
+       "delta_papd": 0.33315892817617754,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 7.084021471953646,
+       "delta_win": 0.44388875659636096,
+       "delta_papd": 0.5299438605586346,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0.13229121716920544,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.8123502703482863,
+       "delta_win": 0.05909169105890566,
+       "delta_papd": 0.01759454328232199,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.4617052589603845,
+       "delta_win": 0.114503160548308,
+       "delta_papd": 0.05791895922822408,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.425951087892245,
+       "delta_win": 0.12604260042082593,
+       "delta_papd": 0.07976415279574382,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.937801382437093,
+       "delta_win": 0.3014120530322133,
+       "delta_papd": 0.22450425849958117,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.866830029456889,
+       "delta_win": 0.539763106137702,
+       "delta_papd": 0.6343809803289613,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0.08526839309379251,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.523888970180792,
+       "delta_win": 0.09015153554576028,
+       "delta_papd": 0.04046927865251684,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.6334929653059818,
+       "delta_win": 0.32623256600836426,
+       "delta_papd": 0.20566536820417736,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.128573418012006,
+       "delta_win": 0.12344296103618468,
+       "delta_papd": 0.09209986789908645,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0.08923469867971072,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0.9977659563099508
+     },
+     "10-19": {
+      "delta_papd": 5.78731880229809
+     },
+     "20-39": {
+      "delta_papd": 9.57007475915934
+     },
+     "40-99": {
+      "delta_papd": 36.66809482026665
+     },
+     "100+": {
+      "delta_papd": 149.04929207741574
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 1.6355210989322875
+     },
+     "10-19": {
+      "delta_papd": 4.498927388140932
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 6.189045871771523
+     },
+     "10-19": {
+      "delta_papd": 6.241483610859113
+     },
+     "20-39": {
+      "delta_papd": 6.342853367303641
+     },
+     "40-99": {
+      "delta_papd": 6.87254395029557
+     },
+     "100+": {
+      "delta_papd": 6.948179021654436
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 1,
+       "reach": 0.8,
+       "hc": 0,
+       "e_hc": 0
+      },
+      {
+       "round": 2,
+       "req": 4,
+       "reach": 0.475,
+       "hc": 10,
+       "e_hc": 4.75
+      },
+      {
+       "round": 3,
+       "req": 6,
+       "reach": 0.275,
+       "hc": 15,
+       "e_hc": 4.125
+      }
+     ],
+     "e_hc_day": 8.875
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 4,
+       "reach": 0.7375,
+       "hc": 10,
+       "e_hc": 7.375
+      },
+      {
+       "round": 2,
+       "req": 9,
+       "reach": 0.4916666666666667,
+       "hc": 35,
+       "e_hc": 17.208333333333336
+      },
+      {
+       "round": 3,
+       "req": 16,
+       "reach": 0.2583333333333333,
+       "hc": 70,
+       "e_hc": 18.083333333333332
+      }
+     ],
+     "e_hc_day": 42.66666666666667
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 9,
+       "reach": 0.7428571428571429,
+       "hc": 15,
+       "e_hc": 11.142857142857142
+      },
+      {
+       "round": 2,
+       "req": 18,
+       "reach": 0.49090909090909096,
+       "hc": 75,
+       "e_hc": 36.81818181818182
+      },
+      {
+       "round": 3,
+       "req": 31,
+       "reach": 0.2545454545454545,
+       "hc": 140,
+       "e_hc": 35.63636363636363
+      }
+     ],
+     "e_hc_day": 83.5974025974026
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 16,
+       "reach": 0.7538461538461538,
+       "hc": 60,
+       "e_hc": 45.230769230769226
+      },
+      {
+       "round": 2,
+       "req": 35,
+       "reach": 0.5,
+       "hc": 160,
+       "e_hc": 80
+      },
+      {
+       "round": 3,
+       "req": 63,
+       "reach": 0.2478571428571429,
+       "hc": 300,
+       "e_hc": 74.35714285714286
+      }
+     ],
+     "e_hc_day": 199.5879120879121
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 36,
+       "reach": 0.7517241379310344,
+       "hc": 125,
+       "e_hc": 93.9655172413793
+      },
+      {
+       "round": 2,
+       "req": 79,
+       "reach": 0.49903846153846154,
+       "hc": 350,
+       "e_hc": 174.66346153846155
+      },
+      {
+       "round": 3,
+       "req": 144,
+       "reach": 0.24945454545454548,
+       "hc": 500,
+       "e_hc": 124.72727272727275
+      }
+     ],
+     "e_hc_day": 393.3562515071136
+    }
+   }
+  },
+  "PKG-cheap": {
+   "label": "Package (cheap): NS reward reshape (free) + half Daily Gift restore + saga give-back",
+   "sheets": [
+    "NS_v2",
+    "c_day_v2",
+    "c_saga_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 110.94535632274615,
+       "delta_win": 11.494365433455641,
+       "delta_papd": 4.866502655126964,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 151.08698771882536,
+       "delta_win": 12.5241015700974,
+       "delta_papd": 7.609027646285877,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 209.82073002070283,
+       "delta_win": 4.38502550330756,
+       "delta_papd": 3.025186886626093,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 371.9279023368257,
+       "delta_win": 4.805341666487834,
+       "delta_papd": 3.4657721372625705,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 502.3432392414682,
+       "delta_win": 3.174303022196227,
+       "delta_papd": 3.570598943924375,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 4.954301189907301,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.830923165225,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.06360926152496,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.2739016818518,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0.049540623380424656
+     },
+     "10-19": {
+      "delta_papd": -0.10520948078249781
+     },
+     "20-39": {
+      "delta_papd": -0.2420506301579288
+     },
+     "40-99": {
+      "delta_papd": -0.07462929167753392
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 1.6355210989322875
+     },
+     "10-19": {
+      "delta_papd": 4.498927388140932
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 3.1814409328142528
+     },
+     "10-19": {
+      "delta_papd": 3.2153097389274214
+     },
+     "20-39": {
+      "delta_papd": 3.2672375167840415
+     },
+     "40-99": {
+      "delta_papd": 3.54040142894014
+     },
+     "100+": {
+      "delta_papd": 3.570598943924455
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 1,
+       "e_hc": 0.675
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 11,
+       "e_hc": 4.125
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 8,
+       "e_hc": 1.0999999999999996
+      }
+     ],
+     "e_hc_day": 5.8999999999999995
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 13,
+       "e_hc": 8.2875
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 37,
+       "e_hc": 13.258333333333336
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 35,
+       "e_hc": 2.9
+      }
+     ],
+     "e_hc_day": 24.445833333333333
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 27,
+       "e_hc": 18.514285714285716
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 81,
+       "e_hc": 27.98181818181818
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 70,
+       "e_hc": 10.553846153846154
+      }
+     ],
+     "e_hc_day": 57.04995004995005
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 79,
+       "e_hc": 46.87333333333333
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 169,
+       "e_hc": 46.090909090909086
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 150,
+       "e_hc": 13.392857142857146
+      }
+     ],
+     "e_hc_day": 106.35709956709957
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 250,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  },
+  "PKG-funded": {
+   "label": "Package (self-funded): the cheap package paid for by trimming saga coins at 40-99/100+",
+   "sheets": [
+    "NS_v2",
+    "c_day_v2",
+    "c_saga_v2"
+   ],
+   "resources": {
+    "HC": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 110.94535632274615,
+       "delta_win": 11.494365433455641,
+       "delta_papd": 4.866502655126964,
+       "a_C": 48.318
+      },
+      "10-19": {
+       "win_per_earner": 151.08698771882536,
+       "delta_win": 12.5241015700974,
+       "delta_papd": 7.609027646285877,
+       "a_C": 95.959
+      },
+      "20-39": {
+       "win_per_earner": 209.82073002070283,
+       "delta_win": 4.38502550330756,
+       "delta_papd": 3.025186886626093,
+       "a_C": 162.741
+      },
+      "40-99": {
+       "win_per_earner": 356.9199360037078,
+       "delta_win": -10.202624666630072,
+       "delta_papd": -7.358472040219879,
+       "a_C": 306.333
+      },
+      "100+": {
+       "win_per_earner": 477.0018218343584,
+       "delta_win": -22.16711438491359,
+       "delta_papd": -24.934568205735225,
+       "a_C": 643.237
+      }
+     },
+     "delta_papd_overall": 2.780748841133469,
+     "control_faucet_papd": 136.5891471648455
+    },
+    "SPT": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 248.69880913540317,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 69.862
+      },
+      "10-19": {
+       "win_per_earner": 705.5458556547928,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 174.498
+      },
+      "20-39": {
+       "win_per_earner": 1198.6640880628913,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 335.965
+      },
+      "40-99": {
+       "win_per_earner": 2173.170229551512,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 715.219
+      },
+      "100+": {
+       "win_per_earner": 3284.196320611026,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1702.484
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 285.3272083585085
+    },
+    "Unlimited Lives": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 184.830923165225,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 51.562
+      },
+      "10-19": {
+       "win_per_earner": 229.06360926152496,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 89.07
+      },
+      "20-39": {
+       "win_per_earner": 285.2739016818518,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 132.422
+      },
+      "40-99": {
+       "win_per_earner": 430.26110304383457,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 217.402
+      },
+      "100+": {
+       "win_per_earner": 547.600081726461,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 426.504
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 111.60902231461664
+    },
+    "Slingshot": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.785410387956148,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.491
+      },
+      "10-19": {
+       "win_per_earner": 3.9759538477696683,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.979
+      },
+      "20-39": {
+       "win_per_earner": 4.814589221974073,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.532
+      },
+      "40-99": {
+       "win_per_earner": 5.989308405387834,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.625
+      },
+      "100+": {
+       "win_per_earner": 6.640132715357285,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 5.45
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.2680300156683633
+    },
+    "Red": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.7532585792893807,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.569
+      },
+      "10-19": {
+       "win_per_earner": 3.3472020984120765,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.215
+      },
+      "20-39": {
+       "win_per_earner": 4.299908487471419,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.989
+      },
+      "40-99": {
+       "win_per_earner": 6.63638932940488,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.646
+      },
+      "100+": {
+       "win_per_earner": 8.327066923319187,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 7.764
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.6568952370223966
+    },
+    "Chuck": {
+     "per_segment": {
+      "0-9": {
+       "win_per_earner": 2.433737434635032,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 0.716
+      },
+      "10-19": {
+       "win_per_earner": 3.3072603992976175,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 1.496
+      },
+      "20-39": {
+       "win_per_earner": 4.005130456975821,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 2.339
+      },
+      "40-99": {
+       "win_per_earner": 6.213196631093589,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 3.95
+      },
+      "100+": {
+       "win_per_earner": 8.301915405888657,
+       "delta_win": 0,
+       "delta_papd": 0,
+       "a_C": 8.573
+      }
+     },
+     "delta_papd_overall": 0,
+     "control_faucet_papd": 1.921637477086299
+    }
+   },
+   "categories": {
+    "Daily Night Sky Prize": {
+     "0-9": {
+      "delta_papd": 0.049540623380424656
+     },
+     "10-19": {
+      "delta_papd": -0.10520948078249781
+     },
+     "20-39": {
+      "delta_papd": -0.2420506301579288
+     },
+     "40-99": {
+      "delta_papd": -0.07462929167753392
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Saga": {
+     "0-9": {
+      "delta_papd": 1.6355210989322875
+     },
+     "10-19": {
+      "delta_papd": 4.498927388140932
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": -10.824244177482452
+     },
+     "100+": {
+      "delta_papd": -28.505167149659712
+     }
+    },
+    "Daily Gift": {
+     "0-9": {
+      "delta_papd": 3.1814409328142528
+     },
+     "10-19": {
+      "delta_papd": 3.2153097389274214
+     },
+     "20-39": {
+      "delta_papd": 3.2672375167840415
+     },
+     "40-99": {
+      "delta_papd": 3.54040142894014
+     },
+     "100+": {
+      "delta_papd": 3.570598943924455
+     }
+    },
+    "Core": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Rainbow Maker": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "River Rush": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Photoshoot": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    },
+    "Hatchling Hideaway": {
+     "0-9": {
+      "delta_papd": 0
+     },
+     "10-19": {
+      "delta_papd": 0
+     },
+     "20-39": {
+      "delta_papd": 0
+     },
+     "40-99": {
+      "delta_papd": 0
+     },
+     "100+": {
+      "delta_papd": 0
+     }
+    }
+   },
+   "ns": {
+    "0-9": {
+     "streak_pct": {
+      "p25": 1,
+      "p50": 3,
+      "p75": 5,
+      "p90": 9
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 2,
+       "reach": 0.675,
+       "hc": 1,
+       "e_hc": 0.675
+      },
+      {
+       "round": 2,
+       "req": 5,
+       "reach": 0.375,
+       "hc": 11,
+       "e_hc": 4.125
+      },
+      {
+       "round": 3,
+       "req": 10,
+       "reach": 0.13749999999999996,
+       "hc": 8,
+       "e_hc": 1.0999999999999996
+      }
+     ],
+     "e_hc_day": 5.8999999999999995
+    },
+    "10-19": {
+     "streak_pct": {
+      "p25": 3,
+      "p50": 7,
+      "p75": 13,
+      "p90": 20
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 6,
+       "reach": 0.6375,
+       "hc": 13,
+       "e_hc": 8.2875
+      },
+      {
+       "round": 2,
+       "req": 13,
+       "reach": 0.3583333333333334,
+       "hc": 37,
+       "e_hc": 13.258333333333336
+      },
+      {
+       "round": 3,
+       "req": 26,
+       "reach": 0.08285714285714285,
+       "hc": 35,
+       "e_hc": 2.9
+      }
+     ],
+     "e_hc_day": 24.445833333333333
+    },
+    "20-39": {
+     "streak_pct": {
+      "p25": 7,
+      "p50": 14,
+      "p75": 25,
+      "p90": 38
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 11,
+       "reach": 0.6857142857142857,
+       "hc": 27,
+       "e_hc": 18.514285714285716
+      },
+      {
+       "round": 2,
+       "req": 26,
+       "reach": 0.34545454545454546,
+       "hc": 81,
+       "e_hc": 27.98181818181818
+      },
+      {
+       "round": 3,
+       "req": 42,
+       "reach": 0.15076923076923077,
+       "hc": 70,
+       "e_hc": 10.553846153846154
+      }
+     ],
+     "e_hc_day": 57.04995004995005
+    },
+    "40-99": {
+     "streak_pct": {
+      "p25": 13,
+      "p50": 28,
+      "p75": 50,
+      "p90": 78
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 28,
+       "reach": 0.5933333333333333,
+       "hc": 79,
+       "e_hc": 46.87333333333333
+      },
+      {
+       "round": 2,
+       "req": 60,
+       "reach": 0.2727272727272727,
+       "hc": 169,
+       "e_hc": 46.090909090909086
+      },
+      {
+       "round": 3,
+       "req": 100,
+       "reach": 0.0892857142857143,
+       "hc": 150,
+       "e_hc": 13.392857142857146
+      }
+     ],
+     "e_hc_day": 106.35709956709957
+    },
+    "100+": {
+     "streak_pct": {
+      "p25": 29,
+      "p50": 63,
+      "p75": 115,
+      "p90": 170
+     },
+     "rounds": [
+      {
+       "round": 1,
+       "req": 80,
+       "reach": 0.4951923076923077,
+       "hc": 125,
+       "e_hc": 61.89903846153847
+      },
+      {
+       "round": 2,
+       "req": 175,
+       "reach": 0.18181818181818177,
+       "hc": 350,
+       "e_hc": 63.63636363636362
+      },
+      {
+       "round": 3,
+       "req": 280,
+       "reach": 0,
+       "hc": 250,
+       "e_hc": 0
+      }
+     ],
+     "e_hc_day": 125.53540209790208
+    }
+   }
+  }
+ },
+ "ns_reach_check": {
+  "0-9": [
+   {
+    "round": 1,
+    "req": 2,
+    "model_reach_pct": 67.5,
+    "measured_finished_pct": 34.56461296,
+    "hc": 0,
+    "ratio": 1.9528643378160946
+   },
+   {
+    "round": 2,
+    "req": 5,
+    "model_reach_pct": 37.5,
+    "measured_finished_pct": 16.05432737,
+    "hc": 10,
+    "ratio": 2.3358188191723666
+   },
+   {
+    "round": 3,
+    "req": 10,
+    "model_reach_pct": 13.749999999999996,
+    "measured_finished_pct": 4.909500852,
+    "hc": 15,
+    "ratio": 2.8006920488461904
+   }
+  ],
+  "10-19": [
+   {
+    "round": 1,
+    "req": 6,
+    "model_reach_pct": 63.74999999999999,
+    "measured_finished_pct": 39.99269073,
+    "hc": 10,
+    "ratio": 1.5940412819530234
+   },
+   {
+    "round": 2,
+    "req": 13,
+    "model_reach_pct": 35.83333333333334,
+    "measured_finished_pct": 23.19614859,
+    "hc": 35,
+    "ratio": 1.5447966801170308
+   },
+   {
+    "round": 3,
+    "req": 26,
+    "model_reach_pct": 8.285714285714285,
+    "measured_finished_pct": 10.91307601,
+    "hc": 70,
+    "ratio": 0.7592464560974211
+   }
+  ],
+  "20-39": [
+   {
+    "round": 1,
+    "req": 11,
+    "model_reach_pct": 68.57142857142857,
+    "measured_finished_pct": 39.98595753,
+    "hc": 15,
+    "ratio": 1.714887745778801
+   },
+   {
+    "round": 2,
+    "req": 26,
+    "model_reach_pct": 34.54545454545455,
+    "measured_finished_pct": 21.74041176,
+    "hc": 75,
+    "ratio": 1.588997252067435
+   },
+   {
+    "round": 3,
+    "req": 42,
+    "model_reach_pct": 15.076923076923077,
+    "measured_finished_pct": 11.15763907,
+    "hc": 140,
+    "ratio": 1.3512646342415768
+   }
+  ],
+  "40-99": [
+   {
+    "round": 1,
+    "req": 28,
+    "model_reach_pct": 59.33333333333333,
+    "measured_finished_pct": 42.1344566,
+    "hc": 60,
+    "ratio": 1.4081903060150853
+   },
+   {
+    "round": 2,
+    "req": 60,
+    "model_reach_pct": 27.27272727272727,
+    "measured_finished_pct": 25.62311413,
+    "hc": 160,
+    "ratio": 1.06437988506619
+   },
+   {
+    "round": 3,
+    "req": 100,
+    "model_reach_pct": 8.92857142857143,
+    "measured_finished_pct": 15.93503919,
+    "hc": 300,
+    "ratio": 0.5603106037024708
+   }
+  ],
+  "100+": [
+   {
+    "round": 1,
+    "req": 80,
+    "model_reach_pct": 49.519230769230774,
+    "measured_finished_pct": 63.11434402,
+    "hc": 125,
+    "ratio": 0.7845955073784632
+   },
+   {
+    "round": 2,
+    "req": 175,
+    "model_reach_pct": 18.181818181818176,
+    "measured_finished_pct": 49.53941888,
+    "hc": 350,
+    "ratio": 0.3670171873808257
+   },
+   {
+    "round": 3,
+    "req": 280,
+    "model_reach_pct": 0,
+    "measured_finished_pct": 42.35367417,
+    "hc": 500,
+    "ratio": 0
+   }
+  ]
+ },
+ "ladders": {
+  "c_day": [
+   {
+    "day": 1,
+    "hc": 22
+   },
+   {
+    "day": 2,
+    "hc": 0
+   },
+   {
+    "day": 3,
+    "hc": 0
+   },
+   {
+    "day": 4,
+    "hc": 27
+   },
+   {
+    "day": 5,
+    "hc": 0
+   },
+   {
+    "day": 6,
+    "hc": 33
+   },
+   {
+    "day": 7,
+    "hc": 100
+   }
+  ],
+  "c_day_v2": [
+   {
+    "day": 1,
+    "hc": 10
+   },
+   {
+    "day": 2,
+    "hc": 0
+   },
+   {
+    "day": 3,
+    "hc": 0
+   },
+   {
+    "day": 4,
+    "hc": 10
+   },
+   {
+    "day": 5,
+    "hc": 0
+   },
+   {
+    "day": 6,
+    "hc": 10
+   },
+   {
+    "day": 7,
+    "hc": 100
+   }
+  ],
+  "saga": {
+   "0-9": {
+    "v2_nodes": [
+     10,
+     0,
+     10,
+     0,
+     0,
+     0,
+     10,
+     0,
+     10,
+     20
+    ],
+    "v2_hc_total": 60,
+    "v2_levels": 100,
+    "v2_hc_per_level": 0.6,
+    "base_hc_per_level": 2.1
+   },
+   "10-19": {
+    "v2_nodes": [
+     10,
+     0,
+     10,
+     0,
+     0,
+     0,
+     10,
+     0,
+     10,
+     20
+    ],
+    "v2_hc_total": 60,
+    "v2_levels": 100,
+    "v2_hc_per_level": 0.6,
+    "base_hc_per_level": 2.1
+   },
+   "20-39": {
+    "v2_nodes": [
+     10,
+     0,
+     10,
+     0,
+     0,
+     0,
+     10,
+     0,
+     10,
+     20
+    ],
+    "v2_hc_total": 60,
+    "v2_levels": 100,
+    "v2_hc_per_level": 0.6,
+    "base_hc_per_level": 2.1
+   },
+   "40-99": {
+    "v2_nodes": [
+     10,
+     0,
+     10,
+     0,
+     0,
+     0,
+     10,
+     0,
+     10,
+     20
+    ],
+    "v2_hc_total": 60,
+    "v2_levels": 100,
+    "v2_hc_per_level": 0.6,
+    "base_hc_per_level": 2.1
+   },
+   "100+": {
+    "v2_nodes": [
+     10,
+     0,
+     10,
+     0,
+     0,
+     0,
+     10,
+     0,
+     10,
+     20
+    ],
+    "v2_hc_total": 60,
+    "v2_levels": 100,
+    "v2_hc_per_level": 0.6,
+    "base_hc_per_level": 2.1
+   }
+  },
+  "ns": {
+   "0-9": [
+    {
+     "round": 1,
+     "cum_req": 2,
+     "hc": 0,
+     "base_hc": 0
+    },
+    {
+     "round": 2,
+     "cum_req": 5,
+     "hc": 10,
+     "base_hc": 10
+    },
+    {
+     "round": 3,
+     "cum_req": 10,
+     "hc": 15,
+     "base_hc": 15
+    }
+   ],
+   "10-19": [
+    {
+     "round": 1,
+     "cum_req": 6,
+     "hc": 10,
+     "base_hc": 10
+    },
+    {
+     "round": 2,
+     "cum_req": 13,
+     "hc": 35,
+     "base_hc": 30
+    },
+    {
+     "round": 3,
+     "cum_req": 26,
+     "hc": 70,
+     "base_hc": 60
+    }
+   ],
+   "20-39": [
+    {
+     "round": 1,
+     "cum_req": 11,
+     "hc": 15,
+     "base_hc": 15
+    },
+    {
+     "round": 2,
+     "cum_req": 26,
+     "hc": 75,
+     "base_hc": 50
+    },
+    {
+     "round": 3,
+     "cum_req": 42,
+     "hc": 140,
+     "base_hc": 100
+    }
+   ],
+   "40-99": [
+    {
+     "round": 1,
+     "cum_req": 28,
+     "hc": 60,
+     "base_hc": 50
+    },
+    {
+     "round": 2,
+     "cum_req": 60,
+     "hc": 160,
+     "base_hc": 120
+    },
+    {
+     "round": 3,
+     "cum_req": 100,
+     "hc": 300,
+     "base_hc": 250
+    }
+   ],
+   "100+": [
+    {
+     "round": 1,
+     "cum_req": 80,
+     "hc": 125,
+     "base_hc": 100
+    },
+    {
+     "round": 2,
+     "cum_req": 175,
+     "hc": 350,
+     "base_hc": 300
+    },
+    {
+     "round": 3,
+     "cum_req": 280,
+     "hc": 500,
+     "base_hc": 400
+    }
+   ]
+  }
+ }
+}

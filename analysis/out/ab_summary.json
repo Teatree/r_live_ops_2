@@ -1,0 +1,4493 @@
+{
+ "source": "LiveOps_v2_AB_Summary.xlsx",
+ "sheets": [
+  "By Bucket",
+  "Overall",
+  "Overall (new users)",
+  "Overall (old players)",
+  "Daily",
+  "PerSource",
+  "NS_Config_Change_Est",
+  "Raw_Data_Daily",
+  "Raw_Data_Period",
+  "Raw_Data_Period_new_users",
+  "Raw_Data_Period_old_users"
+ ],
+ "population": {
+  "all": {
+   "Players (sum)": {
+    "control": 138720,
+    "variant": 139110,
+    "d_abs": 390,
+    "d_pct": 0.002811418685
+   },
+   "Total revenue": {
+    "control": 50503.89,
+    "variant": 45929.49,
+    "d_abs": -4574.4,
+    "d_pct": -0.09057520124
+   },
+   "ARPDAU": {
+    "control": 0.0903,
+    "variant": 0.0828,
+    "d_abs": -0.0075,
+    "d_pct": -0.08305647841
+   },
+   "ARPPU": {
+    "control": 17.0161,
+    "variant": 15.6489,
+    "d_abs": -1.3672,
+    "d_pct": -0.08034743566
+   },
+   "Time spent (mins)": {
+    "control": 45.8943,
+    "variant": 47.0849,
+    "d_abs": 1.1906,
+    "d_pct": 0.0259422194
+   },
+   "Level attempts / player": {
+    "control": 27.1598,
+    "variant": 27.3373,
+    "d_abs": 0.1775,
+    "d_pct": 0.006535394222
+   },
+   "Level completes / player": {
+    "control": 18.5904,
+    "variant": 18.3034,
+    "d_abs": -0.287,
+    "d_pct": -0.01543807557
+   },
+   "Avg daily streak": {
+    "control": 12.978,
+    "variant": 12.4583,
+    "d_abs": -0.5197,
+    "d_pct": -0.04004469102
+   },
+   "P25 daily streak": {
+    "control": 3,
+    "variant": 3,
+    "d_abs": 0,
+    "d_pct": 0
+   },
+   "P50 daily streak": {
+    "control": 7,
+    "variant": 7,
+    "d_abs": 0,
+    "d_pct": 0
+   },
+   "P75 daily streak": {
+    "control": 16,
+    "variant": 15,
+    "d_abs": -1,
+    "d_pct": -0.0625
+   },
+   "P90 daily streak": {
+    "control": 30,
+    "variant": 29,
+    "d_abs": -1,
+    "d_pct": -0.03333333333
+   },
+   "P99 daily streak": {
+    "control": 87,
+    "variant": 78,
+    "d_abs": -9,
+    "d_pct": -0.1034482759
+   },
+   "Pass rate": {
+    "control": 0.6845,
+    "variant": 0.6695,
+    "d_abs": -0.015,
+    "d_pct": -0.0219138057
+   },
+   "OOM rate": {
+    "control": 0.4286,
+    "variant": 0.4406,
+    "d_abs": 0.012,
+    "d_pct": 0.02799813346
+   },
+   "First-try OOM rate": {
+    "control": 0.268,
+    "variant": 0.2703,
+    "d_abs": 0.0023,
+    "d_pct": 0.008582089552
+   },
+   "Attempts per completion": {
+    "control": 1.461,
+    "variant": 1.4936,
+    "d_abs": 0.0326,
+    "d_pct": 0.02231348392
+   },
+   "HC gain total / player": {
+    "control": 123.3894,
+    "variant": 106.3431,
+    "d_abs": -17.0463,
+    "d_pct": -0.1381504408
+   },
+   "HC gain (ex-saga) / player": {
+    "control": 93.4514,
+    "variant": 96.1075,
+    "d_abs": 2.6561,
+    "d_pct": 0.02842226013
+   },
+   "HC gain from saga / player": {
+    "control": 29.9377,
+    "variant": 10.2364,
+    "d_abs": -19.7013,
+    "d_pct": -0.6580766058
+   },
+   "HC gain PAID / player": {
+    "control": 7.9121,
+    "variant": 7.3801,
+    "d_abs": -0.532,
+    "d_pct": -0.06723878616
+   },
+   "HC gain FREE / player": {
+    "control": 115.4775,
+    "variant": 98.9633,
+    "d_abs": -16.5142,
+    "d_pct": -0.1430079453
+   },
+   "HC spent / player": {
+    "control": 115.4578,
+    "variant": 101.3923,
+    "d_abs": -14.0655,
+    "d_pct": -0.1218237313
+   },
+   "HC net (gain - spend) / player": {
+    "control": 7.9316,
+    "variant": 4.9508,
+    "d_abs": -2.9808,
+    "d_pct": -0.3758132029
+   },
+   "HC spent / attempt": {
+    "control": 4.2511,
+    "variant": 3.7089,
+    "d_abs": -0.5422,
+    "d_pct": -0.1275434593
+   },
+   "Paid % of total HC gain": {
+    "control": 6.41,
+    "variant": 6.94,
+    "d_abs": 0.53,
+    "d_pct": 0.08268330733
+   },
+   "HC gain / player (CORE)": {
+    "control": 67.9076,
+    "variant": 42.8724,
+    "d_abs": -25.0352,
+    "d_pct": -0.3686656575
+   },
+   "HC gain / player (META)": {
+    "control": 43.3776,
+    "variant": 52.0056,
+    "d_abs": 8.628,
+    "d_pct": 0.1989045037
+   },
+   "HC gain / player (AD)": {
+    "control": 2.5765,
+    "variant": 2.5302,
+    "d_abs": -0.0463,
+    "d_pct": -0.0179701145
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 7.9103,
+    "variant": 7.3781,
+    "d_abs": -0.5322,
+    "d_pct": -0.06727936994
+   },
+   "HC gain / player (OTHER)": {
+    "control": 1.6173,
+    "variant": 1.5577,
+    "d_abs": -0.0596,
+    "d_pct": -0.03685154269
+   },
+   "P50 HC balance": {
+    "control": 181,
+    "variant": 174,
+    "d_abs": -7,
+    "d_pct": -0.03867403315
+   },
+   "P75 HC balance": {
+    "control": 383,
+    "variant": 334,
+    "d_abs": -49,
+    "d_pct": -0.1279373368
+   },
+   "P90 HC balance": {
+    "control": 1414,
+    "variant": 1209,
+    "d_abs": -205,
+    "d_pct": -0.1449787836
+   },
+   "P99 HC balance": {
+    "control": 20847,
+    "variant": 19409,
+    "d_abs": -1438,
+    "d_pct": -0.06897874994
+   },
+   "Avg player performance": {
+    "control": 51.7672,
+    "variant": 51.6739,
+    "d_abs": -0.0933,
+    "d_pct": -0.001802299526
+   },
+   "Avg PR (last 50 lvls)": {
+    "control": 0.6582,
+    "variant": 0.6551,
+    "d_abs": -0.0031,
+    "d_pct": -0.004709814646
+   },
+   "R1 pass rate (%)": {
+    "control": 51.1681,
+    "variant": 50.4359,
+    "d_abs": -0.7322,
+    "d_pct": -0.01430969686
+   },
+   "R2 pass rate (%)": {
+    "control": 20.4618,
+    "variant": 20.0162,
+    "d_abs": -0.4456,
+    "d_pct": -0.02177716525
+   },
+   "R3 pass rate (%)": {
+    "control": 3.6262,
+    "variant": 3.4757,
+    "d_abs": -0.1505,
+    "d_pct": -0.04150350229
+   },
+   "D1 churn rate": {
+    "control": 0.3935,
+    "variant": 0.3975,
+    "d_abs": 0.004,
+    "d_pct": 0.01016518424
+   },
+   "NS active rate (%)": {
+    "control": null,
+    "variant": 50.4359,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R1 finished (%) [claims]": {
+    "control": null,
+    "variant": 50.4359,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R2 finished (%) [claims]": {
+    "control": null,
+    "variant": 20.0162,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R3 finished (%) [claims]": {
+    "control": null,
+    "variant": 3.4757,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "Booster gain total / player": {
+    "control": 6.4909,
+    "variant": 6.2102,
+    "d_abs": -0.2807,
+    "d_pct": -0.04324515861
+   },
+   "Booster gain PAID / player": {
+    "control": 0.1468,
+    "variant": 0.1273,
+    "d_abs": -0.0195,
+    "d_pct": -0.1328337875
+   },
+   "Booster gain FREE / player": {
+    "control": 6.3441,
+    "variant": 6.0829,
+    "d_abs": -0.2612,
+    "d_pct": -0.04117211267
+   },
+   "Booster spent / player": {
+    "control": 5.4066,
+    "variant": 5.1412,
+    "d_abs": -0.2654,
+    "d_pct": -0.04908815152
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 1.0843,
+    "variant": 1.069,
+    "d_abs": -0.0153,
+    "d_pct": -0.01411048603
+   },
+   "Booster spent / attempt": {
+    "control": 0.1991,
+    "variant": 0.1881,
+    "d_abs": -0.011,
+    "d_pct": -0.05524861878
+   },
+   "Red gain total / player": {
+    "control": 1.4163,
+    "variant": 1.2623,
+    "d_abs": -0.154,
+    "d_pct": -0.1087340253
+   },
+   "Red gain PAID / player": {
+    "control": 0.0273,
+    "variant": 0.0243,
+    "d_abs": -0.003,
+    "d_pct": -0.1098901099
+   },
+   "Red gain FREE / player": {
+    "control": 1.3889,
+    "variant": 1.2379,
+    "d_abs": -0.151,
+    "d_pct": -0.1087191302
+   },
+   "Red spent / player": {
+    "control": 1.0705,
+    "variant": 0.9899,
+    "d_abs": -0.0806,
+    "d_pct": -0.07529191966
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.3458,
+    "variant": 0.2724,
+    "d_abs": -0.0734,
+    "d_pct": -0.2122614228
+   },
+   "Chuck gain total / player": {
+    "control": 1.5755,
+    "variant": 1.3041,
+    "d_abs": -0.2714,
+    "d_pct": -0.1722627737
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.0255,
+    "variant": 0.0213,
+    "d_abs": -0.0042,
+    "d_pct": -0.1647058824
+   },
+   "Chuck gain FREE / player": {
+    "control": 1.55,
+    "variant": 1.2828,
+    "d_abs": -0.2672,
+    "d_pct": -0.1723870968
+   },
+   "Chuck spent / player": {
+    "control": 1.1085,
+    "variant": 0.9603,
+    "d_abs": -0.1482,
+    "d_pct": -0.1336941813
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 0.467,
+    "variant": 0.3438,
+    "d_abs": -0.1232,
+    "d_pct": -0.2638115632
+   },
+   "Bomb gain total / player": {
+    "control": 0.7991,
+    "variant": 0.7773,
+    "d_abs": -0.0218,
+    "d_pct": -0.02728069078
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.0335,
+    "variant": 0.0255,
+    "d_abs": -0.008,
+    "d_pct": -0.2388059701
+   },
+   "Bomb gain FREE / player": {
+    "control": 0.7656,
+    "variant": 0.7518,
+    "d_abs": -0.0138,
+    "d_pct": -0.01802507837
+   },
+   "Bomb spent / player": {
+    "control": 0.6199,
+    "variant": 0.6203,
+    "d_abs": 0.0004,
+    "d_pct": 0.0006452653654
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.1792,
+    "variant": 0.157,
+    "d_abs": -0.0222,
+    "d_pct": -0.1238839286
+   },
+   "Slingshot gain total / player": {
+    "control": 1.0934,
+    "variant": 1.3527,
+    "d_abs": 0.2593,
+    "d_pct": 0.2371501738
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.0252,
+    "variant": 0.0227,
+    "d_abs": -0.0025,
+    "d_pct": -0.09920634921
+   },
+   "Slingshot gain FREE / player": {
+    "control": 1.0682,
+    "variant": 1.33,
+    "d_abs": 0.2618,
+    "d_pct": 0.24508519
+   },
+   "Slingshot spent / player": {
+    "control": 0.9984,
+    "variant": 1.1056,
+    "d_abs": 0.1072,
+    "d_pct": 0.1073717949
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.095,
+    "variant": 0.2471,
+    "d_abs": 0.1521,
+    "d_pct": 1.601052632
+   },
+   "Shuffle gain total / player": {
+    "control": 1.0713,
+    "variant": 1.0144,
+    "d_abs": -0.0569,
+    "d_pct": -0.05311304023
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.0201,
+    "variant": 0.0195,
+    "d_abs": -0.0006,
+    "d_pct": -0.02985074627
+   },
+   "Shuffle gain FREE / player": {
+    "control": 1.0512,
+    "variant": 0.9948,
+    "d_abs": -0.0564,
+    "d_pct": -0.05365296804
+   },
+   "Shuffle spent / player": {
+    "control": 1.0191,
+    "variant": 0.9372,
+    "d_abs": -0.0819,
+    "d_pct": -0.08036502797
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.0522,
+    "variant": 0.0772,
+    "d_abs": 0.025,
+    "d_pct": 0.4789272031
+   },
+   "Star gain total / player": {
+    "control": 0.5354,
+    "variant": 0.4995,
+    "d_abs": -0.0359,
+    "d_pct": -0.0670526709
+   },
+   "Star gain PAID / player": {
+    "control": 0.0153,
+    "variant": 0.0138,
+    "d_abs": -0.0015,
+    "d_pct": -0.09803921569
+   },
+   "Star gain FREE / player": {
+    "control": 0.5202,
+    "variant": 0.4857,
+    "d_abs": -0.0345,
+    "d_pct": -0.06632064591
+   },
+   "Star spent / player": {
+    "control": 0.5902,
+    "variant": 0.5278,
+    "d_abs": -0.0624,
+    "d_pct": -0.1057268722
+   },
+   "Star NET (gain - spend) / player": {
+    "control": -0.0548,
+    "variant": -0.0283,
+    "d_abs": 0.0265,
+    "d_pct": 0.4835766423
+   },
+   "SPT gain total / player": {
+    "control": 251.1018,
+    "variant": 218.7314,
+    "d_abs": -32.3704,
+    "d_pct": -0.1289134526
+   },
+   "SPT gainer rate (%)": {
+    "control": 68.58,
+    "variant": 68.26,
+    "d_abs": -0.32,
+    "d_pct": -0.004666083406
+   },
+   "SPT gain / gainer": {
+    "control": 366.17,
+    "variant": 320.44,
+    "d_abs": -45.73,
+    "d_pct": -0.1248873474
+   },
+   "SPT gain / player (CORE)": {
+    "control": 234.3111,
+    "variant": 182.7729,
+    "d_abs": -51.5382,
+    "d_pct": -0.2199562889
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0.0036,
+    "variant": 21.1863,
+    "d_abs": 21.1827,
+    "d_pct": 5884.083333
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 5.9297,
+    "variant": 5.6911,
+    "d_abs": -0.2386,
+    "d_pct": -0.04023812335
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 10.8575,
+    "variant": 9.0807,
+    "d_abs": -1.7768,
+    "d_pct": -0.1636472484
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_abs": 0,
+    "d_pct": null
+   }
+  },
+  "new": {
+   "Players (sum)": {
+    "control": 70514,
+    "variant": 71085,
+    "d_abs": 571,
+    "d_pct": 0.00809768273
+   },
+   "Total revenue": {
+    "control": 6767.7,
+    "variant": 6313.68,
+    "d_abs": -454.02,
+    "d_pct": -0.06708630702
+   },
+   "ARPDAU": {
+    "control": 0.0362,
+    "variant": 0.0339,
+    "d_abs": -0.0023,
+    "d_pct": -0.0635359116
+   },
+   "ARPPU": {
+    "control": 10.1617,
+    "variant": 9.7283,
+    "d_abs": -0.4334,
+    "d_pct": -0.04265034394
+   },
+   "Time spent (mins)": {
+    "control": 41.1962,
+    "variant": 40.8581,
+    "d_abs": -0.3381,
+    "d_pct": -0.008207067642
+   },
+   "Level attempts / player": {
+    "control": 28.5569,
+    "variant": 28.2609,
+    "d_abs": -0.296,
+    "d_pct": -0.01036527074
+   },
+   "Level completes / player": {
+    "control": 21.5961,
+    "variant": 21.0351,
+    "d_abs": -0.561,
+    "d_pct": -0.0259769125
+   },
+   "Avg daily streak": {
+    "control": 14.5998,
+    "variant": 13.9991,
+    "d_abs": -0.6007,
+    "d_pct": -0.04114439924
+   },
+   "P25 daily streak": {
+    "control": 4,
+    "variant": 4,
+    "d_abs": 0,
+    "d_pct": 0
+   },
+   "P50 daily streak": {
+    "control": 9,
+    "variant": 9,
+    "d_abs": 0,
+    "d_pct": 0
+   },
+   "P75 daily streak": {
+    "control": 18,
+    "variant": 17,
+    "d_abs": -1,
+    "d_pct": -0.05555555556
+   },
+   "P90 daily streak": {
+    "control": 34,
+    "variant": 32,
+    "d_abs": -2,
+    "d_pct": -0.05882352941
+   },
+   "P99 daily streak": {
+    "control": 85,
+    "variant": 79,
+    "d_abs": -6,
+    "d_pct": -0.07058823529
+   },
+   "Pass rate": {
+    "control": 0.7562,
+    "variant": 0.7443,
+    "d_abs": -0.0119,
+    "d_pct": -0.01573657762
+   },
+   "OOM rate": {
+    "control": 0.3079,
+    "variant": 0.3139,
+    "d_abs": 0.006,
+    "d_pct": 0.01948684638
+   },
+   "First-try OOM rate": {
+    "control": 0.1887,
+    "variant": 0.1876,
+    "d_abs": -0.0011,
+    "d_pct": -0.005829358771
+   },
+   "Attempts per completion": {
+    "control": 1.3223,
+    "variant": 1.3435,
+    "d_abs": 0.0212,
+    "d_pct": 0.01603267035
+   },
+   "HC gain total / player": {
+    "control": 131.2334,
+    "variant": 103.8783,
+    "d_abs": -27.3551,
+    "d_pct": -0.208446173
+   },
+   "HC gain (ex-saga) / player": {
+    "control": 95.83,
+    "variant": 91.931,
+    "d_abs": -3.899,
+    "d_pct": -0.04068663258
+   },
+   "HC gain from saga / player": {
+    "control": 35.4028,
+    "variant": 11.9475,
+    "d_abs": -23.4553,
+    "d_pct": -0.6625266928
+   },
+   "HC gain PAID / player": {
+    "control": 3.9724,
+    "variant": 3.3492,
+    "d_abs": -0.6232,
+    "d_pct": -0.1568824892
+   },
+   "HC gain FREE / player": {
+    "control": 127.2606,
+    "variant": 100.5293,
+    "d_abs": -26.7313,
+    "d_pct": -0.2100516578
+   },
+   "HC spent / player": {
+    "control": 118.3865,
+    "variant": 94.3641,
+    "d_abs": -24.0224,
+    "d_pct": -0.2029150283
+   },
+   "HC net (gain - spend) / player": {
+    "control": 12.8469,
+    "variant": 9.5142,
+    "d_abs": -3.3327,
+    "d_pct": -0.2594166686
+   },
+   "HC spent / attempt": {
+    "control": 4.1456,
+    "variant": 3.339,
+    "d_abs": -0.8066,
+    "d_pct": -0.1945677345
+   },
+   "Paid % of total HC gain": {
+    "control": 3.03,
+    "variant": 3.22,
+    "d_abs": 0.19,
+    "d_pct": 0.06270627063
+   },
+   "HC gain / player (CORE)": {
+    "control": 90.5184,
+    "variant": 61.5773,
+    "d_abs": -28.9411,
+    "d_pct": -0.3197261551
+   },
+   "HC gain / player (META)": {
+    "control": 34.2822,
+    "variant": 36.6873,
+    "d_abs": 2.4051,
+    "d_pct": 0.07015594098
+   },
+   "HC gain / player (AD)": {
+    "control": 0.9257,
+    "variant": 0.8703,
+    "d_abs": -0.0554,
+    "d_pct": -0.05984660257
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 3.9724,
+    "variant": 3.3492,
+    "d_abs": -0.6232,
+    "d_pct": -0.1568824892
+   },
+   "HC gain / player (OTHER)": {
+    "control": 1.5345,
+    "variant": 1.3936,
+    "d_abs": -0.1409,
+    "d_pct": -0.09182144021
+   },
+   "P50 HC balance": {
+    "control": 209,
+    "variant": 200,
+    "d_abs": -9,
+    "d_pct": -0.04306220096
+   },
+   "P75 HC balance": {
+    "control": 308,
+    "variant": 268,
+    "d_abs": -40,
+    "d_pct": -0.1298701299
+   },
+   "P90 HC balance": {
+    "control": 531,
+    "variant": 431,
+    "d_abs": -100,
+    "d_pct": -0.1883239171
+   },
+   "P99 HC balance": {
+    "control": 1489,
+    "variant": 1201,
+    "d_abs": -288,
+    "d_pct": -0.1934184016
+   },
+   "Avg player performance": {
+    "control": 50.9235,
+    "variant": 50.842,
+    "d_abs": -0.0815,
+    "d_pct": -0.001600439875
+   },
+   "Avg PR (last 50 lvls)": {
+    "control": 0.8016,
+    "variant": 0.7974,
+    "d_abs": -0.0042,
+    "d_pct": -0.005239520958
+   },
+   "R1 pass rate (%)": {
+    "control": 53.3584,
+    "variant": 52.7789,
+    "d_abs": -0.5795,
+    "d_pct": -0.01086052056
+   },
+   "R2 pass rate (%)": {
+    "control": 21.097,
+    "variant": 20.6336,
+    "d_abs": -0.4634,
+    "d_pct": -0.02196520832
+   },
+   "R3 pass rate (%)": {
+    "control": 1.8333,
+    "variant": 1.6894,
+    "d_abs": -0.1439,
+    "d_pct": -0.07849233622
+   },
+   "D1 churn rate": {
+    "control": 0.5212,
+    "variant": 0.5271,
+    "d_abs": 0.0059,
+    "d_pct": 0.0113200307
+   },
+   "NS active rate (%)": {
+    "control": null,
+    "variant": 52.7789,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R1 finished (%) [claims]": {
+    "control": null,
+    "variant": 52.7789,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R2 finished (%) [claims]": {
+    "control": null,
+    "variant": 20.6336,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R3 finished (%) [claims]": {
+    "control": null,
+    "variant": 1.6894,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "Booster gain total / player": {
+    "control": 7.4578,
+    "variant": 6.2511,
+    "d_abs": -1.2067,
+    "d_pct": -0.1618037491
+   },
+   "Booster gain PAID / player": {
+    "control": 0.1879,
+    "variant": 0.122,
+    "d_abs": -0.0659,
+    "d_pct": -0.3507184673
+   },
+   "Booster gain FREE / player": {
+    "control": 7.2698,
+    "variant": 6.1291,
+    "d_abs": -1.1407,
+    "d_pct": -0.156909406
+   },
+   "Booster spent / player": {
+    "control": 5.3836,
+    "variant": 4.6901,
+    "d_abs": -0.6935,
+    "d_pct": -0.1288171484
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 2.0742,
+    "variant": 1.561,
+    "d_abs": -0.5132,
+    "d_pct": -0.2474206923
+   },
+   "Booster spent / attempt": {
+    "control": 0.1885,
+    "variant": 0.166,
+    "d_abs": -0.0225,
+    "d_pct": -0.1193633952
+   },
+   "Red gain total / player": {
+    "control": 1.7214,
+    "variant": 1.2433,
+    "d_abs": -0.4781,
+    "d_pct": -0.2777390496
+   },
+   "Red gain PAID / player": {
+    "control": 0.0442,
+    "variant": 0.0309,
+    "d_abs": -0.0133,
+    "d_pct": -0.3009049774
+   },
+   "Red gain FREE / player": {
+    "control": 1.6772,
+    "variant": 1.2124,
+    "d_abs": -0.4648,
+    "d_pct": -0.2771285476
+   },
+   "Red spent / player": {
+    "control": 1.0822,
+    "variant": 0.854,
+    "d_abs": -0.2282,
+    "d_pct": -0.2108667529
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.6392,
+    "variant": 0.3893,
+    "d_abs": -0.2499,
+    "d_pct": -0.3909574468
+   },
+   "Chuck gain total / player": {
+    "control": 2.0729,
+    "variant": 1.531,
+    "d_abs": -0.5419,
+    "d_pct": -0.2614211974
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.041,
+    "variant": 0.0234,
+    "d_abs": -0.0176,
+    "d_pct": -0.4292682927
+   },
+   "Chuck gain FREE / player": {
+    "control": 2.0319,
+    "variant": 1.5076,
+    "d_abs": -0.5243,
+    "d_pct": -0.2580343521
+   },
+   "Chuck spent / player": {
+    "control": 1.0855,
+    "variant": 0.8407,
+    "d_abs": -0.2448,
+    "d_pct": -0.2255181944
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 0.9874,
+    "variant": 0.6903,
+    "d_abs": -0.2971,
+    "d_pct": -0.3008912295
+   },
+   "Bomb gain total / player": {
+    "control": 0.9969,
+    "variant": 0.9331,
+    "d_abs": -0.0638,
+    "d_pct": -0.06399839502
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.0609,
+    "variant": 0.0323,
+    "d_abs": -0.0286,
+    "d_pct": -0.4696223317
+   },
+   "Bomb gain FREE / player": {
+    "control": 0.936,
+    "variant": 0.9008,
+    "d_abs": -0.0352,
+    "d_pct": -0.03760683761
+   },
+   "Bomb spent / player": {
+    "control": 0.6687,
+    "variant": 0.6308,
+    "d_abs": -0.0379,
+    "d_pct": -0.05667713474
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.3282,
+    "variant": 0.3023,
+    "d_abs": -0.0259,
+    "d_pct": -0.07891529555
+   },
+   "Slingshot gain total / player": {
+    "control": 1.0856,
+    "variant": 1.2157,
+    "d_abs": 0.1301,
+    "d_pct": 0.1198415623
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.0167,
+    "variant": 0.015,
+    "d_abs": -0.0017,
+    "d_pct": -0.1017964072
+   },
+   "Slingshot gain FREE / player": {
+    "control": 1.0689,
+    "variant": 1.2007,
+    "d_abs": 0.1318,
+    "d_pct": 0.1233043316
+   },
+   "Slingshot spent / player": {
+    "control": 0.9032,
+    "variant": 0.9455,
+    "d_abs": 0.0423,
+    "d_pct": 0.04683348096
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.1824,
+    "variant": 0.2702,
+    "d_abs": 0.0878,
+    "d_pct": 0.4813596491
+   },
+   "Shuffle gain total / player": {
+    "control": 1.1182,
+    "variant": 0.9622,
+    "d_abs": -0.156,
+    "d_pct": -0.1395099267
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.0161,
+    "variant": 0.0132,
+    "d_abs": -0.0029,
+    "d_pct": -0.1801242236
+   },
+   "Shuffle gain FREE / player": {
+    "control": 1.1021,
+    "variant": 0.949,
+    "d_abs": -0.1531,
+    "d_pct": -0.1389166137
+   },
+   "Shuffle spent / player": {
+    "control": 1.0415,
+    "variant": 0.9075,
+    "d_abs": -0.134,
+    "d_pct": -0.1286605857
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.0767,
+    "variant": 0.0547,
+    "d_abs": -0.022,
+    "d_pct": -0.2868318123
+   },
+   "Star gain total / player": {
+    "control": 0.4628,
+    "variant": 0.3658,
+    "d_abs": -0.097,
+    "d_pct": -0.209593777
+   },
+   "Star gain PAID / player": {
+    "control": 0.009,
+    "variant": 0.0071,
+    "d_abs": -0.0019,
+    "d_pct": -0.2111111111
+   },
+   "Star gain FREE / player": {
+    "control": 0.4538,
+    "variant": 0.3587,
+    "d_abs": -0.0951,
+    "d_pct": -0.2095636844
+   },
+   "Star spent / player": {
+    "control": 0.6025,
+    "variant": 0.5116,
+    "d_abs": -0.0909,
+    "d_pct": -0.1508713693
+   },
+   "Star NET (gain - spend) / player": {
+    "control": -0.1397,
+    "variant": -0.1458,
+    "d_abs": -0.0061,
+    "d_pct": -0.04366499642
+   },
+   "SPT gain total / player": {
+    "control": 236.6232,
+    "variant": 199.4955,
+    "d_abs": -37.1277,
+    "d_pct": -0.1569064234
+   },
+   "SPT gainer rate (%)": {
+    "control": 55.97,
+    "variant": 55.38,
+    "d_abs": -0.59,
+    "d_pct": -0.01054136144
+   },
+   "SPT gain / gainer": {
+    "control": 422.74,
+    "variant": 360.26,
+    "d_abs": -62.48,
+    "d_pct": -0.1477977007
+   },
+   "SPT gain / player (CORE)": {
+    "control": 220.8336,
+    "variant": 170.8053,
+    "d_abs": -50.0283,
+    "d_pct": -0.2265429717
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0,
+    "variant": 15.4436,
+    "d_abs": 15.4436,
+    "d_pct": null
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 6.3597,
+    "variant": 6.1943,
+    "d_abs": -0.1654,
+    "d_pct": -0.02600751608
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 9.4296,
+    "variant": 7.0521,
+    "d_abs": -2.3775,
+    "d_pct": -0.2521315856
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_abs": 0,
+    "d_pct": null
+   }
+  },
+  "old": {
+   "Players (sum)": {
+    "control": 68206,
+    "variant": 68025,
+    "d_abs": -181,
+    "d_pct": -0.002653725479
+   },
+   "Total revenue": {
+    "control": 43736.19,
+    "variant": 39615.81,
+    "d_abs": -4120.38,
+    "d_pct": -0.0942098523
+   },
+   "ARPDAU": {
+    "control": 0.1175,
+    "variant": 0.1074,
+    "d_abs": -0.0101,
+    "d_pct": -0.08595744681
+   },
+   "ARPPU": {
+    "control": 18.9992,
+    "variant": 17.3298,
+    "d_abs": -1.6694,
+    "d_pct": -0.08786685755
+   },
+   "Time spent (mins)": {
+    "control": 48.2549,
+    "variant": 50.2276,
+    "d_abs": 1.9727,
+    "d_pct": 0.04088082247
+   },
+   "Level attempts / player": {
+    "control": 26.4588,
+    "variant": 26.8707,
+    "d_abs": 0.4119,
+    "d_pct": 0.01556759944
+   },
+   "Level completes / player": {
+    "control": 17.0803,
+    "variant": 16.9247,
+    "d_abs": -0.1556,
+    "d_pct": -0.009109910247
+   },
+   "Avg daily streak": {
+    "control": 12.0701,
+    "variant": 11.5939,
+    "d_abs": -0.4762,
+    "d_pct": -0.03945286286
+   },
+   "P25 daily streak": {
+    "control": 3,
+    "variant": 3,
+    "d_abs": 0,
+    "d_pct": 0
+   },
+   "P50 daily streak": {
+    "control": 6,
+    "variant": 7,
+    "d_abs": 1,
+    "d_pct": 0.1666666667
+   },
+   "P75 daily streak": {
+    "control": 14,
+    "variant": 14,
+    "d_abs": 0,
+    "d_pct": 0
+   },
+   "P90 daily streak": {
+    "control": 28,
+    "variant": 27,
+    "d_abs": -1,
+    "d_pct": -0.03571428571
+   },
+   "P99 daily streak": {
+    "control": 87,
+    "variant": 81,
+    "d_abs": -6,
+    "d_pct": -0.06896551724
+   },
+   "Pass rate": {
+    "control": 0.6455,
+    "variant": 0.6299,
+    "d_abs": -0.0156,
+    "d_pct": -0.02416731216
+   },
+   "OOM rate": {
+    "control": 0.4941,
+    "variant": 0.5078,
+    "d_abs": 0.0137,
+    "d_pct": 0.02772718073
+   },
+   "First-try OOM rate": {
+    "control": 0.3239,
+    "variant": 0.3279,
+    "d_abs": 0.004,
+    "d_pct": 0.01234949058
+   },
+   "Attempts per completion": {
+    "control": 1.5491,
+    "variant": 1.5877,
+    "d_abs": 0.0386,
+    "d_pct": 0.02491769414
+   },
+   "HC gain total / player": {
+    "control": 119.4489,
+    "variant": 107.5877,
+    "d_abs": -11.8612,
+    "d_pct": -0.09929936567
+   },
+   "HC gain (ex-saga) / player": {
+    "control": 92.2564,
+    "variant": 98.2153,
+    "d_abs": 5.9589,
+    "d_pct": 0.06459064087
+   },
+   "HC gain from saga / player": {
+    "control": 27.1927,
+    "variant": 9.3717,
+    "d_abs": -17.821,
+    "d_pct": -0.6553597105
+   },
+   "HC gain PAID / player": {
+    "control": 9.8906,
+    "variant": 9.4146,
+    "d_abs": -0.476,
+    "d_pct": -0.04812650395
+   },
+   "HC gain FREE / player": {
+    "control": 109.5577,
+    "variant": 98.173,
+    "d_abs": -11.3847,
+    "d_pct": -0.1039151059
+   },
+   "HC spent / player": {
+    "control": 113.9861,
+    "variant": 104.9391,
+    "d_abs": -9.047,
+    "d_pct": -0.07936932661
+   },
+   "HC net (gain - spend) / player": {
+    "control": 5.4628,
+    "variant": 2.6486,
+    "d_abs": -2.8142,
+    "d_pct": -0.5151570623
+   },
+   "HC spent / attempt": {
+    "control": 4.3081,
+    "variant": 3.9053,
+    "d_abs": -0.4028,
+    "d_pct": -0.09349829391
+   },
+   "Paid % of total HC gain": {
+    "control": 8.28,
+    "variant": 8.75,
+    "d_abs": 0.47,
+    "d_pct": 0.05676328502
+   },
+   "HC gain / player (CORE)": {
+    "control": 56.5486,
+    "variant": 33.4328,
+    "d_abs": -23.1158,
+    "d_pct": -0.4087775825
+   },
+   "HC gain / player (META)": {
+    "control": 47.9471,
+    "variant": 59.7368,
+    "d_abs": 11.7897,
+    "d_pct": 0.245889741
+   },
+   "HC gain / player (AD)": {
+    "control": 3.4066,
+    "variant": 3.3676,
+    "d_abs": -0.039,
+    "d_pct": -0.01144836494
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 9.8879,
+    "variant": 9.4114,
+    "d_abs": -0.4765,
+    "d_pct": -0.04819021228
+   },
+   "HC gain / player (OTHER)": {
+    "control": 1.659,
+    "variant": 1.6405,
+    "d_abs": -0.0185,
+    "d_pct": -0.01115129596
+   },
+   "P50 HC balance": {
+    "control": 147,
+    "variant": 131,
+    "d_abs": -16,
+    "d_pct": -0.1088435374
+   },
+   "P75 HC balance": {
+    "control": 528,
+    "variant": 441,
+    "d_abs": -87,
+    "d_pct": -0.1647727273
+   },
+   "P90 HC balance": {
+    "control": 2709,
+    "variant": 2437,
+    "d_abs": -272,
+    "d_pct": -0.1004060539
+   },
+   "P99 HC balance": {
+    "control": 24748,
+    "variant": 23585,
+    "d_abs": -1163,
+    "d_pct": -0.04699369646
+   },
+   "Avg player performance": {
+    "control": 52.0092,
+    "variant": 51.9153,
+    "d_abs": -0.0939,
+    "d_pct": -0.001805449805
+   },
+   "Avg PR (last 50 lvls)": {
+    "control": 0.6107,
+    "variant": 0.6082,
+    "d_abs": -0.0025,
+    "d_pct": -0.00409366301
+   },
+   "R1 pass rate (%)": {
+    "control": 50.0717,
+    "variant": 49.242,
+    "d_abs": -0.8297,
+    "d_pct": -0.01657023828
+   },
+   "R2 pass rate (%)": {
+    "control": 20.1503,
+    "variant": 19.698,
+    "d_abs": -0.4523,
+    "d_pct": -0.02244631594
+   },
+   "R3 pass rate (%)": {
+    "control": 4.5276,
+    "variant": 4.3759,
+    "d_abs": -0.1517,
+    "d_pct": -0.03350561004
+   },
+   "D1 churn rate": {
+    "control": 0.3297,
+    "variant": 0.3324,
+    "d_abs": 0.0027,
+    "d_pct": 0.008189262966
+   },
+   "NS active rate (%)": {
+    "control": null,
+    "variant": 49.242,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R1 finished (%) [claims]": {
+    "control": null,
+    "variant": 49.242,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R2 finished (%) [claims]": {
+    "control": null,
+    "variant": 19.698,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "R3 finished (%) [claims]": {
+    "control": null,
+    "variant": 4.3759,
+    "d_abs": null,
+    "d_pct": null
+   },
+   "Booster gain total / player": {
+    "control": 6.0053,
+    "variant": 6.1896,
+    "d_abs": 0.1843,
+    "d_pct": 0.03068955756
+   },
+   "Booster gain PAID / player": {
+    "control": 0.1262,
+    "variant": 0.13,
+    "d_abs": 0.0038,
+    "d_pct": 0.03011093502
+   },
+   "Booster gain FREE / player": {
+    "control": 5.8791,
+    "variant": 6.0596,
+    "d_abs": 0.1805,
+    "d_pct": 0.03070197819
+   },
+   "Booster spent / player": {
+    "control": 5.4181,
+    "variant": 5.3689,
+    "d_abs": -0.0492,
+    "d_pct": -0.009080674037
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 0.5872,
+    "variant": 0.8207,
+    "d_abs": 0.2335,
+    "d_pct": 0.3976498638
+   },
+   "Booster spent / attempt": {
+    "control": 0.2048,
+    "variant": 0.1998,
+    "d_abs": -0.005,
+    "d_pct": -0.0244140625
+   },
+   "Red gain total / player": {
+    "control": 1.263,
+    "variant": 1.2718,
+    "d_abs": 0.0088,
+    "d_pct": 0.006967537609
+   },
+   "Red gain PAID / player": {
+    "control": 0.0189,
+    "variant": 0.021,
+    "d_abs": 0.0021,
+    "d_pct": 0.1111111111
+   },
+   "Red gain FREE / player": {
+    "control": 1.2441,
+    "variant": 1.2508,
+    "d_abs": 0.0067,
+    "d_pct": 0.005385419179
+   },
+   "Red spent / player": {
+    "control": 1.0646,
+    "variant": 1.0585,
+    "d_abs": -0.0061,
+    "d_pct": -0.005729851587
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.1984,
+    "variant": 0.2133,
+    "d_abs": 0.0149,
+    "d_pct": 0.07510080645
+   },
+   "Chuck gain total / player": {
+    "control": 1.3256,
+    "variant": 1.1896,
+    "d_abs": -0.136,
+    "d_pct": -0.1025950513
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.0177,
+    "variant": 0.0203,
+    "d_abs": 0.0026,
+    "d_pct": 0.1468926554
+   },
+   "Chuck gain FREE / player": {
+    "control": 1.3079,
+    "variant": 1.1693,
+    "d_abs": -0.1386,
+    "d_pct": -0.1059714045
+   },
+   "Chuck spent / player": {
+    "control": 1.1201,
+    "variant": 1.0207,
+    "d_abs": -0.0994,
+    "d_pct": -0.0887420766
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 0.2055,
+    "variant": 0.1689,
+    "d_abs": -0.0366,
+    "d_pct": -0.1781021898
+   },
+   "Bomb gain total / player": {
+    "control": 0.6997,
+    "variant": 0.6987,
+    "d_abs": -0.001,
+    "d_pct": -0.001429183936
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.0197,
+    "variant": 0.0222,
+    "d_abs": 0.0025,
+    "d_pct": 0.1269035533
+   },
+   "Bomb gain FREE / player": {
+    "control": 0.6801,
+    "variant": 0.6766,
+    "d_abs": -0.0035,
+    "d_pct": -0.005146302014
+   },
+   "Bomb spent / player": {
+    "control": 0.5953,
+    "variant": 0.615,
+    "d_abs": 0.0197,
+    "d_pct": 0.03309255837
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.1044,
+    "variant": 0.0837,
+    "d_abs": -0.0207,
+    "d_pct": -0.1982758621
+   },
+   "Slingshot gain total / player": {
+    "control": 1.0973,
+    "variant": 1.4218,
+    "d_abs": 0.3245,
+    "d_pct": 0.2957258726
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.0294,
+    "variant": 0.0266,
+    "d_abs": -0.0028,
+    "d_pct": -0.09523809524
+   },
+   "Slingshot gain FREE / player": {
+    "control": 1.0679,
+    "variant": 1.3952,
+    "d_abs": 0.3273,
+    "d_pct": 0.3064893717
+   },
+   "Slingshot spent / player": {
+    "control": 1.0463,
+    "variant": 1.1864,
+    "d_abs": 0.1401,
+    "d_pct": 0.133900411
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.051,
+    "variant": 0.2354,
+    "d_abs": 0.1844,
+    "d_pct": 3.615686275
+   },
+   "Shuffle gain total / player": {
+    "control": 1.0477,
+    "variant": 1.0407,
+    "d_abs": -0.007,
+    "d_pct": -0.006681301899
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.0221,
+    "variant": 0.0228,
+    "d_abs": 0.0007,
+    "d_pct": 0.03167420814
+   },
+   "Shuffle gain FREE / player": {
+    "control": 1.0256,
+    "variant": 1.018,
+    "d_abs": -0.0076,
+    "d_pct": -0.007410296412
+   },
+   "Shuffle spent / player": {
+    "control": 1.0078,
+    "variant": 0.9522,
+    "d_abs": -0.0556,
+    "d_pct": -0.05516967652
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.0399,
+    "variant": 0.0885,
+    "d_abs": 0.0486,
+    "d_pct": 1.218045113
+   },
+   "Star gain total / player": {
+    "control": 0.5719,
+    "variant": 0.5669,
+    "d_abs": -0.005,
+    "d_pct": -0.008742787201
+   },
+   "Star gain PAID / player": {
+    "control": 0.0184,
+    "variant": 0.0172,
+    "d_abs": -0.0012,
+    "d_pct": -0.0652173913
+   },
+   "Star gain FREE / player": {
+    "control": 0.5535,
+    "variant": 0.5497,
+    "d_abs": -0.0038,
+    "d_pct": -0.006865401987
+   },
+   "Star spent / player": {
+    "control": 0.5841,
+    "variant": 0.5361,
+    "d_abs": -0.048,
+    "d_pct": -0.0821777093
+   },
+   "Star NET (gain - spend) / player": {
+    "control": -0.0122,
+    "variant": 0.0308,
+    "d_abs": 0.043,
+    "d_pct": 3.524590164
+   },
+   "SPT gain total / player": {
+    "control": 258.3751,
+    "variant": 228.4411,
+    "d_abs": -29.934,
+    "d_pct": -0.1158548173
+   },
+   "SPT gainer rate (%)": {
+    "control": 74.91,
+    "variant": 74.76,
+    "d_abs": -0.15,
+    "d_pct": -0.002002402883
+   },
+   "SPT gain / gainer": {
+    "control": 344.92,
+    "variant": 305.55,
+    "d_abs": -39.37,
+    "d_pct": -0.1141424098
+   },
+   "SPT gain / player (CORE)": {
+    "control": 241.0807,
+    "variant": 188.8133,
+    "d_abs": -52.2674,
+    "d_pct": -0.2168045804
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0.0056,
+    "variant": 24.0852,
+    "d_abs": 24.0796,
+    "d_pct": 4299.928571
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 5.714,
+    "variant": 5.437,
+    "d_abs": -0.277,
+    "d_pct": -0.04847742387
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 11.5743,
+    "variant": 10.1044,
+    "d_abs": -1.4699,
+    "d_pct": -0.126996881
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_abs": 0,
+    "d_pct": null
+   }
+  }
+ },
+ "buckets": {
+  "0": {
+   "Players (sum)": {
+    "control": 102894,
+    "variant": 103236,
+    "d_pct": 0.003323808968
+   },
+   "Total revenue": {
+    "control": 8193.45,
+    "variant": 6330.06,
+    "d_pct": -0.2274243451
+   },
+   "ARPDAU": {
+    "control": 0.07963000758,
+    "variant": 0.06131640126,
+    "d_pct": -0.229983732
+   },
+   "AVG Payer day (%)": {
+    "control": 1.055459308,
+    "variant": 0.9388007091,
+    "d_pct": -0.1105287506
+   },
+   "ARPPU": {
+    "control": 7.544583387,
+    "variant": 6.531354383,
+    "d_pct": -0.1342988675
+   },
+   "Time spent (mins)": {
+    "control": 18.36816189,
+    "variant": 19.62300835,
+    "d_pct": 0.06831638692
+   },
+   "Level attempts / player": {
+    "control": 10.07246914,
+    "variant": 10.54421171,
+    "d_pct": 0.04683484848
+   },
+   "Level completes / player": {
+    "control": 6.767520458,
+    "variant": 7.175298249,
+    "d_pct": 0.06025512494
+   },
+   "Avg daily streak": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   },
+   "P25 daily streak": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   },
+   "P50 daily streak": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   },
+   "P75 daily streak": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   },
+   "P90 daily streak": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   },
+   "P99 daily streak": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   },
+   "Pass rate": {
+    "control": 0.6088053677,
+    "variant": 0.6142706604,
+    "d_pct": 0.008977077173
+   },
+   "OOM rate": {
+    "control": 0.4912837512,
+    "variant": 0.4916545391,
+    "d_pct": 0.0007547326249
+   },
+   "First-try OOM rate": {
+    "control": 0.2536367786,
+    "variant": 0.2628907397,
+    "d_pct": 0.03648509135
+   },
+   "Attempts per completion": {
+    "control": 2.587385868,
+    "variant": 2.997712688,
+    "d_pct": 0.1585874088
+   },
+   "HC gain total / player": {
+    "control": 47.81090005,
+    "variant": 48.85727469,
+    "d_pct": 0.02188569212
+   },
+   "HC gain PAID / player": {
+    "control": 6.643123214,
+    "variant": 5.329525456,
+    "d_pct": -0.1977379789
+   },
+   "HC gain FREE / player": {
+    "control": 41.16669553,
+    "variant": 43.52659886,
+    "d_pct": 0.05732554676
+   },
+   "HC spent / player": {
+    "control": 31.98664538,
+    "variant": 35.32511062,
+    "d_pct": 0.1043705958
+   },
+   "HC NET (gain - spend) / player": {
+    "control": 15.82425467,
+    "variant": 13.53216407,
+    "d_pct": -0.1448466703
+   },
+   "HC spent / attempt": {
+    "control": 3.039130329,
+    "variant": 3.151422366,
+    "d_pct": 0.0369487402
+   },
+   "Paid % of total HC gain": {
+    "control": 13.76866863,
+    "variant": 11.07001046,
+    "d_pct": -0.1959999359
+   },
+   "HC gain / player (CORE)": {
+    "control": 12.60145169,
+    "variant": 9.106629277,
+    "d_pct": -0.2773349054
+   },
+   "HC gain / player (META)": {
+    "control": 26.00513188,
+    "variant": 31.78195639,
+    "d_pct": 0.2221417116
+   },
+   "HC gain / player (AD)": {
+    "control": 2.352440861,
+    "variant": 2.408504301,
+    "d_pct": 0.02383202922
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 6.642113437,
+    "variant": 5.329525456,
+    "d_pct": -0.1976160138
+   },
+   "HC gain / player (OTHER)": {
+    "control": 0.2096403094,
+    "variant": 0.2291314076,
+    "d_pct": 0.09297400035
+   },
+   "P50 HC balance": {
+    "control": 201.6543141,
+    "variant": 199.0998489,
+    "d_pct": -0.01266754579
+   },
+   "P75 HC balance": {
+    "control": 497.9915544,
+    "variant": 418.599752,
+    "d_pct": -0.1594239936
+   },
+   "P90 HC balance": {
+    "control": 3481.460649,
+    "variant": 2863.911727,
+    "d_pct": -0.1773821349
+   },
+   "P99 HC balance": {
+    "control": 28566.28624,
+    "variant": 26453.84666,
+    "d_pct": -0.07394869451
+   },
+   "Booster gain total / player": {
+    "control": 1.577049608,
+    "variant": 2.306662254,
+    "d_pct": 0.4626440679
+   },
+   "Booster gain PAID / player": {
+    "control": 0.06807223356,
+    "variant": 0.06433538785,
+    "d_pct": -0.05489530042
+   },
+   "Booster gain FREE / player": {
+    "control": 1.508982136,
+    "variant": 2.242322142,
+    "d_pct": 0.4859832254
+   },
+   "Booster spent / player": {
+    "control": 1.167452854,
+    "variant": 1.470068451,
+    "d_pct": 0.2592101218
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 0.4095967539,
+    "variant": 0.8365938035,
+    "d_pct": 1.042481527
+   },
+   "Booster spent / attempt": {
+    "control": 0.1221215727,
+    "variant": 0.1447177244,
+    "d_pct": 0.1850299767
+   },
+   "NS active rate (%)": {
+    "control": null,
+    "variant": 7.940977469,
+    "d_pct": null
+   },
+   "R1 finished (%) [actual]": {
+    "control": null,
+    "variant": 7.940977469,
+    "d_pct": null
+   },
+   "R2 finished (%) [actual]": {
+    "control": null,
+    "variant": 4.749817118,
+    "d_pct": null
+   },
+   "R3 finished (%) [actual]": {
+    "control": null,
+    "variant": 2.506071913,
+    "d_pct": null
+   },
+   "Red gain total / player": {
+    "control": 0.2277155597,
+    "variant": 0.2891811277,
+    "d_pct": 0.2699225652
+   },
+   "Red gain PAID / player": {
+    "control": 0.009769926332,
+    "variant": 0.009557719206,
+    "d_pct": -0.02172044274
+   },
+   "Red gain FREE / player": {
+    "control": 0.2179405417,
+    "variant": 0.2796274643,
+    "d_pct": 0.2830447334
+   },
+   "Red spent / player": {
+    "control": 0.2027301456,
+    "variant": 0.2695564222,
+    "d_pct": 0.3296316707
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.02498541412,
+    "variant": 0.01962470553,
+    "d_pct": -0.2145535216
+   },
+   "Chuck gain total / player": {
+    "control": 0.2417979085,
+    "variant": 0.2772025631,
+    "d_pct": 0.1464225011
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.008951010749,
+    "variant": 0.008693555543,
+    "d_pct": -0.02876269658
+   },
+   "Chuck gain FREE / player": {
+    "control": 0.2328479736,
+    "variant": 0.2685096914,
+    "d_pct": 0.1531545119
+   },
+   "Chuck spent / player": {
+    "control": 0.1933192655,
+    "variant": 0.2397361996,
+    "d_pct": 0.2401050615
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 0.04847864307,
+    "variant": 0.03746636348,
+    "d_pct": -0.2271573397
+   },
+   "Bomb gain total / player": {
+    "control": 0.1868772727,
+    "variant": 0.1977541972,
+    "d_pct": 0.05820357015
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.008964048438,
+    "variant": 0.008908711109,
+    "d_pct": -0.006173251969
+   },
+   "Bomb gain FREE / player": {
+    "control": 0.1779086487,
+    "variant": 0.1888648504,
+    "d_pct": 0.06158330027
+   },
+   "Bomb spent / player": {
+    "control": 0.1397665909,
+    "variant": 0.1782747046,
+    "d_pct": 0.2755172997
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.04711068187,
+    "variant": 0.01947949262,
+    "d_pct": -0.5865164365
+   },
+   "Slingshot gain total / player": {
+    "control": 0.4147787859,
+    "variant": 0.6240277432,
+    "d_pct": 0.5044832677
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.01869431065,
+    "variant": 0.01500643283,
+    "d_pct": -0.1972727364
+   },
+   "Slingshot gain FREE / player": {
+    "control": 0.3960846356,
+    "variant": 0.6090026706,
+    "d_pct": 0.5375569153
+   },
+   "Slingshot spent / player": {
+    "control": 0.2577070024,
+    "variant": 0.2836678194,
+    "d_pct": 0.1007377245
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.1570717836,
+    "variant": 0.3403599239,
+    "d_pct": 1.16690685
+   },
+   "Shuffle gain total / player": {
+    "control": 0.3192283486,
+    "variant": 0.5254498702,
+    "d_pct": 0.6460000264
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.01219164383,
+    "variant": 0.01265716417,
+    "d_pct": 0.03818355806
+   },
+   "Shuffle gain FREE / player": {
+    "control": 0.3070228653,
+    "variant": 0.5127884575,
+    "d_pct": 0.6701963127
+   },
+   "Shuffle spent / player": {
+    "control": 0.2303978716,
+    "variant": 0.3145541478,
+    "d_pct": 0.3652649896
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.088830477,
+    "variant": 0.2108957224,
+    "d_pct": 1.374137003
+   },
+   "Star gain total / player": {
+    "control": 0.1866529603,
+    "variant": 0.3930421907,
+    "d_pct": 1.105737782
+   },
+   "Star gain PAID / player": {
+    "control": 0.009522729216,
+    "variant": 0.009495215816,
+    "d_pct": -0.002889234763
+   },
+   "Star gain FREE / player": {
+    "control": 0.1771351284,
+    "variant": 0.3835572136,
+    "d_pct": 1.165336808
+   },
+   "Star spent / player": {
+    "control": 0.1435167823,
+    "variant": 0.1843057393,
+    "d_pct": 0.2842103641
+   },
+   "Star NET (gain - spend) / player": {
+    "control": 0.04313617801,
+    "variant": 0.2087364514,
+    "d_pct": 3.839011268
+   },
+   "SPT gain total / player": {
+    "control": 116.8610525,
+    "variant": 103.9760812,
+    "d_pct": -0.1102589019
+   },
+   "SPT gainer rate (%)": {
+    "control": 17.16079256,
+    "variant": 17.45954221,
+    "d_pct": 0.01740884925
+   },
+   "SPT gain / gainer": {
+    "control": 663.1880719,
+    "variant": 575.4013925,
+    "d_pct": -0.1323707152
+   },
+   "SPT gain / player (CORE)": {
+    "control": 107.8446362,
+    "variant": 89.13483446,
+    "d_pct": -0.1734884777
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0,
+    "variant": 7.212867895,
+    "d_pct": null
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 2.870823372,
+    "variant": 2.604184199,
+    "d_pct": -0.09287898899
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 6.144630785,
+    "variant": 5.022404975,
+    "d_pct": -0.1826351899
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   }
+  },
+  "1-9": {
+   "Players (sum)": {
+    "control": 157641,
+    "variant": 154944,
+    "d_pct": -0.01710849335
+   },
+   "Total revenue": {
+    "control": 2646.07,
+    "variant": 2614.16,
+    "d_pct": -0.01205939374
+   },
+   "ARPDAU": {
+    "control": 0.0167854175,
+    "variant": 0.01687164395,
+    "d_pct": 0.005136985692
+   },
+   "AVG Payer day (%)": {
+    "control": 0.7122686991,
+    "variant": 0.7184289163,
+    "d_pct": 0.008648726426
+   },
+   "ARPPU": {
+    "control": 2.356613104,
+    "variant": 2.348408251,
+    "d_pct": -0.003481629077
+   },
+   "Time spent (mins)": {
+    "control": 20.56870586,
+    "variant": 20.66597338,
+    "d_pct": 0.004728908451
+   },
+   "Level attempts / player": {
+    "control": 10.85044614,
+    "variant": 10.67788562,
+    "d_pct": -0.01590354119
+   },
+   "Level completes / player": {
+    "control": 5.145923205,
+    "variant": 5.103403875,
+    "d_pct": -0.008262721501
+   },
+   "Avg daily streak": {
+    "control": 3.980856947,
+    "variant": 3.989355896,
+    "d_pct": 0.00213495469
+   },
+   "P25 daily streak": {
+    "control": 1.57688038,
+    "variant": 1.48458798,
+    "d_pct": -0.05852847248
+   },
+   "P50 daily streak": {
+    "control": 3,
+    "variant": 3,
+    "d_pct": 0
+   },
+   "P75 daily streak": {
+    "control": 5.145076471,
+    "variant": 5.28445761,
+    "d_pct": 0.02709019779
+   },
+   "P90 daily streak": {
+    "control": 8.139595664,
+    "variant": 8.188280927,
+    "d_pct": 0.005981287738
+   },
+   "P99 daily streak": {
+    "control": 16.31546996,
+    "variant": 16.32971267,
+    "d_pct": 0.0008729573952
+   },
+   "Pass rate": {
+    "control": 0.4757881173,
+    "variant": 0.4786552103,
+    "d_pct": 0.006025986906
+   },
+   "OOM rate": {
+    "control": 0.6313484043,
+    "variant": 0.6245656695,
+    "d_pct": -0.0107432516
+   },
+   "First-try OOM rate": {
+    "control": 0.3819483891,
+    "variant": 0.3696530282,
+    "d_pct": -0.03219115782
+   },
+   "Attempts per completion": {
+    "control": 2.106721418,
+    "variant": 2.091233561,
+    "d_pct": -0.007351639856
+   },
+   "HC gain total / player": {
+    "control": 47.21371756,
+    "variant": 40.32115958,
+    "d_pct": -0.1459863433
+   },
+   "HC gain PAID / player": {
+    "control": 1.601961609,
+    "variant": 1.519991287,
+    "d_pct": -0.05116871799
+   },
+   "HC gain FREE / player": {
+    "control": 45.611734,
+    "variant": 38.80065992,
+    "d_pct": -0.1493272342
+   },
+   "HC spent / player": {
+    "control": 42.99407895,
+    "variant": 38.05522841,
+    "d_pct": -0.1148728073
+   },
+   "HC NET (gain - spend) / player": {
+    "control": 4.219638609,
+    "variant": 2.265931175,
+    "d_pct": -0.4630034975
+   },
+   "HC spent / attempt": {
+    "control": 3.968016678,
+    "variant": 3.565164474,
+    "d_pct": -0.1015248265
+   },
+   "Paid % of total HC gain": {
+    "control": 3.512162699,
+    "variant": 3.909206681,
+    "d_pct": 0.1130482886
+   },
+   "HC gain / player (CORE)": {
+    "control": 27.01727457,
+    "variant": 17.46956262,
+    "d_pct": -0.3533928608
+   },
+   "HC gain / player (META)": {
+    "control": 16.00960968,
+    "variant": 18.95752633,
+    "d_pct": 0.1841341986
+   },
+   "HC gain / player (AD)": {
+    "control": 2.024005367,
+    "variant": 1.832804174,
+    "d_pct": -0.09446674172
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 1.601961609,
+    "variant": 1.519991287,
+    "d_pct": -0.05116871799
+   },
+   "HC gain / player (OTHER)": {
+    "control": 0.5603559988,
+    "variant": 0.5426721912,
+    "d_pct": -0.0315581658
+   },
+   "P50 HC balance": {
+    "control": 201.6912225,
+    "variant": 199.9518019,
+    "d_pct": -0.008624175602
+   },
+   "P75 HC balance": {
+    "control": 351.6611859,
+    "variant": 315.148189,
+    "d_pct": -0.1038300452
+   },
+   "P90 HC balance": {
+    "control": 1255.753332,
+    "variant": 1136.542131,
+    "d_pct": -0.09493202013
+   },
+   "P99 HC balance": {
+    "control": 18991.03835,
+    "variant": 17674.10355,
+    "d_pct": -0.06934506555
+   },
+   "Booster gain total / player": {
+    "control": 2.706658485,
+    "variant": 2.950977786,
+    "d_pct": 0.09026602411
+   },
+   "Booster gain PAID / player": {
+    "control": 0.04016500149,
+    "variant": 0.0389233678,
+    "d_pct": -0.03091332372
+   },
+   "Booster gain FREE / player": {
+    "control": 2.666488799,
+    "variant": 2.912050063,
+    "d_pct": 0.09209161654
+   },
+   "Booster spent / player": {
+    "control": 2.324311117,
+    "variant": 2.414225514,
+    "d_pct": 0.03868432072
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 0.3823473684,
+    "variant": 0.5367522718,
+    "d_pct": 0.4038340948
+   },
+   "Booster spent / attempt": {
+    "control": 0.2142019893,
+    "variant": 0.2260709521,
+    "d_pct": 0.05541014251
+   },
+   "NS active rate (%)": {
+    "control": 42.64714275913684,
+    "variant": 34.56510055,
+    "d_pct": -0.1895095822
+   },
+   "R1 finished (%) [actual]": {
+    "control": 42.64714275913684,
+    "variant": 34.56461296,
+    "d_pct": -0.1895210155
+   },
+   "R2 finished (%) [actual]": {
+    "control": 20.758437882000745,
+    "variant": 16.05432737,
+    "d_pct": -0.2266119705
+   },
+   "R3 finished (%) [actual]": {
+    "control": 8.35851789946364,
+    "variant": 4.909500852,
+    "d_pct": -0.4126350017
+   },
+   "Red gain total / player": {
+    "control": 0.596937279,
+    "variant": 0.795541475,
+    "d_pct": 0.3327052991
+   },
+   "Red gain PAID / player": {
+    "control": 0.009751900838,
+    "variant": 0.009908576647,
+    "d_pct": 0.01606618152
+   },
+   "Red gain FREE / player": {
+    "control": 0.5871995877,
+    "variant": 0.7855988583,
+    "d_pct": 0.3378736545
+   },
+   "Red spent / player": {
+    "control": 0.5104118123,
+    "variant": 0.5919754808,
+    "d_pct": 0.1597997275
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.08652546673,
+    "variant": 0.2035659942,
+    "d_pct": 1.352671437
+   },
+   "Chuck gain total / player": {
+    "control": 0.6933919938,
+    "variant": 0.7181604257,
+    "d_pct": 0.03572067761
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.005276250468,
+    "variant": 0.005363200253,
+    "d_pct": 0.01647946505
+   },
+   "Chuck gain FREE / player": {
+    "control": 0.688115508,
+    "variant": 0.7127878653,
+    "d_pct": 0.03585496473
+   },
+   "Chuck spent / player": {
+    "control": 0.5063668456,
+    "variant": 0.5089469989,
+    "d_pct": 0.005095423178
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 0.1870251483,
+    "variant": 0.2092134268,
+    "d_pct": 0.118637941
+   },
+   "Bomb gain total / player": {
+    "control": 0.3246725503,
+    "variant": 0.2984929465,
+    "d_pct": -0.08063386874
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.009002503156,
+    "variant": 0.008094650325,
+    "d_pct": -0.100844489
+   },
+   "Bomb gain FREE / player": {
+    "control": 0.3156603066,
+    "variant": 0.2904079945,
+    "d_pct": -0.07999837678
+   },
+   "Bomb spent / player": {
+    "control": 0.2776138194,
+    "variant": 0.2606466227,
+    "d_pct": -0.06111798311
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.04705873091,
+    "variant": 0.03784632383,
+    "d_pct": -0.1957640357
+   },
+   "Slingshot gain total / player": {
+    "control": 0.4935818283,
+    "variant": 0.623530675,
+    "d_pct": 0.2632772099
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.007453644039,
+    "variant": 0.00639348797,
+    "d_pct": -0.1422332572
+   },
+   "Slingshot gain FREE / player": {
+    "control": 0.4861188504,
+    "variant": 0.6171418829,
+    "d_pct": 0.2695288042
+   },
+   "Slingshot spent / player": {
+    "control": 0.4543099016,
+    "variant": 0.5284110162,
+    "d_pct": 0.1631069769
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.03927192672,
+    "variant": 0.09511965872,
+    "d_pct": 1.42207772
+   },
+   "Shuffle gain total / player": {
+    "control": 0.3988077385,
+    "variant": 0.3577641535,
+    "d_pct": -0.1029157186
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.005632150265,
+    "variant": 0.006223906056,
+    "d_pct": 0.1050674721
+   },
+   "Shuffle gain FREE / player": {
+    "control": 0.3931984712,
+    "variant": 0.3515394762,
+    "d_pct": -0.1059490259
+   },
+   "Shuffle spent / player": {
+    "control": 0.3810017813,
+    "variant": 0.3555720757,
+    "d_pct": -0.06674432193
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.01780595721,
+    "variant": 0.002192077783,
+    "d_pct": -0.8768907643
+   },
+   "Star gain total / player": {
+    "control": 0.1992673981,
+    "variant": 0.1575122264,
+    "d_pct": -0.2095434182
+   },
+   "Star gain PAID / player": {
+    "control": 0.003072099898,
+    "variant": 0.002933290092,
+    "d_pct": -0.04518401438
+   },
+   "Star gain FREE / player": {
+    "control": 0.1961953331,
+    "variant": 0.1545743591,
+    "d_pct": -0.2121404892
+   },
+   "Star spent / player": {
+    "control": 0.1946119905,
+    "variant": 0.1686259571,
+    "d_pct": -0.1335274016
+   },
+   "Star NET (gain - spend) / player": {
+    "control": 0.00465540754,
+    "variant": -0.01111373077,
+    "d_pct": -3.387273439
+   },
+   "SPT gain total / player": {
+    "control": 70.86855349,
+    "variant": 64.80722048,
+    "d_pct": -0.08552923275
+   },
+   "SPT gainer rate (%)": {
+    "control": 65.02853071,
+    "variant": 64.22133222,
+    "d_pct": -0.01241298981
+   },
+   "SPT gain / gainer": {
+    "control": 108.8211343,
+    "variant": 100.856466,
+    "d_pct": -0.07319045499
+   },
+   "SPT gain / player (CORE)": {
+    "control": 64.27680749,
+    "variant": 53.16505963,
+    "d_pct": -0.1728733628
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0.00046333124,
+    "variant": 5.699856787,
+    "d_pct": 12300.90476
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 4.244006001,
+    "variant": 4.045136695,
+    "d_pct": -0.04685886551
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 2.345851079,
+    "variant": 1.896605548,
+    "d_pct": -0.1915064155
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   }
+  },
+  "10-19": {
+   "Players (sum)": {
+    "control": 122073,
+    "variant": 121963,
+    "d_pct": -0.0009011001614
+   },
+   "Total revenue": {
+    "control": 7313.33,
+    "variant": 8034.94,
+    "d_pct": 0.09867050988
+   },
+   "ARPDAU": {
+    "control": 0.05990948039,
+    "variant": 0.06588014398,
+    "d_pct": 0.09966141496
+   },
+   "AVG Payer day (%)": {
+    "control": 1.875155112,
+    "variant": 1.971916155,
+    "d_pct": 0.05160162067
+   },
+   "ARPPU": {
+    "control": 3.194907984,
+    "variant": 3.340920141,
+    "d_pct": 0.0457015217
+   },
+   "Time spent (mins)": {
+    "control": 39.44283019,
+    "variant": 41.29237162,
+    "d_pct": 0.04689170174
+   },
+   "Level attempts / player": {
+    "control": 21.88878868,
+    "variant": 22.36165722,
+    "d_pct": 0.02160323055
+   },
+   "Level completes / player": {
+    "control": 13.53220049,
+    "variant": 13.36378574,
+    "d_pct": -0.01244548131
+   },
+   "Avg daily streak": {
+    "control": 9.594718816,
+    "variant": 9.433428335,
+    "d_pct": -0.01681033953
+   },
+   "P25 daily streak": {
+    "control": 4.046210055,
+    "variant": 4.051122062,
+    "d_pct": 0.001213977254
+   },
+   "P50 daily streak": {
+    "control": 8.424991603,
+    "variant": 8.154628863,
+    "d_pct": -0.03209056498
+   },
+   "P75 daily streak": {
+    "control": 13,
+    "variant": 12.96530095,
+    "d_pct": -0.002669157544
+   },
+   "P90 daily streak": {
+    "control": 18.51910742,
+    "variant": 18.30106672,
+    "d_pct": -0.01177382351
+   },
+   "P99 daily streak": {
+    "control": 34.26503813,
+    "variant": 33.53740069,
+    "d_pct": -0.02123556504
+   },
+   "Pass rate": {
+    "control": 0.6189899527,
+    "variant": 0.5980175676,
+    "d_pct": -0.03388162444
+   },
+   "OOM rate": {
+    "control": 0.5043449665,
+    "variant": 0.521829873,
+    "d_pct": 0.03466854557
+   },
+   "First-try OOM rate": {
+    "control": 0.3078352215,
+    "variant": 0.3122151603,
+    "d_pct": 0.01422819249
+   },
+   "Attempts per completion": {
+    "control": 1.61713112,
+    "variant": 1.673374593,
+    "d_pct": 0.03477978534
+   },
+   "HC gain total / player": {
+    "control": 98.0588162,
+    "variant": 84.74901364,
+    "d_pct": -0.1357328497
+   },
+   "HC gain PAID / player": {
+    "control": 5.021596176,
+    "variant": 5.696945877,
+    "d_pct": 0.1344890504
+   },
+   "HC gain FREE / player": {
+    "control": 93.0372713,
+    "variant": 79.05300657,
+    "d_pct": -0.1503081995
+   },
+   "HC spent / player": {
+    "control": 91.67218943,
+    "variant": 81.79600051,
+    "d_pct": -0.107733752
+   },
+   "HC NET (gain - spend) / player": {
+    "control": 6.386626773,
+    "variant": 2.953013127,
+    "d_pct": -0.5376255366
+   },
+   "HC spent / attempt": {
+    "control": 4.193408996,
+    "variant": 3.659438639,
+    "d_pct": -0.1273356255
+   },
+   "Paid % of total HC gain": {
+    "control": 5.239708207,
+    "variant": 6.956180317,
+    "d_pct": 0.3275892553
+   },
+   "HC gain / player (CORE)": {
+    "control": 55.39683345,
+    "variant": 35.34530308,
+    "d_pct": -0.3619616703
+   },
+   "HC gain / player (META)": {
+    "control": 33.79612224,
+    "variant": 39.96055566,
+    "d_pct": 0.1824006133
+   },
+   "HC gain / player (AD)": {
+    "control": 2.65362103,
+    "variant": 2.594976837,
+    "d_pct": -0.02209968648
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 5.019645704,
+    "variant": 5.696945877,
+    "d_pct": 0.1349298762
+   },
+   "HC gain / player (OTHER)": {
+    "control": 1.193046538,
+    "variant": 1.153501554,
+    "d_pct": -0.03314622081
+   },
+   "P50 HC balance": {
+    "control": 241.8967749,
+    "variant": 220.6407271,
+    "d_pct": -0.08787239014
+   },
+   "P75 HC balance": {
+    "control": 425.9021241,
+    "variant": 366.9052254,
+    "d_pct": -0.138522199
+   },
+   "P90 HC balance": {
+    "control": 1291.040509,
+    "variant": 1049.24145,
+    "d_pct": -0.1872900631
+   },
+   "P99 HC balance": {
+    "control": 19747.41831,
+    "variant": 17755.92019,
+    "d_pct": -0.1008485305
+   },
+   "Booster gain total / player": {
+    "control": 5.702384262,
+    "variant": 5.762695089,
+    "d_pct": 0.01057642278
+   },
+   "Booster gain PAID / player": {
+    "control": 0.108692946,
+    "variant": 0.1097913687,
+    "d_pct": 0.01010574016
+   },
+   "Booster gain FREE / player": {
+    "control": 5.593667483,
+    "variant": 5.652913258,
+    "d_pct": 0.01059157966
+   },
+   "Booster spent / player": {
+    "control": 4.70179898,
+    "variant": 4.828870277,
+    "d_pct": 0.0270261016
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 1.000585282,
+    "variant": 0.9338248116,
+    "d_pct": -0.0667214193
+   },
+   "Booster spent / attempt": {
+    "control": 0.2149159896,
+    "variant": 0.2158613334,
+    "d_pct": 0.0043986664
+   },
+   "NS active rate (%)": {
+    "control": 64.2180393913231,
+    "variant": 39.99269073,
+    "d_pct": -0.3772358809
+   },
+   "R1 finished (%) [actual]": {
+    "control": 64.2180393913231,
+    "variant": 39.99269073,
+    "d_pct": -0.3772358809
+   },
+   "R2 finished (%) [actual]": {
+    "control": 44.857285344269364,
+    "variant": 23.19614859,
+    "d_pct": -0.4828900499
+   },
+   "R3 finished (%) [actual]": {
+    "control": 25.564667601985754,
+    "variant": 10.91307601,
+    "d_pct": -0.5731187988
+   },
+   "Red gain total / player": {
+    "control": 1.286622086,
+    "variant": 1.294314956,
+    "d_pct": 0.005979121837
+   },
+   "Red gain PAID / player": {
+    "control": 0.02271895177,
+    "variant": 0.0258416364,
+    "d_pct": 0.1374484463
+   },
+   "Red gain FREE / player": {
+    "control": 1.263903487,
+    "variant": 1.268473066,
+    "d_pct": 0.003615449447
+   },
+   "Red spent / player": {
+    "control": 0.9838687933,
+    "variant": 1.034177145,
+    "d_pct": 0.05113319153
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.3027532927,
+    "variant": 0.2601378115,
+    "d_pct": -0.1407597614
+   },
+   "Chuck gain total / player": {
+    "control": 1.467916965,
+    "variant": 1.337831878,
+    "d_pct": -0.08861883242
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.0175757899,
+    "variant": 0.01772669006,
+    "d_pct": 0.008585683285
+   },
+   "Chuck gain FREE / player": {
+    "control": 1.450346145,
+    "variant": 1.320096911,
+    "d_pct": -0.08980561949
+   },
+   "Chuck spent / player": {
+    "control": 1.005087442,
+    "variant": 0.9721181809,
+    "d_pct": -0.03280238081
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 0.4628295233,
+    "variant": 0.3657136968,
+    "d_pct": -0.2098306647
+   },
+   "Bomb gain total / player": {
+    "control": 0.6937842316,
+    "variant": 0.6766023228,
+    "d_pct": -0.02476549329
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.02947247303,
+    "variant": 0.02399876028,
+    "d_pct": -0.185722886
+   },
+   "Bomb gain FREE / player": {
+    "control": 0.6643027393,
+    "variant": 0.6526079336,
+    "d_pct": -0.01760463279
+   },
+   "Bomb spent / player": {
+    "control": 0.5551367903,
+    "variant": 0.5624725261,
+    "d_pct": 0.01321428509
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.1386474413,
+    "variant": 0.1141297967,
+    "d_pct": -0.1768344538
+   },
+   "Slingshot gain total / player": {
+    "control": 0.9742865564,
+    "variant": 1.27839988,
+    "d_pct": 0.3121395055
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.01622663488,
+    "variant": 0.01665077933,
+    "d_pct": 0.0261387808
+   },
+   "Slingshot gain FREE / player": {
+    "control": 0.9580787504,
+    "variant": 1.261764286,
+    "d_pct": 0.316973459
+   },
+   "Slingshot spent / player": {
+    "control": 0.8909984616,
+    "variant": 1.065594979,
+    "d_pct": 0.1959560255
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.08328809483,
+    "variant": 0.2128049015,
+    "d_pct": 1.555045855
+   },
+   "Shuffle gain total / player": {
+    "control": 0.873838821,
+    "variant": 0.7929945779,
+    "d_pct": -0.09251619546
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.01407799186,
+    "variant": 0.0156113846,
+    "d_pct": 0.1089212693
+   },
+   "Shuffle gain FREE / player": {
+    "control": 0.8597756826,
+    "variant": 0.777377872,
+    "d_pct": -0.09583640509
+   },
+   "Shuffle spent / player": {
+    "control": 0.8365627084,
+    "variant": 0.7802206349,
+    "d_pct": -0.067349492
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.03727611265,
+    "variant": 0.01277394292,
+    "d_pct": -0.6573155834
+   },
+   "Star gain total / player": {
+    "control": 0.405943678,
+    "variant": 0.3825507162,
+    "d_pct": -0.05762612656
+   },
+   "Star gain PAID / player": {
+    "control": 0.008644705217,
+    "variant": 0.009934379279,
+    "d_pct": 0.1491865864
+   },
+   "Star gain FREE / player": {
+    "control": 0.3972890254,
+    "variant": 0.372616783,
+    "d_pct": -0.06210149509
+   },
+   "Star spent / player": {
+    "control": 0.4301444087,
+    "variant": 0.414296371,
+    "d_pct": -0.03684352818
+   },
+   "Star NET (gain - spend) / player": {
+    "control": -0.02420073071,
+    "variant": -0.03174565483,
+    "d_pct": -0.3117643103
+   },
+   "SPT gain total / player": {
+    "control": 175.9709942,
+    "variant": 157.6591786,
+    "d_pct": -0.1040615565
+   },
+   "SPT gainer rate (%)": {
+    "control": 80.3858787,
+    "variant": 80.30503997,
+    "d_pct": -0.001005633399
+   },
+   "SPT gain / gainer": {
+    "control": 218.0847364,
+    "variant": 195.3814698,
+    "d_pct": -0.1041029602
+   },
+   "SPT gain / player (CORE)": {
+    "control": 160.7479905,
+    "variant": 127.5760584,
+    "d_pct": -0.2063598554
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0.002355230067,
+    "variant": 16.6283859,
+    "d_pct": 7059.196002
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 5.920933048,
+    "variant": 5.762163115,
+    "d_pct": -0.02681501917
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 9.302059833,
+    "variant": 7.692068906,
+    "d_pct": -0.1730789692
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   }
+  },
+  "20-39": {
+   "Players (sum)": {
+    "control": 101078,
+    "variant": 102900,
+    "d_pct": 0.01802568314
+   },
+   "Total revenue": {
+    "control": 12223.99,
+    "variant": 12474.94,
+    "d_pct": 0.02052930344
+   },
+   "ARPDAU": {
+    "control": 0.1209362077,
+    "variant": 0.1212336249,
+    "d_pct": 0.002459289927
+   },
+   "AVG Payer day (%)": {
+    "control": 2.599491482,
+    "variant": 2.647935569,
+    "d_pct": 0.01863598593
+   },
+   "ARPPU": {
+    "control": 4.652302519,
+    "variant": 4.578420499,
+    "d_pct": -0.01588074271
+   },
+   "Time spent (mins)": {
+    "control": 60.46091761,
+    "variant": 63.21944023,
+    "d_pct": 0.04562488851
+   },
+   "Level attempts / player": {
+    "control": 35.61645056,
+    "variant": 36.29197609,
+    "d_pct": 0.01896667185
+   },
+   "Level completes / player": {
+    "control": 25.54155108,
+    "variant": 25.34897221,
+    "d_pct": -0.007539826878
+   },
+   "Avg daily streak": {
+    "control": 16.4734605,
+    "variant": 16.13256871,
+    "d_pct": -0.02069339277
+   },
+   "P25 daily streak": {
+    "control": 6.956182354,
+    "variant": 6.826919339,
+    "d_pct": -0.01858246499
+   },
+   "P50 daily streak": {
+    "control": 13.14494747,
+    "variant": 12.67275996,
+    "d_pct": -0.03592159698
+   },
+   "P75 daily streak": {
+    "control": 23.04883357,
+    "variant": 22.38708455,
+    "d_pct": -0.02871073817
+   },
+   "P90 daily streak": {
+    "control": 33.22962465,
+    "variant": 32.57253644,
+    "d_pct": -0.01977416869
+   },
+   "P99 daily streak": {
+    "control": 61.4299254,
+    "variant": 59.98436346,
+    "d_pct": -0.02353188507
+   },
+   "Pass rate": {
+    "control": 0.7173245632,
+    "variant": 0.698502346,
+    "d_pct": -0.02623947123
+   },
+   "OOM rate": {
+    "control": 0.4056742169,
+    "variant": 0.4226573158,
+    "d_pct": 0.04186388533
+   },
+   "First-try OOM rate": {
+    "control": 0.2629584113,
+    "variant": 0.2675180739,
+    "d_pct": 0.01733986188
+   },
+   "Attempts per completion": {
+    "control": 1.394713868,
+    "variant": 1.432154634,
+    "d_pct": 0.02684476434
+   },
+   "HC gain total / player": {
+    "control": 169.2485786,
+    "variant": 146.5085842,
+    "d_pct": -0.134358555
+   },
+   "HC gain PAID / player": {
+    "control": 10.09636973,
+    "variant": 10.32807813,
+    "d_pct": 0.02294967458
+   },
+   "HC gain FREE / player": {
+    "control": 159.1545662,
+    "variant": 136.1825287,
+    "d_pct": -0.1443379104
+   },
+   "HC spent / player": {
+    "control": 162.1058297,
+    "variant": 144.2016753,
+    "d_pct": -0.1104473194
+   },
+   "HC NET (gain - spend) / player": {
+    "control": 7.142748966,
+    "variant": 2.306908844,
+    "d_pct": -0.6770278706
+   },
+   "HC spent / attempt": {
+    "control": 4.552751682,
+    "variant": 3.971237652,
+    "d_pct": -0.1277280358
+   },
+   "Paid % of total HC gain": {
+    "control": 6.001430776,
+    "variant": 7.236757532,
+    "d_pct": 0.2058387077
+   },
+   "HC gain / player (CORE)": {
+    "control": 95.78314816,
+    "variant": 60.97675326,
+    "d_pct": -0.3633874598
+   },
+   "HC gain / player (META)": {
+    "control": 58.59191723,
+    "variant": 70.2641174,
+    "d_pct": 0.1992117806
+   },
+   "HC gain / player (AD)": {
+    "control": 2.597340272,
+    "variant": 2.795103304,
+    "d_pct": 0.07614059446
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 10.09543551,
+    "variant": 10.32310554,
+    "d_pct": 0.02255177936
+   },
+   "HC gain / player (OTHER)": {
+    "control": 2.181166426,
+    "variant": 2.150755685,
+    "d_pct": -0.0139424211
+   },
+   "P50 HC balance": {
+    "control": 285.9977839,
+    "variant": 253.6657532,
+    "d_pct": -0.1130499345
+   },
+   "P75 HC balance": {
+    "control": 509.282,
+    "variant": 431.3037609,
+    "d_pct": -0.1531140686
+   },
+   "P90 HC balance": {
+    "control": 1220.560607,
+    "variant": 1042.19207,
+    "d_pct": -0.1461365668
+   },
+   "P99 HC balance": {
+    "control": 17159.43547,
+    "variant": 15187.47792,
+    "d_pct": -0.1149197215
+   },
+   "Booster gain total / player": {
+    "control": 9.277318314,
+    "variant": 8.653409837,
+    "d_pct": -0.06725095073
+   },
+   "Booster gain PAID / player": {
+    "control": 0.2057746433,
+    "variant": 0.1814058299,
+    "d_pct": -0.1184247632
+   },
+   "Booster gain FREE / player": {
+    "control": 9.071553385,
+    "variant": 8.471981355,
+    "d_pct": -0.06609364509
+   },
+   "Booster spent / player": {
+    "control": 7.479036986,
+    "variant": 7.244448896,
+    "d_pct": -0.03136608238
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 1.798281327,
+    "variant": 1.408960941,
+    "d_pct": -0.2164958178
+   },
+   "Booster spent / attempt": {
+    "control": 0.2099390342,
+    "variant": 0.1993528465,
+    "d_pct": -0.05042505696
+   },
+   "NS active rate (%)": {
+    "control": 67.13105330341149,
+    "variant": 39.98595753,
+    "d_pct": -0.4043597476
+   },
+   "R1 finished (%) [actual]": {
+    "control": 67.13105330341149,
+    "variant": 39.98595753,
+    "d_pct": -0.4043597476
+   },
+   "R2 finished (%) [actual]": {
+    "control": 44.82143398324103,
+    "variant": 21.74041176,
+    "d_pct": -0.5149550153
+   },
+   "R3 finished (%) [actual]": {
+    "control": 29.76296452615758,
+    "variant": 11.15763907,
+    "d_pct": -0.6251166762
+   },
+   "Red gain total / player": {
+    "control": 2.035746575,
+    "variant": 1.74526922,
+    "d_pct": -0.1426883674
+   },
+   "Red gain PAID / player": {
+    "control": 0.04091231128,
+    "variant": 0.03427123518,
+    "d_pct": -0.1623246376
+   },
+   "Red gain FREE / player": {
+    "control": 1.994834552,
+    "variant": 1.711012011,
+    "d_pct": -0.1422787372
+   },
+   "Red spent / player": {
+    "control": 1.467322529,
+    "variant": 1.349316776,
+    "d_pct": -0.08042250513
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.5684240458,
+    "variant": 0.3959524441,
+    "d_pct": -0.3034206645
+   },
+   "Chuck gain total / player": {
+    "control": 2.314940175,
+    "variant": 1.874658386,
+    "d_pct": -0.190191433
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.03951304339,
+    "variant": 0.03260085811,
+    "d_pct": -0.1749342669
+   },
+   "Chuck gain FREE / player": {
+    "control": 2.275432243,
+    "variant": 1.842038772,
+    "d_pct": -0.1904664369
+   },
+   "Chuck spent / player": {
+    "control": 1.542946063,
+    "variant": 1.352579638,
+    "d_pct": -0.123378535
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 0.7719941115,
+    "variant": 0.5220787473,
+    "d_pct": -0.3237270342
+   },
+   "Bomb gain total / player": {
+    "control": 1.174262892,
+    "variant": 1.178360183,
+    "d_pct": 0.00348924479
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.0499091276,
+    "variant": 0.03845748397,
+    "d_pct": -0.229449886
+   },
+   "Bomb gain FREE / player": {
+    "control": 1.124363305,
+    "variant": 1.139893517,
+    "d_pct": 0.01381245045
+   },
+   "Bomb spent / player": {
+    "control": 0.8646630444,
+    "variant": 0.893237447,
+    "d_pct": 0.03304686472
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.3095998476,
+    "variant": 0.2851227357,
+    "d_pct": -0.07906047811
+   },
+   "Slingshot gain total / player": {
+    "control": 1.50811966,
+    "variant": 1.85104543,
+    "d_pct": 0.2273863133
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.02975166505,
+    "variant": 0.02994183771,
+    "d_pct": 0.006392000429
+   },
+   "Slingshot gain FREE / player": {
+    "control": 1.478353809,
+    "variant": 1.821094083,
+    "d_pct": 0.2318391386
+   },
+   "Slingshot spent / player": {
+    "control": 1.388981421,
+    "variant": 1.59302662,
+    "d_pct": 0.1469027559
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.1191382388,
+    "variant": 0.2580188095,
+    "d_pct": 1.165709449
+   },
+   "Shuffle gain total / player": {
+    "control": 1.540286358,
+    "variant": 1.390079052,
+    "d_pct": -0.09751907869
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.02584835078,
+    "variant": 0.02708534402,
+    "d_pct": 0.04785578992
+   },
+   "Shuffle gain FREE / player": {
+    "control": 1.514438582,
+    "variant": 1.362993251,
+    "d_pct": -0.1000009727
+   },
+   "Shuffle spent / player": {
+    "control": 1.448469425,
+    "variant": 1.326727922,
+    "d_pct": -0.08404837567
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.09181693346,
+    "variant": 0.06335112925,
+    "d_pct": -0.3100278253
+   },
+   "Star gain total / player": {
+    "control": 0.7039772018,
+    "variant": 0.6139924636,
+    "d_pct": -0.1278233698
+   },
+   "Star gain PAID / player": {
+    "control": 0.01984960822,
+    "variant": 0.0190395345,
+    "d_pct": -0.04081056486
+   },
+   "Star gain FREE / player": {
+    "control": 0.6841312442,
+    "variant": 0.5949586142,
+    "d_pct": -0.130344332
+   },
+   "Star spent / player": {
+    "control": 0.7666545232,
+    "variant": 0.7295321477,
+    "d_pct": -0.04842125677
+   },
+   "Star NET (gain - spend) / player": {
+    "control": -0.06267732147,
+    "variant": -0.1155396842,
+    "d_pct": -0.843404942
+   },
+   "SPT gain total / player": {
+    "control": 334.29262,
+    "variant": 294.9317738,
+    "d_pct": -0.1177436888
+   },
+   "SPT gainer rate (%)": {
+    "control": 90.53859534,
+    "variant": 90.57664937,
+    "d_pct": 0.0004203072288
+   },
+   "SPT gain / gainer": {
+    "control": 367.8769738,
+    "variant": 324.4692202,
+    "d_pct": -0.1179952992
+   },
+   "SPT gain / player (CORE)": {
+    "control": 309.5543639,
+    "variant": 243.348344,
+    "d_pct": -0.2138752593
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0.01091830072,
+    "variant": 29.71072284,
+    "d_pct": 2720.185613
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 7.754928372,
+    "variant": 7.44590622,
+    "d_pct": -0.03984848572
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 16.973404,
+    "variant": 14.42730991,
+    "d_pct": -0.150004919
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   }
+  },
+  "40-99": {
+   "Players (sum)": {
+    "control": 65813,
+    "variant": 62772,
+    "d_pct": -0.04620667649
+   },
+   "Total revenue": {
+    "control": 15152.74,
+    "variant": 13041.14,
+    "d_pct": -0.1393543346
+   },
+   "ARPDAU": {
+    "control": 0.2302393144,
+    "variant": 0.2077540942,
+    "d_pct": -0.09766021192
+   },
+   "AVG Payer day (%)": {
+    "control": 3.840133256,
+    "variant": 3.746562639,
+    "d_pct": -0.02436650259
+   },
+   "ARPPU": {
+    "control": 5.995607419,
+    "variant": 5.545192065,
+    "d_pct": -0.07512422392
+   },
+   "Time spent (mins)": {
+    "control": 111.6204344,
+    "variant": 114.5254921,
+    "d_pct": 0.02602621734
+   },
+   "Level attempts / player": {
+    "control": 70.00077371,
+    "variant": 71.08263637,
+    "d_pct": 0.01545501002
+   },
+   "Level completes / player": {
+    "control": 52.48362877,
+    "variant": 52.10015102,
+    "d_pct": -0.007306616418
+   },
+   "Avg daily streak": {
+    "control": 29.21516767,
+    "variant": 27.80775027,
+    "d_pct": -0.04817420242
+   },
+   "P25 daily streak": {
+    "control": 11.04954948,
+    "variant": 10.48668196,
+    "d_pct": -0.05094031408
+   },
+   "P50 daily streak": {
+    "control": 21.47557473,
+    "variant": 20.145909,
+    "d_pct": -0.06191525707
+   },
+   "P75 daily streak": {
+    "control": 40.58534028,
+    "variant": 38.59235009,
+    "d_pct": -0.04910615942
+   },
+   "P90 daily streak": {
+    "control": 61.75749472,
+    "variant": 58.50669088,
+    "d_pct": -0.05263820777
+   },
+   "P99 daily streak": {
+    "control": 121.5950496,
+    "variant": 117.5033614,
+    "d_pct": -0.03365012188
+   },
+   "Pass rate": {
+    "control": 0.7498111422,
+    "variant": 0.7326979434,
+    "d_pct": -0.02282334559
+   },
+   "OOM rate": {
+    "control": 0.3618011882,
+    "variant": 0.3742933043,
+    "d_pct": 0.03452757075
+   },
+   "First-try OOM rate": {
+    "control": 0.2380696367,
+    "variant": 0.2408797266,
+    "d_pct": 0.01180364691
+   },
+   "Attempts per completion": {
+    "control": 1.334243464,
+    "variant": 1.365190246,
+    "d_pct": 0.02319425384
+   },
+   "HC gain total / player": {
+    "control": 320.7932965,
+    "variant": 276.659755,
+    "d_pct": -0.1375762585
+   },
+   "HC gain PAID / player": {
+    "control": 20.87065534,
+    "variant": 19.4868298,
+    "d_pct": -0.06630484392
+   },
+   "HC gain FREE / player": {
+    "control": 299.9216984,
+    "variant": 257.1734138,
+    "d_pct": -0.1425314837
+   },
+   "HC spent / player": {
+    "control": 314.2641574,
+    "variant": 272.5789304,
+    "d_pct": -0.1326439112
+   },
+   "HC NET (gain - spend) / player": {
+    "control": 6.529139076,
+    "variant": 4.080824571,
+    "d_pct": -0.3749827467
+   },
+   "HC spent / attempt": {
+    "control": 4.489173326,
+    "variant": 3.830422457,
+    "d_pct": -0.1467421328
+   },
+   "Paid % of total HC gain": {
+    "control": 6.649364867,
+    "variant": 7.272103804,
+    "d_pct": 0.09365389771
+   },
+   "HC gain / player (CORE)": {
+    "control": 182.3146398,
+    "variant": 115.4561526,
+    "d_pct": -0.3667203429
+   },
+   "HC gain / player (META)": {
+    "control": 109.3233211,
+    "variant": 133.7198678,
+    "d_pct": 0.2231595826
+   },
+   "HC gain / player (AD)": {
+    "control": 3.652065397,
+    "variant": 3.519879883,
+    "d_pct": -0.03619472826
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 20.86153678,
+    "variant": 19.47975276,
+    "d_pct": -0.06623596512
+   },
+   "HC gain / player (OTHER)": {
+    "control": 4.639896373,
+    "variant": 4.484550755,
+    "d_pct": -0.03348040677
+   },
+   "P50 HC balance": {
+    "control": 355.3730266,
+    "variant": 314.2875167,
+    "d_pct": -0.1156123476
+   },
+   "P75 HC balance": {
+    "control": 657.1909805,
+    "variant": 549.5814694,
+    "d_pct": -0.1637416128
+   },
+   "P90 HC balance": {
+    "control": 1544.65209,
+    "variant": 1245.808163,
+    "d_pct": -0.1934700565
+   },
+   "P99 HC balance": {
+    "control": 15181.72408,
+    "variant": 14360.92911,
+    "d_pct": -0.05406467467
+   },
+   "Booster gain total / player": {
+    "control": 16.34493706,
+    "variant": 13.96317436,
+    "d_pct": -0.1457186828
+   },
+   "Booster gain PAID / player": {
+    "control": 0.4077369866,
+    "variant": 0.3412604505,
+    "d_pct": -0.1630377873
+   },
+   "Booster gain FREE / player": {
+    "control": 15.93722011,
+    "variant": 13.62192273,
+    "d_pct": -0.1452761122
+   },
+   "Booster spent / player": {
+    "control": 13.75752889,
+    "variant": 12.01620252,
+    "d_pct": -0.1265726124
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 2.587408164,
+    "variant": 1.946971838,
+    "d_pct": -0.2475204087
+   },
+   "Booster spent / attempt": {
+    "control": 0.1964968882,
+    "variant": 0.168777388,
+    "d_pct": -0.1410683925
+   },
+   "NS active rate (%)": {
+    "control": 69.47695179730147,
+    "variant": 42.1344566,
+    "d_pct": -0.3935477088
+   },
+   "R1 finished (%) [actual]": {
+    "control": 69.47695179730147,
+    "variant": 42.1344566,
+    "d_pct": -0.3935477088
+   },
+   "R2 finished (%) [actual]": {
+    "control": 49.47428880420229,
+    "variant": 25.62311413,
+    "d_pct": -0.4820923201
+   },
+   "R3 finished (%) [actual]": {
+    "control": 34.037131012462666,
+    "variant": 15.93503919,
+    "d_pct": -0.5318336559
+   },
+   "Red gain total / player": {
+    "control": 3.627299726,
+    "variant": 2.651821003,
+    "d_pct": -0.2689269697
+   },
+   "Red gain PAID / player": {
+    "control": 0.07114508076,
+    "variant": 0.05828462212,
+    "d_pct": -0.180763849
+   },
+   "Red gain FREE / player": {
+    "control": 3.556164577,
+    "variant": 2.593556023,
+    "d_pct": -0.2706872904
+   },
+   "Red spent / player": {
+    "control": 2.637078723,
+    "variant": 2.069960537,
+    "d_pct": -0.2150554633
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 0.9902210034,
+    "variant": 0.5818604665,
+    "d_pct": -0.41239333
+   },
+   "Chuck gain total / player": {
+    "control": 3.859170883,
+    "variant": 2.860555711,
+    "d_pct": -0.2587641755
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.07606813699,
+    "variant": 0.06367823393,
+    "d_pct": -0.1628790129
+   },
+   "Chuck gain FREE / player": {
+    "control": 3.78310358,
+    "variant": 2.796882828,
+    "d_pct": -0.2606909197
+   },
+   "Chuck spent / player": {
+    "control": 2.769870282,
+    "variant": 2.133850315,
+    "d_pct": -0.2296208494
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 1.0893006,
+    "variant": 0.7267053957,
+    "d_pct": -0.3328697372
+   },
+   "Bomb gain total / player": {
+    "control": 2.012752432,
+    "variant": 1.982336249,
+    "d_pct": -0.01511173593
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.09010476957,
+    "variant": 0.0697500239,
+    "d_pct": -0.2259008682
+   },
+   "Bomb gain FREE / player": {
+    "control": 1.922652076,
+    "variant": 1.912585913,
+    "d_pct": -0.005235561833
+   },
+   "Bomb spent / player": {
+    "control": 1.532321058,
+    "variant": 1.524406619,
+    "d_pct": -0.005165000451
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.4804313737,
+    "variant": 0.4579296295,
+    "d_pct": -0.04683654215
+   },
+   "Slingshot gain total / player": {
+    "control": 2.563215518,
+    "variant": 2.891786042,
+    "d_pct": 0.1281868501
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.06930259675,
+    "variant": 0.06165459759,
+    "d_pct": -0.1103566031
+   },
+   "Slingshot gain FREE / player": {
+    "control": 2.493908474,
+    "variant": 2.830136641,
+    "d_pct": 0.1348197699
+   },
+   "Slingshot spent / player": {
+    "control": 2.452692182,
+    "variant": 2.589765126,
+    "d_pct": 0.05588672919
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.1105233358,
+    "variant": 0.3020209154,
+    "d_pct": 1.732643863
+   },
+   "Shuffle gain total / player": {
+    "control": 2.818227288,
+    "variant": 2.481800513,
+    "d_pct": -0.1193753167
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.05517889323,
+    "variant": 0.0495550787,
+    "d_pct": -0.1019196689
+   },
+   "Shuffle gain FREE / player": {
+    "control": 2.763048747,
+    "variant": 2.432245305,
+    "d_pct": -0.1197240701
+   },
+   "Shuffle spent / player": {
+    "control": 2.688096761,
+    "variant": 2.414996892,
+    "d_pct": -0.1015959963
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": 0.1301305274,
+    "variant": 0.06680362104,
+    "d_pct": -0.4866414332
+   },
+   "Star gain total / player": {
+    "control": 1.464304996,
+    "variant": 1.094879765,
+    "d_pct": -0.2522870796
+   },
+   "Star gain PAID / player": {
+    "control": 0.04595797031,
+    "variant": 0.03834317052,
+    "d_pct": -0.1656905154
+   },
+   "Star gain FREE / player": {
+    "control": 1.418351397,
+    "variant": 1.056536604,
+    "d_pct": -0.2550953127
+   },
+   "Star spent / player": {
+    "control": 1.677470386,
+    "variant": 1.283251043,
+    "d_pct": -0.2350082277
+   },
+   "Star NET (gain - spend) / player": {
+    "control": -0.2131653898,
+    "variant": -0.1883712786,
+    "d_pct": 0.1163139628
+   },
+   "SPT gain total / player": {
+    "control": 700.4518679,
+    "variant": 610.2166039,
+    "d_pct": -0.1288243605
+   },
+   "SPT gainer rate (%)": {
+    "control": 97.3854278,
+    "variant": 97.39725929,
+    "d_pct": 0.000121491324
+   },
+   "SPT gain / gainer": {
+    "control": 718.2730891,
+    "variant": 625.5386825,
+    "d_pct": -0.1291074494
+   },
+   "SPT gain / player (CORE)": {
+    "control": 661.8659713,
+    "variant": 515.9360758,
+    "d_pct": -0.2204825476
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0.008013614332,
+    "variant": 60.06122953,
+    "d_pct": 7493.898936
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 10.62818577,
+    "variant": 10.4446148,
+    "d_pct": -0.01727208917
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 27.94928221,
+    "variant": 23.77517906,
+    "d_pct": -0.1493456296
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   }
+  },
+  "100+": {
+   "Players (sum)": {
+    "control": 9596,
+    "variant": 9017,
+    "d_pct": -0.06033764068
+   },
+   "Total revenue": {
+    "control": 4974.31,
+    "variant": 3434.25,
+    "d_pct": -0.3096027389
+   },
+   "ARPDAU": {
+    "control": 0.5183732805,
+    "variant": 0.3808639237,
+    "d_pct": -0.2652709196
+   },
+   "AVG Payer day (%)": {
+    "control": 6.595564819,
+    "variant": 5.86697904,
+    "d_pct": -0.1104660176
+   },
+   "ARPPU": {
+    "control": 7.859422124,
+    "variant": 6.491653049,
+    "d_pct": -0.1740292166
+   },
+   "Time spent (mins)": {
+    "control": 234.9485515,
+    "variant": 240.2017689,
+    "d_pct": 0.02235901166
+   },
+   "Level attempts / player": {
+    "control": 162.461436,
+    "variant": 166.4476334,
+    "d_pct": 0.02453626806
+   },
+   "Level completes / player": {
+    "control": 124.9003595,
+    "variant": 123.6631784,
+    "d_pct": -0.009905344458
+   },
+   "Avg daily streak": {
+    "control": 55.63673301,
+    "variant": 50.14864256,
+    "d_pct": -0.09864149371
+   },
+   "P25 daily streak": {
+    "control": 20.69758233,
+    "variant": 19.571587,
+    "d_pct": -0.05440226331
+   },
+   "P50 daily streak": {
+    "control": 39.2344727,
+    "variant": 35.58323167,
+    "d_pct": -0.09306206437
+   },
+   "P75 daily streak": {
+    "control": 74.59774906,
+    "variant": 64.22590662,
+    "d_pct": -0.1390369357
+   },
+   "P90 daily streak": {
+    "control": 123.2464569,
+    "variant": 110.2813574,
+    "d_pct": -0.1051965286
+   },
+   "P99 daily streak": {
+    "control": 239.8520217,
+    "variant": 222.5522901,
+    "d_pct": -0.07212668643
+   },
+   "Pass rate": {
+    "control": 0.7688965819,
+    "variant": 0.7429221581,
+    "d_pct": -0.03378142701
+   },
+   "OOM rate": {
+    "control": 0.3159744685,
+    "variant": 0.3333690917,
+    "d_pct": 0.05505072378
+   },
+   "First-try OOM rate": {
+    "control": 0.2053518237,
+    "variant": 0.2125826772,
+    "d_pct": 0.03521202471
+   },
+   "Attempts per completion": {
+    "control": 1.301098802,
+    "variant": 1.346629478,
+    "d_pct": 0.03499401891
+   },
+   "HC gain total / player": {
+    "control": 670.49958,
+    "variant": 547.0506632,
+    "d_pct": -0.184114831
+   },
+   "HC gain PAID / player": {
+    "control": 50.06914027,
+    "variant": 36.39787734,
+    "d_pct": -0.2730476867
+   },
+   "HC gain FREE / player": {
+    "control": 620.4330273,
+    "variant": 510.6523256,
+    "d_pct": -0.176942066
+   },
+   "HC spent / player": {
+    "control": 648.6349854,
+    "variant": 530.9584973,
+    "d_pct": -0.1814217407
+   },
+   "HC NET (gain - spend) / player": {
+    "control": 21.86459462,
+    "variant": 16.09216591,
+    "d_pct": -0.2640080374
+   },
+   "HC spent / attempt": {
+    "control": 3.995303981,
+    "variant": 3.189292403,
+    "d_pct": -0.2017397378
+   },
+   "Paid % of total HC gain": {
+    "control": 7.696480825,
+    "variant": 6.73950427,
+    "d_pct": -0.1243394971
+   },
+   "HC gain / player (CORE)": {
+    "control": 413.5547124,
+    "variant": 255.8835588,
+    "d_pct": -0.3812582684
+   },
+   "HC gain / player (META)": {
+    "control": 188.5981263,
+    "variant": 237.134578,
+    "d_pct": 0.2573538384
+   },
+   "HC gain / player (AD)": {
+    "control": 5.478545227,
+    "variant": 5.115780193,
+    "d_pct": -0.06621557716
+   },
+   "HC gain / player (PURCHASE)": {
+    "control": 50.06914027,
+    "variant": 36.38083731,
+    "d_pct": -0.2733880168
+   },
+   "HC gain / player (OTHER)": {
+    "control": 12.80180909,
+    "variant": 12.53548963,
+    "d_pct": -0.0208032673
+   },
+   "P50 HC balance": {
+    "control": 472.9969779,
+    "variant": 412.6991239,
+    "d_pct": -0.1274804213
+   },
+   "P75 HC balance": {
+    "control": 898.2608378,
+    "variant": 750.5469668,
+    "d_pct": -0.1644442959
+   },
+   "P90 HC balance": {
+    "control": 1777.498228,
+    "variant": 1495.809027,
+    "d_pct": -0.1584750952
+   },
+   "P99 HC balance": {
+    "control": 14338.22343,
+    "variant": 11896.04979,
+    "d_pct": -0.1703260968
+   },
+   "Booster gain total / player": {
+    "control": 34.44736903,
+    "variant": 31.10746115,
+    "d_pct": -0.09695683507
+   },
+   "Booster gain PAID / player": {
+    "control": 0.8189897145,
+    "variant": 0.4959560053,
+    "d_pct": -0.3944295068
+   },
+   "Booster gain FREE / player": {
+    "control": 33.62839234,
+    "variant": 30.61151603,
+    "d_pct": -0.08971217787
+   },
+   "Booster spent / player": {
+    "control": 31.35598503,
+    "variant": 26.39325587,
+    "d_pct": -0.158270555
+   },
+   "Booster NET (gain - spend) / player": {
+    "control": 3.091384004,
+    "variant": 4.714205279,
+    "d_pct": 0.5249497549
+   },
+   "Booster spent / attempt": {
+    "control": 0.1931297103,
+    "variant": 0.1584731618,
+    "d_pct": -0.1794470071
+   },
+   "NS active rate (%)": {
+    "control": 69.55612235067437,
+    "variant": 63.11434402,
+    "d_pct": -0.09261267184
+   },
+   "R1 finished (%) [actual]": {
+    "control": 69.55612235067437,
+    "variant": 63.11434402,
+    "d_pct": -0.09261267184
+   },
+   "R2 finished (%) [actual]": {
+    "control": 49.613294797687864,
+    "variant": 49.53941888,
+    "d_pct": -0.001489034795
+   },
+   "R3 finished (%) [actual]": {
+    "control": 36.70592485549133,
+    "variant": 42.35367417,
+    "d_pct": 0.1538647872
+   },
+   "Red gain total / player": {
+    "control": 7.580039631,
+    "variant": 4.803700433,
+    "d_pct": -0.3662697471
+   },
+   "Red gain PAID / player": {
+    "control": 0.1192273447,
+    "variant": 0.0702022513,
+    "d_pct": -0.411190013
+   },
+   "Red gain FREE / player": {
+    "control": 7.460802595,
+    "variant": 4.733514406,
+    "d_pct": -0.3655489009
+   },
+   "Red spent / player": {
+    "control": 5.752495165,
+    "variant": 3.854613364,
+    "d_pct": -0.3299232327
+   },
+   "Red NET (gain - spend) / player": {
+    "control": 1.827544466,
+    "variant": 0.9490870689,
+    "d_pct": -0.4806763467
+   },
+   "Chuck gain total / player": {
+    "control": 8.283443716,
+    "variant": 5.326940945,
+    "d_pct": -0.3569171075
+   },
+   "Chuck gain PAID / player": {
+    "control": 0.1423565652,
+    "variant": 0.06587831873,
+    "d_pct": -0.5372302035
+   },
+   "Chuck gain FREE / player": {
+    "control": 8.141097176,
+    "variant": 5.261068648,
+    "d_pct": -0.3537641752
+   },
+   "Chuck spent / player": {
+    "control": 6.158819706,
+    "variant": 4.161799534,
+    "d_pct": -0.3242537154
+   },
+   "Chuck NET (gain - spend) / player": {
+    "control": 2.12462401,
+    "variant": 1.165141411,
+    "d_pct": -0.4516011279
+   },
+   "Bomb gain total / player": {
+    "control": 4.2217661,
+    "variant": 4.038266696,
+    "d_pct": -0.04346508069
+   },
+   "Bomb gain PAID / player": {
+    "control": 0.1873796895,
+    "variant": 0.08185125873,
+    "d_pct": -0.5631796649
+   },
+   "Bomb gain FREE / player": {
+    "control": 4.034396238,
+    "variant": 3.956414794,
+    "d_pct": -0.01932914844
+   },
+   "Bomb spent / player": {
+    "control": 3.376513704,
+    "variant": 3.235558079,
+    "d_pct": -0.04174590623
+   },
+   "Bomb NET (gain - spend) / player": {
+    "control": 0.8452523968,
+    "variant": 0.8027086171,
+    "d_pct": -0.05033263429
+   },
+   "Slingshot gain total / player": {
+    "control": 5.290019133,
+    "variant": 6.828542741,
+    "d_pct": 0.290835169
+   },
+   "Slingshot gain PAID / player": {
+    "control": 0.1496561276,
+    "variant": 0.120211689,
+    "d_pct": -0.1967472966
+   },
+   "Slingshot gain FREE / player": {
+    "control": 5.140368685,
+    "variant": 6.708326727,
+    "d_pct": 0.3050283236
+   },
+   "Slingshot spent / player": {
+    "control": 5.158404575,
+    "variant": 5.081737207,
+    "d_pct": -0.01486261231
+   },
+   "Slingshot NET (gain - spend) / player": {
+    "control": 0.1316145581,
+    "variant": 1.746805534,
+    "d_pct": 12.27213006
+   },
+   "Shuffle gain total / player": {
+    "control": 5.772924469,
+    "variant": 6.386726062,
+    "d_pct": 0.106324203
+   },
+   "Shuffle gain PAID / player": {
+    "control": 0.1180735411,
+    "variant": 0.08562030609,
+    "d_pct": -0.2748561166
+   },
+   "Shuffle gain FREE / player": {
+    "control": 5.654856273,
+    "variant": 6.301095508,
+    "d_pct": 0.1142803997
+   },
+   "Shuffle spent / player": {
+    "control": 6.309192591,
+    "variant": 5.45037701,
+    "d_pct": -0.1361213132
+   },
+   "Shuffle NET (gain - spend) / player": {
+    "control": -0.5362681221,
+    "variant": 0.9363490518,
+    "d_pct": 2.746046452
+   },
+   "Star gain total / player": {
+    "control": 3.2991948,
+    "variant": 3.72330671,
+    "d_pct": 0.1285501267
+   },
+   "Star gain PAID / player": {
+    "control": 0.1023434452,
+    "variant": 0.07219467672,
+    "d_pct": -0.2945842639
+   },
+   "Star gain FREE / player": {
+    "control": 3.196850177,
+    "variant": 3.651093845,
+    "d_pct": 0.1420910092
+   },
+   "Star spent / player": {
+    "control": 4.600556565,
+    "variant": 4.609181213,
+    "d_pct": 0.00187469666
+   },
+   "Star NET (gain - spend) / player": {
+    "control": -1.301361765,
+    "variant": -0.8858745037,
+    "d_pct": 0.3192711456
+   },
+   "SPT gain total / player": {
+    "control": 1649.010329,
+    "variant": 1408.678087,
+    "d_pct": -0.1457433214
+   },
+   "SPT gainer rate (%)": {
+    "control": 98.9986682,
+    "variant": 98.85649773,
+    "d_pct": -0.001436084658
+   },
+   "SPT gain / gainer": {
+    "control": 1664.963405,
+    "variant": 1424.515137,
+    "d_pct": -0.1444165481
+   },
+   "SPT gain / player (CORE)": {
+    "control": 1594.564234,
+    "variant": 1217.953887,
+    "d_pct": -0.236183867
+   },
+   "SPT gain / player (RAINBOW)": {
+    "control": 0,
+    "variant": 141.0206255,
+    "d_pct": null
+   },
+   "SPT gain / player (OFFER)": {
+    "control": 15.08283868,
+    "variant": 15.23793834,
+    "d_pct": 0.01028318735
+   },
+   "SPT gain / player (EVENT)": {
+    "control": 39.36193727,
+    "variant": 34.46586115,
+    "d_pct": -0.1243860555
+   },
+   "SPT gain / player (OTHER)": {
+    "control": 0,
+    "variant": 0,
+    "d_pct": null
+   }
+  }
+ },
+ "bucket_order": [
+  "0",
+  "1-9",
+  "10-19",
+  "20-39",
+  "40-99",
+  "100+"
+ ],
+ "sections": {
+  "Players (sum)": "Players",
+  "Total revenue": "Revenue",
+  "ARPDAU": "Revenue",
+  "AVG Payer day (%)": "Revenue",
+  "ARPPU": "Revenue",
+  "Time spent (mins)": "Engagement",
+  "Level attempts / player": "Engagement",
+  "Level completes / player": "Engagement",
+  "Avg daily streak": "Daily Streak",
+  "P25 daily streak": "Daily Streak",
+  "P50 daily streak": "Daily Streak",
+  "P75 daily streak": "Daily Streak",
+  "P90 daily streak": "Daily Streak",
+  "P99 daily streak": "Daily Streak",
+  "Pass rate": "Difficulty",
+  "OOM rate": "Difficulty",
+  "First-try OOM rate": "Difficulty",
+  "Attempts per completion": "Difficulty",
+  "HC gain total / player": "HC Economy",
+  "HC gain PAID / player": "HC Economy",
+  "HC gain FREE / player": "HC Economy",
+  "HC spent / player": "HC Economy",
+  "HC NET (gain - spend) / player": "HC Economy",
+  "HC spent / attempt": "HC Economy",
+  "Paid % of total HC gain": "HC Economy",
+  "HC gain / player (CORE)": "HC Economy - Sources",
+  "HC gain / player (META)": "HC Economy - Sources",
+  "HC gain / player (AD)": "HC Economy - Sources",
+  "HC gain / player (PURCHASE)": "HC Economy - Sources",
+  "HC gain / player (OTHER)": "HC Economy - Sources",
+  "P50 HC balance": "HC Balance",
+  "P75 HC balance": "HC Balance",
+  "P90 HC balance": "HC Balance",
+  "P99 HC balance": "HC Balance",
+  "Booster gain total / player": "Boosters",
+  "Booster gain PAID / player": "Boosters",
+  "Booster gain FREE / player": "Boosters",
+  "Booster spent / player": "Boosters",
+  "Booster NET (gain - spend) / player": "Boosters",
+  "Booster spent / attempt": "Boosters",
+  "NS active rate (%)": "NS Actual Completions",
+  "R1 finished (%) [actual]": "NS Actual Completions",
+  "R2 finished (%) [actual]": "NS Actual Completions",
+  "R3 finished (%) [actual]": "NS Actual Completions",
+  "Red gain total / player": "Red",
+  "Red gain PAID / player": "Red",
+  "Red gain FREE / player": "Red",
+  "Red spent / player": "Red",
+  "Red NET (gain - spend) / player": "Red",
+  "Chuck gain total / player": "Chuck",
+  "Chuck gain PAID / player": "Chuck",
+  "Chuck gain FREE / player": "Chuck",
+  "Chuck spent / player": "Chuck",
+  "Chuck NET (gain - spend) / player": "Chuck",
+  "Bomb gain total / player": "Bomb",
+  "Bomb gain PAID / player": "Bomb",
+  "Bomb gain FREE / player": "Bomb",
+  "Bomb spent / player": "Bomb",
+  "Bomb NET (gain - spend) / player": "Bomb",
+  "Slingshot gain total / player": "Slingshot",
+  "Slingshot gain PAID / player": "Slingshot",
+  "Slingshot gain FREE / player": "Slingshot",
+  "Slingshot spent / player": "Slingshot",
+  "Slingshot NET (gain - spend) / player": "Slingshot",
+  "Shuffle gain total / player": "Shuffle",
+  "Shuffle gain PAID / player": "Shuffle",
+  "Shuffle gain FREE / player": "Shuffle",
+  "Shuffle spent / player": "Shuffle",
+  "Shuffle NET (gain - spend) / player": "Shuffle",
+  "Star gain total / player": "Star",
+  "Star gain PAID / player": "Star",
+  "Star gain FREE / player": "Star",
+  "Star spent / player": "Star",
+  "Star NET (gain - spend) / player": "Star",
+  "SPT gain total / player": "SPT",
+  "SPT gainer rate (%)": "SPT",
+  "SPT gain / gainer": "SPT",
+  "SPT gain / player (CORE)": "SPT",
+  "SPT gain / player (RAINBOW)": "SPT",
+  "SPT gain / player (OFFER)": "SPT",
+  "SPT gain / player (EVENT)": "SPT",
+  "SPT gain / player (OTHER)": "SPT",
+  "HC gain (ex-saga) / player": "HC Economy",
+  "HC gain from saga / player": "HC Economy",
+  "HC net (gain - spend) / player": "HC Economy",
+  "Avg player performance": "Performance",
+  "Avg PR (last 50 lvls)": "Performance",
+  "R1 pass rate (%)": "NS Round Pass %",
+  "R2 pass rate (%)": "NS Round Pass %",
+  "R3 pass rate (%)": "NS Round Pass %",
+  "D1 churn rate": "Retention",
+  "R1 finished (%) [claims]": "NS Actual Completions",
+  "R2 finished (%) [claims]": "NS Actual Completions",
+  "R3 finished (%) [claims]": "NS Actual Completions"
+ },
+ "ns_config": {
+  "Cum streak req - R1": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 2.0,
+    "10-19": 6.0,
+    "20-39": 11.0,
+    "40-99": 28.0,
+    "100+": 80.0
+   }
+  },
+  "Cum streak req - R2": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 5.0,
+    "10-19": 13.0,
+    "20-39": 26.0,
+    "40-99": 60.0,
+    "100+": 175.0
+   }
+  },
+  "Cum streak req - R3": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 10.0,
+    "10-19": 26.0,
+    "20-39": 42.0,
+    "40-99": 100.0,
+    "100+": 280.0
+   }
+  },
+  "Current HC reward - R1": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 0.0,
+    "10-19": 10.0,
+    "20-39": 15.0,
+    "40-99": 50.0,
+    "100+": 100.0
+   }
+  },
+  "Current HC reward - R2": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 10.0,
+    "10-19": 30.0,
+    "20-39": 50.0,
+    "40-99": 120.0,
+    "100+": 300.0
+   }
+  },
+  "Current HC reward - R3": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 15.0,
+    "10-19": 60.0,
+    "20-39": 100.0,
+    "40-99": 250.0,
+    "100+": 400.0
+   }
+  },
+  "NEW HC reward - R1": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 0.0,
+    "10-19": 10.0,
+    "20-39": 15.0,
+    "40-99": 60.0,
+    "100+": 125.0
+   }
+  },
+  "NEW HC reward - R2": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 10.0,
+    "10-19": 35.0,
+    "20-39": 75.0,
+    "40-99": 160.0,
+    "100+": 350.0
+   }
+  },
+  "NEW HC reward - R3": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 15.0,
+    "10-19": 70.0,
+    "20-39": 140.0,
+    "40-99": 300.0,
+    "100+": 500.0
+   }
+  },
+  "Diff HC - R1": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 0,
+    "10-19": 0,
+    "20-39": 0,
+    "40-99": "+10",
+    "100+": "+25"
+   }
+  },
+  "Diff HC - R2": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 0,
+    "10-19": "+5",
+    "20-39": "+25",
+    "40-99": "+40",
+    "100+": "+50"
+   }
+  },
+  "Diff HC - R3": {
+   "block": "NS CONFIG",
+   "by_segment": {
+    "1-9": 0,
+    "10-19": "+10",
+    "20-39": "+40",
+    "40-99": "+50",
+    "100+": "+100"
+   }
+  },
+  "Claim rate / player-day - R1 (%)": {
+   "block": "VARIANT DATA",
+   "by_segment": {
+    "1-9": 74.82814746,
+    "10-19": 65.04197912,
+    "20-39": 57.45439009,
+    "40-99": 37.82226056,
+    "100+": 18.88710658
+   }
+  },
+  "Claim rate / player-day - R2 (%)": {
+   "block": "VARIANT DATA",
+   "by_segment": {
+    "1-9": 33.5311581,
+    "10-19": 26.79617368,
+    "20-39": 19.56835219,
+    "40-99": 9.579756739,
+    "100+": 3.005620495
+   }
+  },
+  "Claim rate / player-day - R3 (%)": {
+   "block": "VARIANT DATA",
+   "by_segment": {
+    "1-9": 6.221211599,
+    "10-19": 3.264937481,
+    "20-39": 4.176480466,
+    "40-99": 2.123863028,
+    "100+": 0.3557180881
+   }
+  },
+  "Daily streak p50": {
+   "block": "VARIANT DATA",
+   "by_segment": {
+    "1-9": 3,
+    "10-19": 8.154628863,
+    "20-39": 12.67275996,
+    "40-99": 20.145909,
+    "100+": 35.58323167
+   }
+  },
+  "Daily streak p75": {
+   "block": "VARIANT DATA",
+   "by_segment": {
+    "1-9": 5.28445761,
+    "10-19": 12.96530095,
+    "20-39": 22.38708455,
+    "40-99": 38.59235009,
+    "100+": 64.22590662
+   }
+  },
+  "Daily streak p90": {
+   "block": "VARIANT DATA",
+   "by_segment": {
+    "1-9": 8.188280927,
+    "10-19": 18.30106672,
+    "20-39": 32.57253644,
+    "40-99": 58.50669088,
+    "100+": 110.2813574
+   }
+  },
+  "NS HC gain per Player NOW (est)": {
+   "block": "NS HC PER PLAYER-DAY",
+   "by_segment": {
+    "1-9": 4.286297549,
+    "10-19": 16.5020125,
+    "20-39": 22.57881507,
+    "40-99": 35.71649594,
+    "100+": 29.32684041
+   }
+  },
+  "NS HC with new Config": {
+   "block": "NS HC PER PLAYER-DAY",
+   "by_segment": {
+    "1-9": 4.286297549,
+    "10-19": 18.16831494,
+    "20-39": 29.14149531,
+    "40-99": 44.3925562,
+    "100+": 35.90714539
+   }
+  },
+  "Diff NS HC / player-day": {
+   "block": "NS HC PER PLAYER-DAY",
+   "by_segment": {
+    "1-9": 0,
+    "10-19": "+1.67",
+    "20-39": "+6.56",
+    "40-99": "+8.68",
+    "100+": "+6.58"
+   }
+  },
+  "NS uplift %": {
+   "block": "NS HC PER PLAYER-DAY",
+   "by_segment": {
+    "1-9": 0,
+    "10-19": 0.1009757102,
+    "20-39": 0.2906565385,
+    "40-99": 0.2429146544,
+    "100+": 0.2243782449
+   }
+  },
+  "Control": {
+   "block": "TOTAL HC GAIN / PLAYER",
+   "by_segment": {
+    "1-9": 47.21371756,
+    "10-19": 98.0588162,
+    "20-39": 169.2485786,
+    "40-99": 320.7932965,
+    "100+": 670.49958
+   }
+  },
+  "Variant (as tested)": {
+   "block": "TOTAL HC GAIN / PLAYER",
+   "by_segment": {
+    "1-9": 40.32115958,
+    "10-19": 84.74901364,
+    "20-39": 146.5085842,
+    "40-99": 276.659755,
+    "100+": 547.0506632
+   }
+  },
+  "Variant + proposal": {
+   "block": "TOTAL HC GAIN / PLAYER",
+   "by_segment": {
+    "1-9": 40.32115958,
+    "10-19": 86.41901364,
+    "20-39": 153.0685842,
+    "40-99": 285.339755,
+    "100+": 553.6306632
+   }
+  },
+  "NS share of HC gain (now)": {
+   "block": "TOTAL HC GAIN / PLAYER",
+   "by_segment": {
+    "1-9": 0.1063039256,
+    "10-19": 0.1947162781,
+    "20-39": 0.1541125744,
+    "40-99": 0.1290989936,
+    "100+": 0.05360900258
+   }
+  },
+  "HC Change % Control vs Variant (Current)": {
+   "block": "TOTAL HC GAIN / PLAYER",
+   "by_segment": {
+    "1-9": -0.1459863433,
+    "10-19": -0.1357328497,
+    "20-39": -0.134358555,
+    "40-99": -0.1375762585,
+    "100+": -0.184114831
+   }
+  },
+  "HC Change % Control vs NEW Estimate": {
+   "block": "TOTAL HC GAIN / PLAYER",
+   "by_segment": {
+    "1-9": -0.1459863433,
+    "10-19": -0.1187022546,
+    "20-39": -0.09559899761,
+    "40-99": -0.1105183365,
+    "100+": -0.1743012529
+   }
+  }
+ },
+ "ns_config_segments": [
+  "1-9",
+  "10-19",
+  "20-39",
+  "40-99",
+  "100+"
+ ]
+}

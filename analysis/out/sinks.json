@@ -1,0 +1,1734 @@
+{
+ "by_action": {
+  "rows": [
+   {
+    "key": "extra_moves",
+    "control": 26386400.0,
+    "variant": 23170460.0,
+    "share_control": 0.9445692387823812,
+    "d_pct": -0.12187869508534699
+   },
+   {
+    "key": "purchase_lives",
+    "control": 686500.0,
+    "variant": 469350.0,
+    "share_control": 0.024575037990180723,
+    "d_pct": -0.3163146394756009
+   },
+   {
+    "key": "purchase_pre_level_booster",
+    "control": 525600.0,
+    "variant": 427950.0,
+    "share_control": 0.018815207527514914,
+    "d_pct": -0.18578767123287676
+   },
+   {
+    "key": "purchase_powerup",
+    "control": 314550.0,
+    "variant": 268400.0,
+    "share_control": 0.011260128477511067,
+    "d_pct": -0.14671753298362744
+   },
+   {
+    "key": "team_created",
+    "control": 13800.0,
+    "variant": 15000.0,
+    "share_control": 0.0004940065903342957,
+    "d_pct": 0.08695652173913038
+   },
+   {
+    "key": "level_movesplus5",
+    "control": 8000.0,
+    "variant": 5890.0,
+    "share_control": 0.00028638063207785255,
+    "d_pct": -0.26375000000000004
+   }
+  ],
+  "total": {
+   "Control": 27934850.0,
+   "Variant": 24357050.0
+  },
+  "total_d_pct": -0.1280765781810176
+ },
+ "by_context": {
+  "rows": [
+   {
+    "key": "level_movesplus5",
+    "control": 23931200.0,
+    "variant": 21010950.0,
+    "share_control": 0.8566790227976881,
+    "d_pct": -0.12202689376211806
+   },
+   {
+    "key": "level_movesplus10",
+    "control": 559200.0,
+    "variant": 454000.0,
+    "share_control": 0.020018006182241897,
+    "d_pct": -0.18812589413447778
+   },
+   {
+    "key": "map_pre_level_booster",
+    "control": 505500.0,
+    "variant": 414900.0,
+    "share_control": 0.018095676189419308,
+    "d_pct": -0.1792284866468843
+   },
+   {
+    "key": "level_lives",
+    "control": 490750.0,
+    "variant": 326750.0,
+    "share_control": 0.01756766189902577,
+    "d_pct": -0.3341823739174733
+   },
+   {
+    "key": "level_movesplus50",
+    "control": 463200.0,
+    "variant": 466100.0,
+    "share_control": 0.016581438597307666,
+    "d_pct": 0.006260794473229803
+   },
+   {
+    "key": "level_movesplus15",
+    "control": 439000.0,
+    "variant": 362300.0,
+    "share_control": 0.01571513718527216,
+    "d_pct": -0.17471526195899767
+   },
+   {
+    "key": "level_movesplus20",
+    "control": 335500.0,
+    "variant": 273600.0,
+    "share_control": 0.012010087757764942,
+    "d_pct": -0.18450074515648285
+   },
+   {
+    "key": "level_powerup",
+    "control": 314550.0,
+    "variant": 268400.0,
+    "share_control": 0.011260128477511067,
+    "d_pct": -0.14671753298362744
+   },
+   {
+    "key": "level_movesplus25",
+    "control": 223500.0,
+    "variant": 196100.0,
+    "share_control": 0.008000758908675007,
+    "d_pct": -0.12259507829977634
+   },
+   {
+    "key": "map_lives",
+    "control": 195750.0,
+    "variant": 142600.0,
+    "share_control": 0.007007376091154955,
+    "d_pct": -0.27151979565772666
+   },
+   {
+    "key": "level_movesplus30",
+    "control": 160300.0,
+    "variant": 143900.0,
+    "share_control": 0.005738351915259971,
+    "d_pct": -0.10230817217716781
+   },
+   {
+    "key": "level_movesplus35",
+    "control": 119800.0,
+    "variant": 110000.0,
+    "share_control": 0.004288549965365842,
+    "d_pct": -0.08180300500834725
+   },
+   {
+    "key": "level_movesplus40",
+    "control": 93400.0,
+    "variant": 87200.0,
+    "share_control": 0.0033434938795089287,
+    "d_pct": -0.06638115631691643
+   },
+   {
+    "key": "level_movesplus45",
+    "control": 69300.0,
+    "variant": 72200.0,
+    "share_control": 0.002480772225374398,
+    "d_pct": 0.0418470418470418
+   },
+   {
+    "key": "level_pre_level_booster",
+    "control": 20100.0,
+    "variant": 13050.0,
+    "share_control": 0.0007195313380956046,
+    "d_pct": -0.35074626865671643
+   },
+   {
+    "key": "unknown",
+    "control": 13800.0,
+    "variant": 15000.0,
+    "share_control": 0.0004940065903342957,
+    "d_pct": 0.08695652173913038
+   }
+  ],
+  "total": {
+   "Control": 27934850.0,
+   "Variant": 24357050.0
+  },
+  "total_d_pct": -0.1280765781810176
+ },
+ "continue": {
+  "A. 0": {
+   "Control": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 274.3560509109524,
+    "coins_per_player_day": 27.435605091095237
+   },
+   "Variant": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 328.0133617889951,
+    "coins_per_player_day": 32.80133617889951
+   }
+  },
+  "B. 1-9": {
+   "Control": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 411.8890592666478,
+    "coins_per_player_day": 41.18890592666478
+   },
+   "Variant": {
+    "coins_per_continue": 100.00415523975734,
+    "continues_per_1000_player_days": 363.8260238559572,
+    "coins_per_player_day": 36.3841141699548
+   }
+  },
+  "C. 10-19": {
+   "Control": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 867.7027832810787,
+    "coins_per_player_day": 86.77027832810786
+   },
+   "Variant": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 772.9575741353268,
+    "coins_per_player_day": 77.29575741353268
+   }
+  },
+  "D. 20-39": {
+   "Control": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 1543.795285701183,
+    "coins_per_player_day": 154.3795285701183
+   },
+   "Variant": {
+    "coins_per_continue": 99.99121722724611,
+    "continues_per_1000_player_days": 1390.5373620408902,
+    "coins_per_player_day": 139.04152343043242
+   }
+  },
+  "E. 40-99": {
+   "Control": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 3023.8832219486458,
+    "coins_per_player_day": 302.3883221948646
+   },
+   "Variant": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 2603.180446145918,
+    "coins_per_player_day": 260.31804461459177
+   }
+  },
+  "F. 100+": {
+   "Control": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 6347.16796875,
+    "coins_per_player_day": 634.716796875
+   },
+   "Variant": {
+    "coins_per_continue": 100.0,
+    "continues_per_1000_player_days": 5148.741983226443,
+    "coins_per_player_day": 514.8741983226442
+   }
+  }
+ },
+ "sources": {
+  "HardCoin": {
+   "A. 0": {
+    "rows": [
+     {
+      "source": "dreamheist_event",
+      "control": 0.0,
+      "variant": 12.924,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "daily_reward",
+      "control": 11.775,
+      "variant": 7.709,
+      "share_control": 0.27350010452233287,
+      "d_pct": -0.34530785562632704
+     },
+     {
+      "source": "team_collection",
+      "control": 4.369,
+      "variant": 4.203,
+      "share_control": 0.10147957169070677,
+      "d_pct": -0.037994964522773955
+     },
+     {
+      "source": "race_event",
+      "control": 2.834,
+      "variant": 1.823,
+      "share_control": 0.0658258425661394,
+      "d_pct": -0.35673959068454486
+     },
+     {
+      "source": "chuck_event",
+      "control": 0.007,
+      "variant": 2.766,
+      "share_control": 0.00016259029568206626,
+      "d_pct": 394.1428571428571
+     },
+     {
+      "source": "ad_chest",
+      "control": 2.459,
+      "variant": 2.528,
+      "share_control": 0.05711564815460013,
+      "d_pct": 0.0280601870679138
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 1.835,
+      "variant": 2.261,
+      "share_control": 0.04262188465379879,
+      "d_pct": 0.2321525885558584
+     },
+     {
+      "source": "river_rush",
+      "control": 1.902,
+      "variant": 0.014,
+      "share_control": 0.04417810605532714,
+      "d_pct": -0.9926393270241851
+     },
+     {
+      "source": "player_level_up",
+      "control": 1.663,
+      "variant": 1.724,
+      "share_control": 0.038626808817039456,
+      "d_pct": 0.03668069753457592
+     },
+     {
+      "source": "bomb_event",
+      "control": 1.703,
+      "variant": 0.009,
+      "share_control": 0.03955589622093698,
+      "d_pct": -0.9947152084556665
+     }
+    ],
+    "total": {
+     "Control": 43.05300000000001,
+     "Variant": 48.342
+    },
+    "total_d_pct": 0.12284858198034954
+   },
+   "B. 1-9": {
+    "rows": [
+     {
+      "source": "daily_reward",
+      "control": 14.508,
+      "variant": 9.132,
+      "share_control": 0.29086972212197754,
+      "d_pct": -0.37055417700578985
+     },
+     {
+      "source": "saga_progression",
+      "control": 9.459,
+      "variant": 3.03,
+      "share_control": 0.1896427282569469,
+      "d_pct": -0.6796701554075484
+     },
+     {
+      "source": "player_level_up",
+      "control": 5.414,
+      "variant": 5.658,
+      "share_control": 0.10854484943261554,
+      "d_pct": 0.04506834133727389
+     },
+     {
+      "source": "team_collection",
+      "control": 4.996,
+      "variant": 4.977,
+      "share_control": 0.1001644011387786,
+      "d_pct": -0.0038030424339471347
+     },
+     {
+      "source": "team_versus_contribution",
+      "control": 3.676,
+      "variant": 3.568,
+      "share_control": 0.07369982757929346,
+      "d_pct": -0.029379760609357986
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.002,
+      "variant": 3.004,
+      "share_control": 4.009783872649263e-05,
+      "d_pct": 1501.0
+     },
+     {
+      "source": "team_versus",
+      "control": 2.869,
+      "variant": 2.681,
+      "share_control": 0.05752034965315368,
+      "d_pct": -0.06552805855698851
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.0,
+      "variant": 2.554,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "ad_chest",
+      "control": 2.083,
+      "variant": 1.855,
+      "share_control": 0.04176189903364208,
+      "d_pct": -0.10945751320211239
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 1.714,
+      "variant": 1.652,
+      "share_control": 0.034363847788604185,
+      "d_pct": -0.03617269544924162
+     }
+    ],
+    "total": {
+     "Control": 49.878000000000014,
+     "Variant": 42.20400000000005
+    },
+    "total_d_pct": -0.1538554071935515
+   },
+   "C. 10-19": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 26.598000000000003,
+      "variant": 8.557,
+      "share_control": 0.2636702486220705,
+      "d_pct": -0.6782840815098881
+     },
+     {
+      "source": "daily_reward",
+      "control": 17.375,
+      "variant": 10.938,
+      "share_control": 0.17224116737380535,
+      "d_pct": -0.3704748201438849
+     },
+     {
+      "source": "player_level_up",
+      "control": 15.551,
+      "variant": 15.548,
+      "share_control": 0.15415956223482286,
+      "d_pct": -0.00019291363899431868
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.0,
+      "variant": 11.666,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "team_collection",
+      "control": 6.169,
+      "variant": 6.281,
+      "share_control": 0.06115428843332404,
+      "d_pct": 0.018155292591992334
+     },
+     {
+      "source": "race_event",
+      "control": 4.785,
+      "variant": 2.261,
+      "share_control": 0.04743447400769259,
+      "d_pct": -0.5274817136886103
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.001,
+      "variant": 4.651,
+      "share_control": 9.913160712161459e-06,
+      "d_pct": 4650.0
+     },
+     {
+      "source": "team_versus",
+      "control": 4.411,
+      "variant": 4.296,
+      "share_control": 0.043726951901344194,
+      "d_pct": -0.026071185672183028
+     },
+     {
+      "source": "team_versus_contribution",
+      "control": 4.211,
+      "variant": 4.045,
+      "share_control": 0.04174431975891191,
+      "d_pct": -0.03942056518641657
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 3.842,
+      "variant": 4.05,
+      "share_control": 0.03808636345612433,
+      "d_pct": 0.05413846954711077
+     }
+    ],
+    "total": {
+     "Control": 100.87600000000006,
+     "Variant": 88.54300000000005
+    },
+    "total_d_pct": -0.12225901106308745
+   },
+   "D. 20-39": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 51.755,
+      "variant": 15.588999999999999,
+      "share_control": 0.2999629067219973,
+      "d_pct": -0.6987923872089654
+     },
+     {
+      "source": "player_level_up",
+      "control": 33.866,
+      "variant": 33.006,
+      "share_control": 0.19628139888024657,
+      "d_pct": -0.025394200673241607
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.0,
+      "variant": 23.058,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "daily_reward",
+      "control": 17.608,
+      "variant": 11.612,
+      "share_control": 0.10205288110445229,
+      "d_pct": -0.3405270331667424
+     },
+     {
+      "source": "race_event",
+      "control": 8.525,
+      "variant": 4.451,
+      "share_control": 0.04940940546430349,
+      "d_pct": -0.4778885630498534
+     },
+     {
+      "source": "team_collection",
+      "control": 7.201,
+      "variant": 6.678,
+      "share_control": 0.04173573357753072,
+      "d_pct": -0.07262880155533946
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.002,
+      "variant": 6.48,
+      "share_control": 1.1591649375789675e-05,
+      "d_pct": 3239.0
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 5.36,
+      "variant": 5.836,
+      "share_control": 0.03106562032711633,
+      "d_pct": 0.08880597014925362
+     },
+     {
+      "source": "team_versus",
+      "control": 5.503,
+      "variant": 5.659,
+      "share_control": 0.03189442325748529,
+      "d_pct": 0.028348173723423464
+     },
+     {
+      "source": "single_collection",
+      "control": 5.054,
+      "variant": 0.121,
+      "share_control": 0.029292097972620508,
+      "d_pct": -0.9760585674713098
+     }
+    ],
+    "total": {
+     "Control": 172.5380000000001,
+     "Variant": 150.09599999999998
+    },
+    "total_d_pct": -0.13006989764573662
+   },
+   "E. 40-99": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 109.34700000000001,
+      "variant": 31.035,
+      "share_control": 0.3334970111016222,
+      "d_pct": -0.7161787703366348
+     },
+     {
+      "source": "player_level_up",
+      "control": 70.951,
+      "variant": 71.87,
+      "share_control": 0.2163931926314503,
+      "d_pct": 0.0129526010908938
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.001,
+      "variant": 48.219,
+      "share_control": 3.049896303525677e-06,
+      "d_pct": 48218.0
+     },
+     {
+      "source": "daily_reward",
+      "control": 19.084,
+      "variant": 12.641,
+      "share_control": 0.05820422105648402,
+      "d_pct": -0.3376126598197443
+     },
+     {
+      "source": "chuck_event",
+      "control": 0.016,
+      "variant": 14.224,
+      "share_control": 4.8798340856410835e-05,
+      "d_pct": 888.0
+     },
+     {
+      "source": "single_collection",
+      "control": 13.291,
+      "variant": 0.142,
+      "share_control": 0.04053617177015977,
+      "d_pct": -0.9893160785493943
+     },
+     {
+      "source": "race_event",
+      "control": 12.875,
+      "variant": 7.131,
+      "share_control": 0.039267414907893095,
+      "d_pct": -0.446135922330097
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 6.894,
+      "variant": 12.748,
+      "share_control": 0.021025985116506017,
+      "d_pct": 0.8491441833478386
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.0,
+      "variant": 10.728,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 8.221,
+      "variant": 8.431,
+      "share_control": 0.02507319751128459,
+      "d_pct": 0.025544337671816075
+     }
+    ],
+    "total": {
+     "Control": 327.88000000000034,
+     "Variant": 281.237
+    },
+    "total_d_pct": -0.14225631328534916
+   },
+   "F. 100+": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 266.697,
+      "variant": 76.92,
+      "share_control": 0.38399526587687843,
+      "d_pct": -0.7115828074556518
+     },
+     {
+      "source": "player_level_up",
+      "control": 172.755,
+      "variant": 170.909,
+      "share_control": 0.2487358393853704,
+      "d_pct": -0.01068565309252989
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.001,
+      "variant": 77.215,
+      "share_control": 1.4398184676875946e-06,
+      "d_pct": 77214.0
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 11.609,
+      "variant": 27.263,
+      "share_control": 0.016714852591385287,
+      "d_pct": 1.348436557843053
+     },
+     {
+      "source": "single_collection",
+      "control": 25.403,
+      "variant": 0.345,
+      "share_control": 0.03657570853466796,
+      "d_pct": -0.9864189268983978
+     },
+     {
+      "source": "chuck_event",
+      "control": 0.049,
+      "variant": 25.321,
+      "share_control": 7.055110491669214e-05,
+      "d_pct": 515.7551020408164
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.0,
+      "variant": 24.203,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 19.763,
+      "variant": 18.476,
+      "share_control": 0.028455132376909935,
+      "d_pct": -0.0651216920508021
+     },
+     {
+      "source": "daily_reward",
+      "control": 18.489,
+      "variant": 12.153,
+      "share_control": 0.026620803649075937,
+      "d_pct": -0.3426902482557196
+     },
+     {
+      "source": "river_rush",
+      "control": 18.076,
+      "variant": 0.259,
+      "share_control": 0.02602615862192096,
+      "d_pct": -0.9856716087630006
+     }
+    ],
+    "total": {
+     "Control": 694.5319999999997,
+     "Variant": 557.2910000000002
+    },
+    "total_d_pct": -0.1976021263239125
+   }
+  },
+  "UnlimitedLives": {
+   "A. 0": {
+    "rows": [
+     {
+      "source": "daily_reward",
+      "control": 9.374,
+      "variant": 9.27,
+      "share_control": 0.3263813934055221,
+      "d_pct": -0.011094516748453298
+     },
+     {
+      "source": "FlockRush",
+      "control": 8.43,
+      "variant": 5.096,
+      "share_control": 0.293513457052331,
+      "d_pct": -0.3954922894424674
+     },
+     {
+      "source": "Hatchling Hideaway",
+      "control": 3.162,
+      "variant": 2.192,
+      "share_control": 0.1100936596915149,
+      "d_pct": -0.30676786843769754
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.0,
+      "variant": 2.803,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "Jigsaw",
+      "control": 1.673,
+      "variant": 1.873,
+      "share_control": 0.058250060931026075,
+      "d_pct": 0.11954572624028681
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 0.309,
+      "variant": 1.604,
+      "share_control": 0.010758678319000034,
+      "d_pct": 4.190938511326861
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 1.261,
+      "variant": 1.287,
+      "share_control": 0.04390515650569269,
+      "d_pct": 0.020618556701030855
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.0,
+      "variant": 1.001,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "player_level_up",
+      "control": 0.921,
+      "variant": 0.973,
+      "share_control": 0.03206712858187389,
+      "d_pct": 0.05646036916395225
+     },
+     {
+      "source": "ad_chest",
+      "control": 0.822,
+      "variant": 0.866,
+      "share_control": 0.02862017339229135,
+      "d_pct": 0.05352798053527996
+     }
+    ],
+    "total": {
+     "Control": 28.721000000000004,
+     "Variant": 30.001
+    },
+    "total_d_pct": 0.04456669336025887
+   },
+   "B. 1-9": {
+    "rows": [
+     {
+      "source": "FlockRush",
+      "control": 15.684,
+      "variant": 10.78,
+      "share_control": 0.30355933187527817,
+      "d_pct": -0.31267533792399904
+     },
+     {
+      "source": "daily_reward",
+      "control": 11.867,
+      "variant": 11.691,
+      "share_control": 0.22968238914587646,
+      "d_pct": -0.014831044071795696
+     },
+     {
+      "source": "saga_progression",
+      "control": 6.4,
+      "variant": 11.023,
+      "share_control": 0.12387016857955754,
+      "d_pct": 0.7223437499999998
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.002,
+      "variant": 8.183,
+      "share_control": 3.870942768111173e-05,
+      "d_pct": 4090.5
+     },
+     {
+      "source": "Hatchling Hideaway",
+      "control": 6.041,
+      "variant": 5.86,
+      "share_control": 0.11692182631079798,
+      "d_pct": -0.029961926833305785
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 1.317,
+      "variant": 5.783,
+      "share_control": 0.025490158128012072,
+      "d_pct": 3.3910402429764623
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 3.14,
+      "variant": 3.013,
+      "share_control": 0.06077380145934542,
+      "d_pct": -0.04044585987261151
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.0,
+      "variant": 3.028,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "player_level_up",
+      "control": 2.464,
+      "variant": 2.655,
+      "share_control": 0.04769001490312965,
+      "d_pct": 0.07751623376623362
+     },
+     {
+      "source": "kite_festival_event",
+      "control": 1.327,
+      "variant": 1.187,
+      "share_control": 0.025683705266417632,
+      "d_pct": -0.1055011303692539
+     }
+    ],
+    "total": {
+     "Control": 51.66700000000001,
+     "Variant": 66.18400000000001
+    },
+    "total_d_pct": 0.2809723808233495
+   },
+   "C. 10-19": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 17.741,
+      "variant": 31.496,
+      "share_control": 0.1982411835694811,
+      "d_pct": 0.7753226988332111
+     },
+     {
+      "source": "FlockRush",
+      "control": 22.269,
+      "variant": 16.498,
+      "share_control": 0.24883788495061013,
+      "d_pct": -0.25914949032287027
+     },
+     {
+      "source": "daily_reward",
+      "control": 13.39,
+      "variant": 13.286,
+      "share_control": 0.14962231260894832,
+      "d_pct": -0.007766990291262155
+     },
+     {
+      "source": "Hatchling Hideaway",
+      "control": 10.956,
+      "variant": 10.748,
+      "share_control": 0.12242435077995799,
+      "d_pct": -0.018985031033223798
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.001,
+      "variant": 9.323,
+      "share_control": 1.1174183167210478e-05,
+      "d_pct": 9322.0
+     },
+     {
+      "source": "player_level_up",
+      "control": 8.196,
+      "variant": 8.193,
+      "share_control": 0.09158360523845707,
+      "d_pct": -0.00036603221083453263
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.001,
+      "variant": 7.129,
+      "share_control": 1.1174183167210478e-05,
+      "d_pct": 7127.999999999999
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 1.56,
+      "variant": 6.624,
+      "share_control": 0.017431725740848347,
+      "d_pct": 3.246153846153846
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 5.661,
+      "variant": 5.746,
+      "share_control": 0.06325705090957852,
+      "d_pct": 0.015015015015015232
+     },
+     {
+      "source": "Jigsaw",
+      "control": 2.957,
+      "variant": 1.674,
+      "share_control": 0.033042059625441385,
+      "d_pct": -0.4338856949611092
+     }
+    ],
+    "total": {
+     "Control": 89.49199999999999,
+     "Variant": 117.48500000000001
+    },
+    "total_d_pct": 0.3127989093997232
+   },
+   "D. 20-39": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 35.825,
+      "variant": 61.717,
+      "share_control": 0.26916054966603803,
+      "d_pct": 0.7227355198883461
+     },
+     {
+      "source": "FlockRush",
+      "control": 25.997,
+      "variant": 20.22,
+      "share_control": 0.19532077626428446,
+      "d_pct": -0.22221794822479524
+     },
+     {
+      "source": "player_level_up",
+      "control": 17.968,
+      "variant": 17.436,
+      "share_control": 0.13499725768037324,
+      "d_pct": -0.02960819234194123
+     },
+     {
+      "source": "daily_reward",
+      "control": 13.616,
+      "variant": 13.885,
+      "share_control": 0.10229979188423653,
+      "d_pct": 0.019756169212690855
+     },
+     {
+      "source": "Hatchling Hideaway",
+      "control": 13.346,
+      "variant": 13.334,
+      "share_control": 0.10027122668089165,
+      "d_pct": -0.0008991458114790962
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.001,
+      "variant": 10.033,
+      "share_control": 7.513204456832883e-06,
+      "d_pct": 10032.0
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.0,
+      "variant": 9.313,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 7.9,
+      "variant": 8.007,
+      "share_control": 0.059354315208979776,
+      "d_pct": 0.013544303797468293
+     },
+     {
+      "source": "Jigsaw",
+      "control": 7.331,
+      "variant": 4.903,
+      "share_control": 0.055079301873041865,
+      "d_pct": -0.3311962897285501
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 1.623,
+      "variant": 7.016,
+      "share_control": 0.012193930833439769,
+      "d_pct": 3.3228589032655576
+     }
+    ],
+    "total": {
+     "Control": 133.09900000000002,
+     "Variant": 174.9379999999999
+    },
+    "total_d_pct": 0.31434496126943
+   },
+   "E. 40-99": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 76.57199999999999,
+      "variant": 130.67,
+      "share_control": 0.3498067593125563,
+      "d_pct": 0.7064984589667243
+     },
+     {
+      "source": "player_level_up",
+      "control": 40.526,
+      "variant": 40.588,
+      "share_control": 0.18513645624902916,
+      "d_pct": 0.0015298820510289968
+     },
+     {
+      "source": "FlockRush",
+      "control": 30.49,
+      "variant": 24.109,
+      "share_control": 0.13928861844329316,
+      "d_pct": -0.2092817317153164
+     },
+     {
+      "source": "Hatchling Hideaway",
+      "control": 15.685,
+      "variant": 17.467,
+      "share_control": 0.0716543778380798,
+      "d_pct": 0.11361173095313992
+     },
+     {
+      "source": "daily_reward",
+      "control": 14.495,
+      "variant": 14.398,
+      "share_control": 0.06621805589818085,
+      "d_pct": -0.006691962745774327
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.0,
+      "variant": 14.226,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 12.58,
+      "variant": 12.859,
+      "share_control": 0.05746968907893171,
+      "d_pct": 0.022178060413354572
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.002,
+      "variant": 12.353,
+      "share_control": 9.136675529241925e-06,
+      "d_pct": 6175.5
+     },
+     {
+      "source": "Jigsaw",
+      "control": 12.263,
+      "variant": 10.058,
+      "share_control": 0.05602152600754687,
+      "d_pct": -0.17980918209247332
+     },
+     {
+      "source": "ArcheryArena",
+      "control": 1.632,
+      "variant": 6.7,
+      "share_control": 0.00745552723186141,
+      "d_pct": 3.105392156862745
+     }
+    ],
+    "total": {
+     "Control": 218.8980000000001,
+     "Variant": 295.37
+    },
+    "total_d_pct": 0.3493499255360937
+   },
+   "F. 100+": {
+    "rows": [
+     {
+      "source": "saga_progression",
+      "control": 188.752,
+      "variant": 327.045,
+      "share_control": 0.4404587723289812,
+      "d_pct": 0.7326703823005849
+     },
+     {
+      "source": "player_level_up",
+      "control": 100.452,
+      "variant": 99.517,
+      "share_control": 0.23440792467359717,
+      "d_pct": -0.009307928164695611
+     },
+     {
+      "source": "FlockRush",
+      "control": 33.481,
+      "variant": 24.82,
+      "share_control": 0.07812897429614848,
+      "d_pct": -0.25868402974821547
+     },
+     {
+      "source": "dream_pass_event",
+      "control": 28.202,
+      "variant": 25.464,
+      "share_control": 0.06581026053881245,
+      "d_pct": -0.09708531309836188
+     },
+     {
+      "source": "Rainbow Maker",
+      "control": 0.0,
+      "variant": 25.501,
+      "share_control": 0.0,
+      "d_pct": null
+     },
+     {
+      "source": "dreamheist_event",
+      "control": 0.005,
+      "variant": 22.948,
+      "share_control": 1.1667658417632161e-05,
+      "d_pct": 4588.6
+     },
+     {
+      "source": "Hatchling Hideaway",
+      "control": 18.318,
+      "variant": 22.689,
+      "share_control": 0.04274563337883719,
+      "d_pct": 0.2386177530298066
+     },
+     {
+      "source": "Jigsaw",
+      "control": 19.783,
+      "variant": 20.017,
+      "share_control": 0.04616425729520341,
+      "d_pct": 0.011828337461456728
+     },
+     {
+      "source": "daily_reward",
+      "control": 13.762,
+      "variant": 13.892,
+      "share_control": 0.03211406302869076,
+      "d_pct": 0.009446301409678837
+     },
+     {
+      "source": "bomb_ballet_event",
+      "control": 7.163,
+      "variant": 5.387,
+      "share_control": 0.016715087449099834,
+      "d_pct": -0.24794080692447307
+     }
+    ],
+    "total": {
+     "Control": 428.53500000000014,
+     "Variant": 606.2499999999999
+    },
+    "total_d_pct": 0.41470358313789935
+   }
+  }
+ },
+ "exposure": {
+  "A. 0": {
+   "Control": [
+    "ArcheryArena",
+    "DreamAdventure",
+    "FlockRush",
+    "FlowerCoop",
+    "Hatchling Hideaway",
+    "January",
+    "Jigsaw",
+    "Photoshoot",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "wager_event"
+   ],
+   "Variant": [
+    "ArcheryArena",
+    "FlockRush",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SagaPath",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "league_same_rank",
+    "minigame_event",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "treasure_dive_event",
+    "wager_event"
+   ]
+  },
+  "B. 1-9": {
+   "Control": [
+    "ArcheryArena",
+    "FlockRush",
+    "FlowerCoop",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SeasonPassHalloween",
+    "SeasonPassHoliday",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_challenge_event",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "treasure_dive_event",
+    "wager_event"
+   ],
+   "Variant": [
+    "ArcheryArena",
+    "FlockRush",
+    "FlowerCoop",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SagaPath",
+    "SeasonPass",
+    "SeasonPassHoliday",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "balloon_event",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "minigame_event",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_challenge_event",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "surprise_chest",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "treasure_dive_event",
+    "wager_event"
+   ]
+  },
+  "C. 10-19": {
+   "Control": [
+    "ArcheryArena",
+    "FlockRush",
+    "FlowerCoop",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SagaPath",
+    "SeasonPassSummer",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_challenge_event",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "unknown",
+    "wager_event"
+   ],
+   "Variant": [
+    "ArcheryArena",
+    "FlockRush",
+    "FlowerCoop",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SeasonPassHalloween",
+    "SeasonPassSummer",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "balloon_event",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_challenge_event",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "unknown",
+    "wager_event"
+   ]
+  },
+  "D. 20-39": {
+   "Control": [
+    "ArcheryArena",
+    "Bomb",
+    "FlockRush",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SagaPath",
+    "SeasonPassHoliday",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "league_same_rank",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_challenge_event",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "unknown",
+    "wager_event"
+   ],
+   "Variant": [
+    "ArcheryArena",
+    "FlockRush",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SagaPath",
+    "SeasonPassHalloween",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "balloon_event",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "league_same_rank",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_challenge_event",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "unknown",
+    "wager_event"
+   ]
+  },
+  "E. 40-99": {
+   "Control": [
+    "ArcheryArena",
+    "FlockRush",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SeasonPass",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_challenge_event",
+    "season_pass_event",
+    "single_collection",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "treasure_dive_event",
+    "wager_event"
+   ],
+   "Variant": [
+    "ArcheryArena",
+    "FlockRush",
+    "Hatchling Hideaway",
+    "January",
+    "Jigsaw",
+    "Photoshoot",
+    "Rainbow Maker",
+    "SagaPath",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "balloon_event",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dream_peak",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reds_club",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_event",
+    "shop_purchase",
+    "single_collection",
+    "solo_race_event",
+    "special_event",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "wager_event"
+   ]
+  },
+  "F. 100+": {
+   "Control": [
+    "ArcheryArena",
+    "FlockRush",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Photoshoot",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dreamheist_event",
+    "event_progress",
+    "facebook_like",
+    "heart_gift",
+    "kite_festival_event",
+    "league_rank_up",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_event",
+    "single_collection",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution"
+   ],
+   "Variant": [
+    "ArcheryArena",
+    "FlockRush",
+    "Hatchling Hideaway",
+    "Jigsaw",
+    "Rainbow Maker",
+    "SeasonPassHoliday",
+    "ad_chest",
+    "ad_life",
+    "ask_for_lives",
+    "bomb_ballet_event",
+    "bomb_event",
+    "chuck_event",
+    "coin_purchase",
+    "daily_reward",
+    "dream_pass_event",
+    "dreamheist_event",
+    "facebook_like",
+    "gift",
+    "heart_gift",
+    "kite_festival_event",
+    "offer_free_items",
+    "player_level_up",
+    "race_event",
+    "red_event",
+    "reward_chest",
+    "river_rush",
+    "saga_progression",
+    "season_pass_event",
+    "single_collection",
+    "team_collection",
+    "team_versus",
+    "team_versus_contribution",
+    "wager_event"
+   ]
+  }
+ }
+}

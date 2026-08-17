@@ -1,0 +1,1226 @@
+- generic [ref=f1e2]:
+  - banner [ref=f1e3]:
+    - generic [ref=f1e4]: LiveOps v2 → v3 · economy design · LiveOps_v2_AB_Summary.xlsx
+    - heading "What to change for v3" [level=1] [ref=f1e5]
+    - paragraph [ref=f1e6]: Twelve config changes aimed at the four problems the A/B test surfaced — each one named down to the sheet and column, priced through the same engine that produced the simulation, and argued against how comparable games handle the same loop.
+    - generic [ref=f1e7]:
+      - generic [ref=f1e8]: Window 2026-08-02 – 2026-08-10 (9 days)
+      - generic [ref=f1e9]: ·Control 138,720 vs Variant 139,110 players
+      - generic [ref=f1e10]: "·Sim: NEW_LIVEOPS_CALENDAR_ECO (16).xlsx"
+      - generic [ref=f1e11]: "·Priority: new users → streaks → coin sink → revenue"
+  - generic [ref=f1e12]:
+    - generic [ref=f1e13]:
+      - generic [ref=f1e14]: New users — level completes / player
+      - generic [ref=f1e15]: "-2.6%"
+      - generic [ref=f1e16]: time spent -0.8% · D1 churn +1.1% · free boosters -16.2%
+    - generic [ref=f1e17]:
+      - generic [ref=f1e18]: Avg daily streak
+      - generic [ref=f1e19]: "-4.0%"
+      - generic [ref=f1e20]: 100+ -9.9% · P75 -6.2% · P99 -10.3%
+    - generic [ref=f1e21]:
+      - generic [ref=f1e22]: Coins spent / player
+      - generic [ref=f1e23]: "-12.2%"
+      - generic [ref=f1e24]: per attempt -12.8% · faucet -13.8% · net -37.6%
+    - generic [ref=f1e25]:
+      - generic [ref=f1e26]: Revenue
+      - generic [ref=f1e27]: "-9.1%"
+      - generic [ref=f1e28]: 100+ -31.0% · ARPPU -8.0% · paid coins -6.7%
+  - generic [ref=f1e29]:
+    - generic [ref=f1e30]: the read
+    - heading "One decision explains most of it" [level=2] [ref=f1e31]
+    - paragraph [ref=f1e32]: "The v2 redesign cut coins and paid the compensation in unlimited-lives minutes. That single substitution reaches all four problems, because coins and lives are not interchangeable: coins are the only thing players spend, and lives are what makes them want to."
+    - img [ref=f1e33]:
+      - generic [ref=f1e34]: "The v2 swap, per segment: coins out, free lives in"
+      - generic [ref=f1e35]: 1-9
+      - generic [ref=f1e37]: "-15%"
+      - generic [ref=f1e39]: +28%
+      - generic [ref=f1e40]: 10-19
+      - generic [ref=f1e42]: "-12%"
+      - generic [ref=f1e44]: +31%
+      - generic [ref=f1e45]: 20-39
+      - generic [ref=f1e47]: "-13%"
+      - generic [ref=f1e49]: +31%
+      - generic [ref=f1e50]: 40-99
+      - generic [ref=f1e52]: "-14%"
+      - generic [ref=f1e54]: +35%
+      - generic [ref=f1e55]: 100+
+      - generic [ref=f1e57]: "-20%"
+      - generic [ref=f1e59]: +41%
+      - generic [ref=f1e60]: ■ coins / active player-day ■ unlimited-lives minutes / active player-day (% change, Variant vs Control)
+    - generic [ref=f1e61]:
+      - generic [ref=f1e62]:
+        - paragraph [ref=f1e63]: "Follow it through. Coins fell -13.8% per player and the saga lane took most of the cut (-65.8%). Unlimited lives rose sharply, mostly from the same saga nodes. Because 94% of all coin spend is the extra-moves continue, and an unlimited-lives window makes failing free, demand for coins fell along with supply: coins spent per attempt -12.8%, lives bought with coins -31.6%."
+        - paragraph [ref=f1e64]: Meanwhile the two loops that bring players back daily were tightened at the same time. The daily gift lost 63% of its first six rungs while keeping its day-7 prize, and Night Sky got bigger rewards with unchanged requirements — so the streak loop became more valuable to finish and no easier to hold. Streaks fell -4.0% overall and -9.9% at 100+.
+      - generic [ref=f1e65]:
+        - paragraph [ref=f1e66]: "The four problems, one sentence each:"
+        - list [ref=f1e67]:
+          - listitem [ref=f1e68]: New users. Their biggest coin source was the daily gift (29% of their faucet, -37.1%) and their second was saga (-68.0%). Completes -2.6%, D1 churn +1.1%.
+          - listitem [ref=f1e69]: Streaks. Night Sky is the streak engine and its rewards moved without its gates; the deepest round is claimed on 3.3% of player-days at 10-19.
+          - listitem [ref=f1e70]: Coin spend. One action is 94.5% of the whole sink, and v2 removed the pressure behind it.
+          - listitem [ref=f1e71]: Top-segment revenue. 100+ lost -18.4% of coins, gained +41.5% of free lives, and bought -27.3% fewer coin packs. Revenue -31.0%.
+    - paragraph [ref=f1e72]: "Baseline note: your NS proposal is already in NS_v2 and is treated here as the baseline: it adds +6.56 coins/pd at 20-39 and +6.58 at 100+. Everything priced below is on top of that. The season pass, level difficulty and all IAP/offer configuration are out of scope by your instruction; where they matter they are named rather than proposed (P7, P12)."
+  - generic [ref=f1e73]:
+    - generic [ref=f1e74]: how to read these
+    - heading "Twelve proposals, each with the same five parts" [level=2] [ref=f1e75]
+    - paragraph [ref=f1e76]: "Ordered by the priority you set: new-user engagement first, then streaks, then coin-sink health, then top-segment revenue. The state chip on each says how much confidence its number carries."
+    - generic [ref=f1e77]: priced run through the engine — the coins/pd figure is a model output you can reproduce model-priced priced, but the model behind it is known to be miscalibrated (see P10) config gap cannot be priced today because the workbook does not represent the mechanic flag no sim number exists; the proposal stands on measured data and mechanism
+    - paragraph [ref=f1e78]:
+      - text: Every proposal names the sheet and column to edit and how
+      - code [ref=f1e79]: EcoGainsSim_v4.gs
+      - text: "consumes it, so you can check that the change would do what the argument claims. Benchmark evidence is labelled: published for figures attributable to a public source, observed design for patterns visible in a shipped game, and inference for my own reasoning."
+  - generic [ref=f1e80]:
+    - generic [ref=f1e81]: problem 1
+    - 'heading "New users: engagement, time spent, first-week retention" [level=2] [ref=f1e82]'
+    - paragraph [ref=f1e83]: New users lost -20.8% of their coin faucet and -16.2% of their free boosters. Their completes fell -2.6% and D1 churn rose +1.1% — while old players’ time spent rose +4.1%. The install cohort passes 74% of its attempts, so this is not a difficulty wall; they were simply given less reason to come back.
+    - article [ref=f1e84]:
+      - generic [ref=f1e85]:
+        - generic [ref=f1e86]: P1
+        - generic [ref=f1e87]:
+          - heading "Put the first six rungs of the daily gift back" [level=4] [ref=f1e88]
+          - generic [ref=f1e89]:
+            - generic [ref=f1e90]: new users
+            - generic [ref=f1e91]: "priced: +3.27 to +6.35 coins/pd"
+      - paragraph [ref=f1e92]: The cut fell on exactly the rungs a new player sees, and the daily gift is their biggest single coin source.
+      - generic [ref=f1e93]:
+        - generic [ref=f1e94]:
+          - heading "What the data says" [level=5] [ref=f1e95]
+          - img [ref=f1e96]:
+            - generic [ref=f1e97]: "Daily gift: the first six rungs carried the cut, day 7 did not"
+            - generic [ref=f1e98]: "0"
+            - generic [ref=f1e99]: "25"
+            - generic [ref=f1e100]: "50"
+            - generic [ref=f1e101]: "75"
+            - generic [ref=f1e102]: "100"
+            - generic [ref=f1e103]: day 1
+            - generic [ref=f1e105]: "22"
+            - generic [ref=f1e107]: "10"
+            - generic [ref=f1e108]: day 2
+            - generic [ref=f1e109]: day 3
+            - generic [ref=f1e110]: day 4
+            - generic [ref=f1e112]: "27"
+            - generic [ref=f1e114]: "10"
+            - generic [ref=f1e115]: day 5
+            - generic [ref=f1e116]: day 6
+            - generic [ref=f1e118]: "33"
+            - generic [ref=f1e120]: "10"
+            - generic [ref=f1e121]: day 7
+            - generic [ref=f1e123]: "100"
+            - generic [ref=f1e125]: "100"
+            - generic [ref=f1e126]: ■ Control ladder (c_day) ■ v2 ladder (c_day_v2)
+          - paragraph [ref=f1e127]: "The v2 ladder keeps day 7 at 100 coins and takes the rest apart: 22 + 0 + 0 + 27 + 0 + 33 = 82 coins across days 1–6 becomes 10 + 0 + 0 + 10 + 0 + 10 = 30 — a -63% cut on the early week against -29% on the cycle as a whole."
+          - paragraph [ref=f1e128]:
+            - text: For a 1-9 player
+            - code [ref=f1e129]: daily_reward
+            - text: "is the largest coin source at 29.1% of their faucet, and it fell -37.1%. Their measured outcome: level completes -2.6%, time spent -0.8%, D1 churn +1.1%, free boosters -16.2% — while old players' time went +4.1%."
+        - generic [ref=f1e130]:
+          - heading "What to change, exactly" [level=5] [ref=f1e131]
+          - paragraph [ref=f1e132]:
+            - text: Sheet
+            - code [ref=f1e133]: c_day_v2
+            - text: ", column B (“HC Reward”), rows 4–10 = days 1–7. Current: d1 10, d2 0, d3 0, d4 10, d5 0, d6 10, d7 100. The priced full restore copies"
+            - code [ref=f1e134]: c_day
+            - text: "'s days 1–6 across and leaves day 7 at 100; the half restore takes the midpoint of each rung."
+          - paragraph [ref=f1e135]:
+            - text: "How the engine sees it:"
+            - code [ref=f1e136]: readDayLadder_
+            - text: reads the seven cells and
+            - code [ref=f1e137]: dailyGiftRatio_
+            - text: weights them by login-streak survival — R = Σ
+            - subscript [ref=f1e138]: "n"
+            - text: w
+            - subscript [ref=f1e139]: "n"
+            - text: ·v2
+            - subscript [ref=f1e140]: "n"
+            - text: ÷ Σ
+            - subscript [ref=f1e141]: "n"
+            - text: w
+            - subscript [ref=f1e142]: "n"
+            - text: ·base
+            - subscript [ref=f1e143]: "n"
+            - text: with w
+            - subscript [ref=f1e144]: "n"
+            - text: = P(streak ≥ n) from
+            - code [ref=f1e145]: data_seg_beh
+            - text: . Because the weights fall with n, early rungs dominate the ratio — which is exactly why cutting days 1–6 hurt more than the headline −29% suggests.
+          - paragraph [ref=f1e146]:
+            - text: "Wanted, needs a small engine change: one ladder currently serves every segment. A"
+            - code [ref=f1e147]: c_day_v2
+            - text: with per-segment blocks (like
+            - code [ref=f1e148]: c_saga_v2
+            - text: already has) would let you restore the early rungs for new players only and keep the cut for veterans — roughly a 20-line change to
+            - code [ref=f1e149]: readDayLadder_
+            - text: to make it header/segment-driven.
+      - generic [ref=f1e150]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e151]
+        - generic [ref=f1e152]:
+          - generic [ref=f1e153]: published
+          - generic [ref=f1e154]: "Daily-reward calendars are the most consistently reported retention feature in casual mobile: benchmark reports across 2023–2025 put a functioning day-1 to day-7 loop among the highest-effect-size retention levers at the top of the funnel, where our own D1 churn sits at 53% for new users."
+        - generic [ref=f1e155]:
+          - generic [ref=f1e156]: observed design
+          - generic [ref=f1e157]: "Candy Crush Saga, Royal Match and Gardenscapes all escalate the first week rather than back-loading it: something lands on day 1, and each day visibly beats the last. Our v2 ladder pays 10 coins on days 1, 4 and 6 and nothing on 2, 3 and 5 — a new player's first three days can return 10 coins total, which is one tenth of a single continue."
+        - generic [ref=f1e158]:
+          - generic [ref=f1e159]: inference
+          - generic [ref=f1e160]: The day-7 anchor only works if players believe they will get there. Gutting the rungs that build that belief while keeping the prize is the least efficient possible way to save 52 coins a cycle.
+      - generic [ref=f1e161]: Half restore +3.27 coins/pd (2.4% of the faucet), full restore +6.35. Aimed almost entirely at players who have not yet reached day 7.
+      - generic [ref=f1e162]: Risk / watch-out This is the give-back most likely to leak to veterans, because the ladder is shared. If the per-segment version is not built, prefer the half restore and monitor the mid segments' faucet.
+    - article [ref=f1e163]:
+      - generic [ref=f1e164]:
+        - generic [ref=f1e165]: P2
+        - generic [ref=f1e166]:
+          - heading "Give the saga coins back at the bottom of the level curve, not the top" [level=4] [ref=f1e167]
+          - generic [ref=f1e168]:
+            - generic [ref=f1e169]: new users · HC sink
+            - generic [ref=f1e170]: "priced: +1.76 coins/pd (self-funded package +2.78)"
+      - paragraph [ref=f1e171]: The saga nerf was applied uniformly, but only the top segments got the compensation.
+      - generic [ref=f1e172]:
+        - generic [ref=f1e173]:
+          - heading "What the data says" [level=5] [ref=f1e174]
+          - paragraph [ref=f1e175]: Saga coins went from 2.10 to 0.60 coins per level required — a -71% cut, uniform across every segment block. The v2 ladder pays on 4 of 10 nodes (10, 0, 10, 0, 0, 0, 10, 0, 10, 20).
+          - paragraph [ref=f1e176]:
+            - text: "The compensation was unlimited-lives minutes, and it is heavily skewed: at 100+"
+            - code [ref=f1e177]: saga_progression
+            - text: UL went +73.3% and their UL total +41.5%, while a 1-9 player's coin faucet fell -15.4% with saga coins -68.0%.
+          - paragraph [ref=f1e178]: And lives are the wrong compensation for them, mechanically. An unlimited-lives window lets you re-attempt; it does not help you win. The only thing that converts a nearly-finished board into a completion is the +5 moves continue, and that costs 100 coins. Level 1-9 players have the worst board odds in the game — pass rate 48% and out-of-moves rate 62%, both the weakest of any band — so they meet that 100-coin decision constantly on a faucet of 42 coins a day. Giving them retries instead of coins hands them more attempts at a level they still cannot close.
+        - generic [ref=f1e179]:
+          - heading "What to change, exactly" [level=5] [ref=f1e180]
+          - paragraph [ref=f1e181]:
+            - text: Sheet
+            - code [ref=f1e182]: c_saga_v2
+            - text: ", the HC Reward column of the 0-9 and 10-19 blocks (columns D and G in the triple"
+            - code [ref=f1e183]: Levels Req | RewardChestId | HC Reward
+            - text: layout). The priced change fills the zero nodes with 10 coins, taking those segments from 0.60 to about 1.2 coins/level — still well under the Control 2.10.
+          - paragraph [ref=f1e184]: To self-fund it, halve the surviving coin nodes in the 40-99 and 100+ blocks (columns M and P). Those segments keep the UL-lives upside.
+          - paragraph [ref=f1e185]:
+            - text: "How the engine sees it:"
+            - code [ref=f1e186]: readSagaLadder_
+            - text: is header-driven since 2026-08-13, so it finds each segment block by its label and pairs that block's
+            - code [ref=f1e187]: Levels Req
+            - text: with the next
+            - code [ref=f1e188]: HC Reward
+            - text: to its right;
+            - code [ref=f1e189]: sagaRatio_
+            - text: divides the v2 coins-per-level by the base to get R, and Saga is always-on (D = T = 1), so SIM = measured × R per segment. Per-segment edits therefore land on exactly one segment — no spillover.
+      - generic [ref=f1e190]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e191]
+        - generic [ref=f1e192]:
+          - generic [ref=f1e193]: published
+          - generic [ref=f1e194]: "Early-progression generosity is the standard shape in the category: teardowns of the top-grossing match-3 titles consistently show currency-per-level falling as level number rises, not held flat. Our v2 does the opposite of what the category does — it applies one multiplier to every level band."
+        - generic [ref=f1e195]:
+          - generic [ref=f1e196]: observed design
+          - generic [ref=f1e197]: Royal Match front-loads its area/decor progression so the first sessions produce visible completion, then lengthens the loop. The equivalent lever here is coins per saga node for players under level 20.
+        - generic [ref=f1e198]:
+          - generic [ref=f1e199]: inference
+          - generic [ref=f1e200]: Unlimited lives are worth roughly nothing to a player passing three quarters of their levels first try. Paying compensation in a currency the recipient cannot use is a cut with extra steps.
+      - generic [ref=f1e201]: +1.76 coins/pd for the 0-9 and 10-19 blocks alone, or net +2.78 for the whole cheap package if you pay for it by halving the top two segments' saga coins — they took their compensation in unlimited lives.
+      - generic [ref=f1e202]: Risk / watch-out Watch the saga item ladder at the same time — see P6. If the live UL grants stay as generous as they are, adding coins at the bottom fixes supply without restoring any coin pressure.
+    - article [ref=f1e203]:
+      - generic [ref=f1e204]:
+        - generic [ref=f1e205]: P3
+        - generic [ref=f1e206]:
+          - heading "Give the low levels a coin lane back on the calendar" [level=4] [ref=f1e207]
+          - generic [ref=f1e208]:
+            - generic [ref=f1e209]: new users
+            - generic [ref=f1e210]: "priced: +5.18 coins/pd"
+      - paragraph [ref=f1e211]: The removed events took their steady, low-variance coins with them.
+      - generic [ref=f1e212]:
+        - generic [ref=f1e213]:
+          - heading "What the data says" [level=5] [ref=f1e214]
+          - paragraph [ref=f1e215]:
+            - text: River Rush went to zero on
+            - code [ref=f1e216]: cal_new
+            - text: — it was 4.4% of an A. 0 player's coins and is now -99.3%. Photoshoot keeps a single instance (day 24) and Level Race two (days 20, 22) in a 33-day window.
+          - paragraph [ref=f1e217]:
+            - text: "Low-level players depend on always-on lanes far more than event lanes: for 1-9,"
+            - code [ref=f1e218]: daily_reward
+            - text: +
+            - code [ref=f1e219]: saga_progression
+            - text: +
+            - code [ref=f1e220]: player_level_up
+            - text: alone are 59% of their coins. Leaderboard events pay them almost nothing because they cannot compete for rank.
+        - generic [ref=f1e221]:
+          - heading "What to change, exactly" [level=5] [ref=f1e222]
+          - paragraph [ref=f1e223]:
+            - text: Sheet
+            - code [ref=f1e224]: cal_new
+            - text: — the visual grid. The priced scenario writes “River Rush” into row 22 (empty in workbook 16) as four weekly 4-day instances starting days 5, 12, 19, 26, each cell merged across its duration.
+          - paragraph [ref=f1e225]:
+            - text: "How the engine sees it: each merged range is one instance and its width is the duration; day = column − 1. T = Σ"
+            - subscript [ref=f1e226]: new
+            - text: reach ÷ Σ
+            - subscript [ref=f1e227]: cur
+            - text: reach with reach(inst) = 1 − Π(1 − p
+            - subscript [ref=f1e228]: day
+            - text: ) from
+            - code [ref=f1e229]: data_seg_beh
+            - text: weekday/weekend active rates. Remember to re-run EcoGainsSim ▸ Precompute calendars after editing merges — merge edits fire no
+            - code [ref=f1e230]: onEdit
+            - text: ", so the hidden"
+            - code [ref=f1e231]: cal_parsed
+            - text: sheet goes stale and the engine will keep reading the old schedule.
+          - paragraph [ref=f1e232]: A cohort-relative first-week schedule would be better than any global lane, but the calendar is global — that one is a real engineering ask, not a config edit.
+      - generic [ref=f1e233]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e234]
+        - generic [ref=f1e235]:
+          - generic [ref=f1e236]: published
+          - generic [ref=f1e237]: Top-grossing casual titles run a much denser LiveOps calendar than one event per lane per month; industry LiveOps surveys through 2024–25 describe multiple concurrent, always-available loops as table stakes in the category.
+        - generic [ref=f1e238]:
+          - generic [ref=f1e239]: observed design
+          - generic [ref=f1e240]: Royal Match keeps several always-available loops (team, pass, daily) running under whatever the rotating headline event is, so a player who ignores the headline still has somewhere to earn. Our low segments lost two of those steady lanes at once.
+        - generic [ref=f1e241]:
+          - generic [ref=f1e242]: inference
+          - generic [ref=f1e243]: Event coins are variance; always-on coins are income. New players need income — they have no stock to smooth a bad week, which shows up in their P90 coin balance falling -18.8%.
+      - generic [ref=f1e244]: Exposure is not the problem — density is. A 1-9 player already earns from 47 distinct sources in the window; an A. 0 player from 42. What changed is that several always-available lanes were zeroed at once.
+      - generic [ref=f1e245]: Risk / watch-out Re-adding lanes is a pure faucet increase with no behavioural upside if the lane is not fun; +5.18 coins/pd is 3.8% of the faucet for an event that was cut deliberately. Prefer raising the cadence of a lane you kept (Hatchling Hideaway, Target Day) if the goal is only income.
+  - generic [ref=f1e246]:
+    - generic [ref=f1e247]: problem 2
+    - heading "Streaks and daily return" [level=2] [ref=f1e248]
+    - paragraph [ref=f1e249]: Streaks fell -4.0% overall, -9.9% at 100+, with the P99 down -10.3% — the longest chains broke hardest. Night Sky is the streak engine, and v2 raised its rewards while leaving every requirement untouched.
+    - img [ref=f1e250]:
+      - generic [ref=f1e251]: "Night Sky: how often each round is actually claimed (% of player-days)"
+      - generic [ref=f1e252]: "0"
+      - generic [ref=f1e253]: "19"
+      - generic [ref=f1e254]: "37"
+      - generic [ref=f1e255]: "56"
+      - generic [ref=f1e256]: "75"
+      - generic [ref=f1e257]: 1-9
+      - generic [ref=f1e259]: "75"
+      - generic [ref=f1e261]: "34"
+      - generic [ref=f1e263]: 10-19
+      - generic [ref=f1e265]: "65"
+      - generic [ref=f1e267]: "27"
+      - generic [ref=f1e269]: 20-39
+      - generic [ref=f1e271]: "57"
+      - generic [ref=f1e273]: "20"
+      - generic [ref=f1e275]: 40-99
+      - generic [ref=f1e277]: "38"
+      - generic [ref=f1e279]: "10"
+      - generic [ref=f1e281]: 100+
+      - generic [ref=f1e283]: "19"
+      - generic [ref=f1e286]: ■ round 1 ■ round 2 ■ round 3
+    - article [ref=f1e287]:
+      - generic [ref=f1e288]:
+        - generic [ref=f1e289]: P4
+        - generic [ref=f1e290]:
+          - heading "Move the Night Sky coins onto the round players actually reach" [level=4] [ref=f1e291]
+          - generic [ref=f1e292]:
+            - generic [ref=f1e293]: streaks · new users
+            - generic [ref=f1e294]: "priced: -0.08 coins/pd — free"
+      - paragraph [ref=f1e295]: The single highest-leverage change available, and it is free.
+      - generic [ref=f1e296]:
+        - generic [ref=f1e297]:
+          - heading "What the data says" [level=5] [ref=f1e298]
+          - table [ref=f1e300]:
+            - rowgroup [ref=f1e301]:
+              - row [ref=f1e302]:
+                - columnheader "segment" [ref=f1e303]
+                - columnheader "claim rate R1 / R2 / R3" [ref=f1e304]
+                - columnheader "coins now" [ref=f1e305]
+                - columnheader "coins proposed" [ref=f1e306]
+                - columnheader "nominal added" [ref=f1e307]
+                - columnheader "delivered coins/pd" [ref=f1e308]
+                - columnheader "if the same total sat on R1" [ref=f1e309]
+                - columnheader "gain" [ref=f1e310]
+            - rowgroup [ref=f1e311]:
+              - row [ref=f1e312]:
+                - cell "1-9" [ref=f1e313]
+                - cell "74.8% / 33.5% / 6.2%" [ref=f1e314]
+                - cell "0 / 10 / 15" [ref=f1e315]
+                - cell "0 / 10 / 15" [ref=f1e316]
+                - cell "+0" [ref=f1e317]
+                - cell "+0.00" [ref=f1e318]
+                - cell "+0.00" [ref=f1e319]
+                - cell "—" [ref=f1e320]
+              - row [ref=f1e321]:
+                - cell "10-19" [ref=f1e322]
+                - cell "65.0% / 26.8% / 3.3%" [ref=f1e323]
+                - cell "10 / 30 / 60" [ref=f1e324]
+                - cell "10 / 35 / 70" [ref=f1e325]
+                - cell "+15" [ref=f1e326]
+                - cell "+1.67" [ref=f1e327]
+                - cell "+9.76" [ref=f1e328]
+                - cell "×5.9" [ref=f1e329]
+              - row [ref=f1e330]:
+                - cell "20-39" [ref=f1e331]
+                - cell "57.5% / 19.6% / 4.2%" [ref=f1e332]
+                - cell "15 / 50 / 100" [ref=f1e333]
+                - cell "15 / 75 / 140" [ref=f1e334]
+                - cell "+65" [ref=f1e335]
+                - cell "+6.56" [ref=f1e336]
+                - cell "+37.35" [ref=f1e337]
+                - cell "×5.7" [ref=f1e338]
+              - row [ref=f1e339]:
+                - cell "40-99" [ref=f1e340]
+                - cell "37.8% / 9.6% / 2.1%" [ref=f1e341]
+                - cell "50 / 120 / 250" [ref=f1e342]
+                - cell "60 / 160 / 300" [ref=f1e343]
+                - cell "+100" [ref=f1e344]
+                - cell "+8.68" [ref=f1e345]
+                - cell "+37.82" [ref=f1e346]
+                - cell "×4.4" [ref=f1e347]
+              - row [ref=f1e348]:
+                - cell "100+" [ref=f1e349]
+                - cell "18.9% / 3.0% / 0.4%" [ref=f1e350]
+                - cell "100 / 300 / 400" [ref=f1e351]
+                - cell "125 / 350 / 500" [ref=f1e352]
+                - cell "+175" [ref=f1e353]
+                - cell "+6.58" [ref=f1e354]
+                - cell "+33.05" [ref=f1e355]
+                - cell "×5.0" [ref=f1e356]
+          - paragraph [ref=f1e357]: Delivery = Σ (claim rate of the round × coins on that round) — the identity your own NS_Config_Change_Est sheet uses (its “NS HC with new Config” row reproduces exactly from these three claim rates). The last two columns hold the nominal budget constant and only move it to the round players actually reach.
+          - paragraph [ref=f1e358]:
+            - text: Round 3 is claimed on 3.3% of player-days at 10-19 and 0.36% at 100+, while round 1 is claimed on 65.0% and 18.9%. The proposed uplift put its biggest increases on the deepest round —
+            - code [ref=f1e359]: Diff HC - R3
+            - text: is +40 at 20-39 and +100 at 100+ — which is where delivery is thinnest.
+        - generic [ref=f1e360]:
+          - heading "What to change, exactly" [level=5] [ref=f1e361]
+          - paragraph [ref=f1e362]:
+            - text: Sheet
+            - code [ref=f1e363]: NS_v2
+            - text: ", the HC Reward column (F) inside each per-segment block — rows R1/R2/R3 under the segment label. Leave"
+            - code [ref=f1e364]: Cum Streak Req
+            - text: alone (that is P5).
+          - paragraph [ref=f1e365]: Concretely, for 10-19 the ladder is 10 / 35 / 70 coins across the three rounds; shifting half of round 3's coins onto rounds 1–2 (weighted by their reach) is what the priced scenario does. For 100+ the ladder is 125 / 350 / 500.
+          - paragraph [ref=f1e366]:
+            - text: "How the engine sees it:"
+            - code [ref=f1e367]: readNSLadder_
+            - text: reads the block,
+            - code [ref=f1e368]: nsE_
+            - text: builds E = Σ S(CumStreakReq) × reward, and Night Sky is anchored, so SIM = measured × (E
+            - subscript [ref=f1e369]: v2
+            - text: /E
+            - subscript [ref=f1e370]: base
+            - text: ) × T. Reward edits therefore flow with no code change — this is a config-only edit that the sim prices the same day.
+      - generic [ref=f1e371]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e372]
+        - generic [ref=f1e373]:
+          - generic [ref=f1e374]: published
+          - generic [ref=f1e375]: Puzzle-category benchmarks put day-1 retention in the ~30–40% band and day-7 near 10–15% (GameAnalytics / Liftoff annual benchmark reports). A reward tier reached by under 10% of player-days is, in benchmark terms, invisible to the retention curve it is supposed to move.
+        - generic [ref=f1e376]:
+          - generic [ref=f1e377]: observed design
+          - generic [ref=f1e378]: Royal Match and Candy Crush Saga both put their largest daily-loop rewards where the median player lands — Candy Crush's login calendar escalates to a day-7 payout most returning players do reach, and Royal Match's daily missions are sized to a single session. Neither hangs its headline reward off a streak most players never hold.
+        - generic [ref=f1e379]:
+          - generic [ref=f1e380]: inference
+          - generic [ref=f1e381]: A reward is a promise about behaviour. Paying at round 3 tells the 95% of low-level players who never get there that the event is not for them — which is consistent with the -37.7% fall in NS participation at 10-19.
+      - generic [ref=f1e382]: Same nominal budget, up to 20× the delivered value. Reallocating the coins already on the NS ladder from round 3 to round 1 costs the faucet nothing (-0.08 coins/pd in the sim) because expected cost is held constant by construction — it only changes who gets paid.
+      - generic [ref=f1e383]: "Risk / watch-out Reallocation changes the shape of the top-end reward. At 100+, 42% of players do finish round 3, so exclude that segment from the reshape — see P9. Also re-check the deep rounds' aspirational role: a ladder with no visible summit can read as less exciting even when it pays more on average."
+    - article [ref=f1e384]:
+      - generic [ref=f1e385]:
+        - generic [ref=f1e386]: P5
+        - generic [ref=f1e387]:
+          - heading "Re-cut the Night Sky streak gates per segment — after calibrating the model" [level=4] [ref=f1e388]
+          - generic [ref=f1e389]:
+            - generic [ref=f1e390]: streaks
+            - generic [ref=f1e391]: "model-priced upper bound: +12.48 coins/pd"
+      - paragraph [ref=f1e392]: The v2 pass raised NS rewards without touching a single requirement.
+      - generic [ref=f1e393]:
+        - generic [ref=f1e394]:
+          - heading "What the data says" [level=5] [ref=f1e395]
+          - paragraph [ref=f1e396]: "Gates today (cumulative streak): 1-9 2/5/10, 10-19 6/13/26, 20-39 11/26/42, 40-99 28/60/100, 100+ 80/175/280."
+          - paragraph [ref=f1e397]: "Set against measured streaks, the mid segments are the mismatch: 20-39 needs 42 cumulative streak for round 3 with a p50 daily streak of 12.7 and p90 of 32.6. Round-3 claim rate there is 4.2% of player-days."
+          - table [ref=f1e399]:
+            - rowgroup [ref=f1e400]:
+              - row [ref=f1e401]:
+                - columnheader "segment" [ref=f1e402]
+                - columnheader "round" [ref=f1e403]
+                - columnheader "cum-streak gate" [ref=f1e404]
+                - columnheader "coins" [ref=f1e405]
+                - columnheader "engine model reach" [ref=f1e406]
+                - columnheader "live players who finished it" [ref=f1e407]
+                - columnheader "model ÷ live" [ref=f1e408]
+            - rowgroup [ref=f1e409]:
+              - row [ref=f1e410]:
+                - cell "0-9" [ref=f1e411]
+                - cell "R1" [ref=f1e412]
+                - cell "2" [ref=f1e413]
+                - cell "0" [ref=f1e414]
+                - cell "67.5%" [ref=f1e415]
+                - cell "34.6%" [ref=f1e416]
+                - cell "×1.95" [ref=f1e417]
+              - row [ref=f1e418]:
+                - cell [ref=f1e419]
+                - cell "R2" [ref=f1e420]
+                - cell "5" [ref=f1e421]
+                - cell "10" [ref=f1e422]
+                - cell "37.5%" [ref=f1e423]
+                - cell "16.1%" [ref=f1e424]
+                - cell "×2.34" [ref=f1e425]
+              - row [ref=f1e426]:
+                - cell [ref=f1e427]
+                - cell "R3" [ref=f1e428]
+                - cell "10" [ref=f1e429]
+                - cell "15" [ref=f1e430]
+                - cell "13.7%" [ref=f1e431]
+                - cell "4.9%" [ref=f1e432]
+                - cell "×2.80" [ref=f1e433]
+              - row [ref=f1e434]:
+                - cell "10-19" [ref=f1e435]
+                - cell "R1" [ref=f1e436]
+                - cell "6" [ref=f1e437]
+                - cell "10" [ref=f1e438]
+                - cell "63.7%" [ref=f1e439]
+                - cell "40.0%" [ref=f1e440]
+                - cell "×1.59" [ref=f1e441]
+              - row [ref=f1e442]:
+                - cell [ref=f1e443]
+                - cell "R2" [ref=f1e444]
+                - cell "13" [ref=f1e445]
+                - cell "35" [ref=f1e446]
+                - cell "35.8%" [ref=f1e447]
+                - cell "23.2%" [ref=f1e448]
+                - cell "×1.54" [ref=f1e449]
+              - row [ref=f1e450]:
+                - cell [ref=f1e451]
+                - cell "R3" [ref=f1e452]
+                - cell "26" [ref=f1e453]
+                - cell "70" [ref=f1e454]
+                - cell "8.3%" [ref=f1e455]
+                - cell "10.9%" [ref=f1e456]
+                - cell "×0.76" [ref=f1e457]
+              - row [ref=f1e458]:
+                - cell "20-39" [ref=f1e459]
+                - cell "R1" [ref=f1e460]
+                - cell "11" [ref=f1e461]
+                - cell "15" [ref=f1e462]
+                - cell "68.6%" [ref=f1e463]
+                - cell "40.0%" [ref=f1e464]
+                - cell "×1.71" [ref=f1e465]
+              - row [ref=f1e466]:
+                - cell [ref=f1e467]
+                - cell "R2" [ref=f1e468]
+                - cell "26" [ref=f1e469]
+                - cell "75" [ref=f1e470]
+                - cell "34.5%" [ref=f1e471]
+                - cell "21.7%" [ref=f1e472]
+                - cell "×1.59" [ref=f1e473]
+              - row [ref=f1e474]:
+                - cell [ref=f1e475]
+                - cell "R3" [ref=f1e476]
+                - cell "42" [ref=f1e477]
+                - cell "140" [ref=f1e478]
+                - cell "15.1%" [ref=f1e479]
+                - cell "11.2%" [ref=f1e480]
+                - cell "×1.35" [ref=f1e481]
+              - row [ref=f1e482]:
+                - cell "40-99" [ref=f1e483]
+                - cell "R1" [ref=f1e484]
+                - cell "28" [ref=f1e485]
+                - cell "60" [ref=f1e486]
+                - cell "59.3%" [ref=f1e487]
+                - cell "42.1%" [ref=f1e488]
+                - cell "×1.41" [ref=f1e489]
+              - row [ref=f1e490]:
+                - cell [ref=f1e491]
+                - cell "R2" [ref=f1e492]
+                - cell "60" [ref=f1e493]
+                - cell "160" [ref=f1e494]
+                - cell "27.3%" [ref=f1e495]
+                - cell "25.6%" [ref=f1e496]
+                - cell "×1.06" [ref=f1e497]
+              - row [ref=f1e498]:
+                - cell [ref=f1e499]
+                - cell "R3" [ref=f1e500]
+                - cell "100" [ref=f1e501]
+                - cell "300" [ref=f1e502]
+                - cell "8.9%" [ref=f1e503]
+                - cell "15.9%" [ref=f1e504]
+                - cell "×0.56" [ref=f1e505]
+              - row [ref=f1e506]:
+                - cell "100+" [ref=f1e507]
+                - cell "R1" [ref=f1e508]
+                - cell "80" [ref=f1e509]
+                - cell "125" [ref=f1e510]
+                - cell "49.5%" [ref=f1e511]
+                - cell "63.1%" [ref=f1e512]
+                - cell "×0.78" [ref=f1e513]
+              - row [ref=f1e514]:
+                - cell [ref=f1e515]
+                - cell "R2" [ref=f1e516]
+                - cell "175" [ref=f1e517]
+                - cell "350" [ref=f1e518]
+                - cell "18.2%" [ref=f1e519]
+                - cell "49.5%" [ref=f1e520]
+                - cell "×0.37" [ref=f1e521]
+              - row [ref=f1e522]:
+                - cell [ref=f1e523]
+                - cell "R3" [ref=f1e524]
+                - cell "280" [ref=f1e525]
+                - cell "500" [ref=f1e526]
+                - cell "0.0%" [ref=f1e527]
+                - cell "42.4%" [ref=f1e528]
+                - cell "model says nobody" [ref=f1e529]
+          - paragraph [ref=f1e530]:
+            - text: Engine reach = the survival curve in EcoGainsSim_v4.gs (
+            - code [ref=f1e531]: data_streaks
+            - text: "max-streak percentiles × NS_STREAK_N 1.25). No single scale factor reconciles the two columns: the model is ~1.4–2.8× too generous below 40-99 and far too harsh at 100+, where it claims round 3 is unreachable and 42% of players finish it."
+        - generic [ref=f1e532]:
+          - heading "What to change, exactly" [level=5] [ref=f1e533]
+          - paragraph [ref=f1e534]:
+            - text: Sheet
+            - code [ref=f1e535]: NS_v2
+            - text: ", columns D (“Streak Req”) and E (“Cum Streak Req”) in each segment block. The engine reads column E; keep D consistent for readability."
+          - paragraph [ref=f1e536]:
+            - text: "How the engine sees it: requirement edits flow through the same survival curve that prices rewards — E = Σ S(CumStreakReq"
+            - subscript [ref=f1e537]: k
+            - text: ) × reward
+            - subscript [ref=f1e538]: k
+            - text: "— so lowering a gate raises R and the sim prices it immediately. That is the good news. The bad news is the calibration table above: the survival curve is built from"
+            - code [ref=f1e539]: data_streaks
+            - text: max-streak percentiles × a single global
+            - code [ref=f1e540]: NS_STREAK_N
+            - text: = 1.25, and it disagrees with live completion by ×1.4–2.8 in the low and mid segments while calling round 3 unreachable at 100+ where 42% finish it.
+          - paragraph [ref=f1e541]: "Therefore: do P10 first. The priced +12.48 coins/pd for a full re-cut to 75/50/25% modelled reach is an upper bound computed with a curve we know is wrong; the same edit priced against live claim rates will land lower for low segments and higher at 100+."
+      - generic [ref=f1e542]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e543]
+        - generic [ref=f1e544]:
+          - generic [ref=f1e545]: published
+          - generic [ref=f1e546]: Duolingo has publicly credited streak mechanics — and specifically streak protection — as a major driver of its DAU growth, discussing streak freezes and repair in its own engineering and investor communications. The published lesson is not “make streaks long”, it is “make them survivable”.
+        - generic [ref=f1e547]:
+          - generic [ref=f1e548]: observed design
+          - generic [ref=f1e549]: Monopoly Go and Royal Match both gate their daily-return rewards on same-day activity rather than long consecutive chains, and where longer chains exist they sell or grant protection. Our gates ask 20-39 players for a 42-deep cumulative streak with no forgiveness mechanic at all.
+        - generic [ref=f1e550]:
+          - generic [ref=f1e551]: inference
+          - generic [ref=f1e552]: A cumulative gate with a hard reset converts one missed day into losing the whole ladder. That is the mechanic most likely to explain a participation fall that is largest in the middle segments, where players are engaged enough to start the chain and not yet engaged enough to hold it.
+      - generic [ref=f1e553]:
+        - text: The gates were never touched.
+        - code [ref=f1e554]: NS
+        - text: and
+        - code [ref=f1e555]: NS_v2
+        - text: carry identical
+        - code [ref=f1e556]: Cum Streak Req
+        - text: columns — the v2 redesign raised rewards and left every requirement where it was, so the difficulty of the streak loop is unchanged while participation fell -40.4% at 20-39.
+      - generic [ref=f1e557]: "Risk / watch-out Lowering gates is the one change here that can cost real coins at scale — the full re-cut is 9% of the faucet. Do it segment by segment, low segments first, and price each step after P10 lands. Also consider a streak-forgiveness token instead of lower gates: same reachability, lower faucet cost, but it needs game-side work rather than a config edit."
+  - generic [ref=f1e558]:
+    - generic [ref=f1e559]: problem 3
+    - heading "Coin spend and sink health" [level=2] [ref=f1e560]
+    - paragraph [ref=f1e561]: Coins spent per player fell -12.2% and per attempt -12.8%, with net coins -37.6%. Spend did not fall because players hoarded — balances fell too. It fell because the faucet shrank and, at the same time, the thing that makes coins worth spending was given away for free.
+    - article [ref=f1e562]:
+      - generic [ref=f1e563]:
+        - generic [ref=f1e564]: P6
+        - generic [ref=f1e565]:
+          - heading "Stop paying free lives into the coin sink" [level=4] [ref=f1e566]
+          - generic [ref=f1e567]:
+            - generic [ref=f1e568]: HC sink · revenue
+            - generic [ref=f1e569]: not simulatable today — config gap
+      - paragraph [ref=f1e570]: The redesign cut coin supply and coin demand at the same time.
+      - generic [ref=f1e571]:
+        - generic [ref=f1e572]:
+          - heading "What the data says" [level=5] [ref=f1e573]
+          - img [ref=f1e574]:
+            - generic [ref=f1e575]: Every coin players spend, by what they spend it on (Control)
+            - generic [ref=f1e576]: extra moves
+            - generic [ref=f1e578]: 94.5%
+            - generic [ref=f1e579]: lives
+            - generic [ref=f1e581]: 2.5%
+            - generic [ref=f1e582]: pre level booster
+            - generic [ref=f1e584]: 1.9%
+            - generic [ref=f1e585]: powerup
+            - generic [ref=f1e587]: 1.1%
+            - generic [ref=f1e588]: ■ share of all coin spend (% of coin spend)
+          - paragraph [ref=f1e589]: "Coins have essentially one job in this economy: continues. Lives purchases are 2.5% of coin spend and fell -31.6%; pre-level boosters 1.9%."
+          - paragraph [ref=f1e590]:
+            - text: "What v2 did to demand: unlimited lives +41.5% at 100+ ("
+            - code [ref=f1e591]: saga_progression
+            - text: "alone +73.3%), out-of-moves rate +5.5%, attempts per completion +3.5% — players fail more and pay less: continues per 1000 player-days went 6,347 → 5,149 at 100+ and coins spent per attempt -12.8% overall. Their paid coin purchases fell -27.3%."
+        - generic [ref=f1e592]:
+          - heading "What to change, exactly" [level=5] [ref=f1e593]
+          - paragraph [ref=f1e594]:
+            - text: "The config gap first. The saga UL-lives swap is not in the workbook: after the triple-column rebuild,"
+            - code [ref=f1e595]: c_saga
+            - text: /
+            - code [ref=f1e596]: c_saga_v2
+            - text: carry only
+            - code [ref=f1e597]: Levels Req | RewardChestId | HC Reward
+            - text: per segment — no item columns. So
+            - code [ref=f1e598]: readSagaItems_
+            - text: finds nothing, saga item ratios come back empty, and the sim prices saga UL at ×1.0 while live raised it ~×1.7. Add the item columns back (any header in
+            - code [ref=f1e599]: RES_MAP
+            - text: — “Unlimited Lives”, “Unlimited Red”, …) to both sheets and the swap becomes priceable with no code change; the reader already maps them.
+          - paragraph [ref=f1e600]:
+            - text: "Then the design change. Grant the same generosity as more, shorter windows rather than long ones — the sink only survives if a fail can still cost something. The levers that already exist in config: the UL columns on"
+            - code [ref=f1e601]: c_saga_v2
+            - text: (once restored),
+            - code [ref=f1e602]: NS_v2
+            - text: ","
+            - code [ref=f1e603]: F
+            - text: (Flock Flurry),
+            - code [ref=f1e604]: HH_v2
+            - text: ","
+            - code [ref=f1e605]: TaD_v2
+            - text: . Duration is a game-side parameter, so window length itself is an engineering ask, not a sheet edit.
+      - generic [ref=f1e606]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e607]
+        - generic [ref=f1e608]:
+          - generic [ref=f1e609]: published
+          - generic [ref=f1e610]: Continues and booster purchases — not lives — are repeatedly reported as the bulk of non-ad IAP in match-3, which is consistent with our own 94.5% figure. The sink being monetised is the fail moment.
+        - generic [ref=f1e611]:
+          - generic [ref=f1e612]: observed design
+          - generic [ref=f1e613]: Royal Match hands out unlimited-lives windows constantly, but in short bursts tied to events, and its hearts refill on a timer that keeps the fail moment costly. The grant pattern is “often and brief”, not “long and free”.
+        - generic [ref=f1e614]:
+          - generic [ref=f1e615]: inference
+          - generic [ref=f1e616]: A long unlimited-lives window converts a paid retry economy into a free one for its duration. Handing 100+ players 41% more of it while removing 18% of their coins is a coherent explanation for a 31% revenue fall in that segment without any change to prices or offers.
+      - generic [ref=f1e617]: "94.5% of every coin players spend goes on one action: buying extra moves when a level is about to fail. Unlimited-lives minutes remove the cost of failing, and v2 raised them +41.5% at 100+ while cutting coins."
+      - generic [ref=f1e618]: Risk / watch-out This is the proposal most likely to be unpopular with players, and the one with the largest revenue upside. Do not pair a UL trim with the P2 coin give-back at the top — pick one lever per segment, or you will re-inflate the faucet you just cut.
+    - article [ref=f1e619]:
+      - generic [ref=f1e620]:
+        - generic [ref=f1e621]: P7
+        - generic [ref=f1e622]:
+          - heading "Make the continue price a ladder instead of a flat 100 coins" [level=4] [ref=f1e623]
+          - generic [ref=f1e624]:
+            - generic [ref=f1e625]: HC sink
+            - generic [ref=f1e626]: not simulatable — no sink model in the engine
+      - paragraph [ref=f1e627]: One flat price cannot serve a faucet that ranges from 42 to 620 coins a day.
+      - generic [ref=f1e628]:
+        - generic [ref=f1e629]:
+          - heading "What the data says" [level=5] [ref=f1e630]
+          - paragraph [ref=f1e631]: At 100+ players buy 6.3 continues per player-day — 635 coins/day, which is essentially their entire free faucet. At 1-9 it is 0.41 continues/day (41 coins/day) against a daily gift that now pays 18.6 coins/day — a new player needs about 5 days of daily gifts to afford one continue.
+          - paragraph [ref=f1e632]: "Consequence in the data: coins spent per attempt fell -12.8% while the out-of-moves rate rose +2.8% — the fail moments are there, the purchases are not."
+        - generic [ref=f1e633]:
+          - heading "What to change, exactly" [level=5] [ref=f1e634]
+          - paragraph [ref=f1e635]:
+            - text: Not a LiveOps sheet — this is the level-economy price table (the
+            - code [ref=f1e636]: extra_moves
+            - text: action,
+            - code [ref=f1e637]: level_movesplus5
+            - text: "context in the spend export). Two shapes worth testing:"
+          - paragraph [ref=f1e638]: "1. Session-progressive: first continue of a session cheaper (e.g. 50), each subsequent one dearer. Protects new players, raises the marginal cost for the players buying six a day."
+          - paragraph [ref=f1e639]: "2. Level-band priced: scale with the level's coin faucet so the price is a constant share of daily income rather than a constant number."
+          - paragraph [ref=f1e640]:
+            - text: "Why the sim cannot price this: the engine models the faucet only —"
+            - code [ref=f1e641]: data_econ_daily
+            - text: "carries spend as a measured series and no sink is simulated. Pricing this needs either an A/B on the price itself or a new spend model in the engine (a real piece of work: a per-attempt OOM → purchase conversion curve per segment)."
+      - generic [ref=f1e642]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e643]
+        - generic [ref=f1e644]:
+          - generic [ref=f1e645]: published
+          - generic [ref=f1e646]: Casual-puzzle ARPDAU benchmarks sit in roughly the $0.05–0.15 band and ours is $0.090 → $0.083. The category monetises through many small purchase decisions, which requires prices that scale with the player.
+        - generic [ref=f1e647]:
+          - generic [ref=f1e648]: observed design
+          - generic [ref=f1e649]: Top match-3 titles vary continue cost and bundle contents by context — level type, attempt count, event state — rather than holding one number for everyone.
+        - generic [ref=f1e650]:
+          - generic [ref=f1e651]: inference
+          - generic [ref=f1e652]: "A price only creates pressure inside a band: below it, the purchase is automatic and you leave money on the table; above it, players stop considering it. A flat 100 with a 15× spread in daily income between segments cannot be inside the band for all of them."
+      - generic [ref=f1e653]: Every continue costs the same 100 coins — at every level, in every segment, for both arms (observed range 99.99–100.00). That single price is simultaneously trivial for a 100+ player and unreachable for a new one.
+      - generic [ref=f1e654]: Risk / watch-out Price changes are the sharpest tool here and the easiest to get wrong — they interact with perceived fairness and with the offer wall (out of scope in this report). Test on one level band before touching the curve globally.
+    - article [ref=f1e655]:
+      - generic [ref=f1e656]:
+        - generic [ref=f1e657]: P8
+        - generic [ref=f1e658]:
+          - heading "Rebalance Rainbow Maker — it pays in the currencies that do least for return" [level=4] [ref=f1e659]
+          - generic [ref=f1e660]:
+            - generic [ref=f1e661]: streaks · HC sink
+            - generic [ref=f1e662]: sim over-prices this lane — see the discrepancy report
+      - paragraph [ref=f1e663]: A brand-new event is the cheapest place to buy daily-return behaviour, and it was spent elsewhere.
+      - generic [ref=f1e664]:
+        - generic [ref=f1e665]:
+          - heading "What the data says" [level=5] [ref=f1e666]
+          - paragraph [ref=f1e667]: "Rainbow Maker is the Variant's biggest new faucet: SPT per player 21.2 from a standing start, and it pays slingshots heavily — slingshot gains +23.7% against spend +10.7%, i.e. players are accumulating them, not using them."
+          - paragraph [ref=f1e668]: "Meanwhile the sim over-prices this lane: the discrepancy report puts RM at ~1.9× the live token delivery and ~3.7× the live coin delivery, so its budget looks bigger on paper than what players actually received. Both numbers point the same way — RM's ladder is the loosest in the model."
+        - generic [ref=f1e669]:
+          - heading "What to change, exactly" [level=5] [ref=f1e670]
+          - paragraph [ref=f1e671]:
+            - text: Sheets
+            - code [ref=f1e672]: RM_1st
+            - text: and
+            - code [ref=f1e673]: RM_2nd
+            - text: — the
+            - code [ref=f1e674]: Req Accum
+            - text: milestone column plus the reward columns (mapped through
+            - code [ref=f1e675]: RES_MAP
+            - text: ", so “SPT x2”, “Slingshot”, “Coins” and the pack columns all read from the same header row)."
+          - paragraph [ref=f1e676]:
+            - text: "Two concrete edits: (1) move part of the slingshot/token weight into the daily loops (NS rounds 1–2, the daily gift) where it converts into returns; (2) fix the instance→sheet assignment —"
+            - code [ref=f1e677]: RM_INSTANCE_SHEETS
+            - text: in
+            - code [ref=f1e678]: EcoGainsSim_v4.gs
+            - text: hardcodes
+            - code [ref=f1e679]: "['RM_1st','RM_1st','RM_1st','RM_2nd','RM_2nd']"
+            - text: by start order, and the live ladder matches
+            - code [ref=f1e680]: RM_2nd
+            - text: ", so the in-window instances are priced off the wrong sheet."
+          - paragraph [ref=f1e681]:
+            - text: "How the engine sees it: RM is bottom-up — per instance, Σ"
+            - subscript [ref=f1e682]: k
+            - text: S
+            - subscript [ref=f1e683]: dur
+            - text: (ReqAccum
+            - subscript [ref=f1e684]: k
+            - text: ) × reward
+            - subscript [ref=f1e685]: k
+            - text: × reach(inst), with S
+            - subscript [ref=f1e686]: dur
+            - text: from
+            - code [ref=f1e687]: data_RM
+            - text: matchables percentiles scaled by instance duration ÷ configured EventDuration. There is no measured anchor, so requirement edits move the whole lane immediately and errors here do not self-correct.
+      - generic [ref=f1e688]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e689]
+        - generic [ref=f1e690]:
+          - generic [ref=f1e691]: published
+          - generic [ref=f1e692]: "Booster inflation is a recognised failure mode in the category: when consumable stock outruns consumption, the difficulty pressure that drives both engagement and spend falls away. Our slingshot stock is the clearest instance — gains up, spend flat."
+        - generic [ref=f1e693]:
+          - generic [ref=f1e694]: observed design
+          - generic [ref=f1e695]: Royal Match ties booster grants to event completion and keeps them consumable within the event window rather than letting them pool indefinitely.
+        - generic [ref=f1e696]:
+          - generic [ref=f1e697]: inference
+          - generic [ref=f1e698]: A currency that accumulates without a sink is a discount on future difficulty. Given the goal is daily return and coin-sink health, tokens and slingshots are the two least useful things a new event could be paying.
+      - generic [ref=f1e699]: The new headline event pays tokens and slingshots, not daily-return value. Slingshot net stock rose +160.1% overall (+1227.2% at 100+) while the streak metric fell -4.0%.
+      - generic [ref=f1e700]: Risk / watch-out RM is the Variant's most popular new content — trimming it is the change most likely to be felt as a takeaway. Reallocate rather than cut, and fix the instance-sheet mapping first so you can see what you are actually changing.
+  - generic [ref=f1e701]:
+    - generic [ref=f1e702]: problem 4
+    - heading "Revenue from the most engaged players" [level=2] [ref=f1e703]
+    - paragraph [ref=f1e704]: Revenue fell -9.1% overall, -9.4% among established players and -31.0% in the 100+ bucket, where ARPPU fell -8.0% and paid coin purchases fell -27.3%. You ranked this fourth; the levers are mostly the sink ones above, plus where the top segment gets paid.
+    - article [ref=f1e705]:
+      - generic [ref=f1e706]:
+        - generic [ref=f1e707]: P9
+        - generic [ref=f1e708]:
+          - heading "Pay the top segment through the rounds they actually finish" [level=4] [ref=f1e709]
+          - generic [ref=f1e710]:
+            - generic [ref=f1e711]: revenue
+            - generic [ref=f1e712]: reshape is free; exclude 100+ from P1
+      - paragraph [ref=f1e713]: The efficient place to pay heavy players is the one tier the rest of the game cannot reach.
+      - generic [ref=f1e714]:
+        - generic [ref=f1e715]:
+          - heading "What the data says" [level=5] [ref=f1e716]
+          - paragraph [ref=f1e717]: "100+ round completion runs 63% → 50% → 42%, a shallow funnel; at 20-39 the same funnel is 57% → … → 4.2% per player-day. Their revenue picture: ARPPU -17.4%, payer-days -11.0%, paid coin purchases -27.3%, coin balance P75 -16.4%."
+          - paragraph [ref=f1e718]: They were compensated in unlimited lives (+41.5%), which is precisely the substitution P5 identifies as the revenue problem. Paying them in coins through a tier they reach puts the value back without removing the fail cost.
+        - generic [ref=f1e719]:
+          - heading "What to change, exactly" [level=5] [ref=f1e720]
+          - paragraph [ref=f1e721]:
+            - text: Sheet
+            - code [ref=f1e722]: NS_v2
+            - text: ", the 100+ block only: keep rounds 2–3 heavy (currently 125 / 350 / 500 coins) and exclude this segment from P4's reshape. If more is needed, raise round 2 — 50% completion makes it the highest-delivery cell in the whole ladder."
+          - paragraph [ref=f1e723]: "Why this is the coin route rather than the lives route: coins re-enter the sink at the continue; unlimited-lives minutes remove the sink. Same nominal generosity, opposite effect on spend."
+      - generic [ref=f1e724]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e725]
+        - generic [ref=f1e726]:
+          - generic [ref=f1e727]: published
+          - generic [ref=f1e728]: Whale revenue in casual puzzle is concentrated in continue-type purchases, so top-segment value delivered as coins recirculates into the monetised action, while value delivered as free retries does not.
+        - generic [ref=f1e729]:
+          - generic [ref=f1e730]: observed design
+          - generic [ref=f1e731]: Royal Match reserves its deepest event tiers for its most engaged cohort and keeps the currency it pays there spendable, rather than granting time-based immunity.
+        - generic [ref=f1e732]:
+          - generic [ref=f1e733]: inference
+          - generic [ref=f1e734]: This segment is 6.5% of players and was 10% of revenue before the test; a targeted reward-placement change is cheap relative to the 31% revenue fall it addresses.
+      - generic [ref=f1e735]: At 100+ the deep Night Sky rounds work. 42% of them finish round 3 — the only segment where the deepest tier delivers — while their coin faucet fell -18.4% and their revenue -31.0%.
+      - generic [ref=f1e736]: Risk / watch-out Do not stack this with a saga coin give-back at the top (P2’s funding half) — that would restore the faucet you are using to pay for the low-segment changes.
+  - generic [ref=f1e737]:
+    - generic [ref=f1e738]: before you trust these numbers
+    - heading "Three things that limit everything above" [level=2] [ref=f1e739]
+    - paragraph [ref=f1e740]: Two of the proposals are priced with a model we can now prove is miscalibrated, one large event is mispriced by roughly 5×, and a difficulty change landed in the same release as the economy change. None of these are design proposals; all three change how much weight the rest deserves.
+    - article [ref=f1e741]:
+      - generic [ref=f1e742]:
+        - generic [ref=f1e743]: P10
+        - generic [ref=f1e744]:
+          - heading "Calibrate the Night Sky reach model against the completion data you now have" [level=4] [ref=f1e745]
+          - generic [ref=f1e746]:
+            - generic [ref=f1e747]: model
+            - generic [ref=f1e748]: sim work — unblocks P4 and P5
+      - paragraph [ref=f1e749]: The proposals above are priced with a curve we can now prove is wrong.
+      - generic [ref=f1e750]:
+        - generic [ref=f1e751]:
+          - heading "What the data says" [level=5] [ref=f1e752]
+          - table [ref=f1e754]:
+            - rowgroup [ref=f1e755]:
+              - row [ref=f1e756]:
+                - columnheader "segment" [ref=f1e757]
+                - columnheader "round" [ref=f1e758]
+                - columnheader "cum-streak gate" [ref=f1e759]
+                - columnheader "coins" [ref=f1e760]
+                - columnheader "engine model reach" [ref=f1e761]
+                - columnheader "live players who finished it" [ref=f1e762]
+                - columnheader "model ÷ live" [ref=f1e763]
+            - rowgroup [ref=f1e764]:
+              - row [ref=f1e765]:
+                - cell "0-9" [ref=f1e766]
+                - cell "R1" [ref=f1e767]
+                - cell "2" [ref=f1e768]
+                - cell "0" [ref=f1e769]
+                - cell "67.5%" [ref=f1e770]
+                - cell "34.6%" [ref=f1e771]
+                - cell "×1.95" [ref=f1e772]
+              - row [ref=f1e773]:
+                - cell [ref=f1e774]
+                - cell "R2" [ref=f1e775]
+                - cell "5" [ref=f1e776]
+                - cell "10" [ref=f1e777]
+                - cell "37.5%" [ref=f1e778]
+                - cell "16.1%" [ref=f1e779]
+                - cell "×2.34" [ref=f1e780]
+              - row [ref=f1e781]:
+                - cell [ref=f1e782]
+                - cell "R3" [ref=f1e783]
+                - cell "10" [ref=f1e784]
+                - cell "15" [ref=f1e785]
+                - cell "13.7%" [ref=f1e786]
+                - cell "4.9%" [ref=f1e787]
+                - cell "×2.80" [ref=f1e788]
+              - row [ref=f1e789]:
+                - cell "10-19" [ref=f1e790]
+                - cell "R1" [ref=f1e791]
+                - cell "6" [ref=f1e792]
+                - cell "10" [ref=f1e793]
+                - cell "63.7%" [ref=f1e794]
+                - cell "40.0%" [ref=f1e795]
+                - cell "×1.59" [ref=f1e796]
+              - row [ref=f1e797]:
+                - cell [ref=f1e798]
+                - cell "R2" [ref=f1e799]
+                - cell "13" [ref=f1e800]
+                - cell "35" [ref=f1e801]
+                - cell "35.8%" [ref=f1e802]
+                - cell "23.2%" [ref=f1e803]
+                - cell "×1.54" [ref=f1e804]
+              - row [ref=f1e805]:
+                - cell [ref=f1e806]
+                - cell "R3" [ref=f1e807]
+                - cell "26" [ref=f1e808]
+                - cell "70" [ref=f1e809]
+                - cell "8.3%" [ref=f1e810]
+                - cell "10.9%" [ref=f1e811]
+                - cell "×0.76" [ref=f1e812]
+              - row [ref=f1e813]:
+                - cell "20-39" [ref=f1e814]
+                - cell "R1" [ref=f1e815]
+                - cell "11" [ref=f1e816]
+                - cell "15" [ref=f1e817]
+                - cell "68.6%" [ref=f1e818]
+                - cell "40.0%" [ref=f1e819]
+                - cell "×1.71" [ref=f1e820]
+              - row [ref=f1e821]:
+                - cell [ref=f1e822]
+                - cell "R2" [ref=f1e823]
+                - cell "26" [ref=f1e824]
+                - cell "75" [ref=f1e825]
+                - cell "34.5%" [ref=f1e826]
+                - cell "21.7%" [ref=f1e827]
+                - cell "×1.59" [ref=f1e828]
+              - row [ref=f1e829]:
+                - cell [ref=f1e830]
+                - cell "R3" [ref=f1e831]
+                - cell "42" [ref=f1e832]
+                - cell "140" [ref=f1e833]
+                - cell "15.1%" [ref=f1e834]
+                - cell "11.2%" [ref=f1e835]
+                - cell "×1.35" [ref=f1e836]
+              - row [ref=f1e837]:
+                - cell "40-99" [ref=f1e838]
+                - cell "R1" [ref=f1e839]
+                - cell "28" [ref=f1e840]
+                - cell "60" [ref=f1e841]
+                - cell "59.3%" [ref=f1e842]
+                - cell "42.1%" [ref=f1e843]
+                - cell "×1.41" [ref=f1e844]
+              - row [ref=f1e845]:
+                - cell [ref=f1e846]
+                - cell "R2" [ref=f1e847]
+                - cell "60" [ref=f1e848]
+                - cell "160" [ref=f1e849]
+                - cell "27.3%" [ref=f1e850]
+                - cell "25.6%" [ref=f1e851]
+                - cell "×1.06" [ref=f1e852]
+              - row [ref=f1e853]:
+                - cell [ref=f1e854]
+                - cell "R3" [ref=f1e855]
+                - cell "100" [ref=f1e856]
+                - cell "300" [ref=f1e857]
+                - cell "8.9%" [ref=f1e858]
+                - cell "15.9%" [ref=f1e859]
+                - cell "×0.56" [ref=f1e860]
+              - row [ref=f1e861]:
+                - cell "100+" [ref=f1e862]
+                - cell "R1" [ref=f1e863]
+                - cell "80" [ref=f1e864]
+                - cell "125" [ref=f1e865]
+                - cell "49.5%" [ref=f1e866]
+                - cell "63.1%" [ref=f1e867]
+                - cell "×0.78" [ref=f1e868]
+              - row [ref=f1e869]:
+                - cell [ref=f1e870]
+                - cell "R2" [ref=f1e871]
+                - cell "175" [ref=f1e872]
+                - cell "350" [ref=f1e873]
+                - cell "18.2%" [ref=f1e874]
+                - cell "49.5%" [ref=f1e875]
+                - cell "×0.37" [ref=f1e876]
+              - row [ref=f1e877]:
+                - cell [ref=f1e878]
+                - cell "R3" [ref=f1e879]
+                - cell "280" [ref=f1e880]
+                - cell "500" [ref=f1e881]
+                - cell "0.0%" [ref=f1e882]
+                - cell "42.4%" [ref=f1e883]
+                - cell "model says nobody" [ref=f1e884]
+          - paragraph [ref=f1e885]:
+            - text: Engine reach = the survival curve in EcoGainsSim_v4.gs (
+            - code [ref=f1e886]: data_streaks
+            - text: "max-streak percentiles × NS_STREAK_N 1.25). No single scale factor reconciles the two columns: the model is ~1.4–2.8× too generous below 40-99 and far too harsh at 100+, where it claims round 3 is unreachable and 42% of players finish it."
+        - generic [ref=f1e887]:
+          - heading "What to change, exactly" [level=5] [ref=f1e888]
+          - paragraph [ref=f1e889]:
+            - text: "Code:"
+            - code [ref=f1e890]: NS_STREAK_N
+            - text: (currently 1.25) and
+            - code [ref=f1e891]: nsE_
+            - text: /
+            - code [ref=f1e892]: survival_
+            - text: in
+            - code [ref=f1e893]: EcoGainsSim_v4.gs
+            - text: ", fed by"
+            - code [ref=f1e894]: data_streaks
+            - text: max-streak percentiles.
+          - paragraph [ref=f1e895]:
+            - text: "The mismatch is in shape, not scale — the low segments need a less generous curve and 100+ needs a much more generous one, so no single N fixes it. Two options: (a) per-segment N fitted so modelled round-1 reach matches the measured claim rate; (b) drop the proxy and read the measured per-round claim rates straight off the A/B export as the reach vector, keeping the survival curve only for segments with no measurement. Option (b) is what your own"
+            - code [ref=f1e896]: NS_Config_Change_Est
+            - text: sheet already does by hand — its estimate reproduces exactly as Σ claim-rate × reward — so adopting it would make the sheet and the engine agree.
+      - generic [ref=f1e897]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e898]
+        - generic [ref=f1e899]:
+          - generic [ref=f1e900]: inference
+          - generic [ref=f1e901]: A model calibrated on a proxy (max daily streak × 1.25) should be replaced by the measurement as soon as the measurement exists. Everything downstream — NS coins, the season-pass token flow that NS feeds, and the whole-faucet total — inherits this error.
+      - generic [ref=f1e902]: The engine's streak-survival curve disagrees with live completion by up to ×2.8, in both directions. The A/B export now reports actual round completion per segment, which is the calibration target that did not exist when the model was built.
+      - generic [ref=f1e903]: Risk / watch-out Recalibration will move published NS numbers, including ones already circulated. Version the change and re-run the sim-vs-actual report in the same pass so the two stay consistent.
+    - article [ref=f1e904]:
+      - generic [ref=f1e905]:
+        - generic [ref=f1e906]: P11
+        - generic [ref=f1e907]:
+          - heading "Get the Kite Festival config that actually shipped into Ki_v2" [level=4] [ref=f1e908]
+          - generic [ref=f1e909]:
+            - generic [ref=f1e910]: accuracy
+            - generic [ref=f1e911]: blocks accurate v3 budgeting
+      - paragraph [ref=f1e912]: You cannot budget v3 against a config that is not what ran.
+      - generic [ref=f1e913]:
+        - generic [ref=f1e914]:
+          - heading "What the data says" [level=5] [ref=f1e915]
+          - paragraph [ref=f1e916]:
+            - text: The sim-vs-actual work put windowed Kite at ≈×1.0 against live ×5.3 coins and ×4.5 tokens at 100+ — the single largest directional miss in the model, and it survived adversarial verification. Either the live event ran a different rank ladder, a different league size, or a different schedule than
+            - code [ref=f1e917]: Ki_v2
+            - text: describes.
+        - generic [ref=f1e918]:
+          - heading "What to change, exactly" [level=5] [ref=f1e919]
+          - paragraph [ref=f1e920]:
+            - text: Sheet
+            - code [ref=f1e921]: Ki_v2
+            - text: — the rank ladder (rows 26–85, reward columns C..W) and the score milestone block (row 22, requirement in column B). Pull the config that the Variant actually ran from live ops and type it in.
+          - paragraph [ref=f1e922]:
+            - text: "How the engine sees it: Kite is priced as a zero-sum leaderboard — E = mean ladder payout at the measured"
+            - code [ref=f1e923]: position_p25/p50/p75
+            - text: from
+            - code [ref=f1e924]: data_event_inst
+            - text: ", plus a survival term for the score milestone; D is pinned to 1 because rank payouts are end-state. So the ladder values and the league size both matter, and neither can be inferred from the payout total alone."
+      - generic [ref=f1e925]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e926]
+        - generic [ref=f1e927]:
+          - generic [ref=f1e928]: inference
+          - generic [ref=f1e929]: This is not a design proposal — it is the precondition for the others. Every coins/pd figure in this report is computed against the workbook's configs; one event mispriced by 5× is larger than most of the changes proposed here.
+      - generic [ref=f1e930]: The live Kite Festival pays about 5× what its config sheet says. Until that is reconciled, every faucet budget built on the workbook is wrong by the size of one event.
+      - generic [ref=f1e931]: Risk / watch-out Low risk, pure accuracy work. The only cost is the time to find the live config.
+    - article [ref=f1e932]:
+      - generic [ref=f1e933]:
+        - generic [ref=f1e934]: P12
+        - generic [ref=f1e935]:
+          - heading "Read every economy change against the difficulty change that shipped with it" [level=4] [ref=f1e936]
+          - generic [ref=f1e937]:
+            - generic [ref=f1e938]: cross-cutting
+            - generic [ref=f1e939]: out of scope here — level design owns it
+      - paragraph [ref=f1e940]: Two independent tightenings landed in the same release.
+      - generic [ref=f1e941]:
+        - generic [ref=f1e942]:
+          - heading "What the data says" [level=5] [ref=f1e943]
+          - paragraph [ref=f1e944]: "Per segment the difficulty move is consistent and largest where the faucet cut was largest: attempts per completion +2.7% at 20-39, +3.5% at 100+, and pass rate -3.4% at 100+."
+          - paragraph [ref=f1e945]: "Interaction to keep in view: harder levels raise the number of fail moments (good for the coin sink) while lower pass rates shorten win streaks (bad for the NS gates in P4/P5, which are denominated in streak length). The same change helps one target and hurts another."
+        - generic [ref=f1e946]:
+          - heading "What to change, exactly" [level=5] [ref=f1e947]
+          - paragraph [ref=f1e948]: "No sheet in this workbook. What belongs here is a shared read-out: whenever the level team changes pacing, re-check the NS gate reachability (P5) and the continue conversion (P7), because both are denominated in outcomes the level curve controls."
+      - generic [ref=f1e949]:
+        - heading "Evidence from comparable games" [level=5] [ref=f1e950]
+        - generic [ref=f1e951]:
+          - generic [ref=f1e952]: inference
+          - generic [ref=f1e953]: "Streak-based rewards are difficulty-coupled by construction: a 2-point pass-rate fall compounds across a chain, so a cumulative-streak gate silently gets harder when levels do. That coupling is invisible in a reward-only design review."
+      - generic [ref=f1e954]: Levels got harder at the same time as the faucet got smaller. Pass rate -2.2%, out-of-moves +2.8%, attempts per completion +2.2% — small numbers that multiply against every proposal here.
+      - generic [ref=f1e955]: Risk / watch-out Naming this is the whole action. The risk is assuming an economy fix will show up cleanly in the metrics while difficulty moves underneath it.
+  - generic [ref=f1e956]:
+    - generic [ref=f1e957]: the bill
+    - heading "What the whole set costs" [level=2] [ref=f1e958]
+    - paragraph [ref=f1e959]: Priced against the Control faucet of 137 coins per active player-day. Positive means giving coins back — the v2 cut was -13.8%, so a package at +5 coins/pd returns roughly a third of it.
+    - img [ref=f1e960]:
+      - generic [ref=f1e961]: What each change costs the coin faucet (Control faucet = 137 coins/pd)
+      - generic [ref=f1e962]: B ns reshape
+      - generic [ref=f1e964]: "-0.08"
+      - generic [ref=f1e965]: D saga lowseg
+      - generic [ref=f1e967]: "+1.76"
+      - generic [ref=f1e968]: C2 daily gift half
+      - generic [ref=f1e970]: "+3.27"
+      - generic [ref=f1e971]: PKG funded
+      - generic [ref=f1e973]: "+2.78"
+      - generic [ref=f1e974]: PKG cheap
+      - generic [ref=f1e976]: "+4.95"
+      - generic [ref=f1e977]: E river rush
+      - generic [ref=f1e979]: "+5.18"
+      - generic [ref=f1e980]: C daily gift
+      - generic [ref=f1e982]: "+6.35"
+      - generic [ref=f1e983]: A ns gates
+      - generic [ref=f1e985]: "+12.48"
+      - generic [ref=f1e986]: PKG newuser
+      - generic [ref=f1e988]: "+20.60"
+      - generic [ref=f1e989]: ■ coins / active player-day (+ = gives coins back)
+    - table [ref=f1e991]:
+      - rowgroup [ref=f1e992]:
+        - row [ref=f1e993]:
+          - columnheader "scenario" [ref=f1e994]
+          - columnheader "what it is" [ref=f1e995]
+          - columnheader "sheets edited" [ref=f1e996]
+          - columnheader "coins/pd" [ref=f1e997]
+          - columnheader "% of faucet" [ref=f1e998]
+          - columnheader "UL min/pd" [ref=f1e999]
+      - rowgroup [ref=f1e1000]:
+        - row [ref=f1e1001]:
+          - cell [ref=f1e1002]:
+            - code [ref=f1e1003]: B-ns-reshape
+          - cell "NS rewards re-weighted onto reachable rounds at constant expected cost" [ref=f1e1004]
+          - cell [ref=f1e1005]:
+            - code [ref=f1e1006]: NS_v2
+          - cell "-0.08" [ref=f1e1007]
+          - cell "-0.1%" [ref=f1e1008]
+          - cell "+0.00" [ref=f1e1009]
+        - row [ref=f1e1010]:
+          - cell [ref=f1e1011]:
+            - code [ref=f1e1012]: D-saga-lowseg
+          - 'cell "Saga coin give-back for 0-9 and 10-19 only (c_saga_v2 HC Reward: fill the 0 nodes)" [ref=f1e1013]'
+          - cell [ref=f1e1014]:
+            - code [ref=f1e1015]: c_saga_v2
+          - cell "+1.76" [ref=f1e1016]
+          - cell "+1.3%" [ref=f1e1017]
+          - cell "+0.00" [ref=f1e1018]
+        - row [ref=f1e1019]:
+          - cell [ref=f1e1020]:
+            - code [ref=f1e1021]: C2-daily-gift-half
+          - cell "Daily Gift early rungs restored HALFWAY (c_day_v2 days 1-6)" [ref=f1e1022]
+          - cell [ref=f1e1023]:
+            - code [ref=f1e1024]: c_day_v2
+          - cell "+3.27" [ref=f1e1025]
+          - cell "+2.4%" [ref=f1e1026]
+          - cell "+0.00" [ref=f1e1027]
+        - row [ref=f1e1028]:
+          - cell [ref=f1e1029]:
+            - code [ref=f1e1030]: PKG-funded
+          - 'cell "Package (self-funded): the cheap package paid for by trimming saga coins at 40-99/100+" [ref=f1e1031]'
+          - cell [ref=f1e1032]:
+            - code [ref=f1e1033]: NS_v2
+            - text: ","
+            - code [ref=f1e1034]: c_day_v2
+            - text: ","
+            - code [ref=f1e1035]: c_saga_v2
+          - cell "+2.78" [ref=f1e1036]
+          - cell "+2.0%" [ref=f1e1037]
+          - cell "+0.00" [ref=f1e1038]
+        - row [ref=f1e1039]:
+          - cell [ref=f1e1040]:
+            - code [ref=f1e1041]: PKG-cheap
+          - 'cell "Package (cheap): NS reward reshape (free) + half Daily Gift restore + saga give-back" [ref=f1e1042]'
+          - cell [ref=f1e1043]:
+            - code [ref=f1e1044]: NS_v2
+            - text: ","
+            - code [ref=f1e1045]: c_day_v2
+            - text: ","
+            - code [ref=f1e1046]: c_saga_v2
+          - cell "+4.95" [ref=f1e1047]
+          - cell "+3.6%" [ref=f1e1048]
+          - cell "+0.00" [ref=f1e1049]
+        - row [ref=f1e1050]:
+          - cell [ref=f1e1051]:
+            - code [ref=f1e1052]: E-river-rush
+          - cell "Restore the River Rush lane on cal_new (4 weekly 4-day instances)" [ref=f1e1053]
+          - cell [ref=f1e1054]:
+            - code [ref=f1e1055]: cal_new
+          - cell "+5.18" [ref=f1e1056]
+          - cell "+3.8%" [ref=f1e1057]
+          - cell "+0.34" [ref=f1e1058]
+        - row [ref=f1e1059]:
+          - cell [ref=f1e1060]:
+            - code [ref=f1e1061]: C-daily-gift
+          - cell "Daily Gift early rungs restored to the Control ladder (c_day_v2 days 1-6)" [ref=f1e1062]
+          - cell [ref=f1e1063]:
+            - code [ref=f1e1064]: c_day_v2
+          - cell "+6.35" [ref=f1e1065]
+          - cell "+4.7%" [ref=f1e1066]
+          - cell "+0.00" [ref=f1e1067]
+        - row [ref=f1e1068]:
+          - cell [ref=f1e1069]:
+            - code [ref=f1e1070]: A-ns-gates
+          - cell "NS gates re-cut to reach targets 75/50/25% (NS_v2 Cum Streak Req)" [ref=f1e1071]
+          - cell [ref=f1e1072]:
+            - code [ref=f1e1073]: NS_v2
+          - cell "+12.48" [ref=f1e1074]
+          - cell "+9.1%" [ref=f1e1075]
+          - cell "+1.02" [ref=f1e1076]
+        - row [ref=f1e1077]:
+          - cell [ref=f1e1078]:
+            - code [ref=f1e1079]: PKG-newuser
+          - 'cell "Package (full): NS gates re-cut + Daily Gift restored + saga give-back at 0-9/10-19" [ref=f1e1080]'
+          - cell [ref=f1e1081]:
+            - code [ref=f1e1082]: NS_v2
+            - text: ","
+            - code [ref=f1e1083]: c_day_v2
+            - text: ","
+            - code [ref=f1e1084]: c_saga_v2
+          - cell "+20.60" [ref=f1e1085]
+          - cell "+15.1%" [ref=f1e1086]
+          - cell "+1.02" [ref=f1e1087]
+    - paragraph [ref=f1e1088]:
+      - text: Priced by patching those sheets in
+      - code [ref=f1e1089]: harness/_mockdata.json
+      - text: ", re-running"
+      - code [ref=f1e1090]: EcoGainsSim_v4.gs
+      - text: + the Daily engine over the A/B window (cal_new days 5–13) and converting per-earner deltas onto the live per-active-player-day axis with the bridge from the sim-vs-actual pipeline. Reproduce with
+      - code [ref=f1e1091]: node analysis/_price_proposals.js
+      - text: .
+    - paragraph [ref=f1e1092]:
+      - text: "The shape of the recommendation: P4 is free and should ship regardless."
+      - code [ref=f1e1093]: PKG-funded
+      - text: — the free NS reshape, a half daily-gift restore and the low-segment saga give-back, paid for by halving saga coins at 40-99/100+ — nets +2.78 coins/pd, which is 2.0% of the faucet, and concentrates every coin of it on the segments that lost engagement. The full package (+20.60 coins/pd) would undo most of the v2 cut and is here as an upper bound, not a recommendation.
+  - generic [ref=f1e1094]:
+    - generic [ref=f1e1095]: method
+    - heading "How these numbers were produced" [level=2] [ref=f1e1096]
+    - paragraph [ref=f1e1097]: Everything above is generated from four JSON artefacts; no figure is typed into the page.
+    - generic [ref=f1e1098]:
+      - generic [ref=f1e1099]:
+        - heading "Pipeline" [level=5] [ref=f1e1100]
+        - list [ref=f1e1101]:
+          - listitem [ref=f1e1102]:
+            - code [ref=f1e1103]: python analysis/_extract_ab_summary.py
+            - text: — reshapes LiveOps_v2_AB_Summary.xlsx (
+            - code [ref=f1e1104]: Overall
+            - text: ","
+            - code [ref=f1e1105]: Overall (new users)
+            - text: ","
+            - code [ref=f1e1106]: Overall (old players)
+            - text: ","
+            - code [ref=f1e1107]: By Bucket
+            - text: ","
+            - code [ref=f1e1108]: NS_Config_Change_Est
+            - text: ) into
+            - code [ref=f1e1109]: ab_summary.json
+            - text: ", gated on the headline metrics being present."
+          - listitem [ref=f1e1110]:
+            - code [ref=f1e1111]: python analysis/_extract_sinks.py
+            - text: — coin sinks by action and context, continue price and frequency per segment, per-segment source mix, exposure counts →
+            - code [ref=f1e1112]: sinks.json
+            - text: .
+          - listitem [ref=f1e1113]:
+            - code [ref=f1e1114]: node analysis/_price_proposals.js
+            - text: — patches config sheets in memory, re-runs
+            - code [ref=f1e1115]: EcoGainsSim_v4.gs
+            - text: +
+            - code [ref=f1e1116]: EcoGainsSim_Daily.gs
+            - text: over the A/B window (cal_new days 5, 6, 7, 8, 9, 10, 11, 12, 13), payer-blends with
+            - code [ref=f1e1117]: data_gains
+            - text: earner shares and converts to per-active-player-day →
+            - code [ref=f1e1118]: proposal_pricing.json
+            - text: .
+          - listitem [ref=f1e1119]:
+            - code [ref=f1e1120]: python analysis/_build_proposals_report.py
+            - text: — this page.
+      - generic [ref=f1e1121]:
+        - heading "What the pricing covers" [level=5] [ref=f1e1122]
+        - paragraph [ref=f1e1123]: The engine models the faucet only. It has no sink model, so nothing that changes what players spend (P7) or how long a lives window lasts (P6) can be priced here — those carry mechanism and measured evidence instead of a number.
+        - paragraph [ref=f1e1124]: Conversion to per-active-player-day uses the bridge from the sim-vs-actual pipeline (k = live Control faucet ÷ sim measured windowed per-earner, per segment and resource), so proposal costs sit on the same axis as the A/B numbers. That bridge assumes earner-share stability between arms.
+        - paragraph [ref=f1e1125]: "Two known model errors are inherited and stated where they bite: the Night Sky reach curve (P10) and Rainbow Maker's over-generous ladder (P8)."

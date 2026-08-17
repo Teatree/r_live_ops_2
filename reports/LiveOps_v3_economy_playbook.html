@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What to Change for v3</title>
+<style>
+:root {
+  --ground: #0B1220; --surface: #121C2E; --surface2: #17233B;
+  --line: #22314C; --line2: #2C3E5E;
+  --ink: #E7EEF9; --ink2: #AABDD9; --mut: #7A8FB0;
+  --model: #5B9CE6; --live: #E0895B; --good: #55C77E; --warn: #E0B34C;
+  --bad: #E0685C; --bench: #9B8BE8;
+  --display: 'Iowan Old Style','Palatino Linotype',Palatino,Georgia,ui-serif,serif;
+  --body: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono: 'Cascadia Mono',Consolas,'SF Mono',monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font-family: var(--body); font-size: 15px; line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 44px 26px 90px; }
+p { max-width: 74ch; }
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(34px, 5vw, 52px); line-height: 1.06; letter-spacing: -0.015em; }
+h2 { font-size: 27px; line-height: 1.16; margin-bottom: 10px; }
+h4 { font-size: 19px; line-height: 1.25; }
+h5 { font: 650 10.5px/1.4 var(--mono); text-transform: uppercase; letter-spacing: 0.09em;
+      color: var(--mut); margin: 0 0 8px; }
+.eyebrow { font: 650 10.5px/1.4 var(--mono); text-transform: uppercase; letter-spacing: 0.14em;
+            color: var(--model); margin-bottom: 12px; }
+.mast { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 26px; }
+.dek { font-size: 17.5px; color: var(--ink2); margin: 16px 0 20px; max-width: 68ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font: 11.5px/1.5 var(--mono); color: var(--mut); }
+.meta span::before { content: '·'; margin-right: 8px; color: var(--line2); }
+.meta span:first-child::before { content: none; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr)); gap: 12px;
+         margin-bottom: 40px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 14px 15px; }
+.kl { font: 11px/1.35 var(--mono); color: var(--mut); text-transform: uppercase; letter-spacing: 0.05em;
+       min-height: 2.6em; }
+.kv { font-family: var(--display); font-size: 30px; line-height: 1.1; margin: 6px 0 4px;
+       font-variant-numeric: tabular-nums; }
+.ks { font: 11.5px/1.5 var(--mono); color: var(--ink2); }
+
+.sec { margin-bottom: 54px; scroll-margin-top: 20px; }
+.sec > .lead { font-size: 16.5px; color: var(--ink2); margin: 0 0 22px; max-width: 76ch; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 8px 34px; }
+.cols p, .cols li { max-width: 62ch; }
+ul.diag, ol.steps { padding-left: 20px; }
+ul.diag li, ol.steps li { margin-bottom: 9px; color: var(--ink2); font-size: 14px; }
+.note { font-size: 13px; color: var(--mut); border-left: 2px solid var(--line2); padding-left: 12px;
+         margin-top: 22px; max-width: 82ch; }
+.legend { font: 12.5px/2 var(--mono); color: var(--ink2); background: var(--surface);
+           border: 1px solid var(--line); border-radius: 3px; padding: 12px 15px; margin-bottom: 16px; }
+
+.prop { background: var(--surface); border: 1px solid var(--line); border-radius: 3px;
+         padding: 22px 24px 20px; margin: 20px 0; }
+.ph { display: flex; gap: 16px; align-items: baseline; border-bottom: 1px solid var(--line);
+       padding-bottom: 14px; margin-bottom: 15px; }
+.pid { font: 650 13px/1 var(--mono); color: var(--model); background: rgba(91,156,230,.11);
+        border: 1px solid rgba(91,156,230,.3); border-radius: 2px; padding: 6px 8px; flex: none; }
+.pt { flex: 1; }
+.pmeta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.thesis { font-size: 15.5px; color: var(--ink); background: var(--surface2);
+           border-left: 2px solid var(--model); padding: 11px 14px; margin: 0 0 18px; max-width: none; }
+.conflict { background: rgba(224,179,76,.07); border: 1px solid rgba(224,179,76,.3);
+             border-left: 3px solid var(--warn); border-radius: 3px; padding: 12px 14px;
+             margin: 0 0 16px; }
+.conflict p { font-size: 13.5px; color: var(--ink2); margin: 7px 0 0; max-width: none; }
+.cl { font: 650 9.5px/1.7 var(--mono); text-transform: uppercase; letter-spacing: 0.08em;
+       color: var(--warn); }
+.pwide { margin: 0 0 18px; }
+.pwide table { font-size: 12.5px; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 22px 30px; }
+.pb { min-width: 0; }
+.pb p { font-size: 14px; color: var(--ink2); margin: 0 0 10px; }
+.pb.bwrap { margin-top: 20px; }
+.pcost { font: 12.5px/1.6 var(--mono); color: var(--warn); background: rgba(224,179,76,.08);
+          border: 1px solid rgba(224,179,76,.28); border-radius: 3px; padding: 10px 13px; margin-top: 18px; }
+.prisk { font-size: 13.5px; color: var(--ink2); margin-top: 14px; padding-top: 13px;
+          border-top: 1px solid var(--line); max-width: none; }
+.rl { font: 650 10px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.1em;
+       color: var(--bad); margin-right: 8px; }
+
+.bench { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 11px; }
+.bl { font: 650 9.5px/1.7 var(--mono); text-transform: uppercase; letter-spacing: 0.07em;
+       padding: 1px 7px; border-radius: 2px; flex: none; white-space: nowrap; }
+.bl.published { color: var(--bench); background: rgba(155,139,232,.14); border: 1px solid rgba(155,139,232,.36); }
+.bl.observed { color: var(--model); background: rgba(91,156,230,.12); border: 1px solid rgba(91,156,230,.32); }
+.bl.inference { color: var(--mut); background: rgba(122,143,176,.12); border: 1px solid var(--line2); }
+.bt { font-size: 13.5px; color: var(--ink2); max-width: 70ch; }
+
+.chip { font: 650 10px/1.7 var(--mono); text-transform: uppercase; letter-spacing: 0.06em;
+         padding: 1px 8px; border-radius: 2px; border: 1px solid var(--line2); color: var(--mut); }
+.chip.area { color: var(--ink2); }
+.chip.priced { color: var(--good); border-color: rgba(85,199,126,.4); background: rgba(85,199,126,.1); }
+.chip.model { color: var(--warn); border-color: rgba(224,179,76,.4); background: rgba(224,179,76,.1); }
+.chip.gap { color: var(--bad); border-color: rgba(224,104,92,.4); background: rgba(224,104,92,.1); }
+.chip.flag { color: var(--mut); }
+
+.tw { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { font: 650 10px/1.4 var(--mono); text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--mut); text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line2);
+      white-space: nowrap; }
+td { padding: 6px 10px; border-bottom: 1px solid var(--line); color: var(--ink2);
+      vertical-align: top; }
+table.num td { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.num td:nth-child(2), table.num td:nth-child(3) { color: var(--ink2); }
+/* the descriptive column in the cost table must wrap, or the numeric columns fall off the edge */
+table.num td:nth-child(2) { white-space: normal; min-width: 24ch; }
+.tnote { font-size: 12.5px; color: var(--mut); margin: 8px 0 0; max-width: 88ch; }
+code { font-family: var(--mono); font-size: 0.88em; color: var(--ink);
+        background: rgba(91,156,230,.09); padding: 1px 4px; border-radius: 2px; }
+svg { display: block; margin: 6px 0 4px; }
+svg text { user-select: none; }
+a { color: var(--model); }
+:focus-visible { outline: 2px solid var(--model); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (max-width: 620px) {
+  .wrap { padding: 28px 16px 60px; }
+  .ph { flex-direction: column; gap: 10px; }
+}
+</style>
+</head><body><div class="wrap">
+<header class="mast">
+  <div class="eyebrow">LiveOps v2 → v3 · economy design · LiveOps_v2_AB_Summary.xlsx</div>
+  <h1>What to change for v3</h1>
+  <p class="dek">Twelve config changes aimed at the four problems the A/B test surfaced — each one
+  named down to the sheet and column, priced through the same engine that produced the simulation,
+  and argued against how comparable games handle the same loop.</p>
+  <div class="meta">
+    <span>Window 2026-08-02 – 2026-08-10 (9 days)</span>
+    <span>Control 138,720 vs Variant 139,110 players</span>
+    <span>Sim: NEW_LIVEOPS_CALENDAR_ECO (16).xlsx</span>
+    <span>Priority: new users → streaks → coin sink → revenue</span>
+  </div>
+</header>
+
+<div class="kpis"><div class="kpi"><div class="kl">New users — level completes / player</div><div class="kv" style="color:#E0685C">-2.6%</div><div class="ks">time spent -0.8% · D1 churn +1.1% · free boosters -16.2%</div></div><div class="kpi"><div class="kl">Avg daily streak</div><div class="kv" style="color:#E0685C">-4.0%</div><div class="ks">100+ -9.9% · P75 -6.2% · P99 -10.3%</div></div><div class="kpi"><div class="kl">Coins spent / player</div><div class="kv" style="color:#E0685C">-12.2%</div><div class="ks">per attempt -12.8% · faucet -13.8% · net -37.6%</div></div><div class="kpi"><div class="kl">Revenue</div><div class="kv" style="color:#E0685C">-9.1%</div><div class="ks">100+ -31.0% · ARPPU -8.0% · paid coins -6.7%</div></div></div>
+
+<section class="sec" id="diagnosis">
+<div class="eyebrow">the read</div><h2>One decision explains most of it</h2>
+<p class="lead">The v2 redesign cut coins and paid the compensation in unlimited-lives minutes. That single substitution reaches all four problems, because coins and lives are not interchangeable: coins are the only thing players spend, and lives are what makes them want to.</p>
+<svg viewBox="0 0 760 208" width="100%" style="max-width:760px" role="img" aria-hidden="false"><text x="0.0" y="12.0" style="font-family:var(--body);font-size:11.5px;font-weight:650" fill="#E7EEF9" text-anchor="start">The v2 swap, per segment: coins out, free lives in</text><line x1="389.0" y1="26" x2="389.0" y2="184" stroke="#2C3E5E"/><text x="84.0" y="48.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">1-9</text><rect x="281.0" y="37.0" width="108.0" height="7.5" fill="#E0685C" /><text x="276.0" y="42.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0685C" text-anchor="end">-15%</text><rect x="389.0" y="46.0" width="197.2" height="7.5" fill="#5B9CE6" /><text x="591.2" y="51.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#5B9CE6" text-anchor="start">+28%</text><text x="84.0" y="78.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">10-19</text><rect x="303.2" y="67.0" width="85.8" height="7.5" fill="#E0685C" /><text x="298.2" y="72.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0685C" text-anchor="end">-12%</text><rect x="389.0" y="76.0" width="219.5" height="7.5" fill="#5B9CE6" /><text x="613.5" y="81.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#5B9CE6" text-anchor="start">+31%</text><text x="84.0" y="108.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">20-39</text><rect x="297.7" y="97.0" width="91.3" height="7.5" fill="#E0685C" /><text x="292.7" y="102.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0685C" text-anchor="end">-13%</text><rect x="389.0" y="106.0" width="220.6" height="7.5" fill="#5B9CE6" /><text x="614.6" y="111.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#5B9CE6" text-anchor="start">+31%</text><text x="84.0" y="138.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">40-99</text><rect x="289.2" y="127.0" width="99.8" height="7.5" fill="#E0685C" /><text x="284.2" y="132.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0685C" text-anchor="end">-14%</text><rect x="389.0" y="136.0" width="245.1" height="7.5" fill="#5B9CE6" /><text x="639.1" y="141.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#5B9CE6" text-anchor="start">+35%</text><text x="84.0" y="168.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">100+</text><rect x="250.3" y="157.0" width="138.7" height="7.5" fill="#E0685C" /><text x="245.3" y="162.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0685C" text-anchor="end">-20%</text><rect x="389.0" y="166.0" width="291.0" height="7.5" fill="#5B9CE6" /><text x="685.0" y="171.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#5B9CE6" text-anchor="start">+41%</text><text x="92" y="202" style="font-family:var(--body);font-size:10.5px"><tspan fill="#E0685C">■</tspan> <tspan fill="#7A8FB0">coins / active player-day</tspan> <tspan fill="#5B9CE6">■</tspan> <tspan fill="#7A8FB0">unlimited-lives minutes / active player-day</tspan> <tspan fill="#7A8FB0">(% change, Variant vs Control)</tspan></text></svg>
+<div class="cols">
+<div><p>Follow it through. <b>Coins</b> fell -13.8% per player and the saga lane took most of
+the cut (-65.8%). <b>Unlimited lives</b> rose sharply, mostly from
+the same saga nodes. Because 94% of all coin spend is the extra-moves continue, and an
+unlimited-lives window makes failing free, demand for coins fell along with supply: coins spent per
+attempt -12.8%, lives bought with coins -31.6%.</p>
+<p>Meanwhile the two loops that bring players back daily were tightened at the same time. The
+<b>daily gift</b> lost 63% of its first six rungs while keeping its day-7 prize, and
+<b>Night Sky</b> got bigger rewards with <i>unchanged</i> requirements — so the streak loop became
+more valuable to finish and no easier to hold. Streaks fell -4.0% overall and
+-9.9% at 100+.</p></div>
+<div><p>The four problems, one sentence each:</p>
+<ul class="diag">
+<li><b>New users.</b> Their biggest coin source was the daily gift
+(29% of their faucet, -37.1%) and their second was
+saga (-68.0%). Completes -2.6%, D1 churn +1.1%.</li>
+<li><b>Streaks.</b> Night Sky is the streak engine and its rewards moved without its gates; the
+deepest round is claimed on 3.3% of player-days at
+10-19.</li>
+<li><b>Coin spend.</b> One action is 94.5% of the whole sink, and v2 removed the
+pressure behind it.</li>
+<li><b>Top-segment revenue.</b> 100+ lost -18.4% of coins, gained
++41.5% of free lives, and bought -27.3% fewer
+coin packs. Revenue -31.0%.</li>
+</ul></div></div>
+<p class="note">Baseline note: your NS proposal is already in NS_v2 and is treated here as the baseline: it adds +6.56 coins/pd at 20-39 and +6.58 at 100+. Everything priced below is <i>on top of</i> that.
+The season pass, level difficulty and all IAP/offer configuration are out of scope by your
+instruction; where they matter they are named rather than proposed (P7, P12).</p>
+</section>
+
+<section class="sec" id="howto">
+<div class="eyebrow">how to read these</div><h2>Twelve proposals, each with the same five parts</h2>
+<p class="lead">Ordered by the priority you set: new-user engagement first, then streaks, then coin-sink health, then top-segment revenue. The state chip on each says how much confidence its number carries.</p>
+<div class="legend">
+<span class="chip priced" title="">priced</span> run through the engine — the coins/pd figure is a model output you can
+reproduce<br>
+<span class="chip model" title="">model-priced</span> priced, but the model behind it is known to be miscalibrated
+(see P10)<br>
+<span class="chip gap" title="">config gap</span> cannot be priced today because the workbook does not represent the
+mechanic<br>
+<span class="chip flag" title="">flag</span> no sim number exists; the proposal stands on measured data and mechanism
+</div>
+<p>Every proposal names the sheet and column to edit and how <code>EcoGainsSim_v4.gs</code> consumes
+it, so you can check that the change would do what the argument claims. Benchmark evidence is
+labelled: <span class="bl published">published</span> for figures attributable to a public source,
+<span class="bl observed">observed design</span> for patterns visible in a shipped game, and
+<span class="bl inference">inference</span> for my own reasoning.</p>
+</section>
+
+<section class="sec" id="newusers">
+<div class="eyebrow">problem 1</div><h2>New users: engagement, time spent, first-week retention</h2>
+<p class="lead">New users lost -20.8% of their coin faucet and -16.2% of their free boosters. Their completes fell -2.6% and D1 churn rose +1.1% — while old players’ time spent rose +4.1%. The install cohort passes 74% of its attempts, so this is not a difficulty wall; they were simply given less reason to come back.</p>
+<article class="prop" id="P1">
+<header class="ph">
+  <div class="pid">P1</div>
+  <div class="pt"><h4>Put the first six rungs of the daily gift back</h4>
+    <div class="pmeta"><span class="chip area" title="">new users</span><span class="chip priced" title="">priced: +3.27 to +6.35 coins/pd</span></div></div>
+</header>
+<p class="thesis">The cut fell on exactly the rungs a new player sees, and the daily gift is their biggest single coin source.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><svg viewBox="0 0 760 210" width="100%" style="max-width:760px" role="img" aria-hidden="false"><text x="0.0" y="12.0" style="font-family:var(--body);font-size:11.5px;font-weight:650" fill="#E7EEF9" text-anchor="start">Daily gift: the first six rungs carried the cut, day 7 did not</text><line x1="42" y1="176.0" x2="746" y2="176.0" stroke="#22314C"/><text x="36.0" y="179.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">0</text><line x1="42" y1="139.5" x2="746" y2="139.5" stroke="#22314C"/><text x="36.0" y="142.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">25</text><line x1="42" y1="103.0" x2="746" y2="103.0" stroke="#22314C"/><text x="36.0" y="106.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">50</text><line x1="42" y1="66.5" x2="746" y2="66.5" stroke="#22314C"/><text x="36.0" y="69.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">75</text><line x1="42" y1="30.0" x2="746" y2="30.0" stroke="#22314C"/><text x="36.0" y="33.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">100</text><text x="92.3" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">day 1</text><rect x="66.3" y="143.9" width="24.0" height="32.1" fill="#E0895B" /><text x="78.3" y="139.9" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0895B" text-anchor="middle">22</text><rect x="92.3" y="161.4" width="24.0" height="14.6" fill="#E0685C" /><text x="104.3" y="157.4" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0685C" text-anchor="middle">10</text><text x="192.9" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">day 2</text><rect x="166.9" y="176.0" width="24.0" height="0.0" fill="#E0895B" /><rect x="192.9" y="176.0" width="24.0" height="0.0" fill="#E0685C" /><text x="293.4" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">day 3</text><rect x="267.4" y="176.0" width="24.0" height="0.0" fill="#E0895B" /><rect x="293.4" y="176.0" width="24.0" height="0.0" fill="#E0685C" /><text x="394.0" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">day 4</text><rect x="368.0" y="136.6" width="24.0" height="39.4" fill="#E0895B" /><text x="380.0" y="132.6" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0895B" text-anchor="middle">27</text><rect x="394.0" y="161.4" width="24.0" height="14.6" fill="#E0685C" /><text x="406.0" y="157.4" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0685C" text-anchor="middle">10</text><text x="494.6" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">day 5</text><rect x="468.6" y="176.0" width="24.0" height="0.0" fill="#E0895B" /><rect x="494.6" y="176.0" width="24.0" height="0.0" fill="#E0685C" /><text x="595.1" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">day 6</text><rect x="569.1" y="127.8" width="24.0" height="48.2" fill="#E0895B" /><text x="581.1" y="123.8" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0895B" text-anchor="middle">33</text><rect x="595.1" y="161.4" width="24.0" height="14.6" fill="#E0685C" /><text x="607.1" y="157.4" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0685C" text-anchor="middle">10</text><text x="695.7" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">day 7</text><rect x="669.7" y="30.0" width="24.0" height="146.0" fill="#E0895B" /><text x="681.7" y="26.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0895B" text-anchor="middle">100</text><rect x="695.7" y="30.0" width="24.0" height="146.0" fill="#E0685C" /><text x="707.7" y="26.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0685C" text-anchor="middle">100</text><text x="42" y="206" style="font-family:var(--body);font-size:10.5px"><tspan fill="#E0895B">■</tspan> <tspan fill="#7A8FB0">Control ladder (c_day)</tspan> <tspan fill="#E0685C">■</tspan> <tspan fill="#7A8FB0">v2 ladder (c_day_v2)</tspan></text></svg><p>The v2 ladder keeps day 7 at 100 coins and takes the rest apart:
+22 + 0 + 0 + 27 + 0 + 33 = 82 coins across days 1–6
+becomes 10 + 0 + 0 + 10 + 0 + 10 = 30 — a
+-63% cut on the early week against
+-29% on the cycle as a whole.</p>
+<p>For a 1-9 player <code>daily_reward</code> is the <b>largest</b> coin source at
+29.1% of their faucet, and it fell -37.1%. Their
+measured outcome: level completes -2.6%, time spent -0.8%, D1 churn
++1.1%, free boosters -16.2% — while <i>old</i> players' time went
++4.1%.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheet <code>c_day_v2</code>, column <b>B</b> (“HC Reward”), rows 4–10 = days 1–7.
+Current: d1&nbsp;10, d2&nbsp;0, d3&nbsp;0, d4&nbsp;10, d5&nbsp;0, d6&nbsp;10, d7&nbsp;100. The priced full
+restore copies <code>c_day</code>'s days 1–6 across and leaves day 7 at 100; the half restore takes
+the midpoint of each rung.</p>
+<p><b>How the engine sees it:</b> <code>readDayLadder_</code> reads the seven cells and
+<code>dailyGiftRatio_</code> weights them by login-streak survival —
+R = Σ<sub>n</sub> w<sub>n</sub>·v2<sub>n</sub> ÷ Σ<sub>n</sub> w<sub>n</sub>·base<sub>n</sub> with
+w<sub>n</sub> = P(streak ≥ n) from <code>data_seg_beh</code>. Because the weights fall with n, early
+rungs dominate the ratio — which is exactly why cutting days 1–6 hurt more than the headline −29%
+suggests.</p>
+<p><b>Wanted, needs a small engine change:</b> one ladder currently serves every segment. A
+<code>c_day_v2</code> with per-segment blocks (like <code>c_saga_v2</code> already has) would let
+you restore the early rungs for new players only and keep the cut for veterans — roughly a
+20-line change to <code>readDayLadder_</code> to make it header/segment-driven.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Daily-reward calendars are the most consistently reported retention feature in casual mobile: benchmark reports across 2023–2025 put a functioning day-1 to day-7 loop among the highest-effect-size retention levers at the top of the funnel, where our own D1 churn sits at 53% for new users.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Candy Crush Saga, Royal Match and Gardenscapes all escalate the first week rather than back-loading it: something lands on day 1, and each day visibly beats the last. Our v2 ladder pays 10 coins on days 1, 4 and 6 and nothing on 2, 3 and 5 — a new player's first three days can return 10 coins total, which is one tenth of a single continue.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">The day-7 anchor only works if players believe they will get there. Gutting the rungs that build that belief while keeping the prize is the least efficient possible way to save 52 coins a cycle.</div></div></div>
+<div class="pcost"><b>Half restore +3.27 coins/pd (2.4% of the faucet), full restore +6.35.</b>
+Aimed almost entirely at players who have not yet reached day 7.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> This is the give-back most likely to leak to veterans, because the ladder is shared. If the per-segment version is not built, prefer the half restore and monitor the mid segments' faucet.</div>
+</article><article class="prop" id="P2">
+<header class="ph">
+  <div class="pid">P2</div>
+  <div class="pt"><h4>Give the saga coins back at the bottom of the level curve, not the top</h4>
+    <div class="pmeta"><span class="chip area" title="">new users · HC sink</span><span class="chip priced" title="">priced: +1.76 coins/pd (self-funded package +2.78)</span></div></div>
+</header>
+<p class="thesis">The saga nerf was applied uniformly, but only the top segments got the compensation.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>Saga coins went from 2.10 to
+0.60 coins per level required — a
+-71% cut, uniform across
+every segment block. The v2 ladder pays on 4 of 10 nodes
+(10, 0, 10, 0, 0, 0, 10, 0, 10, 20).</p>
+<p>The compensation was unlimited-lives minutes, and it is heavily skewed: at 100+
+<code>saga_progression</code> UL went +73.3% and their UL total
++41.5%, while a 1-9 player's coin faucet fell -15.4% with
+saga coins -68.0%.</p>
+<p><b>And lives are the wrong compensation for them, mechanically.</b> An unlimited-lives window lets
+you <i>re-attempt</i>; it does not help you <i>win</i>. The only thing that converts a nearly-finished
+board into a completion is the +5 moves continue, and that costs 100 coins. Level 1-9 players have the
+worst board odds in the game — pass rate
+48% and out-of-moves rate
+62%, both the weakest of any band — so
+they meet that 100-coin decision constantly on a faucet of
+42 coins a day. Giving them retries instead
+of coins hands them more attempts at a level they still cannot close.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheet <code>c_saga_v2</code>, the <b>HC Reward</b> column of the 0-9 and 10-19 blocks
+(columns D and G in the triple <code>Levels Req | RewardChestId | HC Reward</code> layout). The
+priced change fills the zero nodes with 10 coins, taking those segments from
+0.60 to about 1.2 coins/level — still well under the Control
+2.10.</p>
+<p>To self-fund it, halve the surviving coin nodes in the <b>40-99</b> and <b>100+</b> blocks
+(columns M and P). Those segments keep the UL-lives upside.</p>
+<p><b>How the engine sees it:</b> <code>readSagaLadder_</code> is header-driven since 2026-08-13, so
+it finds each segment block by its label and pairs that block's <code>Levels Req</code> with the
+next <code>HC Reward</code> to its right; <code>sagaRatio_</code> divides the v2 coins-per-level by
+the base to get R, and Saga is always-on (D = T = 1), so SIM = measured × R per segment. Per-segment
+edits therefore land on exactly one segment — no spillover.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Early-progression generosity is the standard shape in the category: teardowns of the top-grossing match-3 titles consistently show currency-per-level falling as level number rises, not held flat. Our v2 does the opposite of what the category does — it applies one multiplier to every level band.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Royal Match front-loads its area/decor progression so the first sessions produce visible completion, then lengthens the loop. The equivalent lever here is coins per saga node for players under level 20.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">Retries and wins are different goods. Compensating a coin cut with unlimited lives assumes the binding constraint is attempts; for players failing half their boards it is moves. Paying in the currency that does not remove the block is a cut with extra steps.</div></div></div>
+<div class="pcost"><b>+1.76 coins/pd for the 0-9 and 10-19 blocks alone</b>, or net
++2.78 for the whole cheap package if you pay for it by halving the top two
+segments' saga coins — they took their compensation in unlimited lives.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Watch the saga item ladder at the same time — see P6. If the live UL grants stay as generous as they are, adding coins at the bottom fixes supply without restoring any coin <i>pressure</i>.</div>
+</article><article class="prop" id="P3">
+<header class="ph">
+  <div class="pid">P3</div>
+  <div class="pt"><h4>Give the low levels a coin lane back on the calendar</h4>
+    <div class="pmeta"><span class="chip area" title="">new users</span><span class="chip priced" title="">priced: +5.18 coins/pd</span></div></div>
+</header>
+<p class="thesis">The removed events took their steady, low-variance coins with them.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>River Rush went to zero on <code>cal_new</code> — it was
+4.4%
+of an A. 0 player's coins and is now -99.3%.
+Photoshoot keeps a single instance (day 24) and Level Race two (days 20, 22) in a 33-day window.</p>
+<p>Low-level players depend on always-on lanes far more than event lanes: for 1-9,
+<code>daily_reward</code> + <code>saga_progression</code> + <code>player_level_up</code> alone are
+59%
+of their coins. Leaderboard events pay them almost nothing because they cannot compete for rank.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheet <code>cal_new</code> — the visual grid. The priced scenario writes “River Rush” into
+row 22 (empty in workbook 16) as four weekly 4-day instances starting days 5, 12, 19, 26, each cell
+merged across its duration.</p>
+<p><b>How the engine sees it:</b> each merged range is one instance and its width is the duration;
+day = column − 1. T = Σ<sub>new</sub> reach ÷ Σ<sub>cur</sub> reach with
+reach(inst) = 1 − Π(1 − p<sub>day</sub>) from <code>data_seg_beh</code> weekday/weekend active
+rates. Remember to re-run <b>EcoGainsSim ▸ Precompute calendars</b> after editing merges — merge
+edits fire no <code>onEdit</code>, so the hidden <code>cal_parsed</code> sheet goes stale and the
+engine will keep reading the old schedule.</p>
+<p>A cohort-relative first-week schedule would be better than any global lane, but the calendar is
+global — that one is a real engineering ask, not a config edit.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Top-grossing casual titles run a much denser LiveOps calendar than one event per lane per month; industry LiveOps surveys through 2024–25 describe multiple concurrent, always-available loops as table stakes in the category.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Royal Match keeps several always-available loops (team, pass, daily) running under whatever the rotating headline event is, so a player who ignores the headline still has somewhere to earn. Our low segments lost two of those steady lanes at once.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">Event coins are variance; always-on coins are income. New players need income — they have no stock to smooth a bad week, which shows up in their P90 coin balance falling -18.8%.</div></div></div>
+<div class="pcost"><b>Exposure is not the problem — density is.</b> A 1-9 player already earns from
+47 distinct sources in the window; an A. 0 player from
+42. What changed is that several always-available lanes were
+zeroed at once.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Re-adding lanes is a pure faucet increase with no behavioural upside if the lane is not fun; +5.18 coins/pd is 3.8% of the faucet for an event that was cut deliberately. Prefer raising the cadence of a lane you kept (Hatchling Hideaway, Target Day) if the goal is only income.</div>
+</article>
+</section>
+
+<section class="sec" id="streaks">
+<div class="eyebrow">problem 2</div><h2>Streaks and daily return</h2>
+<p class="lead">Streaks fell -4.0% overall, -9.9% at 100+, with the P99 down -10.3% — the longest chains broke hardest. Night Sky is the streak engine, and v2 raised its rewards while leaving every requirement untouched.</p>
+<svg viewBox="0 0 760 210" width="100%" style="max-width:760px" role="img" aria-hidden="false"><text x="0.0" y="12.0" style="font-family:var(--body);font-size:11.5px;font-weight:650" fill="#E7EEF9" text-anchor="start">Night Sky: how often each round is actually claimed (% of player-days)</text><line x1="42" y1="176.0" x2="746" y2="176.0" stroke="#22314C"/><text x="36.0" y="179.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">0</text><line x1="42" y1="139.5" x2="746" y2="139.5" stroke="#22314C"/><text x="36.0" y="142.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">19</text><line x1="42" y1="103.0" x2="746" y2="103.0" stroke="#22314C"/><text x="36.0" y="106.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">37</text><line x1="42" y1="66.5" x2="746" y2="66.5" stroke="#22314C"/><text x="36.0" y="69.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">56</text><line x1="42" y1="30.0" x2="746" y2="30.0" stroke="#22314C"/><text x="36.0" y="33.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9px;font-weight:400" fill="#7A8FB0" text-anchor="end">75</text><text x="112.4" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">1-9</text><rect x="73.4" y="30.0" width="24.0" height="146.0" fill="#55C77E" /><text x="85.4" y="26.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#55C77E" text-anchor="middle">75</text><rect x="99.4" y="110.6" width="24.0" height="65.4" fill="#E0B34C" /><text x="111.4" y="106.6" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0B34C" text-anchor="middle">34</text><rect x="125.4" y="163.9" width="24.0" height="12.1" fill="#E0685C" /><text x="253.2" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">10-19</text><rect x="214.2" y="49.1" width="24.0" height="126.9" fill="#55C77E" /><text x="226.2" y="45.1" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#55C77E" text-anchor="middle">65</text><rect x="240.2" y="123.7" width="24.0" height="52.3" fill="#E0B34C" /><text x="252.2" y="119.7" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0B34C" text-anchor="middle">27</text><rect x="266.2" y="169.6" width="24.0" height="6.4" fill="#E0685C" /><text x="394.0" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">20-39</text><rect x="355.0" y="63.9" width="24.0" height="112.1" fill="#55C77E" /><text x="367.0" y="59.9" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#55C77E" text-anchor="middle">57</text><rect x="381.0" y="137.8" width="24.0" height="38.2" fill="#E0B34C" /><text x="393.0" y="133.8" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0B34C" text-anchor="middle">20</text><rect x="407.0" y="167.9" width="24.0" height="8.1" fill="#E0685C" /><text x="534.8" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">40-99</text><rect x="495.8" y="102.2" width="24.0" height="73.8" fill="#55C77E" /><text x="507.8" y="98.2" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#55C77E" text-anchor="middle">38</text><rect x="521.8" y="157.3" width="24.0" height="18.7" fill="#E0B34C" /><text x="533.8" y="153.3" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#E0B34C" text-anchor="middle">10</text><rect x="547.8" y="171.9" width="24.0" height="4.1" fill="#E0685C" /><text x="675.6" y="191.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10px;font-weight:400" fill="#AABDD9" text-anchor="middle">100+</text><rect x="636.6" y="139.1" width="24.0" height="36.9" fill="#55C77E" /><text x="648.6" y="135.1" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:8.5px;font-weight:400" fill="#55C77E" text-anchor="middle">19</text><rect x="662.6" y="170.1" width="24.0" height="5.9" fill="#E0B34C" /><rect x="688.6" y="175.3" width="24.0" height="0.7" fill="#E0685C" /><text x="42" y="206" style="font-family:var(--body);font-size:10.5px"><tspan fill="#55C77E">■</tspan> <tspan fill="#7A8FB0">round 1</tspan> <tspan fill="#E0B34C">■</tspan> <tspan fill="#7A8FB0">round 2</tspan> <tspan fill="#E0685C">■</tspan> <tspan fill="#7A8FB0">round 3</tspan></text></svg><article class="prop" id="P4">
+<header class="ph">
+  <div class="pid">P4</div>
+  <div class="pt"><h4>Move the Night Sky coins onto the round players actually reach</h4>
+    <div class="pmeta"><span class="chip area" title="">streaks · new users</span><span class="chip priced" title="">priced: -0.08 coins/pd — free</span></div></div>
+</header>
+<p class="thesis">The single highest-leverage change available, and it is free.</p>
+<div class="pwide"><div class="tw"><table class="num"><thead><tr><th>segment</th><th>claim rate R1 / R2 / R3</th><th>coins now</th><th>coins proposed</th><th>nominal added</th><th>delivered coins/pd</th><th>if the same total sat on R1</th><th>gain</th></thead><tbody><tr><td><b>1-9</b></td><td>74.8% / 33.5% / 6.2%</td><td>0 / 10 / 15</td><td>0 / 10 / 15</td><td>+0</td><td><b style="color:#E0895B">+0.00</b></td><td><b style="color:#55C77E">+0.00</b></td><td>—</td></tr><tr><td><b>10-19</b></td><td>65.0% / 26.8% / 3.3%</td><td>10 / 30 / 60</td><td>10 / 35 / 70</td><td>+15</td><td><b style="color:#E0895B">+1.67</b></td><td><b style="color:#55C77E">+9.76</b></td><td><b>×5.9</b></td></tr><tr><td><b>20-39</b></td><td>57.5% / 19.6% / 4.2%</td><td>15 / 50 / 100</td><td>15 / 75 / 140</td><td>+65</td><td><b style="color:#E0895B">+6.56</b></td><td><b style="color:#55C77E">+37.35</b></td><td><b>×5.7</b></td></tr><tr><td><b>40-99</b></td><td>37.8% / 9.6% / 2.1%</td><td>50 / 120 / 250</td><td>60 / 160 / 300</td><td>+100</td><td><b style="color:#E0895B">+8.68</b></td><td><b style="color:#55C77E">+37.82</b></td><td><b>×4.4</b></td></tr><tr><td><b>100+</b></td><td>18.9% / 3.0% / 0.4%</td><td>100 / 300 / 400</td><td>125 / 350 / 500</td><td>+175</td><td><b style="color:#E0895B">+6.58</b></td><td><b style="color:#55C77E">+33.05</b></td><td><b>×5.0</b></td></tr></tbody></table></div><p class="tnote">Delivery = Σ (claim rate of the round × coins on that round) — the identity your own NS_Config_Change_Est sheet uses (its “NS HC with new Config” row reproduces exactly from these three claim rates). The last two columns hold the nominal budget constant and only move it to the round players actually reach.</p></div>
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>Round 3 is claimed on 3.3% of
+player-days at 10-19 and 0.36% at 100+, while round 1
+is claimed on 65.0% and
+18.9%. The proposed uplift put its biggest
+increases on the deepest round — <code>Diff HC - R3</code> is
++40 at 20-39 and +100 at 100+ — which is
+where delivery is thinnest.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheet <code>NS_v2</code>, the <b>HC Reward</b> column (F) inside each per-segment block —
+rows R1/R2/R3 under the segment label. Leave <code>Cum Streak Req</code> alone (that is P5).</p>
+<p>Concretely, for 10-19 the ladder is
+10 / 35 / 70 coins across the three rounds; shifting
+half of round 3's coins onto rounds 1–2 (weighted by their reach) is what the priced scenario does.
+For 100+ the ladder is 125 / 350 / 500.</p>
+<p><b>How the engine sees it:</b> <code>readNSLadder_</code> reads the block, <code>nsE_</code>
+builds E = Σ S(CumStreakReq) × reward, and Night Sky is anchored, so
+SIM = measured × (E<sub>v2</sub>/E<sub>base</sub>) × T. Reward edits therefore flow with no code
+change — this is a config-only edit that the sim prices the same day.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Puzzle-category benchmarks put day-1 retention in the ~30–40% band and day-7 near 10–15% (GameAnalytics / Liftoff annual benchmark reports). A reward tier reached by under 10% of player-days is, in benchmark terms, invisible to the retention curve it is supposed to move.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Royal Match and Candy Crush Saga both put their largest daily-loop rewards where the median player lands — Candy Crush's login calendar escalates to a day-7 payout most returning players do reach, and Royal Match's daily missions are sized to a single session. Neither hangs its headline reward off a streak most players never hold.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">A reward is a promise about behaviour. Paying at round 3 tells the 95% of low-level players who never get there that the event is not for them — which is consistent with the -37.7% fall in NS participation at 10-19.</div></div></div>
+<div class="pcost"><b>Same nominal budget, up to 20× the delivered value.</b> Reallocating the coins already on the NS ladder from round 3 to round 1 costs the faucet nothing (-0.08 coins/pd in the sim) because expected cost is held constant by construction — it only changes who gets paid.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Reallocation changes the <i>shape</i> of the top-end reward. At 100+, 42% of players do finish round 3, so exclude that segment from the reshape — see P9. Also re-check the deep rounds' aspirational role: a ladder with no visible summit can read as less exciting even when it pays more on average.</div>
+</article><article class="prop" id="P5">
+<header class="ph">
+  <div class="pid">P5</div>
+  <div class="pt"><h4>Re-cut the Night Sky streak gates per segment — after calibrating the model</h4>
+    <div class="pmeta"><span class="chip area" title="">streaks</span><span class="chip model" title="">model-priced upper bound: +12.48 coins/pd</span></div></div>
+</header>
+<p class="thesis">The v2 pass raised NS rewards without touching a single requirement.</p>
+<div class="pwide"><div class="tw"><table class="num"><thead><tr><th>segment</th><th>round</th><th>cum-streak gate</th><th>coins</th><th>engine model reach</th><th>live players who finished it</th><th>model ÷ live</th></thead><tbody><tr><td><b>0-9</b></td><td>R1</td><td>2</td><td>0</td><td>67.5%</td><td>34.6%</td><td><span style="color:#E0685C">×1.95</span></td></tr><tr><td></td><td>R2</td><td>5</td><td>10</td><td>37.5%</td><td>16.1%</td><td><span style="color:#E0685C">×2.34</span></td></tr><tr><td></td><td>R3</td><td>10</td><td>15</td><td>13.7%</td><td>4.9%</td><td><span style="color:#E0685C">×2.80</span></td></tr><tr><td><b>10-19</b></td><td>R1</td><td>6</td><td>10</td><td>63.7%</td><td>40.0%</td><td><span style="color:#E0685C">×1.59</span></td></tr><tr><td></td><td>R2</td><td>13</td><td>35</td><td>35.8%</td><td>23.2%</td><td><span style="color:#E0685C">×1.54</span></td></tr><tr><td></td><td>R3</td><td>26</td><td>70</td><td>8.3%</td><td>10.9%</td><td><span style="color:#55C77E">×0.76</span></td></tr><tr><td><b>20-39</b></td><td>R1</td><td>11</td><td>15</td><td>68.6%</td><td>40.0%</td><td><span style="color:#E0685C">×1.71</span></td></tr><tr><td></td><td>R2</td><td>26</td><td>75</td><td>34.5%</td><td>21.7%</td><td><span style="color:#E0685C">×1.59</span></td></tr><tr><td></td><td>R3</td><td>42</td><td>140</td><td>15.1%</td><td>11.2%</td><td><span style="color:#55C77E">×1.35</span></td></tr><tr><td><b>40-99</b></td><td>R1</td><td>28</td><td>60</td><td>59.3%</td><td>42.1%</td><td><span style="color:#E0685C">×1.41</span></td></tr><tr><td></td><td>R2</td><td>60</td><td>160</td><td>27.3%</td><td>25.6%</td><td><span style="color:#55C77E">×1.06</span></td></tr><tr><td></td><td>R3</td><td>100</td><td>300</td><td>8.9%</td><td>15.9%</td><td><span style="color:#E0685C">×0.56</span></td></tr><tr><td><b>100+</b></td><td>R1</td><td>80</td><td>125</td><td>49.5%</td><td>63.1%</td><td><span style="color:#55C77E">×0.78</span></td></tr><tr><td></td><td>R2</td><td>175</td><td>350</td><td>18.2%</td><td>49.5%</td><td><span style="color:#E0685C">×0.37</span></td></tr><tr><td></td><td>R3</td><td>280</td><td>500</td><td>0.0%</td><td>42.4%</td><td><span style="color:#E0685C">model says nobody</span></td></tr></tbody></table></div><p class="tnote">Engine reach = the survival curve in EcoGainsSim_v4.gs (<code>data_streaks</code> max-streak percentiles × NS_STREAK_N 1.25). No single scale factor reconciles the two columns: the model is ~1.4–2.8× too generous below 40-99 and far too harsh at 100+, where it calls round 3 unreachable and 42% of players finish it.</p></div>
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>Gates today (cumulative streak): <b>1-9</b> 2/5/10, <b>10-19</b> 6/13/26, <b>20-39</b> 11/26/42, <b>40-99</b> 28/60/100, <b>100+</b> 80/175/280.</p>
+<p>Set against measured streaks, the mid segments are the mismatch: 20-39 needs
+42 cumulative streak for round 3 with a p50 daily streak of
+12.7 and p90 of 32.6. Round-3
+claim rate there is 4.2% of player-days.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheet <code>NS_v2</code>, columns <b>D</b> (“Streak Req”) and <b>E</b> (“Cum Streak Req”)
+in each segment block. The engine reads column E; keep D consistent for readability.</p>
+<p><b>How the engine sees it:</b> requirement edits flow through the <i>same</i> survival curve that
+prices rewards — E = Σ S(CumStreakReq<sub>k</sub>) × reward<sub>k</sub> — so lowering a gate raises R
+and the sim prices it immediately. That is the good news. The bad news is the calibration table
+above: the survival curve is built from <code>data_streaks</code> max-streak percentiles × a single
+global <code>NS_STREAK_N</code> = 1.25, and it disagrees with live completion by ×1.4–2.8 in the low
+and mid segments while calling round 3 unreachable at 100+ where 42% finish it.</p>
+<p><b>Therefore: do P10 first.</b> The priced +12.48 coins/pd for a full re-cut
+to 75/50/25% modelled reach is an upper bound computed with a curve we know is wrong; the
+same edit priced against live claim rates will land lower for low segments and higher at
+100+.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Duolingo has publicly credited streak mechanics — and specifically streak protection — as a major driver of its DAU growth, discussing streak freezes and repair in its own engineering and investor communications. The published lesson is not “make streaks long”, it is “make them survivable”.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Monopoly Go and Royal Match both gate their daily-return rewards on same-day activity rather than long consecutive chains, and where longer chains exist they sell or grant protection. Our gates ask 20-39 players for a 42-deep cumulative streak with no forgiveness mechanic at all.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">A cumulative gate with a hard reset converts one missed day into losing the whole ladder. That is the mechanic most likely to explain a participation fall that is largest in the middle segments, where players are engaged enough to start the chain and not yet engaged enough to hold it.</div></div></div>
+<div class="pcost"><b>The gates were never touched.</b> <code>NS</code> and <code>NS_v2</code> carry
+<i>identical</i> <code>Cum Streak Req</code> columns — the v2 redesign raised rewards and left every
+requirement where it was, so the difficulty of the streak loop is unchanged while participation
+fell -40.4% at 20-39.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Lowering gates is the one change here that can cost real coins at scale — the full re-cut is 9% of the faucet. Do it segment by segment, low segments first, and price each step after P10 lands. Also consider a streak-forgiveness token instead of lower gates: same reachability, lower faucet cost, but it needs game-side work rather than a config edit.</div>
+</article>
+</section>
+
+<section class="sec" id="sink">
+<div class="eyebrow">problem 3</div><h2>Coin spend and sink health</h2>
+<p class="lead">Coins spent per player fell -12.2% and per attempt -12.8%, with net coins -37.6%. Spend did not fall because players hoarded — balances fell too. It fell because the faucet shrank and, at the same time, the thing that makes coins worth spending was given away for free.</p>
+<article class="prop" id="P6">
+<header class="ph">
+  <div class="pid">P6</div>
+  <div class="pt"><h4>Stop paying free lives into the coin sink</h4>
+    <div class="pmeta"><span class="chip area" title="">HC sink · revenue</span><span class="chip gap" title="">not simulatable today — config gap</span></div></div>
+</header>
+<p class="thesis">The redesign cut coin supply and coin demand at the same time.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><svg viewBox="0 0 760 178" width="100%" style="max-width:760px" role="img" aria-hidden="false"><text x="0.0" y="12.0" style="font-family:var(--body);font-size:11.5px;font-weight:650" fill="#E7EEF9" text-anchor="start">Every coin players spend, by what they spend it on (Control)</text><line x1="389.0" y1="26" x2="389.0" y2="154" stroke="#2C3E5E"/><text x="84.0" y="48.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">extra moves</text><rect x="389.0" y="37.0" width="291.0" height="16.5" fill="#E0B34C" /><text x="685.0" y="51.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">94.5%</text><text x="84.0" y="78.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">lives</text><rect x="389.0" y="67.0" width="7.6" height="16.5" fill="#E0B34C" /><text x="401.6" y="81.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">2.5%</text><text x="84.0" y="108.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">pre level booster</text><rect x="389.0" y="97.0" width="5.8" height="16.5" fill="#E0B34C" /><text x="399.8" y="111.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">1.9%</text><text x="84.0" y="138.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">powerup</text><rect x="389.0" y="127.0" width="3.5" height="16.5" fill="#E0B34C" /><text x="397.5" y="141.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">1.1%</text><text x="92" y="172" style="font-family:var(--body);font-size:10.5px"><tspan fill="#E0B34C">■</tspan> <tspan fill="#7A8FB0">share of all coin spend</tspan> <tspan fill="#7A8FB0">(% of coin spend)</tspan></text></svg><p>Coins have essentially one job in this economy: continues. Lives purchases are
+2.5%
+of coin spend and fell -31.6%;
+pre-level boosters 1.9%.</p>
+<p>What v2 did to demand: unlimited lives +41.5% at 100+
+(<code>saga_progression</code> alone +73.3%), out-of-moves rate
++5.5%, attempts per completion +3.5% —
+players fail <i>more</i> and pay <i>less</i>: continues per 1000 player-days went
+6,347 → 5,149
+at 100+ and coins spent per attempt -12.8% overall. Their paid coin purchases fell
+-27.3%.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p><b>The config gap first.</b> The saga UL-lives swap is <i>not in the workbook</i>: after
+the triple-column rebuild, <code>c_saga</code>/<code>c_saga_v2</code> carry only
+<code>Levels Req | RewardChestId | HC Reward</code> per segment — no item columns. So
+<code>readSagaItems_</code> finds nothing, saga item ratios come back empty, and the sim prices saga
+UL at ×1.0 while live raised it ~×1.7. <b>Add the item columns back</b> (any header in
+<code>RES_MAP</code> — “Unlimited Lives”, “Unlimited Red”, …) to both sheets and the swap becomes
+priceable with no code change; the reader already maps them.</p>
+<p><b>Then the design change.</b> Grant the same generosity as <i>more, shorter</i> windows rather
+than long ones — the sink only survives if a fail can still cost something. The levers that already
+exist in config: the UL columns on <code>c_saga_v2</code> (once restored), <code>NS_v2</code>,
+<code>F</code> (Flock Flurry), <code>HH_v2</code>, <code>TaD_v2</code>. Duration is a game-side
+parameter, so window length itself is an engineering ask, not a sheet edit.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Continues and booster purchases — not lives — are repeatedly reported as the bulk of non-ad IAP in match-3, which is consistent with our own 94.5% figure. The sink being monetised is the fail moment.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Royal Match hands out unlimited-lives windows constantly, but in short bursts tied to events, and its hearts refill on a timer that keeps the fail moment costly. The grant pattern is “often and brief”, not “long and free”.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">A long unlimited-lives window converts a paid retry economy into a free one for its duration. Handing 100+ players 41% more of it while removing 18% of their coins is a coherent explanation for a 31% revenue fall in that segment without any change to prices or offers.</div></div></div>
+<div class="pcost"><b>94.5% of every coin players spend goes
+on one action:</b> buying extra moves when a level is about to fail. Unlimited-lives minutes remove
+the cost of failing, and v2 raised them +41.5% at 100+ while cutting coins.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> This is the proposal most likely to be unpopular with players, and the one with the largest revenue upside. Do not pair a UL trim with the P2 coin give-back at the top — pick one lever per segment, or you will re-inflate the faucet you just cut.</div>
+</article><article class="prop" id="P7">
+<header class="ph">
+  <div class="pid">P7</div>
+  <div class="pt"><h4>Make the continue price a ladder instead of a flat 100 coins</h4>
+    <div class="pmeta"><span class="chip area" title="">HC sink</span><span class="chip flag" title="">not simulatable — no sink model in the engine</span></div></div>
+</header>
+<p class="thesis">One flat price cannot serve a faucet that ranges from 42 to 620 coins a day.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>At 100+ players buy 6.3
+continues per player-day — 635 coins/day, which is
+essentially their entire free faucet. At 1-9 it is
+0.41 continues/day
+(41 coins/day) against a daily gift that now pays
+18.6 coins/day — <b>a new player needs about
+5 days of daily gifts to afford one continue</b>.</p>
+<p>Consequence in the data: coins spent per attempt fell -12.8% while the out-of-moves rate
+rose +2.8% — the fail moments are there, the purchases are not.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Not a LiveOps sheet — this is the level-economy price table (the <code>extra_moves</code>
+action, <code>level_movesplus5</code> context in the spend export). Two shapes worth testing:</p>
+<p>1. <b>Session-progressive:</b> first continue of a session cheaper (e.g. 50), each subsequent one
+dearer. Protects new players, raises the marginal cost for the players buying six a day.</p>
+<p>2. <b>Level-band priced:</b> scale with the level's coin faucet so the price is a constant share
+of daily income rather than a constant number.</p>
+<p><b>Why the sim cannot price this:</b> the engine models the faucet only —
+<code>data_econ_daily</code> carries spend as a measured series and no sink is simulated. Pricing
+this needs either an A/B on the price itself or a new spend model in the engine (a real piece of
+work: a per-attempt OOM → purchase conversion curve per segment).</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Casual-puzzle ARPDAU benchmarks sit in roughly the $0.05–0.15 band and ours is $0.090 → $0.083. The category monetises through many small purchase decisions, which requires prices that scale with the player.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Top match-3 titles vary continue cost and bundle contents by context — level type, attempt count, event state — rather than holding one number for everyone.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">A price only creates pressure inside a band: below it, the purchase is automatic and you leave money on the table; above it, players stop considering it. A flat 100 with a 15× spread in daily income between segments cannot be inside the band for all of them.</div></div></div>
+<div class="pcost"><b>Every continue costs the same 100 coins</b> — at every level, in every segment, for both
+arms (observed range 99.99–100.00).
+That single price is simultaneously trivial for a 100+ player and unreachable for a new one.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Price changes are the sharpest tool here and the easiest to get wrong — they interact with perceived fairness and with the offer wall (out of scope in this report). Test on one level band before touching the curve globally.</div>
+</article><article class="prop" id="P8">
+<header class="ph">
+  <div class="pid">P8</div>
+  <div class="pt"><h4>Rebalance Rainbow Maker — it pays in the currencies that do least for return</h4>
+    <div class="pmeta"><span class="chip area" title="">streaks · HC sink</span><span class="chip flag" title="">sim over-prices this lane — see the discrepancy report</span></div></div>
+</header>
+<p class="thesis">A brand-new event is the cheapest place to buy daily-return behaviour, and it was spent elsewhere.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>Rainbow Maker is the Variant's biggest new faucet: SPT per player
+21.2 from a standing start, and it pays
+slingshots heavily — slingshot gains +23.7% against spend
++10.7%, i.e. players are accumulating them, not using them.</p>
+<p>Meanwhile the sim over-prices this lane: the discrepancy report puts RM at ~1.9× the live token
+delivery and ~3.7× the live coin delivery, so its budget looks bigger on paper than what players
+actually received. Both numbers point the same way — RM's ladder is the loosest in the model.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheets <code>RM_1st</code> and <code>RM_2nd</code> — the <code>Req Accum</code>
+milestone column plus the reward columns (mapped through <code>RES_MAP</code>, so “SPT x2”,
+“Slingshot”, “Coins” and the pack columns all read from the same header row).</p>
+<p>Two concrete edits: (1) move part of the slingshot/token weight into the <b>daily</b> loops
+(NS rounds 1–2, the daily gift) where it converts into returns; (2) fix the instance→sheet
+assignment — <code>RM_INSTANCE_SHEETS</code> in <code>EcoGainsSim_v4.gs</code> hardcodes
+<code>['RM_1st','RM_1st','RM_1st','RM_2nd','RM_2nd']</code> by start order, and the live ladder
+matches <code>RM_2nd</code>, so the in-window instances are priced off the wrong sheet.</p>
+<p><b>How the engine sees it:</b> RM is bottom-up — per instance,
+Σ<sub>k</sub> S<sub>dur</sub>(ReqAccum<sub>k</sub>) × reward<sub>k</sub> × reach(inst), with
+S<sub>dur</sub> from <code>data_RM</code> matchables percentiles scaled by
+instance duration ÷ configured EventDuration. There is no measured anchor, so requirement edits move
+the whole lane immediately and errors here do not self-correct.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Booster inflation is a recognised failure mode in the category: when consumable stock outruns consumption, the difficulty pressure that drives both engagement and spend falls away. Our slingshot stock is the clearest instance — gains up, spend flat.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Royal Match ties booster grants to event completion and keeps them consumable within the event window rather than letting them pool indefinitely.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">A currency that accumulates without a sink is a discount on future difficulty. Given the goal is daily return and coin-sink health, tokens and slingshots are the two least useful things a new event could be paying.</div></div></div>
+<div class="pcost"><b>The new headline event pays tokens and slingshots, not daily-return value.</b> Slingshot
+net stock rose +160.1% overall
+(+1227.2% at 100+) while the streak metric fell
+-4.0%.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> RM is the Variant's most popular new content — trimming it is the change most likely to be felt as a takeaway. Reallocate rather than cut, and fix the instance-sheet mapping first so you can see what you are actually changing.</div>
+</article>
+</section>
+
+<section class="sec" id="revenue">
+<div class="eyebrow">problem 4</div><h2>Revenue from the most engaged players</h2>
+<p class="lead">Revenue fell -9.1% overall, -9.4% among established players and -31.0% in the 100+ bucket, where ARPPU fell -8.0% and paid coin purchases fell -27.3%. You ranked this fourth; the levers are mostly the sink ones above, plus where the top segment gets paid.</p>
+<article class="prop" id="P9">
+<header class="ph">
+  <div class="pid">P9</div>
+  <div class="pt"><h4>Pay the top segment through the rounds they actually finish</h4>
+    <div class="pmeta"><span class="chip area" title="">revenue</span><span class="chip flag" title="">conditional — depends on which NS metric is right</span></div></div>
+</header>
+<p class="thesis">The efficient place to pay heavy players is the one tier the rest of the game cannot reach — if it really is reached.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><div class="conflict"><span class="cl">needs your answer</span>
+<p>Two Night Sky metrics in the workbook disagree about the top segment, and which one is right
+changes a recommendation. <code>By Bucket → R3 finished (%)</code> reports
+<b>42.4%</b> for 100+, while <code>NS_Config_Change_Est → Claim rate / player-day - R3</code>
+reports <b>0.36%</b> of player-days. Over a 9-day window the second implies roughly
+3% of players ever claiming round 3, not 42% — so the two are
+measuring different populations (lifetime completion vs in-window claims), different denominators, or
+one is stale.</p>
+<p>It matters because the delivery arithmetic in P4 runs on the <i>claim rate</i> (it reproduces your
+own sheet exactly), and P9's case for paying 100+ through the deep rounds runs on the
+<i>finished</i> figure. If the claim rate is the right basis for the top segment too, then 100+
+should be included in P4's reshape and P9 becomes redundant. Everything else in this report is
+unaffected.</p></div><p>100+ round completion runs
+63% →
+50% →
+42%, a shallow funnel, against a 20-39 funnel of
+57% → … →
+4.2% per player-day. Their revenue picture:
+ARPPU -17.4%, payer-days -11.0%, paid coin
+purchases -27.3%, coin balance P75
+-16.4%.</p>
+<p>They were compensated in unlimited lives (+41.5%), which is precisely the
+substitution P6 identifies as the revenue problem. Paying them in coins through a tier they reach
+puts the value back without removing the fail cost.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheet <code>NS_v2</code>, the <b>100+</b> block only: keep rounds 2–3 heavy
+(currently 125 / 350 / 500 coins) and exclude this
+segment from P4's reshape. If more is needed, raise round 2 —
+50% completion makes it the highest-delivery
+cell in the whole ladder.</p>
+<p><b>Why this is the coin route rather than the lives route:</b> coins re-enter the sink at the
+continue; unlimited-lives minutes remove the sink. Same nominal generosity, opposite effect on
+spend.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl published">published</span><div class="bt">Whale revenue in casual puzzle is concentrated in continue-type purchases, so top-segment value delivered as coins recirculates into the monetised action, while value delivered as free retries does not.</div></div><div class="bench"><span class="bl observed">observed design</span><div class="bt">Royal Match reserves its deepest event tiers for its most engaged cohort and keeps the currency it pays there spendable, rather than granting time-based immunity.</div></div><div class="bench"><span class="bl inference">inference</span><div class="bt">This segment is 6.5% of players and was 10% of revenue before the test; a targeted reward-placement change is cheap relative to the 31% revenue fall it addresses.</div></div></div>
+<div class="pcost"><b>At 100+ the deep Night Sky rounds may already work.</b> On the
+<code>R3 finished (%)</code> measure 42% of them finish round 3 — the only segment where the
+deepest tier delivers — while their coin faucet fell
+-18.4% and their revenue -31.0%.
+<b>Read the conflict box first:</b> the claim-rate measure says the opposite, and this proposal only
+stands under the first one.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Do not stack this with a saga coin give-back at the top (P2’s funding half) — that would restore the faucet you are using to pay for the low-segment changes.</div>
+</article>
+</section>
+
+<section class="sec" id="trust">
+<div class="eyebrow">before you trust these numbers</div><h2>Three things that limit everything above</h2>
+<p class="lead">Two of the proposals are priced with a model we can now prove is miscalibrated, one large event is mispriced by roughly 5×, and a difficulty change landed in the same release as the economy change. None of these are design proposals; all three change how much weight the rest deserves.</p>
+<article class="prop" id="P10">
+<header class="ph">
+  <div class="pid">P10</div>
+  <div class="pt"><h4>Calibrate the Night Sky reach model against the completion data you now have</h4>
+    <div class="pmeta"><span class="chip area" title="">model</span><span class="chip flag" title="">sim work — unblocks P4 and P5</span></div></div>
+</header>
+<p class="thesis">The proposals above are priced with a curve we can now prove is wrong.</p>
+<div class="pwide"><div class="tw"><table class="num"><thead><tr><th>segment</th><th>round</th><th>cum-streak gate</th><th>coins</th><th>engine model reach</th><th>live players who finished it</th><th>model ÷ live</th></thead><tbody><tr><td><b>0-9</b></td><td>R1</td><td>2</td><td>0</td><td>67.5%</td><td>34.6%</td><td><span style="color:#E0685C">×1.95</span></td></tr><tr><td></td><td>R2</td><td>5</td><td>10</td><td>37.5%</td><td>16.1%</td><td><span style="color:#E0685C">×2.34</span></td></tr><tr><td></td><td>R3</td><td>10</td><td>15</td><td>13.7%</td><td>4.9%</td><td><span style="color:#E0685C">×2.80</span></td></tr><tr><td><b>10-19</b></td><td>R1</td><td>6</td><td>10</td><td>63.7%</td><td>40.0%</td><td><span style="color:#E0685C">×1.59</span></td></tr><tr><td></td><td>R2</td><td>13</td><td>35</td><td>35.8%</td><td>23.2%</td><td><span style="color:#E0685C">×1.54</span></td></tr><tr><td></td><td>R3</td><td>26</td><td>70</td><td>8.3%</td><td>10.9%</td><td><span style="color:#55C77E">×0.76</span></td></tr><tr><td><b>20-39</b></td><td>R1</td><td>11</td><td>15</td><td>68.6%</td><td>40.0%</td><td><span style="color:#E0685C">×1.71</span></td></tr><tr><td></td><td>R2</td><td>26</td><td>75</td><td>34.5%</td><td>21.7%</td><td><span style="color:#E0685C">×1.59</span></td></tr><tr><td></td><td>R3</td><td>42</td><td>140</td><td>15.1%</td><td>11.2%</td><td><span style="color:#55C77E">×1.35</span></td></tr><tr><td><b>40-99</b></td><td>R1</td><td>28</td><td>60</td><td>59.3%</td><td>42.1%</td><td><span style="color:#E0685C">×1.41</span></td></tr><tr><td></td><td>R2</td><td>60</td><td>160</td><td>27.3%</td><td>25.6%</td><td><span style="color:#55C77E">×1.06</span></td></tr><tr><td></td><td>R3</td><td>100</td><td>300</td><td>8.9%</td><td>15.9%</td><td><span style="color:#E0685C">×0.56</span></td></tr><tr><td><b>100+</b></td><td>R1</td><td>80</td><td>125</td><td>49.5%</td><td>63.1%</td><td><span style="color:#55C77E">×0.78</span></td></tr><tr><td></td><td>R2</td><td>175</td><td>350</td><td>18.2%</td><td>49.5%</td><td><span style="color:#E0685C">×0.37</span></td></tr><tr><td></td><td>R3</td><td>280</td><td>500</td><td>0.0%</td><td>42.4%</td><td><span style="color:#E0685C">model says nobody</span></td></tr></tbody></table></div><p class="tnote">Engine reach = the survival curve in EcoGainsSim_v4.gs (<code>data_streaks</code> max-streak percentiles × NS_STREAK_N 1.25). No single scale factor reconciles the two columns: the model is ~1.4–2.8× too generous below 40-99 and far too harsh at 100+, where it calls round 3 unreachable and 42% of players finish it.</p></div>
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>The table above is the whole argument: at 0-9 the model believes
+68% of players clear round 1 where
+35% actually do, and at 100+ it believes
+<i>nobody</i> clears round 3 where 42%
+do.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Code: <code>NS_STREAK_N</code> (currently 1.25) and <code>nsE_</code>/<code>survival_</code>
+in <code>EcoGainsSim_v4.gs</code>, fed by <code>data_streaks</code> max-streak percentiles.</p>
+<p>The mismatch is in shape, not scale — the low segments need a <i>less</i> generous curve and 100+
+needs a much more generous one, so no single N fixes it. Two options: (a) per-segment N fitted so
+modelled round-1 reach matches the measured claim rate; (b) drop the proxy and read the measured
+per-round claim rates straight off the A/B export as the reach vector, keeping the survival curve
+only for segments with no measurement. Option (b) is what your own
+<code>NS_Config_Change_Est</code> sheet already does by hand — its estimate reproduces exactly as
+Σ claim-rate × reward — so adopting it would make the sheet and the engine agree.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl inference">inference</span><div class="bt">A model calibrated on a proxy (max daily streak × 1.25) should be replaced by the measurement as soon as the measurement exists. Everything downstream — NS coins, the season-pass token flow that NS feeds, and the whole-faucet total — inherits this error.</div></div></div>
+<div class="pcost"><b>The engine's streak-survival curve disagrees with live completion by up to ×2.8, in both
+directions.</b> The A/B export now reports actual round completion per segment, which is the
+calibration target that did not exist when the model was built.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Recalibration will move published NS numbers, including ones already circulated. Version the change and re-run the sim-vs-actual report in the same pass so the two stay consistent.</div>
+</article><article class="prop" id="P11">
+<header class="ph">
+  <div class="pid">P11</div>
+  <div class="pt"><h4>Get the Kite Festival config that actually shipped into Ki_v2</h4>
+    <div class="pmeta"><span class="chip area" title="">accuracy</span><span class="chip flag" title="">blocks accurate v3 budgeting</span></div></div>
+</header>
+<p class="thesis">You cannot budget v3 against a config that is not what ran.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>The sim-vs-actual work put windowed Kite at ≈×1.0 against live ×5.3 coins and ×4.5 tokens
+at 100+ — the single largest directional miss in the model, and it survived adversarial
+verification. Either the live event ran a different rank ladder, a different league size, or a
+different schedule than <code>Ki_v2</code> describes.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>Sheet <code>Ki_v2</code> — the rank ladder (rows 26–85, reward columns C..W) and the score
+milestone block (row 22, requirement in column B). Pull the config that the Variant actually ran
+from live ops and type it in.</p>
+<p><b>How the engine sees it:</b> Kite is priced as a zero-sum leaderboard — E = mean ladder payout
+at the measured <code>position_p25/p50/p75</code> from <code>data_event_inst</code>, plus a survival
+term for the score milestone; D is pinned to 1 because rank payouts are end-state. So the ladder
+values and the league size both matter, and neither can be inferred from the payout total
+alone.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl inference">inference</span><div class="bt">This is not a design proposal — it is the precondition for the others. Every coins/pd figure in this report is computed against the workbook's configs; one event mispriced by 5× is larger than most of the changes proposed here.</div></div></div>
+<div class="pcost"><b>The live Kite Festival pays about 5× what its config sheet says.</b> Until that is
+reconciled, every faucet budget built on the workbook is wrong by the size of one event.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Low risk, pure accuracy work. The only cost is the time to find the live config.</div>
+</article><article class="prop" id="P12">
+<header class="ph">
+  <div class="pid">P12</div>
+  <div class="pt"><h4>Read every economy change against the difficulty change that shipped with it</h4>
+    <div class="pmeta"><span class="chip area" title="">cross-cutting</span><span class="chip flag" title="">out of scope here — level design owns it</span></div></div>
+</header>
+<p class="thesis">Two independent tightenings landed in the same release.</p>
+
+<div class="pgrid">
+  <section class="pb"><h5>What the data says</h5><p>Per segment the difficulty move is consistent and largest where the faucet cut was
+largest: attempts per completion +2.7% at 20-39,
++3.5% at 100+, and pass rate
+-3.4% at 100+.</p>
+<p>Interaction to keep in view: harder levels raise the <i>number</i> of fail moments (good for the
+coin sink) while lower pass rates shorten win streaks (bad for the NS gates in P4/P5, which are
+denominated in streak length). The same change helps one target and hurts another.</p></section>
+  <section class="pb"><h5>What to change, exactly</h5><p>No sheet in this workbook. What belongs here is a shared read-out: whenever the level
+team changes pacing, re-check the NS gate reachability (P5) and the continue conversion (P7),
+because both are denominated in outcomes the level curve controls.</p></section>
+</div>
+<div class="pb bwrap"><h5>Evidence from comparable games</h5><div class="bench"><span class="bl inference">inference</span><div class="bt">Streak-based rewards are difficulty-coupled by construction: a 2-point pass-rate fall compounds across a chain, so a cumulative-streak gate silently gets harder when levels do. That coupling is invisible in a reward-only design review.</div></div></div>
+<div class="pcost"><b>Levels got harder at the same time as the faucet got smaller.</b> Pass rate
+-2.2%, out-of-moves +2.8%, attempts per completion
++2.2% — small numbers that multiply against every proposal here.</div>
+<div class="prisk"><span class="rl">Risk / watch-out</span> Naming this is the whole action. The risk is assuming an economy fix will show up cleanly in the metrics while difficulty moves underneath it.</div>
+</article>
+</section>
+
+<section class="sec" id="budget">
+<div class="eyebrow">the bill</div><h2>What the whole set costs</h2>
+<p class="lead">Priced against the Control faucet of 137 coins per active player-day. Positive means giving coins back — the v2 cut was -13.8%, so a package at +5 coins/pd returns roughly a third of it.</p>
+<svg viewBox="0 0 760 328" width="100%" style="max-width:760px" role="img" aria-hidden="false"><text x="0.0" y="12.0" style="font-family:var(--body);font-size:11.5px;font-weight:650" fill="#E7EEF9" text-anchor="start">What each change costs the coin faucet (Control faucet = 137 coins/pd)</text><line x1="414.0" y1="26" x2="414.0" y2="304" stroke="#2C3E5E"/><text x="134.0" y="48.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">B ns reshape</text><rect x="413.0" y="37.0" width="1.0" height="16.5" fill="#E0B34C" /><text x="408.0" y="51.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="end">-0.08</text><text x="134.0" y="78.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">D saga lowseg</text><rect x="414.0" y="67.0" width="22.7" height="16.5" fill="#E0B34C" /><text x="441.7" y="81.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+1.76</text><text x="134.0" y="108.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">C2 daily gift half</text><rect x="414.0" y="97.0" width="42.2" height="16.5" fill="#E0B34C" /><text x="461.2" y="111.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+3.27</text><text x="134.0" y="138.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">PKG funded</text><rect x="414.0" y="127.0" width="35.9" height="16.5" fill="#E0B34C" /><text x="454.9" y="141.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+2.78</text><text x="134.0" y="168.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">PKG cheap</text><rect x="414.0" y="157.0" width="64.0" height="16.5" fill="#E0B34C" /><text x="483.0" y="171.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+4.95</text><text x="134.0" y="198.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">E river rush</text><rect x="414.0" y="187.0" width="66.9" height="16.5" fill="#E0B34C" /><text x="485.9" y="201.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+5.18</text><text x="134.0" y="228.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">C daily gift</text><rect x="414.0" y="217.0" width="82.0" height="16.5" fill="#E0B34C" /><text x="501.0" y="231.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+6.35</text><text x="134.0" y="258.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">A ns gates</text><rect x="414.0" y="247.0" width="161.2" height="16.5" fill="#E0B34C" /><text x="580.2" y="261.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+12.48</text><text x="134.0" y="288.0" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:10.5px;font-weight:400" fill="#AABDD9" text-anchor="end">PKG newuser</text><rect x="414.0" y="277.0" width="266.0" height="16.5" fill="#E0B34C" /><text x="685.0" y="291.5" style="font-family:'Cascadia Mono',Consolas,monospace;font-size:9.5px;font-weight:400" fill="#E0B34C" text-anchor="start">+20.60</text><text x="142" y="322" style="font-family:var(--body);font-size:10.5px"><tspan fill="#E0B34C">■</tspan> <tspan fill="#7A8FB0">coins / active player-day</tspan> <tspan fill="#7A8FB0">(+ = gives coins back)</tspan></text></svg><div class="tw"><table class="num"><thead><tr><th>scenario</th><th>what it is</th><th>sheets edited</th><th>coins/pd</th><th>% of faucet</th><th>UL min/pd</th></thead><tbody><tr><td><code>B-ns-reshape</code></td><td>NS rewards re-weighted onto reachable rounds at constant expected cost</td><td><code>NS_v2</code></td><td><b style="color:#55C77E">-0.08</b></td><td>-0.1%</td><td>+0.00</td></tr><tr><td><code>D-saga-lowseg</code></td><td>Saga coin give-back for 0-9 and 10-19 only (c_saga_v2 HC Reward: fill the 0 nodes)</td><td><code>c_saga_v2</code></td><td><b style="color:#E0B34C">+1.76</b></td><td>+1.3%</td><td>+0.00</td></tr><tr><td><code>C2-daily-gift-half</code></td><td>Daily Gift early rungs restored HALFWAY (c_day_v2 days 1-6)</td><td><code>c_day_v2</code></td><td><b style="color:#E0B34C">+3.27</b></td><td>+2.4%</td><td>+0.00</td></tr><tr><td><code>PKG-funded</code></td><td>Package (self-funded): the cheap package paid for by trimming saga coins at 40-99/100+</td><td><code>NS_v2</code>, <code>c_day_v2</code>, <code>c_saga_v2</code></td><td><b style="color:#E0B34C">+2.78</b></td><td>+2.0%</td><td>+0.00</td></tr><tr><td><code>PKG-cheap</code></td><td>Package (cheap): NS reward reshape (free) + half Daily Gift restore + saga give-back</td><td><code>NS_v2</code>, <code>c_day_v2</code>, <code>c_saga_v2</code></td><td><b style="color:#E0B34C">+4.95</b></td><td>+3.6%</td><td>+0.00</td></tr><tr><td><code>E-river-rush</code></td><td>Restore the River Rush lane on cal_new (4 weekly 4-day instances)</td><td><code>cal_new</code></td><td><b style="color:#E0B34C">+5.18</b></td><td>+3.8%</td><td>+0.34</td></tr><tr><td><code>C-daily-gift</code></td><td>Daily Gift early rungs restored to the Control ladder (c_day_v2 days 1-6)</td><td><code>c_day_v2</code></td><td><b style="color:#E0B34C">+6.35</b></td><td>+4.7%</td><td>+0.00</td></tr><tr><td><code>A-ns-gates</code></td><td>NS gates re-cut to reach targets 75/50/25% (NS_v2 Cum Streak Req)</td><td><code>NS_v2</code></td><td><b style="color:#E0B34C">+12.48</b></td><td>+9.1%</td><td>+1.02</td></tr><tr><td><code>PKG-newuser</code></td><td>Package (full): NS gates re-cut + Daily Gift restored + saga give-back at 0-9/10-19</td><td><code>NS_v2</code>, <code>c_day_v2</code>, <code>c_saga_v2</code></td><td><b style="color:#E0B34C">+20.60</b></td><td>+15.1%</td><td>+1.02</td></tr></tbody></table></div><p class="tnote">Priced by patching those sheets in <code>harness/_mockdata.json</code>, re-running <code>EcoGainsSim_v4.gs</code> + the Daily engine over the A/B window (cal_new days 5–13) and converting per-earner deltas onto the live per-active-player-day axis with the bridge from the sim-vs-actual pipeline. Reproduce with <code>node analysis/_price_proposals.js</code>.</p><p>The shape of the recommendation: <b>P4 is free</b> and
+should ship regardless. <code>PKG-funded</code> — the free NS reshape, a half daily-gift restore and
+the low-segment saga give-back, paid for by halving saga coins at 40-99/100+ — nets
++2.78 coins/pd, which is 2.0% of the
+faucet, and concentrates every coin of it on the segments that lost engagement. The full package
+(+20.60 coins/pd) would undo most of the v2 cut and is here as an upper bound,
+not a recommendation.</p>
+</section>
+
+<section class="sec" id="method">
+<div class="eyebrow">method</div><h2>How these numbers were produced</h2>
+<p class="lead">Everything above is generated from four JSON artefacts; no figure is typed into the page.</p>
+<div class="cols">
+<div><h5>Pipeline</h5>
+<ol class="steps">
+<li><code>python analysis/_extract_ab_summary.py</code> — reshapes LiveOps_v2_AB_Summary.xlsx
+(<code>Overall</code>, <code>Overall (new users)</code>, <code>Overall (old players)</code>,
+<code>By Bucket</code>, <code>NS_Config_Change_Est</code>) into <code>ab_summary.json</code>, gated on
+the headline metrics being present.</li>
+<li><code>python analysis/_extract_sinks.py</code> — coin sinks by action and context, continue price
+and frequency per segment, per-segment source mix, exposure counts → <code>sinks.json</code>.</li>
+<li><code>node analysis/_price_proposals.js</code> — patches config sheets in memory, re-runs
+<code>EcoGainsSim_v4.gs</code> + <code>EcoGainsSim_Daily.gs</code> over the A/B window (cal_new days
+5, 6, 7, 8, 9, 10, 11, 12, 13), payer-blends with <code>data_gains</code> earner
+shares and converts to per-active-player-day → <code>proposal_pricing.json</code>.</li>
+<li><code>python analysis/_build_proposals_report.py</code> — this page.</li>
+</ol></div>
+<div><h5>What the pricing covers</h5>
+<p>The engine models the <b>faucet</b> only. It has no sink model, so nothing that changes what
+players <i>spend</i> (P7) or how long a lives window lasts (P6) can be priced here — those carry
+mechanism and measured evidence instead of a number.</p>
+<p>Conversion to per-active-player-day uses the bridge from the sim-vs-actual pipeline (k = live
+Control faucet ÷ sim measured windowed per-earner, per segment and resource), so proposal costs sit
+on the same axis as the A/B numbers. That bridge assumes earner-share stability between arms.</p>
+<p>Two known model errors are inherited and stated where they bite: the Night Sky reach curve (P10)
+and Rainbow Maker's over-generous ladder (P8).</p></div></div>
+</section>
+</div></body></html>

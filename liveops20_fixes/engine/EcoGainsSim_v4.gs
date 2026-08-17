@@ -88,6 +88,32 @@
 // FALSE: recalculation only via the menu (EcoGainsSim ▸ Refresh simulations) or argument edits.
 var AUTO_REFRESH = true;
 
+// ============================== WHAT THIS COPY IS (LiveOps 2.0 fixes) ========================
+// A VARIANT-BASIS copy of the engine. The main stack asks "redesign vs Control over 33 days"; this
+// one asks "proposal vs the A/B variant as it actually ran, over the 21 days it has run".
+//
+// That difference lives entirely in the INPUTS, not in the sheet naming (Garry, 2026-08-18):
+//   data_*        the variant arm only, 2026-07-27..2026-08-16 -> the measured anchor IS the variant
+//   base sheets   the config the variant actually ran          -> the anchor side of every R
+//   _v2 sheets    the proposal you are estimating              -> the proposal side of every R
+// So the pairing is the STANDARD one, identical to every other engine copy: edit a _v2 sheet, see
+// the estimate. (An earlier revision shifted the pair up a layer so _v3 was the authoring layer;
+// it was removed because editing _v2 then silently did nothing. See CONFIG LAYERS at the bottom.)
+//
+// The behavioural differences from engine/pre_collection are only these, each a flagged switch:
+//   SIM_DAYS 21 (+ SIM_DAY_ONE_DOW 1, Monday) · RM_SIMULATE false · JIGSAW_SIMULATE false ·
+//   RIVER_RUSH_ZERO true
+//
+// ---- window ----
+// 21 days, day 1 = 2026-07-27, day 21 = 2026-08-16. Every window-length assumption in this project
+// reads SIM_DAYS instead of a literal 33.
+// NOTE: EcoGainsSim_Daily.gs and EcoGainsSim_PBP.gs declare their own copies of this number
+// (Apps Script loads files alphabetically, so Daily cannot read a var defined here at load time).
+// harness/_mock_run.js gates that all three agree — change them together.
+var SIM_DAYS = 21;
+var SIM_DAY_ONE = '2026-07-27';   // documentation only; nothing computes off the date
+
+
 // ============================== LAYOUT & REGISTRY ============================================
 var SHEET = 'EcoGainsSim_HC';
 var PAYER_CELL = 'C3';
@@ -216,6 +242,7 @@ function resultRow_(cat, seg, payer, ctx){
 // re-pull delivers real Core SPT rows, the raw value takes back over (no double count).
 // A. 0 stays raw (appendix — no behaviour telemetry, §3).
 function measuredRow_(cat, seg, payer, ds){
+  if (RIVER_RUSH_ZERO && cat === 'River Rush') return zeroRow_();   // zero on BOTH sides
   var row = ds.dataRow(cat, seg, payer);
   if (cat === 'Core' && seg !== 'A. 0' && seg !== 'A.0' && !(num(row['SPT']) > 0)){
     var syn = coreSptSynth_(seg, payer, ds);
@@ -349,7 +376,17 @@ function leaderboardSim_(cat, calLabel, seg, payer, ctx){
 // ============================== COLLECTION SOURCES (measured x R x D x T) ====================
 function simHatchlingHideaway(seg, payer, ctx){ return collectionSim_('Hatchling Hideaway', 'Hatchling Hideaway',  'Hatchling Hideaway', seg, payer, ctx, false); }
 function simBombsBallet      (seg, payer, ctx){ return collectionSim_("Bomb's Ballet",      "Bomb's Ballet Show",  'Bombs Ballet',       seg, payer, ctx, false); }
-function simJigsaw           (seg, payer, ctx){ return collectionSim_('Jigsaw',             'Jigsaw Puzzle',       'Jigsaw',             seg, payer, ctx, false); }
+// Jigsaw master switch, mirroring NS_SIMULATE / RM_SIMULATE (Garry, 2026-08-18):
+//   false (shipped here) -> Jigsaw is CARRIED. It ran 2 instances (4d + 5d) inside the A/B window
+//     at ~44% participation, the measured anchor therefore contains it, and no Jigsaw change is
+//     planned — so re-pricing it would only swap a measured number for a modelled one and report a
+//     difference where there is no decision to make. Carried means SIM = measured, diff = 0.
+//   true -> the generic collection path (measured x R x D x T), for when Jigsaw is back in play.
+var JIGSAW_SIMULATE = false;
+function simJigsaw           (seg, payer, ctx){
+  if (!JIGSAW_SIMULATE) return measuredRow_('Jigsaw', seg, payer, ctx.ds);   // carried -> diff 0
+  return collectionSim_('Jigsaw',             'Jigsaw Puzzle',       'Jigsaw',             seg, payer, ctx, false);
+}
 function simPhotoshoot       (seg, payer, ctx){ return collectionSim_('Photoshoot',         'Photoshoot',          'Photoshoot',         seg, payer, ctx, false); }
 // Kite — re-classified 2026-07-06 (user decision): payouts are rank-based and zero-sum per
 // league of 60 (fixed pot, no bots in the data; the single score milestone at req 100 pays no
@@ -364,10 +401,16 @@ function collectionSim_(cat, calLabel, accrKey, seg, payer, ctx, kite){
   });
 }
 
-// River Rush (D4/2.12) — a REAL simulator on the same calendar-driven path. Today cal_new has
-// no RR instances → branch (a) fires and SIMULATED = 0 (DIFF = -measured). If RR returns to
-// both calendars it re-prices via the generic collection path with its 8-day curve, no code change.
+// River Rush — ZEROED ON BOTH SIDES (Garry, 2026-08-18). RR did not run during the A/B window, so
+// there is nothing to measure and nothing to simulate. Leaving it on the calendar-driven path gave
+// SIM = 0 against a non-zero measured anchor (data_gains still carries traces), i.e. a spurious
+// negative diff charging the redesign for removing an event that was already gone. RIVER_RUSH_ZERO
+// forces BOTH sides to 0 — the measured side via measuredRow_ (the single choke point every
+// consumer reads, so DIFF / daily / sptTotals_ all agree) and the simulated side here.
+//   false -> the generic collection path with its 8-day curve, for when RR returns to the calendar.
+var RIVER_RUSH_ZERO = true;
 function simRiverRush(seg, payer, ctx){
+  if (RIVER_RUSH_ZERO) return zeroRow_();                    // 0 on both sides -> diff 0
   return collectionSim_('River Rush', 'River Rush', 'River Rush', seg, payer, ctx, false);
 }
 
@@ -593,7 +636,7 @@ function simNightSky(seg, payer, ctx){
   if (!E) return meas;                                   // no ladder / no streak data -> carry
   var b = ds.beh(seg, payer);
   var T = timingRatio_(ctx.calCur['Night Sky'] || [], nw, seg, payer, ds);
-  var days = reachSum_(nw, num(b.weekday_active_rate),   // 33x1d -> Σ p_day = expected active days
+  var days = reachSum_(nw, num(b.weekday_active_rate),   // Nx1d -> Σ p_day = expected active days
                        num(b.weekend_active_rate));
   var out = {};
   RESOURCES.forEach(function(r){
@@ -654,8 +697,22 @@ function rmConfigFor_(i){
   return { sheet: name, ladder: ladder, cfgDur: readRMDuration_(name) || 4 };
 }
 
+// Rainbow Maker master switch, mirroring NS_SIMULATE (Garry, 2026-08-17):
+//   false (shipped here) -> RM is CARRIED. The variant already runs Rainbow Maker, the measured
+//     anchor therefore contains it, and no RM change is planned — so simulating it bottom-up would
+//     only replace a measured number with a modelled one and report a difference where there is no
+//     decision to make. Carried means SIM = measured and diff = 0, on all three views.
+//   true -> the bottom-up survival model below (what the 33-day plan stack uses, where RM was new
+//     and had no anchor).
+// Side benefit: the known over-count in the measured RM coin rows at 100+ now cancels out of every
+// diff instead of being amplified by a bottom-up re-pricing. It still inflates the faucet LEVEL, so
+// read RM levels with care until the data is re-pulled.
+// EcoGainsSim_Daily.gs reads this flag at run time for the per-instance placement branch.
+var RM_SIMULATE = false;
+
 function simRainbowMaker(seg, payer, ctx){
   var meas = measuredRow_('Rainbow Maker', seg, payer, ctx.ds);
+  if (!RM_SIMULATE) return meas;                           // carried -> diff 0 (see switch above)
   if (!ctx.calNewOk) return meas;
   if (!rmSortedInsts_(ctx.calNew).length) return zeroRow_();
   var parts = rmInstanceRows_(seg, payer, ctx);
@@ -729,11 +786,11 @@ function simSeasonPass(seg, payer, ctx){
   var v2Name = spV2Sheet_('SP');
   var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
   if (!v2.cum.length) v2 = base;
-  var daysBase = readSPSeasonDays_('SP') || 33;        // no config panel yet -> season = window
+  var daysBase = readSPSeasonDays_('SP') || SIM_DAYS;  // no config panel yet -> season = window
   var daysV2   = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
   var t  = sptTotals_(seg, payer, ctx);
-  var Tm = spTier_(t.meas * daysBase / 33, base.cum);
-  var Ts = spTier_(t.sim  * daysV2   / 33, v2.cum);
+  var Tm = spTier_(t.meas * daysBase / SIM_DAYS, base.cum);
+  var Ts = spTier_(t.sim  * daysV2   / SIM_DAYS, v2.cum);
   var cb = spCumTo_(base, Tm, payer), cs = spCumTo_(v2, Ts, payer);
   var Rlb = spChallengeR_();
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);   // D pinned 1 — tier rewards are end-state
@@ -896,8 +953,8 @@ function coreSptSynth_(seg, payer, ds){
   if (!(lvl > 0) || (pWd <= 0 && pWe <= 0)) return null;
   var eBase = coreSptE_('SP', coreSptMix_('SP'));
   if (!(eBase > 1e-9)) return null;
-  var days = 0;                                   // expected active days over the 33-day window
-  for (var d = 1; d <= 33; d++) days += isWeekend_(d) ? pWe : pWd;
+  var days = 0;                                   // expected active days over the SIM_DAYS window
+  for (var d = 1; d <= SIM_DAYS; d++) days += isWeekend_(d) ? pWe : pWd;
   var L = lvl * days;
   return { meas: L * eBase, L: L };
 }
@@ -977,7 +1034,16 @@ function reachOne_(inst, pWd, pWe){
   inst.days.forEach(function(d){ q *= (1 - (isWeekend_(d) ? pWe : pWd)); });
   return 1 - q;
 }
-function isWeekend_(day){ var m = (day-1) % 7; return m === 2 || m === 3 || m === 4; } // Fri/Sat/Sun
+// Weekend = Fri/Sat/Sun, as in the main stack — but this workbook's day 1 is a DIFFERENT weekday.
+// The 33-day plan calendars start on a Wednesday, so weekend fell on (day-1)%7 in {2,3,4}. This
+// window starts Monday 2026-07-27 (day 21 = Sunday 2026-08-16), so Fri/Sat/Sun are days 5,6,7 ->
+// (day-1)%7 in {4,5,6}. Getting this wrong silently mis-weights every reach and therefore every T,
+// and skews the synthetic Core-SPT anchor, so it is derived from one constant and gated.
+var SIM_DAY_ONE_DOW = 1;              // 1 = Monday … 7 = Sunday, for SIM_DAY_ONE
+function isWeekend_(day){
+  var dow = ((SIM_DAY_ONE_DOW - 1 + (day - 1)) % 7) + 1;   // 1..7, Mon..Sun
+  return dow >= 5;                                          // Fri, Sat, Sun
+}
 
 function modalDur_(list){
   if (!list || !list.length) return 0;
@@ -1135,7 +1201,8 @@ var DataStore = (function(){
 // ============================== CALENDAR READER ==============================================
 // Verified rule: merged range = ONE instance (duration = column width); filled non-merged cell
 // = ONE 1-day instance; neighbours never collapsed; day = column - 1 (B = day 1 .. AH = day 33).
-var CAL_FIRST_ROW = 5, CAL_LAST_ROW = 25, CAL_FIRST_COL = 2, CAL_LAST_COL = 34;   // grid B5:AH25
+// grid B5:V25 — 21 day columns (day = column - 1), not the 33-day AH grid of the main stack
+var CAL_FIRST_ROW = 5, CAL_LAST_ROW = 25, CAL_FIRST_COL = 2, CAL_LAST_COL = 2 + SIM_DAYS - 1;
 var CAL_ALIAS = { 'Mystery Puzzle':'Jigsaw Puzzle', 'Mystery Box':'Jigsaw Puzzle',
                   "Chuck's Flash Race":'Flash Race' };
 var CAL_PARSED_SHEET = 'cal_parsed';
@@ -1204,12 +1271,33 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   // there still needs menu > Fill Sim per Segment to re-run.
   'data_econ','data_econ_daily'];
 
+// The _v2 sheets are the ones you author, so an edit there MUST bump the refresh nonce or the sim
+// keeps its old numbers with no error anywhere. Rather than trusting the hand-typed list above to
+// stay complete, the watched set is DERIVED from the config registries (CONFIG_PAIRED /
+// CONFIG_SINGLE) — a config sheet cannot be added to the model and forgotten here.
+//
+// Built LAZILY, on the first onEdit — NOT in a top-level IIFE. Those registries are declared further
+// down this file, so at load time `var` hoisting has them as undefined and `for (var k in undefined)`
+// adds nothing without erroring: the watch list would look right in the source and be empty in
+// practice. Same class of load-order trap as DAILY_DAYS needing its own declaration.
+var _watchSet = null;
+function isWatched_(name){
+  if (!_watchSet){
+    _watchSet = {};
+    REFRESH_WATCH.forEach(function(n){ _watchSet[n] = 1; });
+    var reg = [CONFIG_PAIRED, CONFIG_SINGLE];
+    for (var i = 0; i < reg.length; i++)
+      for (var k in (reg[i] || {})){ _watchSet[k] = 1; _watchSet[k + '_v2'] = 1; }
+  }
+  return !!_watchSet[name];
+}
+
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){
   if (!AUTO_REFRESH) return;
   try {
     var name = e && e.range ? e.range.getSheet().getName() : null;
-    if (name && REFRESH_WATCH.indexOf(name) === -1) return;
+    if (name && !isWatched_(name)) return;
     refreshSims_();
   } catch(err){}
 }
@@ -1534,3 +1622,26 @@ function sheetVals_(name){
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
   return (_sheetValsCache[name] = sh ? sh.getDataRange().getValues() : []);
 }
+
+// ============================== CONFIG LAYERS (LiveOps 2.0 fixes) ============================
+// STANDARD PAIRING, same as every other engine copy (Garry, 2026-08-18 — the _v3 remap that used to
+// live here is GONE):
+//
+//   base sheet  'c_saga'      = the ANCHOR   — the config the VARIANT actually ran during the A/B
+//   _v2 sheet   'c_saga_v2'   = the PROPOSAL — the change being estimated
+//
+// so R = E_v2 / E_base as everywhere else, and editing a _v2 sheet is what moves the sim. What
+// makes this stack a variant-basis comparison is therefore the DATA and the base sheets (the
+// measured rows and the base configs are both the as-run variant), not a name remap.
+//
+// WHY THE REMAP WAS REMOVED: it shifted the pair up one layer (base->_v2, _v2->_v3) so that _v3 was
+// the authoring layer. That made editing a _v2 reward silently do nothing — it moved the anchor and
+// the proposal together, R stayed 1, and the diff stayed 0 with no error anywhere. The indirection
+// cost more in confusion than it saved in call sites.
+//
+// These two registries survive because refreshSims_ derives its watch list from them (see
+// isWatched_): every config sheet in the model, plus its _v2, gets an auto-refresh on edit.
+var CONFIG_PAIRED = {'c_saga':1, 'c_day':1, 'NS':1, 'SP':1, 'SP_lb':1, 'Race':1, 'TaD':1, 'Ki':1,
+                     'J':1, 'HH':1, 'BB':1, 'Ph':1, 'RR':1, 'F':1, 'TE':1};
+// bottom-up config sheets: one ladder, no base/_v2 pair
+var CONFIG_SINGLE = {'RM':1, 'RM_1st':1, 'RM_2nd':1};

@@ -1,0 +1,5292 @@
+{
+ "window": [
+  "2026-08-02",
+  "2026-08-03",
+  "2026-08-04",
+  "2026-08-05",
+  "2026-08-06",
+  "2026-08-07",
+  "2026-08-08",
+  "2026-08-09",
+  "2026-08-10"
+ ],
+ "spt_lanes_papd": {
+  "A. 0|Control": {
+   "players": 42620.0,
+   "CORE": 109.10317081182542,
+   "RAINBOW": 0.0,
+   "OFFER": 2.731721257625528,
+   "EVENT": 3.518686766776162,
+   "OTHER": 0.0,
+   "total": 115.3535788362271,
+   "RAINBOW_uncorrected": 0.0,
+   "ns_pct_player_days_passed_R1": 0.0,
+   "ns_pct_player_days_passed_R2": 0.0,
+   "ns_pct_player_days_passed_R3": 0.0,
+   "ns_avg_level_completes": 6.660203894885031
+  },
+  "0-9|Control": {
+   "players": 66611.0,
+   "CORE": 64.39831514314453,
+   "RAINBOW": 0.0010965155905180827,
+   "OFFER": 3.730296047199412,
+   "EVENT": 1.8881834832084792,
+   "OTHER": 0.0,
+   "total": 70.01790635180377,
+   "RAINBOW_uncorrected": 0.002198735944513669,
+   "ns_pct_player_days_passed_R1": 75.38514975004128,
+   "ns_pct_player_days_passed_R2": 33.749907222530815,
+   "ns_pct_player_days_passed_R3": 6.591681403972316,
+   "ns_avg_level_completes": 5.215437240095479
+  },
+  "10-19|Control": {
+   "players": 51528.0,
+   "CORE": 162.28189916162086,
+   "RAINBOW": 0.003246778450551157,
+   "OFFER": 5.114400908244062,
+   "EVENT": 7.2433942710759185,
+   "OTHER": 0.0,
+   "total": 174.6396155488278,
+   "RAINBOW_uncorrected": 0.004328714485328365,
+   "ns_pct_player_days_passed_R1": 66.86921634839311,
+   "ns_pct_player_days_passed_R2": 28.07139691041764,
+   "ns_pct_player_days_passed_R3": 3.453039900636547,
+   "ns_avg_level_completes": 13.658021269989135
+  },
+  "20-39|Control": {
+   "players": 43329.0,
+   "CORE": 316.26651619008055,
+   "RAINBOW": 0.013239631655473238,
+   "OFFER": 6.816116919384247,
+   "EVENT": 13.05895704955111,
+   "OTHER": 0.0,
+   "total": 336.15368506081376,
+   "RAINBOW_uncorrected": 0.014358281982044358,
+   "ns_pct_player_days_passed_R1": 59.27320155092433,
+   "ns_pct_player_days_passed_R2": 20.659739204689696,
+   "ns_pct_player_days_passed_R3": 4.18037365274989,
+   "ns_avg_level_completes": 25.94277712386623
+  },
+  "40-99|Control": {
+   "players": 28276.0,
+   "CORE": 685.229276064507,
+   "RAINBOW": 0.004231150091950771,
+   "OFFER": 9.776056019238931,
+   "EVENT": 20.273484934219834,
+   "OTHER": 0.0,
+   "total": 715.2829526807187,
+   "RAINBOW_uncorrected": 0.004231150091950771,
+   "ns_pct_player_days_passed_R1": 40.3826205969727,
+   "ns_pct_player_days_passed_R2": 10.605633753006083,
+   "ns_pct_player_days_passed_R3": 2.0374766586504456,
+   "ns_avg_level_completes": 53.48406599236101
+  },
+  "100+|Control": {
+   "players": 4081.0,
+   "CORE": 1662.439884832149,
+   "RAINBOW": 0.0,
+   "OFFER": 14.759669198725803,
+   "EVENT": 25.21157559421711,
+   "OTHER": 0.0,
+   "total": 1702.413445234011,
+   "RAINBOW_uncorrected": 0.0,
+   "ns_pct_player_days_passed_R1": 21.513609409458468,
+   "ns_pct_player_days_passed_R2": 3.1100392060769417,
+   "ns_pct_player_days_passed_R3": 0.46599117863268813,
+   "ns_avg_level_completes": 127.37343298211223
+  },
+  "A. 0|Variant": {
+   "players": 42750.0,
+   "CORE": 100.32607181286548,
+   "RAINBOW": 6.523807719298246,
+   "OFFER": 2.3841258479532166,
+   "EVENT": 4.363733567251462,
+   "OTHER": 0.0,
+   "total": 113.59869684210527,
+   "RAINBOW_uncorrected": 7.349205847953217,
+   "ns_pct_player_days_passed_R1": 0.0,
+   "ns_pct_player_days_passed_R2": 0.0,
+   "ns_pct_player_days_passed_R3": 0.0,
+   "ns_avg_level_completes": 7.451719999999999
+  },
+  "0-9|Variant": {
+   "players": 65572.0,
+   "CORE": 56.34623772341854,
+   "RAINBOW": 5.357360916244739,
+   "OFFER": 3.5320205270542298,
+   "EVENT": 2.0450393460623437,
+   "OTHER": 0.0,
+   "total": 67.27955377295187,
+   "RAINBOW_uncorrected": 5.928134874641615,
+   "ns_pct_player_days_passed_R1": 75.42573994997866,
+   "ns_pct_player_days_passed_R2": 34.16633883364851,
+   "ns_pct_player_days_passed_R3": 6.427260416031233,
+   "ns_avg_level_completes": 5.169252272311351
+  },
+  "10-19|Variant": {
+   "players": 51921.0,
+   "CORE": 140.36723464494136,
+   "RAINBOW": 16.01219448777951,
+   "OFFER": 4.960378074382235,
+   "EVENT": 8.547691878045493,
+   "OTHER": 0.0,
+   "total": 169.8909090734,
+   "RAINBOW_uncorrected": 17.830635003177907,
+   "ns_pct_player_days_passed_R1": 66.15708615011266,
+   "ns_pct_player_days_passed_R2": 27.490505960979178,
+   "ns_pct_player_days_passed_R3": 3.35849521388263,
+   "ns_avg_level_completes": 13.484076963078524
+  },
+  "20-39|Variant": {
+   "players": 43959.0,
+   "CORE": 268.2542796696922,
+   "RAINBOW": 28.993177506312698,
+   "OFFER": 6.502655428922404,
+   "EVENT": 16.110698150549375,
+   "OTHER": 0.0,
+   "total": 319.8607959689711,
+   "RAINBOW_uncorrected": 32.36815236925317,
+   "ns_pct_player_days_passed_R1": 58.25162901794854,
+   "ns_pct_player_days_passed_R2": 19.943079005436886,
+   "ns_pct_player_days_passed_R3": 4.1396519484064696,
+   "ns_avg_level_completes": 25.631692713665007
+  },
+  "40-99|Variant": {
+   "players": 27019.0,
+   "CORE": 573.4872456419557,
+   "RAINBOW": 59.5015329952996,
+   "OFFER": 9.184747770087716,
+   "EVENT": 26.83353603020097,
+   "OTHER": 0.0,
+   "total": 669.0035478737185,
+   "RAINBOW_uncorrected": 66.04490395647507,
+   "ns_pct_player_days_passed_R1": 37.87570968577668,
+   "ns_pct_player_days_passed_R2": 9.017076871830932,
+   "ns_pct_player_days_passed_R3": 1.914332506754506,
+   "ns_avg_level_completes": 53.089466671601464
+  },
+  "100+|Variant": {
+   "players": 4036.0,
+   "CORE": 1345.7154410307235,
+   "RAINBOW": 128.8344400396432,
+   "OFFER": 13.968790882061446,
+   "EVENT": 39.863756194251735,
+   "OTHER": 0.0,
+   "total": 1528.3844202180376,
+   "RAINBOW_uncorrected": 145.8906813676908,
+   "ns_pct_player_days_passed_R1": 17.76525520317146,
+   "ns_pct_player_days_passed_R2": 2.7012190287413285,
+   "ns_pct_player_days_passed_R3": 0.24825569871159564,
+   "ns_avg_level_completes": 125.37541377601586
+  }
+ },
+ "hc_daily": [
+  {
+   "date": "2026-08-02",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5266.0,
+   "hc_free_papd": 33.02,
+   "hc_papd": 40.78
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5384.0,
+   "hc_free_papd": 44.72,
+   "hc_papd": 52.13
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7596.0,
+   "hc_free_papd": 41.69,
+   "hc_papd": 42.99
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7387.0,
+   "hc_free_papd": 31.86,
+   "hc_papd": 33.6
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5534.0,
+   "hc_free_papd": 83.6,
+   "hc_papd": 89.63
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5541.0,
+   "hc_free_papd": 68.07,
+   "hc_papd": 72.85
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4544.0,
+   "hc_free_papd": 142.19,
+   "hc_papd": 151.7
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4663.0,
+   "hc_free_papd": 121.5,
+   "hc_papd": 131.48
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3033.0,
+   "hc_free_papd": 255.89,
+   "hc_papd": 275.56
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2790.0,
+   "hc_free_papd": 235.69,
+   "hc_papd": 260.35
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 448.0,
+   "hc_free_papd": 552.17,
+   "hc_papd": 581.41
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 442.0,
+   "hc_free_papd": 474.45,
+   "hc_papd": 514.5
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4074.0,
+   "hc_free_papd": 25.93,
+   "hc_papd": 25.98
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 3994.0,
+   "hc_free_papd": 20.34,
+   "hc_papd": 21.34
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7328.0,
+   "hc_free_papd": 61.68,
+   "hc_papd": 62.77
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7260.0,
+   "hc_free_papd": 55.19,
+   "hc_papd": 56.59
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5776.0,
+   "hc_free_papd": 115.81,
+   "hc_papd": 119.97
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5893.0,
+   "hc_free_papd": 109.62,
+   "hc_papd": 117.17
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4815.0,
+   "hc_free_papd": 197.37,
+   "hc_papd": 211.2
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4900.0,
+   "hc_free_papd": 181.85,
+   "hc_papd": 192.62
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3169.0,
+   "hc_free_papd": 359.16,
+   "hc_papd": 379.5
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3032.0,
+   "hc_free_papd": 330.09,
+   "hc_papd": 346.32
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 435.0,
+   "hc_free_papd": 750.63,
+   "hc_papd": 797.29
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 417.0,
+   "hc_free_papd": 601.56,
+   "hc_papd": 621.22
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4495.0,
+   "hc_free_papd": 39.6,
+   "hc_papd": 44.06
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 4433.0,
+   "hc_free_papd": 30.87,
+   "hc_papd": 34.57
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7437.0,
+   "hc_free_papd": 46.08,
+   "hc_papd": 47.58
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7344.0,
+   "hc_free_papd": 38.42,
+   "hc_papd": 39.71
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5808.0,
+   "hc_free_papd": 95.81,
+   "hc_papd": 101.85
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5839.0,
+   "hc_free_papd": 75.95,
+   "hc_papd": 81.5
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4883.0,
+   "hc_free_papd": 169.47,
+   "hc_papd": 178.73
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4917.0,
+   "hc_free_papd": 120.0,
+   "hc_papd": 129.03
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3031.0,
+   "hc_free_papd": 334.85,
+   "hc_papd": 355.05
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2920.0,
+   "hc_free_papd": 213.94,
+   "hc_papd": 231.63
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 403.0,
+   "hc_free_papd": 721.17,
+   "hc_papd": 755.78
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 394.0,
+   "hc_free_papd": 415.4,
+   "hc_papd": 461.21
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4810.0,
+   "hc_free_papd": 29.2,
+   "hc_papd": 34.87
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 4733.0,
+   "hc_free_papd": 46.11,
+   "hc_papd": 52.02
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7431.0,
+   "hc_free_papd": 39.55,
+   "hc_papd": 40.99
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7277.0,
+   "hc_free_papd": 33.0,
+   "hc_papd": 34.55
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5653.0,
+   "hc_free_papd": 79.85,
+   "hc_papd": 83.64
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5753.0,
+   "hc_free_papd": 70.3,
+   "hc_papd": 82.21
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4705.0,
+   "hc_free_papd": 135.89,
+   "hc_papd": 145.83
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4710.0,
+   "hc_free_papd": 126.79,
+   "hc_papd": 135.86
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3010.0,
+   "hc_free_papd": 257.36,
+   "hc_papd": 275.41
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2903.0,
+   "hc_free_papd": 266.77,
+   "hc_papd": 280.67
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 408.0,
+   "hc_free_papd": 588.41,
+   "hc_papd": 618.92
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 421.0,
+   "hc_free_papd": 539.85,
+   "hc_papd": 576.32
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5113.0,
+   "hc_free_papd": 43.91,
+   "hc_papd": 54.16
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5032.0,
+   "hc_free_papd": 38.47,
+   "hc_papd": 45.44
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7361.0,
+   "hc_free_papd": 39.1,
+   "hc_papd": 40.56
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7378.0,
+   "hc_free_papd": 32.28,
+   "hc_papd": 34.4
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5621.0,
+   "hc_free_papd": 86.65,
+   "hc_papd": 90.98
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5682.0,
+   "hc_free_papd": 64.84,
+   "hc_papd": 71.01
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4668.0,
+   "hc_free_papd": 158.36,
+   "hc_papd": 170.01
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4775.0,
+   "hc_free_papd": 112.63,
+   "hc_papd": 120.94
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3018.0,
+   "hc_free_papd": 322.94,
+   "hc_papd": 343.58
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2911.0,
+   "hc_free_papd": 201.81,
+   "hc_papd": 221.05
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 431.0,
+   "hc_free_papd": 675.43,
+   "hc_papd": 724.27
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 423.0,
+   "hc_free_papd": 452.11,
+   "hc_papd": 482.25
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4859.0,
+   "hc_free_papd": 50.28,
+   "hc_papd": 61.95
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5025.0,
+   "hc_free_papd": 79.52,
+   "hc_papd": 84.86
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7515.0,
+   "hc_free_papd": 57.75,
+   "hc_papd": 59.25
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7399.0,
+   "hc_free_papd": 48.56,
+   "hc_papd": 49.66
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5686.0,
+   "hc_free_papd": 113.06,
+   "hc_papd": 117.6
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5738.0,
+   "hc_free_papd": 98.22,
+   "hc_papd": 102.84
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4874.0,
+   "hc_free_papd": 176.97,
+   "hc_papd": 183.6
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4827.0,
+   "hc_free_papd": 171.9,
+   "hc_papd": 183.65
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3124.0,
+   "hc_free_papd": 305.59,
+   "hc_papd": 324.91
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2950.0,
+   "hc_free_papd": 321.97,
+   "hc_papd": 337.45
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 432.0,
+   "hc_free_papd": 627.32,
+   "hc_papd": 673.39
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 439.0,
+   "hc_free_papd": 625.77,
+   "hc_papd": 664.17
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5161.0,
+   "hc_free_papd": 47.2,
+   "hc_papd": 53.97
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5140.0,
+   "hc_free_papd": 51.54,
+   "hc_papd": 56.43
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7572.0,
+   "hc_free_papd": 45.74,
+   "hc_papd": 47.18
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7420.0,
+   "hc_free_papd": 36.18,
+   "hc_papd": 38.72
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5815.0,
+   "hc_free_papd": 92.84,
+   "hc_papd": 97.69
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5766.0,
+   "hc_free_papd": 70.92,
+   "hc_papd": 76.63
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4933.0,
+   "hc_free_papd": 158.24,
+   "hc_papd": 166.63
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4960.0,
+   "hc_free_papd": 124.83,
+   "hc_papd": 135.04
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3274.0,
+   "hc_free_papd": 314.44,
+   "hc_papd": 331.79
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3161.0,
+   "hc_free_papd": 236.71,
+   "hc_papd": 253.01
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 497.0,
+   "hc_free_papd": 653.97,
+   "hc_papd": 698.33
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 494.0,
+   "hc_free_papd": 507.4,
+   "hc_papd": 544.04
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5112.0,
+   "hc_free_papd": 28.22,
+   "hc_papd": 37.78
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5301.0,
+   "hc_free_papd": 47.07,
+   "hc_papd": 53.46
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7527.0,
+   "hc_free_papd": 41.61,
+   "hc_papd": 44.5
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7378.0,
+   "hc_free_papd": 31.33,
+   "hc_papd": 32.96
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5851.0,
+   "hc_free_papd": 82.62,
+   "hc_papd": 88.79
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5866.0,
+   "hc_free_papd": 69.25,
+   "hc_papd": 73.01
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4954.0,
+   "hc_free_papd": 138.7,
+   "hc_papd": 146.41
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 5111.0,
+   "hc_free_papd": 118.11,
+   "hc_papd": 127.46
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3337.0,
+   "hc_free_papd": 255.82,
+   "hc_papd": 280.9
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3109.0,
+   "hc_free_papd": 234.9,
+   "hc_papd": 248.27
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 513.0,
+   "hc_free_papd": 533.68,
+   "hc_papd": 629.2
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 523.0,
+   "hc_free_papd": 486.57,
+   "hc_papd": 514.68
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4087.0,
+   "hc_free_papd": 27.77,
+   "hc_papd": 27.93
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 4066.0,
+   "hc_free_papd": 21.64,
+   "hc_papd": 22.16
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7404.0,
+   "hc_free_papd": 62.0,
+   "hc_papd": 63.4
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7304.0,
+   "hc_free_papd": 58.19,
+   "hc_papd": 59.84
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 6245.0,
+   "hc_free_papd": 111.48,
+   "hc_papd": 115.86
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 6225.0,
+   "hc_free_papd": 108.36,
+   "hc_papd": 114.6
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 5236.0,
+   "hc_free_papd": 184.23,
+   "hc_papd": 193.61
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 5353.0,
+   "hc_free_papd": 177.93,
+   "hc_papd": 188.47
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3434.0,
+   "hc_free_papd": 347.33,
+   "hc_papd": 379.3
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3390.0,
+   "hc_free_papd": 327.97,
+   "hc_papd": 342.46
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 529.0,
+   "hc_free_papd": 697.9,
+   "hc_papd": 770.3
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 501.0,
+   "hc_free_papd": 602.79,
+   "hc_papd": 628.24
+  }
+ ],
+ "spt_daily": [
+  {
+   "date": "2026-08-02",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5266.0,
+   "spt_papd": 5.59
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5384.0,
+   "spt_papd": 9.51
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7596.0,
+   "spt_papd": 5.64
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7387.0,
+   "spt_papd": 6.61
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5534.0,
+   "spt_papd": 13.12
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5541.0,
+   "spt_papd": 18.22
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4544.0,
+   "spt_papd": 20.99
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4663.0,
+   "spt_papd": 29.9
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3033.0,
+   "spt_papd": 29.47
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2790.0,
+   "spt_papd": 42.67
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 448.0,
+   "spt_papd": 38.74
+  },
+  {
+   "date": "2026-08-02",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 442.0,
+   "spt_papd": 54.47
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4074.0,
+   "spt_papd": 2.2
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 3994.0,
+   "spt_papd": 4.13
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7328.0,
+   "spt_papd": 4.15
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7260.0,
+   "spt_papd": 14.35
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5776.0,
+   "spt_papd": 7.65
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5893.0,
+   "spt_papd": 45.36
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4815.0,
+   "spt_papd": 13.26
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4900.0,
+   "spt_papd": 91.89
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3169.0,
+   "spt_papd": 21.09
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3032.0,
+   "spt_papd": 180.07
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 435.0,
+   "spt_papd": 27.59
+  },
+  {
+   "date": "2026-08-03",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 417.0,
+   "spt_papd": 344.01
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4495.0,
+   "spt_papd": 4.1
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 4433.0,
+   "spt_papd": 16.5
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7437.0,
+   "spt_papd": 3.44
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7344.0,
+   "spt_papd": 11.03
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5808.0,
+   "spt_papd": 10.19
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5839.0,
+   "spt_papd": 30.54
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4883.0,
+   "spt_papd": 18.68
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4917.0,
+   "spt_papd": 55.1
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3031.0,
+   "spt_papd": 34.62
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2920.0,
+   "spt_papd": 94.47
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 403.0,
+   "spt_papd": 55.47
+  },
+  {
+   "date": "2026-08-04",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 394.0,
+   "spt_papd": 248.6
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4810.0,
+   "spt_papd": 3.24
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 4733.0,
+   "spt_papd": 21.97
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7431.0,
+   "spt_papd": 2.76
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7277.0,
+   "spt_papd": 10.44
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5653.0,
+   "spt_papd": 7.33
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5753.0,
+   "spt_papd": 27.27
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4705.0,
+   "spt_papd": 14.15
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4710.0,
+   "spt_papd": 46.06
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3010.0,
+   "spt_papd": 21.2
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2903.0,
+   "spt_papd": 95.67
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 408.0,
+   "spt_papd": 30.85
+  },
+  {
+   "date": "2026-08-05",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 421.0,
+   "spt_papd": 282.47
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5113.0,
+   "spt_papd": 7.3
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5032.0,
+   "spt_papd": 23.23
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7361.0,
+   "spt_papd": 3.48
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7378.0,
+   "spt_papd": 12.81
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5621.0,
+   "spt_papd": 11.81
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5682.0,
+   "spt_papd": 29.51
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4668.0,
+   "spt_papd": 21.11
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4775.0,
+   "spt_papd": 48.66
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3018.0,
+   "spt_papd": 37.26
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2911.0,
+   "spt_papd": 115.92
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 431.0,
+   "spt_papd": 52.25
+  },
+  {
+   "date": "2026-08-06",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 423.0,
+   "spt_papd": 227.51
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4859.0,
+   "spt_papd": 13.73
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5025.0,
+   "spt_papd": 16.62
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7515.0,
+   "spt_papd": 12.5
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7399.0,
+   "spt_papd": 12.79
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5686.0,
+   "spt_papd": 23.41
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5738.0,
+   "spt_papd": 27.02
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4874.0,
+   "spt_papd": 32.61
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4827.0,
+   "spt_papd": 42.86
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3124.0,
+   "spt_papd": 45.31
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 2950.0,
+   "spt_papd": 62.24
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 432.0,
+   "spt_papd": 55.96
+  },
+  {
+   "date": "2026-08-07",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 439.0,
+   "spt_papd": 81.05
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5161.0,
+   "spt_papd": 10.47
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5140.0,
+   "spt_papd": 10.69
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7572.0,
+   "spt_papd": 7.72
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7420.0,
+   "spt_papd": 8.32
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5815.0,
+   "spt_papd": 17.28
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5766.0,
+   "spt_papd": 19.9
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4933.0,
+   "spt_papd": 26.84
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 4960.0,
+   "spt_papd": 30.73
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3274.0,
+   "spt_papd": 40.99
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3161.0,
+   "spt_papd": 43.39
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 497.0,
+   "spt_papd": 54.44
+  },
+  {
+   "date": "2026-08-08",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 494.0,
+   "spt_papd": 55.45
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 5112.0,
+   "spt_papd": 6.01
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 5301.0,
+   "spt_papd": 9.73
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7527.0,
+   "spt_papd": 5.43
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7378.0,
+   "spt_papd": 6.35
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 5851.0,
+   "spt_papd": 12.84
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 5866.0,
+   "spt_papd": 18.63
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 4954.0,
+   "spt_papd": 18.99
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 5111.0,
+   "spt_papd": 28.63
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3337.0,
+   "spt_papd": 26.28
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3109.0,
+   "spt_papd": 42.33
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 513.0,
+   "spt_papd": 27.5
+  },
+  {
+   "date": "2026-08-09",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 523.0,
+   "spt_papd": 57.43
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "A. 0",
+   "arm": "Control",
+   "players": 4087.0,
+   "spt_papd": 1.82
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "A. 0",
+   "arm": "Variant",
+   "players": 4066.0,
+   "spt_papd": 4.41
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "0-9",
+   "arm": "Control",
+   "players": 7404.0,
+   "spt_papd": 3.89
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "0-9",
+   "arm": "Variant",
+   "players": 7304.0,
+   "spt_papd": 14.54
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "10-19",
+   "arm": "Control",
+   "players": 6245.0,
+   "spt_papd": 6.82
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "10-19",
+   "arm": "Variant",
+   "players": 6225.0,
+   "spt_papd": 45.74
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "20-39",
+   "arm": "Control",
+   "players": 5236.0,
+   "spt_papd": 11.1
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "20-39",
+   "arm": "Variant",
+   "players": 5353.0,
+   "spt_papd": 84.81
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "40-99",
+   "arm": "Control",
+   "players": 3434.0,
+   "spt_papd": 15.07
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "40-99",
+   "arm": "Variant",
+   "players": 3390.0,
+   "spt_papd": 171.1
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "100+",
+   "arm": "Control",
+   "players": 529.0,
+   "spt_papd": 22.44
+  },
+  {
+   "date": "2026-08-10",
+   "segment": "100+",
+   "arm": "Variant",
+   "players": 501.0,
+   "spt_papd": 328.44
+  }
+ ],
+ "per_level_spt_rate": [
+  {
+   "play_bucket": "A <25",
+   "ab_group": "Control",
+   "players": "774",
+   "avg_saga_completes": "21.8",
+   "avg_pass_score": "205.0",
+   "spt_per_saga_level": "9.393",
+   "median_spt_per_level": "9.567"
+  },
+  {
+   "play_bucket": "A <25",
+   "ab_group": "Variant",
+   "players": "597",
+   "avg_saga_completes": "21.7",
+   "avg_pass_score": "140.3",
+   "spt_per_saga_level": "6.453",
+   "median_spt_per_level": "6.16"
+  },
+  {
+   "play_bucket": "B 25-74",
+   "ab_group": "Control",
+   "players": "8002",
+   "avg_saga_completes": "38.9",
+   "avg_pass_score": "200.8",
+   "spt_per_saga_level": "5.156",
+   "median_spt_per_level": "3.186"
+  },
+  {
+   "play_bucket": "B 25-74",
+   "ab_group": "Variant",
+   "players": "6935",
+   "avg_saga_completes": "36.9",
+   "avg_pass_score": "107.3",
+   "spt_per_saga_level": "2.908",
+   "median_spt_per_level": "1.67"
+  },
+  {
+   "play_bucket": "C 75-149",
+   "ab_group": "Control",
+   "players": "1060",
+   "avg_saga_completes": "101.1",
+   "avg_pass_score": "991.9",
+   "spt_per_saga_level": "9.807",
+   "median_spt_per_level": "9.419"
+  },
+  {
+   "play_bucket": "C 75-149",
+   "ab_group": "Variant",
+   "players": "288",
+   "avg_saga_completes": "99.3",
+   "avg_pass_score": "647.8",
+   "spt_per_saga_level": "6.52",
+   "median_spt_per_level": "6.452"
+  },
+  {
+   "play_bucket": "D 150-299",
+   "ab_group": "Control",
+   "players": "341",
+   "avg_saga_completes": "203.3",
+   "avg_pass_score": "2242.3",
+   "spt_per_saga_level": "11.029",
+   "median_spt_per_level": "11.196"
+  },
+  {
+   "play_bucket": "D 150-299",
+   "ab_group": "Variant",
+   "players": "54",
+   "avg_saga_completes": "185.8",
+   "avg_pass_score": "1441.7",
+   "spt_per_saga_level": "7.761",
+   "median_spt_per_level": "8.126"
+  },
+  {
+   "play_bucket": "E 300+",
+   "ab_group": "Control",
+   "players": "78",
+   "avg_saga_completes": "434.1",
+   "avg_pass_score": "5076.9",
+   "spt_per_saga_level": "11.695",
+   "median_spt_per_level": "11.98"
+  },
+  {
+   "play_bucket": "E 300+",
+   "ab_group": "Variant",
+   "players": "4",
+   "avg_saga_completes": "342.5",
+   "avg_pass_score": "2637.8",
+   "spt_per_saga_level": "7.701",
+   "median_spt_per_level": "10.564"
+  }
+ ],
+ "pass_accrual_play_matched": [
+  {
+   "saga_completes_bucket": "A. <25",
+   "ab_group": "Control",
+   "players": "65771",
+   "avg_saga_completes": "6.2",
+   "avg_spt_grants_non_rainbow": "5.1",
+   "avg_spt_grants_rainbow_maker": "0.0",
+   "avg_pass_score_count": "30.6",
+   "pass_tokens_per_saga_level": "4.94",
+   "avg_milestone": "0.91"
+  },
+  {
+   "saga_completes_bucket": "A. <25",
+   "ab_group": "Variant",
+   "players": "66331",
+   "avg_saga_completes": "6.1",
+   "avg_spt_grants_non_rainbow": "4.6",
+   "avg_spt_grants_rainbow_maker": "1.7",
+   "avg_pass_score_count": "25.4",
+   "pass_tokens_per_saga_level": "4.15",
+   "avg_milestone": "0.8"
+  },
+  {
+   "saga_completes_bucket": "B. 25-74",
+   "ab_group": "Control",
+   "players": "21534",
+   "avg_saga_completes": "44.1",
+   "avg_spt_grants_non_rainbow": "42.0",
+   "avg_spt_grants_rainbow_maker": "0.0",
+   "avg_pass_score_count": "355.8",
+   "pass_tokens_per_saga_level": "8.07",
+   "avg_milestone": "7.17"
+  },
+  {
+   "saga_completes_bucket": "B. 25-74",
+   "ab_group": "Variant",
+   "players": "22068",
+   "avg_saga_completes": "43.9",
+   "avg_spt_grants_non_rainbow": "40.5",
+   "avg_spt_grants_rainbow_maker": "21.8",
+   "avg_pass_score_count": "301.4",
+   "pass_tokens_per_saga_level": "6.86",
+   "avg_milestone": "6.45"
+  },
+  {
+   "saga_completes_bucket": "C. 75-149",
+   "ab_group": "Control",
+   "players": "11586",
+   "avg_saga_completes": "107.1",
+   "avg_spt_grants_non_rainbow": "161.2",
+   "avg_spt_grants_rainbow_maker": "0.0",
+   "avg_pass_score_count": "2210.0",
+   "pass_tokens_per_saga_level": "20.63",
+   "avg_milestone": "17.06"
+  },
+  {
+   "saga_completes_bucket": "C. 75-149",
+   "ab_group": "Variant",
+   "players": "11248",
+   "avg_saga_completes": "107.6",
+   "avg_spt_grants_non_rainbow": "163.5",
+   "avg_spt_grants_rainbow_maker": "183.7",
+   "avg_pass_score_count": "1956.9",
+   "pass_tokens_per_saga_level": "18.19",
+   "avg_milestone": "15.8"
+  },
+  {
+   "saga_completes_bucket": "D. 150-299",
+   "ab_group": "Control",
+   "players": "8342",
+   "avg_saga_completes": "213.4",
+   "avg_spt_grants_non_rainbow": "203.5",
+   "avg_spt_grants_rainbow_maker": "0.1",
+   "avg_pass_score_count": "2820.8",
+   "pass_tokens_per_saga_level": "13.22",
+   "avg_milestone": "24.97"
+  },
+  {
+   "saga_completes_bucket": "D. 150-299",
+   "ab_group": "Variant",
+   "players": "8340",
+   "avg_saga_completes": "214.0",
+   "avg_spt_grants_non_rainbow": "205.8",
+   "avg_spt_grants_rainbow_maker": "245.3",
+   "avg_pass_score_count": "2484.3",
+   "pass_tokens_per_saga_level": "11.61",
+   "avg_milestone": "23.13"
+  },
+  {
+   "saga_completes_bucket": "E. 300+",
+   "ab_group": "Control",
+   "players": "7356",
+   "avg_saga_completes": "620.5",
+   "avg_spt_grants_non_rainbow": "443.5",
+   "avg_spt_grants_rainbow_maker": "0.0",
+   "avg_pass_score_count": "8147.0",
+   "pass_tokens_per_saga_level": "13.13",
+   "avg_milestone": "29.89"
+  },
+  {
+   "saga_completes_bucket": "E. 300+",
+   "ab_group": "Variant",
+   "players": "7191",
+   "avg_saga_completes": "609.3",
+   "avg_spt_grants_non_rainbow": "449.5",
+   "avg_spt_grants_rainbow_maker": "678.7",
+   "avg_pass_score_count": "6788.5",
+   "pass_tokens_per_saga_level": "11.14",
+   "avg_milestone": "29.53"
+  }
+ ],
+ "spt_vs_pass_diag": [
+  {
+   "ab_group": "Control",
+   "pass_players": "62579",
+   "avg_saga_completes": "137.8",
+   "avg_spt_gain_non_rainbow": "129.0",
+   "avg_spt_gain_rainbow_maker": "0.0",
+   "avg_pass_score_count": "1897.5",
+   "avg_milestone": "13.42"
+  },
+  {
+   "ab_group": "Variant",
+   "pass_players": "62391",
+   "avg_saga_completes": "135.1",
+   "avg_spt_gain_non_rainbow": "128.0",
+   "avg_spt_gain_rainbow_maker": "153.6",
+   "avg_pass_score_count": "1601.0",
+   "avg_milestone": "12.48"
+  }
+ ],
+ "sp_milestone_summary": [
+  {
+   "ab_group": "Control",
+   "players": "114589",
+   "avg_milestone_all": "7.33",
+   "p25_milestone_all": "0",
+   "median_milestone_all": "1",
+   "p75_milestone_all": "12",
+   "avg_milestone_participants": "13.42",
+   "median_milestone_participants": "11"
+  },
+  {
+   "ab_group": "Variant",
+   "players": "115178",
+   "avg_milestone_all": "6.76",
+   "p25_milestone_all": "0",
+   "median_milestone_all": "1",
+   "p75_milestone_all": "10",
+   "avg_milestone_participants": "12.5",
+   "median_milestone_participants": "9"
+  }
+ ],
+ "sp_milestone_split": [
+  {
+   "milestone": "0",
+   "control_players": "52011",
+   "variant_players": "52918",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "45.389",
+   "pct_variant": "45.945",
+   "pp_diff_variant_minus_control": "0.555"
+  },
+  {
+   "milestone": "1",
+   "control_players": "5533",
+   "variant_players": "6347",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "4.829",
+   "pct_variant": "5.511",
+   "pp_diff_variant_minus_control": "0.682"
+  },
+  {
+   "milestone": "2",
+   "control_players": "1821",
+   "variant_players": "2228",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.589",
+   "pct_variant": "1.934",
+   "pp_diff_variant_minus_control": "0.345"
+  },
+  {
+   "milestone": "3",
+   "control_players": "2431",
+   "variant_players": "2840",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "2.121",
+   "pct_variant": "2.466",
+   "pp_diff_variant_minus_control": "0.344"
+  },
+  {
+   "milestone": "4",
+   "control_players": "2616",
+   "variant_players": "3198",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "2.283",
+   "pct_variant": "2.777",
+   "pp_diff_variant_minus_control": "0.494"
+  },
+  {
+   "milestone": "5",
+   "control_players": "4668",
+   "variant_players": "5198",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "4.074",
+   "pct_variant": "4.513",
+   "pp_diff_variant_minus_control": "0.439"
+  },
+  {
+   "milestone": "6",
+   "control_players": "3893",
+   "variant_players": "3681",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "3.397",
+   "pct_variant": "3.196",
+   "pp_diff_variant_minus_control": "-0.201"
+  },
+  {
+   "milestone": "7",
+   "control_players": "3002",
+   "variant_players": "2706",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "2.62",
+   "pct_variant": "2.349",
+   "pp_diff_variant_minus_control": "-0.27"
+  },
+  {
+   "milestone": "8",
+   "control_players": "2365",
+   "variant_players": "2314",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "2.064",
+   "pct_variant": "2.009",
+   "pp_diff_variant_minus_control": "-0.055"
+  },
+  {
+   "milestone": "9",
+   "control_players": "2672",
+   "variant_players": "2752",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "2.332",
+   "pct_variant": "2.389",
+   "pp_diff_variant_minus_control": "0.058"
+  },
+  {
+   "milestone": "10",
+   "control_players": "2237",
+   "variant_players": "2216",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.952",
+   "pct_variant": "1.924",
+   "pp_diff_variant_minus_control": "-0.028"
+  },
+  {
+   "milestone": "11",
+   "control_players": "2077",
+   "variant_players": "1912",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.813",
+   "pct_variant": "1.66",
+   "pp_diff_variant_minus_control": "-0.153"
+  },
+  {
+   "milestone": "12",
+   "control_players": "1702",
+   "variant_players": "1675",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.485",
+   "pct_variant": "1.454",
+   "pp_diff_variant_minus_control": "-0.031"
+  },
+  {
+   "milestone": "13",
+   "control_players": "1571",
+   "variant_players": "1525",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.371",
+   "pct_variant": "1.324",
+   "pp_diff_variant_minus_control": "-0.047"
+  },
+  {
+   "milestone": "14",
+   "control_players": "1824",
+   "variant_players": "1620",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.592",
+   "pct_variant": "1.407",
+   "pp_diff_variant_minus_control": "-0.185"
+  },
+  {
+   "milestone": "15",
+   "control_players": "1585",
+   "variant_players": "1575",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.383",
+   "pct_variant": "1.367",
+   "pp_diff_variant_minus_control": "-0.016"
+  },
+  {
+   "milestone": "16",
+   "control_players": "1298",
+   "variant_players": "1295",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.133",
+   "pct_variant": "1.124",
+   "pp_diff_variant_minus_control": "-0.008"
+  },
+  {
+   "milestone": "17",
+   "control_players": "1264",
+   "variant_players": "1212",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.103",
+   "pct_variant": "1.052",
+   "pp_diff_variant_minus_control": "-0.051"
+  },
+  {
+   "milestone": "18",
+   "control_players": "1136",
+   "variant_players": "1051",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.991",
+   "pct_variant": "0.913",
+   "pp_diff_variant_minus_control": "-0.079"
+  },
+  {
+   "milestone": "19",
+   "control_players": "1165",
+   "variant_players": "1170",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "1.017",
+   "pct_variant": "1.016",
+   "pp_diff_variant_minus_control": "-0.001"
+  },
+  {
+   "milestone": "20",
+   "control_players": "1087",
+   "variant_players": "1025",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.949",
+   "pct_variant": "0.89",
+   "pp_diff_variant_minus_control": "-0.059"
+  },
+  {
+   "milestone": "21",
+   "control_players": "970",
+   "variant_players": "956",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.847",
+   "pct_variant": "0.83",
+   "pp_diff_variant_minus_control": "-0.016"
+  },
+  {
+   "milestone": "22",
+   "control_players": "837",
+   "variant_players": "872",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.73",
+   "pct_variant": "0.757",
+   "pp_diff_variant_minus_control": "0.027"
+  },
+  {
+   "milestone": "23",
+   "control_players": "806",
+   "variant_players": "819",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.703",
+   "pct_variant": "0.711",
+   "pp_diff_variant_minus_control": "0.008"
+  },
+  {
+   "milestone": "24",
+   "control_players": "925",
+   "variant_players": "872",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.807",
+   "pct_variant": "0.757",
+   "pp_diff_variant_minus_control": "-0.05"
+  },
+  {
+   "milestone": "25",
+   "control_players": "846",
+   "variant_players": "837",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.738",
+   "pct_variant": "0.727",
+   "pp_diff_variant_minus_control": "-0.012"
+  },
+  {
+   "milestone": "26",
+   "control_players": "769",
+   "variant_players": "791",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.671",
+   "pct_variant": "0.687",
+   "pp_diff_variant_minus_control": "0.016"
+  },
+  {
+   "milestone": "27",
+   "control_players": "741",
+   "variant_players": "672",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.647",
+   "pct_variant": "0.583",
+   "pp_diff_variant_minus_control": "-0.063"
+  },
+  {
+   "milestone": "28",
+   "control_players": "714",
+   "variant_players": "591",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.623",
+   "pct_variant": "0.513",
+   "pp_diff_variant_minus_control": "-0.11"
+  },
+  {
+   "milestone": "29",
+   "control_players": "850",
+   "variant_players": "759",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "0.742",
+   "pct_variant": "0.659",
+   "pp_diff_variant_minus_control": "-0.083"
+  },
+  {
+   "milestone": "30",
+   "control_players": "9173",
+   "variant_players": "7551",
+   "control_total": "114589",
+   "variant_total": "115178",
+   "pct_control": "8.005",
+   "pct_variant": "6.556",
+   "pp_diff_variant_minus_control": "-1.449"
+  }
+ ],
+ "rm_config": [
+  {
+   "milestone": "1",
+   "score_req": "160",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Red 1"
+  },
+  {
+   "milestone": "2",
+   "score_req": "460",
+   "cfg_coins": "10",
+   "cfg_spt": "0",
+   "reward_note": "Coins 10"
+  },
+  {
+   "milestone": "3",
+   "score_req": "1460",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Unlimited Lives 10"
+  },
+  {
+   "milestone": "4",
+   "score_req": "1710",
+   "cfg_coins": "0",
+   "cfg_spt": "10",
+   "reward_note": "SPT 10"
+  },
+  {
+   "milestone": "5",
+   "score_req": "2210",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Chuck 1"
+  },
+  {
+   "milestone": "6",
+   "score_req": "3810",
+   "cfg_coins": "0",
+   "cfg_spt": "20",
+   "reward_note": "SPT x2 10, Slingshot 1"
+  },
+  {
+   "milestone": "7",
+   "score_req": "4310",
+   "cfg_coins": "0",
+   "cfg_spt": "30",
+   "reward_note": "SPT 30"
+  },
+  {
+   "milestone": "8",
+   "score_req": "5310",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Slingshot 1"
+  },
+  {
+   "milestone": "9",
+   "score_req": "8610",
+   "cfg_coins": "20",
+   "cfg_spt": "0",
+   "reward_note": "Coins 20"
+  },
+  {
+   "milestone": "10",
+   "score_req": "9710",
+   "cfg_coins": "0",
+   "cfg_spt": "50",
+   "reward_note": "SPT 50"
+  },
+  {
+   "milestone": "11",
+   "score_req": "11910",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Shuffle 1"
+  },
+  {
+   "milestone": "12",
+   "score_req": "18410",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Comet 1, Unlimited Lives 30"
+  },
+  {
+   "milestone": "13",
+   "score_req": "20610",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Unlimited Red 10"
+  },
+  {
+   "milestone": "14",
+   "score_req": "25010",
+   "cfg_coins": "0",
+   "cfg_spt": "75",
+   "reward_note": "SPT 75"
+  },
+  {
+   "milestone": "15",
+   "score_req": "38260",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Bomb 1"
+  },
+  {
+   "milestone": "16",
+   "score_req": "41560",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Slingshot 1"
+  },
+  {
+   "milestone": "17",
+   "score_req": "48060",
+   "cfg_coins": "0",
+   "cfg_spt": "125",
+   "reward_note": "SPT 125"
+  },
+  {
+   "milestone": "18",
+   "score_req": "67810",
+   "cfg_coins": "30",
+   "cfg_spt": "0",
+   "reward_note": "Coins 30, Shuffle 1"
+  },
+  {
+   "milestone": "19",
+   "score_req": "72010",
+   "cfg_coins": "0",
+   "cfg_spt": "40",
+   "reward_note": "SPT x2 20"
+  },
+  {
+   "milestone": "20",
+   "score_req": "80260",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Red 2"
+  },
+  {
+   "milestone": "21",
+   "score_req": "102260",
+   "cfg_coins": "0",
+   "cfg_spt": "200",
+   "reward_note": "SPT 200"
+  },
+  {
+   "milestone": "22",
+   "score_req": "108260",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Unlimited Chuck 10"
+  },
+  {
+   "milestone": "23",
+   "score_req": "118760",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Chuck 2"
+  },
+  {
+   "milestone": "24",
+   "score_req": "151760",
+   "cfg_coins": "100",
+   "cfg_spt": "350",
+   "reward_note": "Coins 100, SPT 350, Shuffle 1, Comet 1"
+  },
+  {
+   "milestone": "25",
+   "score_req": "160510",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Unlimited Lives 60"
+  },
+  {
+   "milestone": "26",
+   "score_req": "174760",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Bomb 2"
+  },
+  {
+   "milestone": "27",
+   "score_req": "218760",
+   "cfg_coins": "0",
+   "cfg_spt": "600",
+   "reward_note": "SPT 600"
+  },
+  {
+   "milestone": "28",
+   "score_req": "235260",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Unlimited Lives 60"
+  },
+  {
+   "milestone": "29",
+   "score_req": "269260",
+   "cfg_coins": "0",
+   "cfg_spt": "0",
+   "reward_note": "Bomb 3"
+  },
+  {
+   "milestone": "30",
+   "score_req": "352260",
+   "cfg_coins": "500",
+   "cfg_spt": "0",
+   "reward_note": "Coins 500, Slingshot 3, Shuffle 3, Comet 3"
+  }
+ ],
+ "rm_spt_conformance": [
+  {
+   "milestones_earned": "0",
+   "spt_expected_from_config": "0",
+   "player_instances": "10",
+   "median_spt_observed": "50.0",
+   "p90_spt_observed": "270.0",
+   "max_spt_observed": "270",
+   "median_token_rows": "1.0",
+   "max_token_rows": "9",
+   "pct_over_config": "100.0",
+   "spt_observed_total": "720",
+   "spt_capped_total": "0"
+  },
+  {
+   "milestones_earned": "1",
+   "spt_expected_from_config": "0",
+   "player_instances": "1",
+   "median_spt_observed": "90.0",
+   "p90_spt_observed": "90.0",
+   "max_spt_observed": "90",
+   "median_token_rows": "3.0",
+   "max_token_rows": "3",
+   "pct_over_config": "100.0",
+   "spt_observed_total": "90",
+   "spt_capped_total": "0"
+  },
+  {
+   "milestones_earned": "2",
+   "spt_expected_from_config": "0",
+   "player_instances": "11",
+   "median_spt_observed": "20.0",
+   "p90_spt_observed": "160.0",
+   "max_spt_observed": "260",
+   "median_token_rows": "2.0",
+   "max_token_rows": "10",
+   "pct_over_config": "100.0",
+   "spt_observed_total": "570",
+   "spt_capped_total": "0"
+  },
+  {
+   "milestones_earned": "3",
+   "spt_expected_from_config": "0",
+   "player_instances": "4",
+   "median_spt_observed": "20.0",
+   "p90_spt_observed": "80.0",
+   "max_spt_observed": "80",
+   "median_token_rows": "2.0",
+   "max_token_rows": "4",
+   "pct_over_config": "100.0",
+   "spt_observed_total": "130",
+   "spt_capped_total": "0"
+  },
+  {
+   "milestones_earned": "4",
+   "spt_expected_from_config": "10",
+   "player_instances": "1552",
+   "median_spt_observed": "10.0",
+   "p90_spt_observed": "10.368749999999997",
+   "max_spt_observed": "100",
+   "median_token_rows": "1.0",
+   "max_token_rows": "4",
+   "pct_over_config": "9.1",
+   "spt_observed_total": "17220",
+   "spt_capped_total": "15520"
+  },
+  {
+   "milestones_earned": "5",
+   "spt_expected_from_config": "10",
+   "player_instances": "6123",
+   "median_spt_observed": "10.0",
+   "p90_spt_observed": "20.0",
+   "max_spt_observed": "450",
+   "median_token_rows": "1.0",
+   "max_token_rows": "15",
+   "pct_over_config": "16.0",
+   "spt_observed_total": "74090",
+   "spt_capped_total": "61230"
+  },
+  {
+   "milestones_earned": "6",
+   "spt_expected_from_config": "30",
+   "player_instances": "1769",
+   "median_spt_observed": "10.0",
+   "p90_spt_observed": "20.0",
+   "max_spt_observed": "70",
+   "median_token_rows": "1.0",
+   "max_token_rows": "7",
+   "pct_over_config": "1.2",
+   "spt_observed_total": "21690",
+   "spt_capped_total": "21380"
+  },
+  {
+   "milestones_earned": "7",
+   "spt_expected_from_config": "60",
+   "player_instances": "3882",
+   "median_spt_observed": "40.0",
+   "p90_spt_observed": "52.401913875598126",
+   "max_spt_observed": "170",
+   "median_token_rows": "2.0",
+   "max_token_rows": "10",
+   "pct_over_config": "7.2",
+   "spt_observed_total": "135450",
+   "spt_capped_total": "131050"
+  },
+  {
+   "milestones_earned": "8",
+   "spt_expected_from_config": "60",
+   "player_instances": "11002",
+   "median_spt_observed": "40.0",
+   "p90_spt_observed": "70.0",
+   "max_spt_observed": "740",
+   "median_token_rows": "2.0",
+   "max_token_rows": "28",
+   "pct_over_config": "14.6",
+   "spt_observed_total": "466520",
+   "spt_capped_total": "433050"
+  },
+  {
+   "milestones_earned": "9",
+   "spt_expected_from_config": "60",
+   "player_instances": "3060",
+   "median_spt_observed": "40.0",
+   "p90_spt_observed": "70.0",
+   "max_spt_observed": "400",
+   "median_token_rows": "2.0",
+   "max_token_rows": "14",
+   "pct_over_config": "16.9",
+   "spt_observed_total": "140220",
+   "spt_capped_total": "127360"
+  },
+  {
+   "milestones_earned": "10",
+   "spt_expected_from_config": "110",
+   "player_instances": "6033",
+   "median_spt_observed": "90.0",
+   "p90_spt_observed": "137.82615629984048",
+   "max_spt_observed": "700",
+   "median_token_rows": "3.0",
+   "max_token_rows": "26",
+   "pct_over_config": "18.7",
+   "spt_observed_total": "504130",
+   "spt_capped_total": "463410"
+  },
+  {
+   "milestones_earned": "11",
+   "spt_expected_from_config": "110",
+   "player_instances": "13407",
+   "median_spt_observed": "90.0",
+   "p90_spt_observed": "149.5539008808239",
+   "max_spt_observed": "460",
+   "median_token_rows": "3.0",
+   "max_token_rows": "16",
+   "pct_over_config": "27.1",
+   "spt_observed_total": "1304700",
+   "spt_capped_total": "1146240"
+  },
+  {
+   "milestones_earned": "12",
+   "spt_expected_from_config": "110",
+   "player_instances": "3311",
+   "median_spt_observed": "90.0",
+   "p90_spt_observed": "158.44259369422963",
+   "max_spt_observed": "690",
+   "median_token_rows": "3.0",
+   "max_token_rows": "19",
+   "pct_over_config": "31.0",
+   "spt_observed_total": "340890",
+   "spt_capped_total": "291740"
+  },
+  {
+   "milestones_earned": "13",
+   "spt_expected_from_config": "110",
+   "player_instances": "5429",
+   "median_spt_observed": "90.0",
+   "p90_spt_observed": "162.05612670186167",
+   "max_spt_observed": "660",
+   "median_token_rows": "3.0",
+   "max_token_rows": "16",
+   "pct_over_config": "31.0",
+   "spt_observed_total": "564225",
+   "spt_capped_total": "483580"
+  },
+  {
+   "milestones_earned": "14",
+   "spt_expected_from_config": "185",
+   "player_instances": "12152",
+   "median_spt_observed": "165.0",
+   "p90_spt_observed": "248.4447036032104",
+   "max_spt_observed": "740",
+   "median_token_rows": "4.0",
+   "max_token_rows": "18",
+   "pct_over_config": "31.5",
+   "spt_observed_total": "2087695",
+   "spt_capped_total": "1862305"
+  },
+  {
+   "milestones_earned": "15",
+   "spt_expected_from_config": "185",
+   "player_instances": "2086",
+   "median_spt_observed": "165.0",
+   "p90_spt_observed": "255.29036898061287",
+   "max_spt_observed": "695",
+   "median_token_rows": "4.0",
+   "max_token_rows": "18",
+   "pct_over_config": "32.8",
+   "spt_observed_total": "372830",
+   "spt_capped_total": "329140"
+  },
+  {
+   "milestones_earned": "16",
+   "spt_expected_from_config": "185",
+   "player_instances": "3383",
+   "median_spt_observed": "165.0",
+   "p90_spt_observed": "266.8342842580664",
+   "max_spt_observed": "695",
+   "median_token_rows": "4.0",
+   "max_token_rows": "17",
+   "pct_over_config": "35.6",
+   "spt_observed_total": "617530",
+   "spt_capped_total": "537140"
+  },
+  {
+   "milestones_earned": "17",
+   "spt_expected_from_config": "310",
+   "player_instances": "6946",
+   "median_spt_observed": "290.0",
+   "p90_spt_observed": "417.1759809750298",
+   "max_spt_observed": "1120",
+   "median_token_rows": "5.1",
+   "max_token_rows": "20",
+   "pct_over_config": "36.5",
+   "spt_observed_total": "2091845",
+   "spt_capped_total": "1873230"
+  },
+  {
+   "milestones_earned": "18",
+   "spt_expected_from_config": "310",
+   "player_instances": "1079",
+   "median_spt_observed": "290.35230352303523",
+   "p90_spt_observed": "421.33030303030307",
+   "max_spt_observed": "790",
+   "median_token_rows": "5.0",
+   "max_token_rows": "15",
+   "pct_over_config": "38.8",
+   "spt_observed_total": "334190",
+   "spt_capped_total": "299735"
+  },
+  {
+   "milestones_earned": "19",
+   "spt_expected_from_config": "350",
+   "player_instances": "1769",
+   "median_spt_observed": "290.37109374999994",
+   "p90_spt_observed": "424.4210372960374",
+   "max_spt_observed": "900",
+   "median_token_rows": "5.2",
+   "max_token_rows": "19",
+   "pct_over_config": "23.9",
+   "spt_observed_total": "557240",
+   "spt_capped_total": "515970"
+  },
+  {
+   "milestones_earned": "20",
+   "spt_expected_from_config": "350",
+   "player_instances": "3481",
+   "median_spt_observed": "292.57821350762543",
+   "p90_spt_observed": "431.673511904762",
+   "max_spt_observed": "1050",
+   "median_token_rows": "5.6",
+   "max_token_rows": "24",
+   "pct_over_config": "24.2",
+   "spt_observed_total": "1110990",
+   "spt_capped_total": "1031095"
+  },
+  {
+   "milestones_earned": "21",
+   "spt_expected_from_config": "550",
+   "player_instances": "753",
+   "median_spt_observed": "490.0",
+   "p90_spt_observed": "689.4285714285714",
+   "max_spt_observed": "1265",
+   "median_token_rows": "6.0",
+   "max_token_rows": "22",
+   "pct_over_config": "25.8",
+   "spt_observed_total": "372355",
+   "spt_capped_total": "348825"
+  },
+  {
+   "milestones_earned": "22",
+   "spt_expected_from_config": "550",
+   "player_instances": "899",
+   "median_spt_observed": "491.912568306011",
+   "p90_spt_observed": "690.0",
+   "max_spt_observed": "1630",
+   "median_token_rows": "6.7",
+   "max_token_rows": "16",
+   "pct_over_config": "28.6",
+   "spt_observed_total": "473570",
+   "spt_capped_total": "437090"
+  },
+  {
+   "milestones_earned": "23",
+   "spt_expected_from_config": "550",
+   "player_instances": "2087",
+   "median_spt_observed": "498.36317135549876",
+   "p90_spt_observed": "728.7021993054825",
+   "max_spt_observed": "2515",
+   "median_token_rows": "7.0",
+   "max_token_rows": "26",
+   "pct_over_config": "33.6",
+   "spt_observed_total": "1140325",
+   "spt_capped_total": "1024060"
+  },
+  {
+   "milestones_earned": "24",
+   "spt_expected_from_config": "900",
+   "player_instances": "368",
+   "median_spt_observed": "840.0",
+   "p90_spt_observed": "1147.1666666666665",
+   "max_spt_observed": "1725",
+   "median_token_rows": "7.1",
+   "max_token_rows": "17",
+   "pct_over_config": "28.0",
+   "spt_observed_total": "313585",
+   "spt_capped_total": "291330"
+  },
+  {
+   "milestones_earned": "25",
+   "spt_expected_from_config": "900",
+   "player_instances": "468",
+   "median_spt_observed": "850.3133903133903",
+   "p90_spt_observed": "1184.375",
+   "max_spt_observed": "1720",
+   "median_token_rows": "8.0",
+   "max_token_rows": "18",
+   "pct_over_config": "32.1",
+   "spt_observed_total": "416540",
+   "spt_capped_total": "386205"
+  },
+  {
+   "milestones_earned": "26",
+   "spt_expected_from_config": "900",
+   "player_instances": "983",
+   "median_spt_observed": "843.6291152263375",
+   "p90_spt_observed": "1164.3823529411766",
+   "max_spt_observed": "3425",
+   "median_token_rows": "8.0",
+   "max_token_rows": "20",
+   "pct_over_config": "32.6",
+   "spt_observed_total": "874035",
+   "spt_capped_total": "807525"
+  },
+  {
+   "milestones_earned": "27",
+   "spt_expected_from_config": "1500",
+   "player_instances": "278",
+   "median_spt_observed": "1440.625",
+   "p90_spt_observed": "1855.6000000000001",
+   "max_spt_observed": "3685",
+   "median_token_rows": "9.0",
+   "max_token_rows": "20",
+   "pct_over_config": "33.8",
+   "spt_observed_total": "410110",
+   "spt_capped_total": "382965"
+  },
+  {
+   "milestones_earned": "28",
+   "spt_expected_from_config": "1500",
+   "player_instances": "348",
+   "median_spt_observed": "1447.0",
+   "p90_spt_observed": "2019.6666666666665",
+   "max_spt_observed": "6320",
+   "median_token_rows": "9.0",
+   "max_token_rows": "25",
+   "pct_over_config": "35.3",
+   "spt_observed_total": "536895",
+   "spt_capped_total": "486860"
+  },
+  {
+   "milestones_earned": "29",
+   "spt_expected_from_config": "1500",
+   "player_instances": "428",
+   "median_spt_observed": "1459.8089591567852",
+   "p90_spt_observed": "2046.875",
+   "max_spt_observed": "4040",
+   "median_token_rows": "9.0",
+   "max_token_rows": "26",
+   "pct_over_config": "38.1",
+   "spt_observed_total": "668340",
+   "spt_capped_total": "602925"
+  },
+  {
+   "milestones_earned": "30",
+   "spt_expected_from_config": "1500",
+   "player_instances": "310",
+   "median_spt_observed": "1464.9999999999998",
+   "p90_spt_observed": "2042.6666666666667",
+   "max_spt_observed": "6840",
+   "median_token_rows": "9.0",
+   "max_token_rows": "19",
+   "pct_over_config": "39.0",
+   "spt_observed_total": "484425",
+   "spt_capped_total": "433710"
+  }
+ ],
+ "player_dist": [
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "EXCLUDED:Avatar",
+   "players": 27015.0,
+   "gainers": 519.0,
+   "gain_per_gainer": 1.2466
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "HC",
+   "players": 27015.0,
+   "gainers": 11716.0,
+   "gain_per_gainer": 157.9118
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "SPT",
+   "players": 27015.0,
+   "gainers": 2851.0,
+   "gain_per_gainer": 94.2371
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "EXCLUDED:life",
+   "players": 27015.0,
+   "gainers": 1002.0,
+   "gain_per_gainer": 7.5589
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "EXCLUDED:liferefill",
+   "players": 27015.0,
+   "gainers": 411.0,
+   "gain_per_gainer": 11.8005
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 27015.0,
+   "gainers": 5.0,
+   "gain_per_gainer": 1.2
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 27015.0,
+   "gainers": 151.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "Comet",
+   "players": 27015.0,
+   "gainers": 2940.0,
+   "gain_per_gainer": 2.6422
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "Slingshot",
+   "players": 27015.0,
+   "gainers": 6341.0,
+   "gain_per_gainer": 2.7535
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "Shuffle",
+   "players": 27015.0,
+   "gainers": 5070.0,
+   "gain_per_gainer": 2.616
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "Red",
+   "players": 27015.0,
+   "gainers": 4614.0,
+   "gain_per_gainer": 1.9445
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "Chuck",
+   "players": 27015.0,
+   "gainers": 5375.0,
+   "gain_per_gainer": 1.9302
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "Bomb",
+   "players": 27015.0,
+   "gainers": 3871.0,
+   "gain_per_gainer": 2.0984
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 27015.0,
+   "gainers": 122.0,
+   "gain_per_gainer": 72.7459
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 27015.0,
+   "gainers": 12.0,
+   "gain_per_gainer": 45.0
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "UL Red",
+   "players": 27015.0,
+   "gainers": 2579.0,
+   "gain_per_gainer": 35.6301
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "UL Chuck",
+   "players": 27015.0,
+   "gainers": 1841.0,
+   "gain_per_gainer": 38.4085
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "UL Bomb",
+   "players": 27015.0,
+   "gainers": 982.0,
+   "gain_per_gainer": 36.3391
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "resource": "Unlimited Lives",
+   "players": 27015.0,
+   "gainers": 10487.0,
+   "gain_per_gainer": 117.6976
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Avatar",
+   "players": 27329.0,
+   "gainers": 573.0,
+   "gain_per_gainer": 1.103
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "HC",
+   "players": 27329.0,
+   "gainers": 12095.0,
+   "gain_per_gainer": 172.3041
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "SPT",
+   "players": 27329.0,
+   "gainers": 3112.0,
+   "gain_per_gainer": 183.0426
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:life",
+   "players": 27329.0,
+   "gainers": 1041.0,
+   "gain_per_gainer": 7.6801
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:liferefill",
+   "players": 27329.0,
+   "gainers": 380.0,
+   "gain_per_gainer": 12.0395
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 27329.0,
+   "gainers": 2.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 27329.0,
+   "gainers": 181.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "Comet",
+   "players": 27329.0,
+   "gainers": 2984.0,
+   "gain_per_gainer": 5.4571
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "Slingshot",
+   "players": 27329.0,
+   "gainers": 6121.0,
+   "gain_per_gainer": 4.2488
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "Shuffle",
+   "players": 27329.0,
+   "gainers": 4764.0,
+   "gain_per_gainer": 4.504
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "Red",
+   "players": 27329.0,
+   "gainers": 5043.0,
+   "gain_per_gainer": 2.4634
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "Chuck",
+   "players": 27329.0,
+   "gainers": 5622.0,
+   "gain_per_gainer": 2.1179
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "Bomb",
+   "players": 27329.0,
+   "gainers": 3798.0,
+   "gain_per_gainer": 2.2085
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:unknown",
+   "players": 27329.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 27329.0,
+   "gainers": 575.0,
+   "gain_per_gainer": 33.2696
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 27329.0,
+   "gainers": 8.0,
+   "gain_per_gainer": 55.0
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "UL Red",
+   "players": 27329.0,
+   "gainers": 2575.0,
+   "gain_per_gainer": 32.1883
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "UL Chuck",
+   "players": 27329.0,
+   "gainers": 1914.0,
+   "gain_per_gainer": 38.0538
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "UL Bomb",
+   "players": 27329.0,
+   "gainers": 1067.0,
+   "gain_per_gainer": 36.4199
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "resource": "Unlimited Lives",
+   "players": 27329.0,
+   "gainers": 10560.0,
+   "gain_per_gainer": 122.4599
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:Avatar",
+   "players": 34214.0,
+   "gainers": 6899.0,
+   "gain_per_gainer": 1.1157
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "HC",
+   "players": 34214.0,
+   "gainers": 23832.0,
+   "gain_per_gainer": 140.5891
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "SPT",
+   "players": 34214.0,
+   "gainers": 6742.0,
+   "gain_per_gainer": 54.4381
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:LifeReward",
+   "players": 34214.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:life",
+   "players": 34214.0,
+   "gainers": 1902.0,
+   "gain_per_gainer": 6.7981
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:liferefill",
+   "players": 34214.0,
+   "gainers": 1113.0,
+   "gain_per_gainer": 10.8176
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 34214.0,
+   "gainers": 6.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:Ocean_rescue",
+   "players": 34214.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 34214.0,
+   "gainers": 119.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "Comet",
+   "players": 34214.0,
+   "gainers": 8090.0,
+   "gain_per_gainer": 1.7466
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "Slingshot",
+   "players": 34214.0,
+   "gainers": 12680.0,
+   "gain_per_gainer": 2.6447
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "Shuffle",
+   "players": 34214.0,
+   "gainers": 11404.0,
+   "gain_per_gainer": 2.4657
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "Red",
+   "players": 34214.0,
+   "gainers": 16325.0,
+   "gain_per_gainer": 2.3773
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "Chuck",
+   "players": 34214.0,
+   "gainers": 18237.0,
+   "gain_per_gainer": 2.653
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "Bomb",
+   "players": 34214.0,
+   "gainers": 11929.0,
+   "gain_per_gainer": 1.7612
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:unknown",
+   "players": 34214.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 34214.0,
+   "gainers": 178.0,
+   "gain_per_gainer": 19.4944
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 34214.0,
+   "gainers": 488.0,
+   "gain_per_gainer": 20.9816
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:unknown",
+   "players": 34214.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 12.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "UL Red",
+   "players": 34214.0,
+   "gainers": 7658.0,
+   "gain_per_gainer": 20.6392
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "UL Chuck",
+   "players": 34214.0,
+   "gainers": 4823.0,
+   "gain_per_gainer": 23.1671
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "UL Bomb",
+   "players": 34214.0,
+   "gainers": 1052.0,
+   "gain_per_gainer": 29.501
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:Booster1",
+   "players": 34214.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:Booster2",
+   "players": 34214.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "EXCLUDED:Booster3",
+   "players": 34214.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "resource": "Unlimited Lives",
+   "players": 34214.0,
+   "gainers": 21692.0,
+   "gain_per_gainer": 159.9855
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Avatar",
+   "players": 34548.0,
+   "gainers": 6929.0,
+   "gain_per_gainer": 1.1222
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "HC",
+   "players": 34548.0,
+   "gainers": 24108.0,
+   "gain_per_gainer": 115.7914
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "SPT",
+   "players": 34548.0,
+   "gainers": 9606.0,
+   "gain_per_gainer": 74.3162
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:LifeReward",
+   "players": 34548.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:life",
+   "players": 34548.0,
+   "gainers": 1511.0,
+   "gain_per_gainer": 6.1423
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:liferefill",
+   "players": 34548.0,
+   "gainers": 903.0,
+   "gain_per_gainer": 9.5127
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 34548.0,
+   "gainers": 4.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 34548.0,
+   "gainers": 66.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "Comet",
+   "players": 34548.0,
+   "gainers": 6861.0,
+   "gain_per_gainer": 1.6877
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "Slingshot",
+   "players": 34548.0,
+   "gainers": 12741.0,
+   "gain_per_gainer": 3.2606
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "Shuffle",
+   "players": 34548.0,
+   "gainers": 10163.0,
+   "gain_per_gainer": 2.4066
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "Red",
+   "players": 34548.0,
+   "gainers": 16857.0,
+   "gain_per_gainer": 3.3103
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "Chuck",
+   "players": 34548.0,
+   "gainers": 17692.0,
+   "gain_per_gainer": 2.832
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "Bomb",
+   "players": 34548.0,
+   "gainers": 11605.0,
+   "gain_per_gainer": 1.7359
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 34548.0,
+   "gainers": 4892.0,
+   "gain_per_gainer": 12.3232
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 34548.0,
+   "gainers": 463.0,
+   "gain_per_gainer": 20.0691
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "EXCLUDED:unknown",
+   "players": 34548.0,
+   "gainers": 4.0,
+   "gain_per_gainer": 49.5
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "UL Red",
+   "players": 34548.0,
+   "gainers": 7368.0,
+   "gain_per_gainer": 20.4669
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "UL Chuck",
+   "players": 34548.0,
+   "gainers": 4281.0,
+   "gain_per_gainer": 23.6428
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "UL Bomb",
+   "players": 34548.0,
+   "gainers": 965.0,
+   "gain_per_gainer": 31.7306
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "resource": "Unlimited Lives",
+   "players": 34548.0,
+   "gainers": 22652.0,
+   "gain_per_gainer": 193.271
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:Avatar",
+   "players": 24326.0,
+   "gainers": 9930.0,
+   "gain_per_gainer": 1.4697
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "HC",
+   "players": 24326.0,
+   "gainers": 23658.0,
+   "gain_per_gainer": 221.6774
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "SPT",
+   "players": 24326.0,
+   "gainers": 8884.0,
+   "gain_per_gainer": 71.4904
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:life",
+   "players": 24326.0,
+   "gainers": 1962.0,
+   "gain_per_gainer": 6.7436
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:liferefill",
+   "players": 24326.0,
+   "gainers": 1227.0,
+   "gain_per_gainer": 12.4368
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 24326.0,
+   "gainers": 4.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:Ocean_rescue",
+   "players": 24326.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 24326.0,
+   "gainers": 961.0,
+   "gain_per_gainer": 1.0083
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "Comet",
+   "players": 24326.0,
+   "gainers": 10004.0,
+   "gain_per_gainer": 2.0964
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "Slingshot",
+   "players": 24326.0,
+   "gainers": 14870.0,
+   "gain_per_gainer": 3.4757
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "Shuffle",
+   "players": 24326.0,
+   "gainers": 13866.0,
+   "gain_per_gainer": 3.3747
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "Red",
+   "players": 24326.0,
+   "gainers": 20834.0,
+   "gain_per_gainer": 3.0931
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "Chuck",
+   "players": 24326.0,
+   "gainers": 21037.0,
+   "gain_per_gainer": 3.7457
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "Bomb",
+   "players": 24326.0,
+   "gainers": 14222.0,
+   "gain_per_gainer": 2.4211
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 24326.0,
+   "gainers": 452.0,
+   "gain_per_gainer": 29.4027
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 24326.0,
+   "gainers": 152.0,
+   "gain_per_gainer": 48.9276
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "UL Red",
+   "players": 24326.0,
+   "gainers": 9714.0,
+   "gain_per_gainer": 23.0291
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "UL Chuck",
+   "players": 24326.0,
+   "gainers": 7700.0,
+   "gain_per_gainer": 22.576
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "UL Bomb",
+   "players": 24326.0,
+   "gainers": 2245.0,
+   "gain_per_gainer": 27.4232
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "resource": "Unlimited Lives",
+   "players": 24326.0,
+   "gainers": 19702.0,
+   "gain_per_gainer": 236.1472
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Avatar",
+   "players": 24664.0,
+   "gainers": 9842.0,
+   "gain_per_gainer": 1.4576
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "HC",
+   "players": 24664.0,
+   "gainers": 23933.0,
+   "gain_per_gainer": 193.4754
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "SPT",
+   "players": 24664.0,
+   "gainers": 12352.0,
+   "gain_per_gainer": 124.2682
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:LifeReward",
+   "players": 24664.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:life",
+   "players": 24664.0,
+   "gainers": 1746.0,
+   "gain_per_gainer": 6.4164
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:liferefill",
+   "players": 24664.0,
+   "gainers": 993.0,
+   "gain_per_gainer": 10.72
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 24664.0,
+   "gainers": 8.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Ocean_rescue",
+   "players": 24664.0,
+   "gainers": 2.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 24664.0,
+   "gainers": 736.0,
+   "gain_per_gainer": 1.0014
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "Comet",
+   "players": 24664.0,
+   "gainers": 9044.0,
+   "gain_per_gainer": 2.2664
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "Slingshot",
+   "players": 24664.0,
+   "gainers": 15808.0,
+   "gain_per_gainer": 4.3279
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "Shuffle",
+   "players": 24664.0,
+   "gainers": 12979.0,
+   "gain_per_gainer": 3.2001
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "Red",
+   "players": 24664.0,
+   "gainers": 17948.0,
+   "gain_per_gainer": 3.9265
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "Chuck",
+   "players": 24664.0,
+   "gainers": 19049.0,
+   "gain_per_gainer": 3.907
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "Bomb",
+   "players": 24664.0,
+   "gainers": 14259.0,
+   "gain_per_gainer": 2.4784
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 24664.0,
+   "gainers": 7720.0,
+   "gain_per_gainer": 13.0803
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 24664.0,
+   "gainers": 167.0,
+   "gain_per_gainer": 47.4671
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "UL Red",
+   "players": 24664.0,
+   "gainers": 10217.0,
+   "gain_per_gainer": 24.4979
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "UL Chuck",
+   "players": 24664.0,
+   "gainers": 7419.0,
+   "gain_per_gainer": 22.2672
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "UL Bomb",
+   "players": 24664.0,
+   "gainers": 1708.0,
+   "gain_per_gainer": 27.4151
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Booster1",
+   "players": 24664.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "resource": "Unlimited Lives",
+   "players": 24664.0,
+   "gainers": 23567.0,
+   "gain_per_gainer": 260.7374
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:Avatar",
+   "players": 18721.0,
+   "gainers": 10316.0,
+   "gain_per_gainer": 1.9537
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "HC",
+   "players": 18721.0,
+   "gainers": 18458.0,
+   "gain_per_gainer": 407.6613
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "SPT",
+   "players": 18721.0,
+   "gainers": 9662.0,
+   "gain_per_gainer": 88.9136
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:LifeReward",
+   "players": 18721.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:life",
+   "players": 18721.0,
+   "gainers": 1900.0,
+   "gain_per_gainer": 6.2689
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:liferefill",
+   "players": 18721.0,
+   "gainers": 1271.0,
+   "gain_per_gainer": 13.273
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 18721.0,
+   "gainers": 4.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:Ocean_rescue",
+   "players": 18721.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 18721.0,
+   "gainers": 1527.0,
+   "gain_per_gainer": 1.002
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "Comet",
+   "players": 18721.0,
+   "gainers": 10449.0,
+   "gain_per_gainer": 2.8318
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "Slingshot",
+   "players": 18721.0,
+   "gainers": 14399.0,
+   "gain_per_gainer": 4.7248
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "Shuffle",
+   "players": 18721.0,
+   "gainers": 13829.0,
+   "gain_per_gainer": 4.9325
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "Red",
+   "players": 18721.0,
+   "gainers": 17074.0,
+   "gain_per_gainer": 5.1708
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "Chuck",
+   "players": 18721.0,
+   "gainers": 17355.0,
+   "gain_per_gainer": 5.9542
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "Bomb",
+   "players": 18721.0,
+   "gainers": 14512.0,
+   "gain_per_gainer": 3.2338
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 18721.0,
+   "gainers": 630.0,
+   "gain_per_gainer": 33.5079
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 18721.0,
+   "gainers": 119.0,
+   "gain_per_gainer": 66.1429
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:unknown",
+   "players": 18721.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 40.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "UL Red",
+   "players": 18721.0,
+   "gainers": 10441.0,
+   "gain_per_gainer": 29.5786
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "UL Chuck",
+   "players": 18721.0,
+   "gainers": 8646.0,
+   "gain_per_gainer": 25.2649
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "UL Bomb",
+   "players": 18721.0,
+   "gainers": 4112.0,
+   "gain_per_gainer": 22.624
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:Booster1",
+   "players": 18721.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:Booster2",
+   "players": 18721.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "EXCLUDED:Booster3",
+   "players": 18721.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "resource": "Unlimited Lives",
+   "players": 18721.0,
+   "gainers": 18204.0,
+   "gain_per_gainer": 318.8677
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Avatar",
+   "players": 19009.0,
+   "gainers": 10143.0,
+   "gain_per_gainer": 1.9382
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "HC",
+   "players": 19009.0,
+   "gainers": 18681.0,
+   "gain_per_gainer": 355.2002
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "SPT",
+   "players": 19009.0,
+   "gainers": 12531.0,
+   "gain_per_gainer": 181.1156
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:life",
+   "players": 19009.0,
+   "gainers": 1687.0,
+   "gain_per_gainer": 6.3746
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:liferefill",
+   "players": 19009.0,
+   "gainers": 995.0,
+   "gain_per_gainer": 11.0201
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 19009.0,
+   "gainers": 6.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Ocean_rescue",
+   "players": 19009.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 19009.0,
+   "gainers": 1764.0,
+   "gain_per_gainer": 1.0028
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "Comet",
+   "players": 19009.0,
+   "gainers": 9857.0,
+   "gain_per_gainer": 2.8212
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "Slingshot",
+   "players": 19009.0,
+   "gainers": 14760.0,
+   "gain_per_gainer": 5.6489
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "Shuffle",
+   "players": 19009.0,
+   "gainers": 13507.0,
+   "gain_per_gainer": 4.5176
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "Red",
+   "players": 19009.0,
+   "gainers": 17434.0,
+   "gain_per_gainer": 4.6347
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "Chuck",
+   "players": 19009.0,
+   "gainers": 17287.0,
+   "gain_per_gainer": 4.9693
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "Bomb",
+   "players": 19009.0,
+   "gainers": 14855.0,
+   "gain_per_gainer": 3.4413
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 19009.0,
+   "gainers": 7887.0,
+   "gain_per_gainer": 15.9459
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 19009.0,
+   "gainers": 115.0,
+   "gain_per_gainer": 79.113
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "UL Red",
+   "players": 19009.0,
+   "gainers": 10875.0,
+   "gain_per_gainer": 30.7568
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "UL Chuck",
+   "players": 19009.0,
+   "gainers": 8184.0,
+   "gain_per_gainer": 24.2986
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "UL Bomb",
+   "players": 19009.0,
+   "gainers": 3725.0,
+   "gain_per_gainer": 22.4443
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "resource": "Unlimited Lives",
+   "players": 19009.0,
+   "gainers": 18684.0,
+   "gain_per_gainer": 413.9931
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "EXCLUDED:Avatar",
+   "players": 10200.0,
+   "gainers": 7149.0,
+   "gain_per_gainer": 3.2467
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "HC",
+   "players": 10200.0,
+   "gainers": 10163.0,
+   "gain_per_gainer": 917.2145
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "SPT",
+   "players": 10200.0,
+   "gainers": 7550.0,
+   "gain_per_gainer": 112.9298
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "EXCLUDED:life",
+   "players": 10200.0,
+   "gainers": 1520.0,
+   "gain_per_gainer": 7.4618
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "EXCLUDED:liferefill",
+   "players": 10200.0,
+   "gainers": 1118.0,
+   "gain_per_gainer": 16.288
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 10200.0,
+   "gainers": 5.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 10200.0,
+   "gainers": 1246.0,
+   "gain_per_gainer": 1.0024
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "Comet",
+   "players": 10200.0,
+   "gainers": 7752.0,
+   "gain_per_gainer": 5.1291
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "Slingshot",
+   "players": 10200.0,
+   "gainers": 9702.0,
+   "gain_per_gainer": 7.9037
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "Shuffle",
+   "players": 10200.0,
+   "gainers": 9581.0,
+   "gain_per_gainer": 8.3567
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "Red",
+   "players": 10200.0,
+   "gainers": 9891.0,
+   "gain_per_gainer": 10.6619
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "Chuck",
+   "players": 10200.0,
+   "gainers": 9932.0,
+   "gain_per_gainer": 11.4904
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "Bomb",
+   "players": 10200.0,
+   "gainers": 9480.0,
+   "gain_per_gainer": 5.4402
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 10200.0,
+   "gainers": 568.0,
+   "gain_per_gainer": 43.3275
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 10200.0,
+   "gainers": 43.0,
+   "gain_per_gainer": 70.8837
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "UL Red",
+   "players": 10200.0,
+   "gainers": 7898.0,
+   "gain_per_gainer": 42.1594
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "UL Chuck",
+   "players": 10200.0,
+   "gainers": 7353.0,
+   "gain_per_gainer": 33.2409
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "UL Bomb",
+   "players": 10200.0,
+   "gainers": 3897.0,
+   "gain_per_gainer": 25.6017
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "resource": "Unlimited Lives",
+   "players": 10200.0,
+   "gainers": 10143.0,
+   "gain_per_gainer": 613.5585
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Avatar",
+   "players": 10058.0,
+   "gainers": 7029.0,
+   "gain_per_gainer": 3.1832
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "HC",
+   "players": 10058.0,
+   "gainers": 9997.0,
+   "gain_per_gainer": 764.1449
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "SPT",
+   "players": 10058.0,
+   "gainers": 8710.0,
+   "gain_per_gainer": 297.1836
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:LifeReward",
+   "players": 10058.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:life",
+   "players": 10058.0,
+   "gainers": 1305.0,
+   "gain_per_gainer": 7.0238
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:liferefill",
+   "players": 10058.0,
+   "gainers": 852.0,
+   "gain_per_gainer": 13.0164
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 10058.0,
+   "gainers": 3.0,
+   "gain_per_gainer": 1.3333
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Ocean_rescue",
+   "players": 10058.0,
+   "gainers": 2.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 10058.0,
+   "gainers": 1158.0,
+   "gain_per_gainer": 1.0026
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "Comet",
+   "players": 10058.0,
+   "gainers": 7466.0,
+   "gain_per_gainer": 4.2432
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "Slingshot",
+   "players": 10058.0,
+   "gainers": 9756.0,
+   "gain_per_gainer": 8.3136
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "Shuffle",
+   "players": 10058.0,
+   "gainers": 9211.0,
+   "gain_per_gainer": 7.27
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "Red",
+   "players": 10058.0,
+   "gainers": 9779.0,
+   "gain_per_gainer": 7.6444
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "Chuck",
+   "players": 10058.0,
+   "gainers": 9737.0,
+   "gain_per_gainer": 8.2583
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "Bomb",
+   "players": 10058.0,
+   "gainers": 9497.0,
+   "gain_per_gainer": 5.6966
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 10058.0,
+   "gainers": 5923.0,
+   "gain_per_gainer": 22.2531
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 10058.0,
+   "gainers": 33.0,
+   "gain_per_gainer": 83.4848
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "UL Red",
+   "players": 10058.0,
+   "gainers": 7877.0,
+   "gain_per_gainer": 42.0236
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "UL Chuck",
+   "players": 10058.0,
+   "gainers": 6688.0,
+   "gain_per_gainer": 30.7461
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "UL Bomb",
+   "players": 10058.0,
+   "gainers": 3683.0,
+   "gain_per_gainer": 22.3011
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "resource": "Unlimited Lives",
+   "players": 10058.0,
+   "gainers": 9999.0,
+   "gain_per_gainer": 802.4748
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:Avatar",
+   "players": 1750.0,
+   "gainers": 1459.0,
+   "gain_per_gainer": 5.3729
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "HC",
+   "players": 1750.0,
+   "gainers": 1749.0,
+   "gain_per_gainer": 1626.5283
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "SPT",
+   "players": 1750.0,
+   "gainers": 1414.0,
+   "gain_per_gainer": 115.9972
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:life",
+   "players": 1750.0,
+   "gainers": 335.0,
+   "gain_per_gainer": 6.9701
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:liferefill",
+   "players": 1750.0,
+   "gainers": 242.0,
+   "gain_per_gainer": 15.9917
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 1750.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 1750.0,
+   "gainers": 328.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "Comet",
+   "players": 1750.0,
+   "gainers": 1732.0,
+   "gain_per_gainer": 7.3533
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "Slingshot",
+   "players": 1750.0,
+   "gainers": 1741.0,
+   "gain_per_gainer": 13.1832
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "Shuffle",
+   "players": 1750.0,
+   "gainers": 1738.0,
+   "gain_per_gainer": 13.5334
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:unknown",
+   "players": 1750.0,
+   "gainers": 0.0,
+   "gain_per_gainer": 0.0
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "Red",
+   "players": 1750.0,
+   "gainers": 1735.0,
+   "gain_per_gainer": 18.5308
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "Chuck",
+   "players": 1750.0,
+   "gainers": 1735.0,
+   "gain_per_gainer": 20.4611
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "Bomb",
+   "players": 1750.0,
+   "gainers": 1730.0,
+   "gain_per_gainer": 8.9416
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 1750.0,
+   "gainers": 97.0,
+   "gain_per_gainer": 66.9588
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 1750.0,
+   "gainers": 5.0,
+   "gain_per_gainer": 19.8
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "UL Red",
+   "players": 1750.0,
+   "gainers": 1513.0,
+   "gain_per_gainer": 54.4151
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "UL Chuck",
+   "players": 1750.0,
+   "gainers": 1448.0,
+   "gain_per_gainer": 39.5062
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "UL Bomb",
+   "players": 1750.0,
+   "gainers": 962.0,
+   "gain_per_gainer": 25.6341
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "resource": "Unlimited Lives",
+   "players": 1750.0,
+   "gainers": 1743.0,
+   "gain_per_gainer": 1007.0448
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Avatar",
+   "players": 1740.0,
+   "gainers": 1434.0,
+   "gain_per_gainer": 5.2629
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "HC",
+   "players": 1740.0,
+   "gainers": 1740.0,
+   "gain_per_gainer": 1298.3048
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "SPT",
+   "players": 1740.0,
+   "gainers": 1647.0,
+   "gain_per_gainer": 448.2004
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "EXCLUDED:life",
+   "players": 1740.0,
+   "gainers": 255.0,
+   "gain_per_gainer": 6.4157
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "EXCLUDED:liferefill",
+   "players": 1740.0,
+   "gainers": 129.0,
+   "gain_per_gainer": 16.0465
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Movie_Magic",
+   "players": 1740.0,
+   "gainers": 1.0,
+   "gain_per_gainer": 1.0
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "EXCLUDED:Reds_Greatest_Challenge",
+   "players": 1740.0,
+   "gainers": 272.0,
+   "gain_per_gainer": 1.0037
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "Comet",
+   "players": 1740.0,
+   "gainers": 1699.0,
+   "gain_per_gainer": 7.2831
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "Slingshot",
+   "players": 1740.0,
+   "gainers": 1732.0,
+   "gain_per_gainer": 14.4919
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "Shuffle",
+   "players": 1740.0,
+   "gainers": 1730.0,
+   "gain_per_gainer": 13.2058
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "Red",
+   "players": 1740.0,
+   "gainers": 1726.0,
+   "gain_per_gainer": 11.5174
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "Chuck",
+   "players": 1740.0,
+   "gainers": 1721.0,
+   "gain_per_gainer": 12.8838
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "Bomb",
+   "players": 1740.0,
+   "gainers": 1717.0,
+   "gain_per_gainer": 9.6843
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassMultiplier2x",
+   "players": 1740.0,
+   "gainers": 1133.0,
+   "gain_per_gainer": 26.0371
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "EXCLUDED:SeasonPassToken",
+   "players": 1740.0,
+   "gainers": 10.0,
+   "gain_per_gainer": 14.0
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "UL Red",
+   "players": 1740.0,
+   "gainers": 1583.0,
+   "gain_per_gainer": 48.6071
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "UL Chuck",
+   "players": 1740.0,
+   "gainers": 1430.0,
+   "gain_per_gainer": 34.7448
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "UL Bomb",
+   "players": 1740.0,
+   "gainers": 937.0,
+   "gain_per_gainer": 22.9456
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "resource": "Unlimited Lives",
+   "players": 1740.0,
+   "gainers": 1735.0,
+   "gain_per_gainer": 1416.5648
+  }
+ ],
+ "denominators": [
+  {
+   "segment": "A. 0",
+   "arm": "Control",
+   "player_days": 42977.0,
+   "players_active": 27015.0,
+   "conversion_rate": 0.6219,
+   "levels_completed_per_active": 10.6988,
+   "levels_attempted_per_active": 16.2753,
+   "level_win_rate": 0.6574,
+   "session_minutes_per_active": 29.9071,
+   "d1_retention": 0.1381,
+   "d7_retention": 0.1236,
+   "activation_rate": 0.9931
+  },
+  {
+   "segment": "A. 0",
+   "arm": "Variant",
+   "player_days": 43108.0,
+   "players_active": 27329.0,
+   "conversion_rate": 0.5708,
+   "levels_completed_per_active": 11.7518,
+   "levels_attempted_per_active": 17.2742,
+   "level_win_rate": 0.6803,
+   "session_minutes_per_active": 31.9399,
+   "d1_retention": 0.1313,
+   "d7_retention": 0.1127,
+   "activation_rate": 0.9924
+  },
+  {
+   "segment": "0-9",
+   "arm": "Control",
+   "player_days": 67171.0,
+   "players_active": 34214.0,
+   "conversion_rate": 1.0201,
+   "levels_completed_per_active": 10.2496,
+   "levels_attempted_per_active": 21.7374,
+   "level_win_rate": 0.4715,
+   "session_minutes_per_active": 41.0438,
+   "d1_retention": 0.2262,
+   "d7_retention": 0.1762,
+   "activation_rate": 0.8644
+  },
+  {
+   "segment": "0-9",
+   "arm": "Variant",
+   "player_days": 66147.0,
+   "players_active": 34548.0,
+   "conversion_rate": 1.097,
+   "levels_completed_per_active": 9.9102,
+   "levels_attempted_per_active": 20.7246,
+   "level_win_rate": 0.4782,
+   "session_minutes_per_active": 39.9466,
+   "d1_retention": 0.2262,
+   "d7_retention": 0.1752,
+   "activation_rate": 0.8728
+  },
+  {
+   "segment": "10-19",
+   "arm": "Control",
+   "player_days": 51989.0,
+   "players_active": 24326.0,
+   "conversion_rate": 2.4871,
+   "levels_completed_per_active": 29.2059,
+   "levels_attempted_per_active": 47.4192,
+   "level_win_rate": 0.6159,
+   "session_minutes_per_active": 84.9722,
+   "d1_retention": 0.4035,
+   "d7_retention": 0.3033,
+   "activation_rate": 1.1361
+  },
+  {
+   "segment": "10-19",
+   "arm": "Variant",
+   "player_days": 52303.0,
+   "players_active": 24664.0,
+   "conversion_rate": 2.5503,
+   "levels_completed_per_active": 28.6078,
+   "levels_attempted_per_active": 47.4605,
+   "level_win_rate": 0.6028,
+   "session_minutes_per_active": 87.0629,
+   "d1_retention": 0.4032,
+   "d7_retention": 0.3016,
+   "activation_rate": 1.1613
+  },
+  {
+   "segment": "20-39",
+   "arm": "Control",
+   "player_days": 43612.0,
+   "players_active": 18721.0,
+   "conversion_rate": 3.3064,
+   "levels_completed_per_active": 60.457,
+   "levels_attempted_per_active": 84.1772,
+   "level_win_rate": 0.7182,
+   "session_minutes_per_active": 142.7635,
+   "d1_retention": 0.5119,
+   "d7_retention": 0.3519,
+   "activation_rate": 1.1921
+  },
+  {
+   "segment": "20-39",
+   "arm": "Variant",
+   "player_days": 44216.0,
+   "players_active": 19009.0,
+   "conversion_rate": 3.5089,
+   "levels_completed_per_active": 59.6214,
+   "levels_attempted_per_active": 84.95,
+   "level_win_rate": 0.7018,
+   "session_minutes_per_active": 147.5692,
+   "d1_retention": 0.5168,
+   "d7_retention": 0.3552,
+   "activation_rate": 1.174
+  },
+  {
+   "segment": "40-99",
+   "arm": "Control",
+   "player_days": 28430.0,
+   "players_active": 10200.0,
+   "conversion_rate": 5.549,
+   "levels_completed_per_active": 149.1003,
+   "levels_attempted_per_active": 196.8893,
+   "level_win_rate": 0.7573,
+   "session_minutes_per_active": 311.7992,
+   "d1_retention": 0.7032,
+   "d7_retention": 0.454,
+   "activation_rate": 1.02
+  },
+  {
+   "segment": "40-99",
+   "arm": "Variant",
+   "player_days": 27166.0,
+   "players_active": 10058.0,
+   "conversion_rate": 5.0408,
+   "levels_completed_per_active": 143.457,
+   "levels_attempted_per_active": 195.2937,
+   "level_win_rate": 0.7346,
+   "session_minutes_per_active": 312.4519,
+   "d1_retention": 0.6946,
+   "d7_retention": 0.4594,
+   "activation_rate": 1.016
+  },
+  {
+   "segment": "100+",
+   "arm": "Control",
+   "player_days": 4096.0,
+   "players_active": 1750.0,
+   "conversion_rate": 8.4571,
+   "levels_completed_per_active": 298.1703,
+   "levels_attempted_per_active": 386.528,
+   "level_win_rate": 0.7714,
+   "session_minutes_per_active": 554.6554,
+   "d1_retention": 0.8508,
+   "d7_retention": 0.5294,
+   "activation_rate": 0.8659
+  },
+  {
+   "segment": "100+",
+   "arm": "Variant",
+   "player_days": 4054.0,
+   "players_active": 1740.0,
+   "conversion_rate": 7.931,
+   "levels_completed_per_active": 291.7822,
+   "levels_attempted_per_active": 390.4494,
+   "level_win_rate": 0.7473,
+   "session_minutes_per_active": 553.8813,
+   "d1_retention": 0.8714,
+   "d7_retention": 0.5317,
+   "activation_rate": 0.8753
+  }
+ ],
+ "excluded_resources": [
+  {
+   "resource": "Avatar",
+   "reason": "out of sim scope (methodology: COOP Token / Avatar / star-daily items)",
+   "free": 146477.0,
+   "total": 146477.0
+  },
+  {
+   "resource": "Movie_Magic",
+   "reason": "event-internal currency, out of sim scope",
+   "free": 51.0,
+   "total": 51.0
+  },
+  {
+   "resource": "Ocean_rescue",
+   "reason": "event-internal currency, out of sim scope",
+   "free": 8.0,
+   "total": 8.0
+  },
+  {
+   "resource": "Reds_Greatest_Challenge",
+   "reason": "event-internal currency, out of sim scope",
+   "free": 8533.0,
+   "total": 8533.0
+  },
+  {
+   "resource": "SeasonPassMultiplier2x",
+   "reason": "unit clash: telemetry logs MINUTES of a 2x multiplier; the engine weights SPTx2 as a double-value TOKEN in sptTotals_ \u2014 dimensionally incomparable (and a standing sim bug candidate)",
+   "free": 457835.0,
+   "total": 545315.0
+  },
+  {
+   "resource": "SeasonPassToken",
+   "reason": "economically trivial (~0.12/pd) legacy currency; the real pass currency is DreamPassToken",
+   "free": 58886.0,
+   "total": 58886.0
+  },
+  {
+   "resource": "life",
+   "reason": "out of sim scope (lives are not one of the 19 sim resources)",
+   "free": 109358.0,
+   "total": 109358.0
+  },
+  {
+   "resource": "liferefill",
+   "reason": "out of sim scope",
+   "free": 119035.0,
+   "total": 119035.0
+  },
+  {
+   "resource": "unknown",
+   "reason": "unattributed telemetry",
+   "free": 250.0,
+   "total": 250.0
+  }
+ ],
+ "gates": {
+  "accounting_identity": {
+   "mapped": 124349092.0,
+   "excluded": 900433.0,
+   "raw": 125249525.0,
+   "ok": true
+  },
+  "player_days_match": {
+   "ok": true,
+   "detail": {
+    "A. 0|Control": [
+     42977.0,
+     42977.0
+    ],
+    "A. 0|Variant": [
+     43108.0,
+     43108.0
+    ],
+    "0-9|Control": [
+     67171.0,
+     67171.0
+    ],
+    "0-9|Variant": [
+     66147.0,
+     66147.0
+    ],
+    "10-19|Control": [
+     51989.0,
+     51989.0
+    ],
+    "10-19|Variant": [
+     52303.0,
+     52303.0
+    ],
+    "20-39|Control": [
+     43612.0,
+     43612.0
+    ],
+    "20-39|Variant": [
+     44216.0,
+     44216.0
+    ],
+    "40-99|Control": [
+     28430.0,
+     28430.0
+    ],
+    "40-99|Variant": [
+     27166.0,
+     27166.0
+    ],
+    "100+|Control": [
+     4096.0,
+     4096.0
+    ],
+    "100+|Variant": [
+     4054.0,
+     4054.0
+    ]
+   }
+  },
+  "other_share_hc": {
+   "Control": 0.04843305680544164,
+   "Variant": 0.022640986037077673
+  },
+  "other_share_ok": true
+ }
+}

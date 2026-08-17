@@ -1,0 +1,830 @@
+[
+ {
+  "claim_id": "C1-core-spt",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "E_base": 15.05,
+   "E_v2": 12.225,
+   "R_sim": 0.812292,
+   "actual_ratio_B_1_9": 0.875,
+   "actual_ratio_C_10_19": 0.865,
+   "actual_ratio_D_20_39": 0.8482,
+   "actual_ratio_E_40_99": 0.8369,
+   "actual_ratio_F_100plus": 0.8095,
+   "simR_over_actual_B": 0.9284,
+   "simR_over_actual_C": 0.9391,
+   "simR_over_actual_D": 0.9577,
+   "simR_over_actual_E": 0.9706,
+   "simR_over_actual_F": 1.0035,
+   "actual_ratio_A_0_unclaimed": 0.9196
+  },
+  "notes": "Sim side reproduced exactly from wb15 SP/SP_v2 config panels (SP: 12/20/30 2nd half, 10/15/20 1st half; SP_v2: 10/15/25 and 8/12/18; mix .55/.30/.15): E_base=15.05, E_v2=12.225, R=0.812292. Actual side recomputed from liveops2_ab_daily_metrics.csv (9 dates 08-02..08-10 present, players-weighted mean of avg_spt_gain_CORE per bucket+arm): Variant/Control ratios 0.8750/0.8650/0.8482/0.8369/0.8095 for B..F, matching the claim to 3 decimals. The \"sim R within 0.93-1.00 of actual\" statement holds at 2-dp rounding; exact span is 0.928 (B) to 1.004 (F), both within 0.4% of the stated bounds \u2014 inside the ~2% tolerance, so CONFIRMED rather than ADJUSTED. Bucket A. 0 (excluded from the claim) would give 0.883."
+ },
+ {
+  "claim_id": "C8-other-collapse",
+  "verdict": "ADJUSTED",
+  "computed": {
+   "other_papd_100plus": {
+    "Control": 39.66,
+    "Variant": 15.39,
+    "V_over_C": 0.388
+   },
+   "other_papd_40_99": {
+    "Control": 19.31,
+    "Variant": 6.54,
+    "V_over_C": 0.339
+   },
+   "single_collection_papd_100plus": {
+    "Control": 25.4,
+    "Variant": 0.35,
+    "delta": -25.05
+   },
+   "other_total_delta_papd_100plus": -24.26,
+   "dream_peak_papd": {
+    "F. 100+": {
+     "Control": 0,
+     "Variant": 0
+    },
+    "E. 40-99": {
+     "Control": 1.14,
+     "Variant": 1.61
+    },
+    "C. 10-19": {
+     "Control": 0.63,
+     "Variant": 0.51
+    },
+    "total_free_HC_all_segments": {
+     "Control": 125400,
+     "Variant": 131100
+    }
+   },
+   "top5_other_100plus_Control": {
+    "single_collection": 25.4,
+    "reward_chest": 8.04,
+    "facebook_like": 4.64,
+    "offer_free_items": 0.92,
+    "heart_gift": 0.63
+   },
+   "top5_other_100plus_Variant": {
+    "reward_chest": 7.65,
+    "facebook_like": 5.06,
+    "heart_gift": 1.56,
+    "offer_free_items": 0.78,
+    "single_collection": 0.35
+   }
+  },
+  "notes": "Recomputed independently from workbooks/resource_gains_by_segment_9d.csv using the established conventions (free HC = amount_gained_free; papd = free/player_days per segment+arm; Other = HardCoin rows whose source_detail/action miss the claim's list, SagaChestRewards% as prefix; result identical keying on source_detail alone). Core numbers CONFIRMED: V/C = 0.388 at 100+ (claim 0.39) and 0.339 at 40-99 (claim 0.34); single_collection at 100+ is Control-only (C 25.40 vs V 0.35 papd, delta -25.05 \u2014 it alone exceeds the whole Other V-C delta of -24.26, offset by reward_chest/facebook_like/heart_gift leaning Variant). CORRECTION: the dream_peak sub-claim is wrong \u2014 dream_peak pays zero free HC at 100+ in BOTH arms, and at 40-99 it leans VARIANT (C 1.14 vs V 1.61 papd; total free HC C 125.4k vs V 131.1k). Control leads only marginally in segments <= 10-19. Top-5 Other contributors at 100+ (papd): Control = single_collection 25.40, reward_chest 8.04, facebook_like 4.64, offer_free_items 0.92, heart_gift 0.63; Variant = reward_chest 7.65, facebook_like 5.06, heart_gift 1.56, offer_free_items 0.78, single_collection 0.35."
+ },
+ {
+  "claim_id": "C3-saga-ul",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "actual_ul_papd_ratio_V_over_C": {
+    "A. 0": 1.695,
+    "B. 1-9 (0-9)": 1.722,
+    "C. 10-19": 1.775,
+    "D. 20-39": 1.723,
+    "E. 40-99": 1.707,
+    "F. 100+": 1.733
+   },
+   "actual_ul_papd_control": {
+    "A. 0": 0.095,
+    "B. 1-9": 6.4,
+    "C. 10-19": 17.74,
+    "D. 20-39": 35.83,
+    "E. 40-99": 76.57,
+    "F. 100+": 188.75
+   },
+   "actual_ul_papd_variant": {
+    "A. 0": 0.161,
+    "B. 1-9": 11.02,
+    "C. 10-19": 31.5,
+    "D. 20-39": 61.72,
+    "E. 40-99": 130.67,
+    "F. 100+": 327.04
+   },
+   "actual_saga_hc_papd_ratio_V_over_C": {
+    "B. 1-9": 0.32,
+    "C. 10-19": 0.322,
+    "D. 20-39": 0.301,
+    "E. 40-99": 0.284,
+    "F. 100+": 0.288
+   },
+   "sim_ul_node1": {
+    "c_saga": 15,
+    "c_saga_v2": 15
+   },
+   "sim_ul_column_total": {
+    "c_saga": 265,
+    "c_saga_v2": 265
+   },
+   "sim_ul_node_diffs": 0,
+   "sim_ul_R_ratio": 1
+  },
+  "notes": "Actual side recomputed from workbooks/resource_gains_by_segment_9d.csv using the established FREE convention (UnlimitedLives rows are item rows: amount_gained_free blank, action chapter_complete/reward_chest, no purchases to exclude) and the file's own player_days per segment+arm. V/C papd ratios: 1.695 (A. 0), 1.722, 1.775, 1.723, 1.707, 1.733 \u2014 the claimed \u22481.72-1.78 band holds within ~2% (E. 40-99 at 1.707 is 0.8% below the stated lower bound, A. 0 at 1.695 is 1.5% below; a strictly exact band is \u22481.70-1.78). The swap direction is corroborated: saga_progression HardCoin papd V/C = 0.28-0.32 in the paying segments (HC cut ~3.3x while UL minutes rose ~1.7x). Sim side verified in workbooks/NEW_LIVEOPS_CALENDAR_ECO (15).xlsx: the saga sheets are c_saga ('Saga Progression - OLD') and c_saga_v2 ('Saga Progression - NEW'); the 'all segs' item block spans cols 28-38 (SPT..Unlimited Bomb) with Unlimited Lives at col 35; node 1 pays 15.0 on both sheets and the full 10-node UL column is identical (total 265.0 = 265.0, zero diffs), so any streak weighting yields R=1 and the sim carries UL Lives unchanged. The 17 item-block cell diffs between the sheets are all one-count booster swaps (Red/Chuck/Bomb/Slingshot/Shuffle/Comet), none touching Unlimited Lives."
+ },
+ {
+  "claim_id": "C9-rainbow",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "hc_papd_100plus_variant": 24.2028,
+   "spt_papd_100plus_variant": 128.4033,
+   "hc_free_amount": 98118,
+   "spt_free_amount": 520547,
+   "player_days_9d_variant": 4054,
+   "control_papd_all_rm_resources": 0,
+   "daily_metrics_corrected_wavg_spt_rainbow": 128.8344,
+   "daily_metrics_uncorrected_wavg_spt_rainbow": 145.8907,
+   "daily_metrics_player_days": 4036,
+   "corrected_vs_ledger_pct_diff": 0.34,
+   "uncorrected_vs_corrected_pct_higher": 13.2,
+   "rm2nd_score_req_exact_matches": 30,
+   "rm2nd_coins_exact_matches": 30,
+   "rm2nd_spt_direct_matches": 28,
+   "rm2nd_sptx2_reconciled_rows": 2,
+   "rm1st_vs_rm2nd_diff_milestones": 2
+  },
+  "notes": "Recomputed independently from workbooks/resource_gains_by_segment_9d.csv, workbooks/liveops2_ab_daily_metrics.csv, workbooks/rainbow_maker_config.csv, harness/_mockdata.json. (1) F. 100+ Variant Rainbow Maker: HardCoin free 98118/4054 pd = 24.2028 papd, DreamPassToken 520547/4054 = 128.4033 papd; Control = 0 on every RM resource \u2014 claimed 24.2/128.4 exact. (2) Players-weighted avg_spt_gain_RAINBOW (100+ Variant, 08-02..08-10) = 128.83, 0.34% from the ledger's 128.40 (denominator differs slightly: 4036 vs 4054 player-days), so the ledger IS the corrected series; uncorrected lane = 145.89, +13.2% \u2014 materially higher as claimed; both Control lanes 0. (3) RM_2nd Req Accum equals live score_req exactly on all 30 milestones and Coins exactly on all 30; SPT matches directly on 28/30, and the two off rows (m6 cfg_spt=20, m19 cfg_spt=40) are the SPT x2 rows where live cfg_spt encodes SPT-equivalents = 2 x RM_2nd's SPT x2 (10, 20), confirmed by live reward_note text ('SPT x2 10, Slingshot 1', 'SPT x2 20') \u2014 corroborating RM_2nd. RM_1st differs from RM_2nd/live at exactly m6 and m19: SPT x2 0 with Unlimited Lives 15/45 instead \u2014 the claimed SPT x2 / UL placement difference. No corrections needed."
+ },
+ {
+  "claim_id": "C7-daily-gift",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "actual_VC_papd_ratio": {
+    "A. 0": 0.6546,
+    "B. 1-9": 0.6295,
+    "C. 10-19": 0.6295,
+    "D. 20-39": 0.6595,
+    "E. 40-99": 0.6624,
+    "F. 100+": 0.6573
+   },
+   "actual_papd_control": {
+    "A. 0": 11.775,
+    "B. 1-9": 14.508,
+    "C. 10-19": 17.375,
+    "D. 20-39": 17.608,
+    "E. 40-99": 19.084,
+    "F. 100+": 18.489
+   },
+   "actual_papd_variant": {
+    "A. 0": 7.709,
+    "B. 1-9": 9.132,
+    "C. 10-19": 10.938,
+    "D. 20-39": 11.612,
+    "E. 40-99": 12.641,
+    "F. 100+": 12.153
+   },
+   "sim_ladder_base": [
+    22,
+    0,
+    0,
+    27,
+    0,
+    33,
+    100
+   ],
+   "sim_ladder_v2": [
+    10,
+    0,
+    0,
+    10,
+    0,
+    10,
+    100
+   ],
+   "sim_unweighted_ratio": 0.7143,
+   "sim_streak_weighted_ratio_engine": {
+    "0-9 NONPAYER": 0.6089,
+    "0-9 PAYER": 0.6061,
+    "10-19 NONPAYER": 0.6452,
+    "10-19 PAYER": 0.6452,
+    "20-39 NONPAYER": 0.6452,
+    "20-39 PAYER": 0.6319,
+    "40-99 NONPAYER": 0.6452,
+    "40-99 PAYER": 0.6452,
+    "100+ NONPAYER": 0.617,
+    "100+ PAYER": 0.6061
+   }
+  },
+  "notes": "Actual recomputed from workbooks/resource_gains_by_segment_9d.csv (source_detail='daily_reward', resource=HardCoin; amount_gained_free populated on every row so the FREE fallback never triggered; papd = free/player_days per segment+arm): V/C = 0.630-0.662 per segment, matching the claimed 0.63-0.66 (E. 40-99 is 0.6624, within rounding). Sim recomputed from wb15 'NEW_LIVEOPS_CALENDAR_ECO (15).xlsx' sheets c_day/c_day_v2 rows 4-10 col B: base ladder sums 182, v2 sums 130, unweighted ratio 0.714. Streak-weighting replicated with the exact engine method (dailyGiftRatio_/survival_ in engine/EcoGainsSim_v4.gs: w_n = P(login streak >= n), piecewise-linear survival over login_streak_p50/p75/p90 read from wb15 data_seg_beh): per segment/payer ratios 0.606-0.645, exactly the claimed ~0.61-0.65 band. Actual (0.63-0.66) vs sim (0.61-0.65) bands overlap with per-segment gaps of ~0.01-0.05 \u2014 the green-match story holds. Note the unweighted ratio (0.714) sits outside the band; the match depends on the streak weighting, which is the engine's actual model, so this does not weaken the claim."
+ },
+ {
+  "claim_id": "C11-aggregates",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "free_hc_papd_control": 136.59,
+   "free_hc_papd_variant": 115.92,
+   "free_hc_delta": -20.67,
+   "spt_papd_control": 285.47,
+   "spt_papd_variant": 267.42,
+   "spt_delta": -18.05,
+   "spt_via_literal_ledger_csv_recipe_control": 270.74,
+   "spt_via_literal_ledger_csv_recipe_variant": 226.91,
+   "metrics_spt_lanes_control": {
+    "CORE": 270.59,
+    "RAINBOW": 0,
+    "OFFER": 5.9,
+    "EVENT": 8.97,
+    "OTHER": 0
+   },
+   "metrics_spt_lanes_variant": {
+    "CORE": 226.76,
+    "RAINBOW": 23.79,
+    "OFFER": 5.61,
+    "EVENT": 11.27,
+    "OTHER": 0
+   },
+   "ledger_csv_spt_event_papd_range": "0.02-0.21 per segment/arm"
+  },
+  "notes": "Recomputed from workbooks/resource_gains_by_segment_9d.csv, workbooks/liveops2_ab_daily_metrics.csv, workbooks/ab_denominators.csv, segments B. 1-9..F. 100+ (A. 0 excluded), weights = per-segment player_days from ab_denominators is_total rows (Control weights for C side, Variant for V side; these exactly match the ledger CSV's own player_days column, a good cross-check). FREE HC: sum of amount_gained_free over HardCoin rows / player_days per segment+arm, then weighted: 136.59 -> 115.92 (-20.67) \u2014 matches claim exactly. SPT: 285.47 -> 267.42 (-18.05) reproduces the claimed 285.3 -> 267.2 (-18.1) within 0.1%, where the actual side = players-weighted avg_spt_gain_total (= CORE+RAINBOW+OFFER+EVENT+OTHER lanes) from liveops2_ab_daily_metrics.csv over 2026-08-02..08-10. CAVEAT on the claim's parenthetical: taken literally (\"ledger event lanes\" = SeasonPassToken rows of resource_gains_by_segment_9d.csv for non-Core + metrics avg_spt_gain_CORE), the recipe gives 270.74 -> 226.91 (-43.83), NOT the claimed numbers \u2014 the ledger CSV's SPT event rows are near-empty (~0.15 papd; the export badly under-captures event SPT grants, e.g. metrics EVENT+OFFER lanes alone are ~14.9 papd Control / ~40.7 Variant, including Variant's Rainbow-Maker lane at 23.8 papd which is absent from the CSV). So the claimed numbers are correct only under the reading that ALL non-Core SPT lanes also come from the daily-metrics file. Composition note the headline hides: weighted CORE SPT fell 270.6 -> 226.8 (-43.8) and the net -18.1 is reached only because Variant gains +23.8 RAINBOW and +2.3 EVENT SPT papd."
+ },
+ {
+  "claim_id": "V7-boosters",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "unlimited_lives_min_per_pd": {
+    "control": 111.609,
+    "variant": 147.704,
+    "delta": 36.095
+   },
+   "chuck_pre_level_booster_2": {
+    "control": 1.9215,
+    "variant": 1.5919,
+    "delta": -0.3296
+   },
+   "red_pre_level_booster_1": {
+    "control": 1.6571,
+    "variant": 1.5306,
+    "delta": -0.1265
+   },
+   "slingshot_powerup_2": {
+    "control": 1.2681,
+    "variant": 1.521,
+    "delta": 0.2529
+   },
+   "weights_player_days": {
+    "control": {
+     "B. 1-9": 67171,
+     "C. 10-19": 51989,
+     "D. 20-39": 43612,
+     "E. 40-99": 28430,
+     "F. 100+": 4096
+    },
+    "variant": {
+     "B. 1-9": 66147,
+     "C. 10-19": 52303,
+     "D. 20-39": 44216,
+     "E. 40-99": 27166,
+     "F. 100+": 4054
+    }
+   },
+   "per_segment_ul_delta": {
+    "B. 1-9": 14.488,
+    "C. 10-19": 27.84,
+    "D. 20-39": 41.857,
+    "E. 40-99": 76.933,
+    "F. 100+": 178.382
+   }
+  },
+  "notes": "All four aggregates reproduce to 3-4 significant figures from resource_gains_by_segment_9d.csv + ab_denominators.csv using the stated conventions (item FREE = amount_gained excl. action=purchase; UnlimitedLives has unit=minutes, no currency rows; papd weights = is_total player_days per segment+arm, which match the player_days column in the gains file exactly). UL: 111.61->147.70 (+36.10) vs claimed 111.6->147.7 (+36.1); Chuck 1.9215->1.5919 (-0.330); Red 1.6571->1.5306; Slingshot 1.2681->1.5210 (+0.253). Per-segment detail is coherent with the narrative (UL lift monotone in segment depth, Red/Chuck cuts concentrated in heavy segments, Slingshot up everywhere). The '+2.8 sim scorable prediction' figure is sim-side and not derivable from the two named raw CSVs \u2014 out of scope here, neither confirmed nor refuted; the observed-side numbers are all correct."
+ },
+ {
+  "claim_id": "V6-behaviour",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "source": "workbooks/ab_denominators.csv, is_total=True rows (window totals; per_active = per unique player over 2026-08-02..08-10)",
+   "levels_completed_per_active_C_to_V": {
+    "A. 0": {
+     "C": 10.6988,
+     "V": 11.7518,
+     "delta_pct": 9.84
+    },
+    "B. 1-9": {
+     "C": 10.2496,
+     "V": 9.9102,
+     "delta_pct": -3.31
+    },
+    "C. 10-19": {
+     "C": 29.2059,
+     "V": 28.6078,
+     "delta_pct": -2.05
+    },
+    "D. 20-39": {
+     "C": 60.457,
+     "V": 59.6214,
+     "delta_pct": -1.38
+    },
+    "E. 40-99": {
+     "C": 149.1003,
+     "V": 143.457,
+     "delta_pct": -3.78
+    },
+    "F. 100+": {
+     "C": 298.1703,
+     "V": 291.7822,
+     "delta_pct": -2.14
+    }
+   },
+   "level_win_rate_pct_C_to_V": {
+    "A. 0": {
+     "C": 65.74,
+     "V": 68.03,
+     "delta_pp": 2.29
+    },
+    "B. 1-9": {
+     "C": 47.15,
+     "V": 47.82,
+     "delta_pp": 0.67
+    },
+    "C. 10-19": {
+     "C": 61.59,
+     "V": 60.28,
+     "delta_pp": -1.31
+    },
+    "D. 20-39": {
+     "C": 71.82,
+     "V": 70.18,
+     "delta_pp": -1.64
+    },
+    "E. 40-99": {
+     "C": 75.73,
+     "V": 73.46,
+     "delta_pp": -2.27
+    },
+    "F. 100+": {
+     "C": 77.14,
+     "V": 74.73,
+     "delta_pp": -2.41
+    }
+   },
+   "session_minutes_per_active_C_to_V": {
+    "A. 0": {
+     "C": 29.91,
+     "V": 31.94,
+     "delta_pct": 6.8
+    },
+    "B. 1-9": {
+     "C": 41.04,
+     "V": 39.95,
+     "delta_pct": -2.67
+    },
+    "C. 10-19": {
+     "C": 84.97,
+     "V": 87.06,
+     "delta_pct": 2.46
+    },
+    "D. 20-39": {
+     "C": 142.76,
+     "V": 147.57,
+     "delta_pct": 3.37
+    },
+    "E. 40-99": {
+     "C": 311.8,
+     "V": 312.45,
+     "delta_pct": 0.21
+    },
+    "F. 100+": {
+     "C": 554.66,
+     "V": 553.88,
+     "delta_pct": -0.14
+    }
+   },
+   "levels_attempted_per_active_delta_pct": {
+    "A. 0": 6.14,
+    "B. 1-9": -4.66,
+    "C. 10-19": 0.09,
+    "D. 20-39": 0.92,
+    "E. 40-99": -0.81,
+    "F. 100+": 1.01
+   },
+   "pooled_levels_completed_delta": {
+    "player_day_weighted_avg_of_segment_deltas_pct": -0.35,
+    "player_day_weighted_avg_excl_A0_pct": -2.59,
+    "pooled_levels_per_player_day": {
+     "C": 18.989,
+     "V": 18.79,
+     "delta_pct": -1.05
+    },
+    "total_levels_completed": {
+     "C": 4524607,
+     "V": 4453060,
+     "delta_pct": -1.58
+    },
+    "player_days": {
+     "C": 238275,
+     "V": 236994
+    }
+   }
+  },
+  "notes": "All asserted figures reproduce exactly (well within 2-3%): B 10.25->9.91 (-3.3%), C -2.0%, D -1.4%, E 149.1->143.5 (-3.8%), F 298.2->291.8 (-2.1%), A.0 10.70->11.75 (+9.8%); the prior report's 100+ win rate 77.1->74.7 also confirms (77.14->74.73, -2.41pp). Internal consistency verified: total-row levels equal the sum of daily rows, and level_win_rate == completed/attempted exactly. Pooled player-day-weighted delta depends on definition: weighting each segment's relative delta by player_days gives -0.35% (A.0's +9.8% on 43k player_days nearly cancels the paying segments' drop); excluding A.0 it is -2.59%; per-arm pooled levels per player-day gives -1.05% and raw total levels -1.58%. Caveat to the framing (story holds, wording does not): the Variant does NOT play less TIME in the mid segments - session minutes are UP in C (+2.5%) and D (+3.4%), flat in E, and levels ATTEMPTED are flat-to-up in C/D/F - the completion shortfall in C-F is driven by the win-rate drop (-1.3 to -2.4pp), i.e. harder/nerfed levels, not reduced engagement; only B shows genuinely less play (attempts -4.7%, minutes -2.7%, with win rate UP). \"Plays measurably less\" is accurate only for the levels-completed metric itself, which is indeed the per-level metric the sim holds constant."
+ },
+ {
+  "claim_id": "V2-saga-wb16",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "sim_R_per_segment": {
+    "0-9": 0.285714,
+    "10-19": 0.285714,
+    "20-39": 0.285714,
+    "40-99": 0.285714,
+    "100+": 0.285714
+   },
+   "sim_detail": {
+    "base_sumHC": 210,
+    "v2_sumHC": 60,
+    "sumLevelsReq_both": 100,
+    "R_exact": "2/7"
+   },
+   "live_HC_papd_ratio_VoverC": {
+    "0-9": 0.3203,
+    "10-19": 0.3217,
+    "20-39": 0.3012,
+    "40-99": 0.2838,
+    "100+": 0.2884
+   },
+   "RoR_sim_over_live": {
+    "0-9": 0.892,
+    "10-19": 0.888,
+    "20-39": 0.949,
+    "40-99": 1.007,
+    "100+": 0.991
+   },
+   "UL_column_identical": true,
+   "UL_nodes_both_sheets": [
+    15,
+    15,
+    15,
+    15,
+    15,
+    20,
+    20,
+    30,
+    60,
+    60
+   ],
+   "live_UL_papd_ratio_VoverC": {
+    "0-9": 1.7224,
+    "10-19": 1.7754,
+    "20-39": 1.7227,
+    "40-99": 1.7065,
+    "100+": 1.7327
+   }
+  },
+  "notes": "Recomputed independently from workbooks/NEW_LIVEOPS_CALENDAR_ECO (16).xlsx (sheets c_saga / c_saga_v2, header row 4, 10-node ladders) and workbooks/resource_gains_by_segment_9d.csv (source_detail=saga_progression, both chapter_complete and reward_chest actions; papd = amount_gained_free/player_days for HC, amount_gained/player_days for UnlimitedLives; no purchase rows). Sim R is exactly 2/7 = 0.285714 in every segment (levels 100 both sides, HC 210 -> 60); live V/C HC ratios match the claim to all quoted digits; RoR spans 0.888-1.007 (claimed 0.89-1.01, lower bound rounds up from 0.888). UL-Lives node column is byte-identical between the two sheets (sim UL x1.0) while live UL papd ratios are 1.71-1.78 (claimed 1.70-1.78). Minor observation, not affecting the claim: other booster columns (Red/Chuck/Bomb/Slingshot/Shuffle/Comet, Coin Val) DO differ between c_saga and c_saga_v2."
+ },
+ {
+  "claim_id": "V5-ns-direct",
+  "verdict": "ADJUSTED",
+  "computed": {
+   "sim_new_win_NONPAYER": {
+    "0-9": 3.8389,
+    "10-19": 13.2934,
+    "20-39": 31.8583,
+    "40-99": 61.6412,
+    "100+": 66.4985,
+    "A. 0": 0.0788
+   },
+   "sim_new_win_PAYER": {
+    "0-9": 4.4313,
+    "10-19": 12.6341,
+    "20-39": 28.8372,
+    "40-99": 54.1794,
+    "100+": 55.2115,
+    "A. 0": 0.1037
+   },
+   "claimed_vs_file_nonpayer_pct_diff": {
+    "0-9": "+5.8% claimed high",
+    "10-19": "-1.8%",
+    "20-39": "-3.4%",
+    "40-99": "-4.3%"
+   },
+   "claim_numbers_look_like": "NONPAYER/PAYER blend at ~0.36 payer weight in every segment (or an earlier sim_matrix build)",
+   "R_sim33_over_meas33": {
+    "0-9": 1,
+    "10-19": 1.1186,
+    "20-39": 1.344,
+    "40-99": 1.2515,
+    "100+": 1.2063
+   },
+   "live_variant_papd": {
+    "0-9": 3.005,
+    "10-19": 11.666,
+    "20-39": 23.058,
+    "40-99": 48.218,
+    "100+": 77.215,
+    "A. 0": 12.926
+   },
+   "live_control_papd": {
+    "0-9": 0.0025,
+    "10-19": 0.0005,
+    "20-39": 0.0003,
+    "40-99": 0.0011,
+    "100+": 0.0012
+   },
+   "live_variant_ns_free_hc": {
+    "0-9": 198770,
+    "10-19": 610155,
+    "20-39": 1019545,
+    "40-99": 1309905,
+    "100+": 313030,
+    "A. 0": 557215
+   },
+   "hc_gainers_variant": {
+    "0-9": 24108,
+    "10-19": 23933,
+    "20-39": 18681,
+    "40-99": 9997,
+    "100+": 1740,
+    "A. 0": 12095
+   },
+   "bridge_per_gainer": {
+    "0-9": 8.24,
+    "10-19": 25.49,
+    "20-39": 54.58,
+    "40-99": 131.03,
+    "100+": 179.9,
+    "A. 0": 46.07
+   },
+   "sim_NONPAYER_over_bridge": {
+    "0-9": 0.466,
+    "10-19": 0.521,
+    "20-39": 0.584,
+    "40-99": 0.47,
+    "100+": 0.37
+   },
+   "sim_PAYER_over_bridge": {
+    "0-9": 0.537,
+    "10-19": 0.496,
+    "20-39": 0.528,
+    "40-99": 0.413,
+    "100+": 0.307
+   },
+   "treasure_dive_share": "negligible: 35 HC in 0-9, 85 HC in A. 0, zero elsewhere; faucet is effectively all dreamheist_event"
+  },
+  "notes": "Story holds, exact sim numbers corrected. (1) Live side CONFIRMED exactly: Variant NS papd (dreamheist+treasure_dive free HC / player_days from workbooks/resource_gains_by_segment_9d.csv) = 3.00/11.67/23.06/48.22/77.22 for 0-9..100+, Control <=0.0025 papd (approx 0). (2) R CONFIRMED: 1.00/1.12/1.34/1.25/1.21 vs claimed 1.00/1.12/1.35/1.25/1.21. (3) Sim new_win ADJUSTED: the claimed 4.06/13.05/30.76/58.96 are NOT the NONPAYER rows of the current analysis/out/sim_matrix.json (generated 2026-08-14, ns_simulate=true); those read 3.84/13.29/31.86/61.64, with 100+ = 66.50 and PAYER = 4.43/12.63/28.84/54.18/55.21. Every claimed value lands between NONPAYER and PAYER at a constant ~0.36 payer weight, so they appear to be a payer-blended read or a prior build (2-5% off). (4) Bridge: live Variant NS free / ab_player_dist Variant HardCoin gainers = 8.24/25.49/54.58/131.03/179.90; sim NONPAYER new_win / bridge = 0.47/0.52/0.58/0.47/0.37 \u2014 inside the expected 0.4-1.2 band except 100+ (0.37) slightly below. Ballpark verdict: sim NS level is the right order of magnitude with the correct segment gradient, but systematically UNDER live by roughly 2x on the per-gainer basis (and the true per-NS-participant gap is larger since the bridge denominator counts all HC gainers); most under at 100+ (0.37; that live cell also not arm-comparable per the earlier A/B read-out), least under at 20-39 (0.58). Outside the claim's list: live A. 0 Variant pays 557k NS HC (papd 12.93) while the sim carries A. 0 at ~0.08 per earner \u2014 the largest structural miss."
+ },
+ {
+  "claim_id": "V4-kite-persists",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "live_100plus": {
+    "player_days": {
+     "Control": 4096,
+     "Variant": 4054
+    },
+    "HC_free": {
+     "C_amt": 10100,
+     "V_amt": 52875,
+     "C_papd": 2.4658,
+     "V_papd": 13.0427,
+     "VC_ratio": 5.289
+    },
+    "DreamPassToken": {
+     "C_amt": 15880,
+     "V_amt": 70520,
+     "C_papd": 3.877,
+     "V_papd": 17.3952,
+     "VC_ratio": 4.487
+    }
+   },
+   "sim_100plus_kite": {
+    "HC": {
+     "NONPAYER_ratio": 0.9847,
+     "PAYER_ratio": 1.0221,
+     "payers_summed": {
+      "cur_win": 32.359,
+      "new_win": 32.472,
+      "ratio": 1.004
+     }
+    },
+    "SPT": {
+     "NONPAYER_ratio": 0.7913,
+     "PAYER_ratio": 0.8214,
+     "payers_summed_ratio": 0.806
+    }
+   },
+   "kite_ends_in_window_5_13": {
+    "cal_curr": [
+     9
+    ],
+    "cal_new": [
+     5,
+     12
+    ],
+    "source": "harness/_mockdata.json cal_parsed (cal_curr start3 dur7; cal_new start3 dur3, start10 dur3)"
+   },
+   "superlative_scan": {
+    "degenerate_base_excluded": {
+     "chuck_event": {
+      "live_VC": 518.6,
+      "C_papd": 0.049,
+      "sim_ratio": 3.618,
+      "direction_agrees": true
+     },
+     "dreamheist_event": {
+      "live_VC": 63254.6,
+      "C_papd": 0.001,
+      "note": "rollout artifact"
+     }
+    },
+    "next_genuine_misses": {
+     "Hatchling Hideaway": {
+      "live": 0.92,
+      "sim": 1.325
+     },
+     "ArcheryArena": {
+      "live": 2.35,
+      "sim_flash_race": "0/0 unanchored"
+     }
+    },
+    "direction_agreers": {
+     "saga_progression": {
+      "live": 0.29,
+      "sim": 0.286
+     },
+     "daily_reward": {
+      "live": 0.66,
+      "sim": 0.612
+     }
+    }
+   }
+  },
+  "notes": "Every number reproduces exactly. Live from resource_gains_by_segment_9d.csv at F. 100+: kite_festival_event free HC papd V/C = 5.289 (claimed 5.29) and DreamPassToken V/C = 4.487 (claimed 4.49), using amount_gained_free for the currency row and amount_gained for the item rows (all action=reward_event). Sim from sim_matrix.json Kite Festival 100+: windowed HC new_win/cur_win = 0.985 NONPAYER / 1.022 PAYER (payers-summed 1.004) ~ 1.0 as claimed; SPT windowed ratio 0.81, i.e. sim points slightly DOWN while live is up 4.5x. Window correction verified: cal_curr Kite ends day 9, cal_new Kite ends days 5 and 12, all inside the day 5..13 window, so both calendars have a rank-payout day in-window and the miss is not a window artifact. Superlative holds: larger live ratios (chuck_event 519x, dreamheist 63254x) sit on near-zero control bases (papd 0.049 / 0.001) and are scheduling/rollout artifacts (chuck sim even agrees in direction at 3.6x); all other genuinely-comparable sources agree in direction (Saga 0.29 vs 0.286, Daily Gift 0.66 vs 0.61) or miss mildly (HH 0.92 vs 1.33). Kite Festival is the biggest genuine direction miss."
+ },
+ {
+  "claim_id": "V1-day-map",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "day_map": {
+    "Aug2": 5,
+    "Aug10": 13,
+    "wrap_needed": false,
+    "weekday_check": "2026-08-02 is a Sunday (Python datetime); day 5 of Wednesday-start grid = Sunday; old map's day 27 = Monday -> mismatch"
+   },
+   "cal_new_wb16_parsed": {
+    "Chuck's Challenge": "6-7, 8-9",
+    "Kite Festival": "3-5, 10-12, 17-19, 24-26, 31-33 (window ends: days 5, 12)",
+    "Target Day": "1-day instances 3,4,5,10,11,12,17,18,19,24,25,26,31,32,33",
+    "Rainbow Maker": "1-2, 6-9, 13-16, 20-23, 27-30",
+    "Flock Flurry": "{1,2,6,7,8,9,13,14,15,16,20,21,22,23,27,28,29,30} \u2014 exactly the claimed 18-day set",
+    "Red's Challenge": "1-2, 27-28, 29-30 (ends 2, 28, 30)",
+    "Bomb's Challenge": "13-14, 15-16",
+    "Jigsaw Puzzle": "17-19",
+    "Bomb's Ballet Show": "10-12"
+   },
+   "observed_variant_free_HC": {
+    "chuck_event": {
+     "Aug5": 384250,
+     "Aug7": 393300,
+     "other_days_max": 44300,
+     "claim": "384k, 393k \u2014 match; ends day7/day9 -> claims day8=Aug5, day10=Aug7"
+    },
+    "kite_festival_event": {
+     "Aug3": 113375,
+     "Aug10": 117200,
+     "other_days_max": 7000,
+     "claim": "113k, 117k \u2014 match; ends day5/day12 -> claims Aug3, Aug10"
+    },
+    "ArcheryArena_TargetDay": {
+     "Aug2": 152150,
+     "Aug3": 155550,
+     "Aug4_7_max": 19425,
+     "Aug8": 151100,
+     "Aug9": 168050,
+     "Aug10": 175725,
+     "claim": "151-176k Aug2-3 & Aug8-10 \u2014 match (instances 3,4,5 pay days 4-6=Aug1-3; 10,11,12 pay days 11-13=Aug8-10)"
+    },
+    "red_event": {
+     "Aug2": 19200,
+     "monotone_decay_to": 3450,
+     "claim": "19k tail only \u2014 match; end day2=Jul30, next ends 28/30 out of window"
+    },
+    "bomb_event": {
+     "max_per_day": 1700,
+     "claim": "nothing in window \u2014 match; ends day14=Aug11, day16=Aug13 both post-window"
+    }
+   },
+   "observed_variant_free_all_resources": {
+    "Rainbow Maker": {
+     "Aug2": 3165,
+     "Aug3": 1815150,
+     "Aug4": 1597377,
+     "Aug5": 1516375,
+     "Aug6": 1495270,
+     "Aug7_tail": 101306,
+     "Aug10": 1919334,
+     "note": "claim's 1.5-1.8M/day and 1.9M reproduce as ALL-resource FREE totals (DreamPassToken+UL+HC+...); HC-only is 165k-307k/day"
+    },
+    "FlockRush": {
+     "Aug2": 12612,
+     "Aug3_6": "689k-728k",
+     "Aug7": 33804,
+     "Aug8": 5532,
+     "Aug9": 4572,
+     "Aug10": 729924,
+     "note": "high on instance days 6-9 & 13, low on 5 and 10-12 \u2014 exact FF-set fit; signal is UL minutes (FF pays no HC)"
+    }
+   },
+   "no_phase_events": {
+    "Jigsaw": {
+     "live": "HC 58k Aug7 -> 96k/109k/92k Aug8-10 (free totals 333k-453k), near-zero before",
+     "plan_days": "17-19 = Aug14-16 under new map",
+     "verdict": "fits NO phase, as claimed"
+    },
+    "bomb_ballet_event": {
+     "live": "decay from 88.9k HC / 381k free on Aug2 down to ~3k",
+     "plan_days": "10-12 = Aug7-9 under new map, where observed is ~5-8k only",
+     "verdict": "live instance ended ~Aug1-2, fits NO phase, as claimed"
+    }
+   },
+   "old_map_refutations": [
+    "day 27 is a Monday, Aug 2 2026 is a Sunday",
+    "Chuck 6-7/8-9 would claim ~Aug10-11; observed spikes Aug5 & Aug7",
+    "Red ends 28/30 would spike Aug4 & Aug6; observed pure monotone decay",
+    "RM 27-30 would run Aug2-5; observed RM Aug2 = 3,165 (dead)",
+    "Kite end day 33 would spike Aug9; observed spike Aug10",
+    "FF days 27-30 would be HIGH Aug2-5; observed Aug2 low (12.6k vs ~700k highs)"
+   ]
+  },
+  "notes": "CONFIRMED. Recomputed independently: (a) parsed cal_new merges + 1-day cells from workbooks/NEW_LIVEOPS_CALENDAR_ECO (16).xlsx \u2014 every claimed instance placement is exact (Chuck 6-7/8-9, Kite ends 5/12, TaD 3-5 & 10-12, RM 6-9 then 13-16, FF 18-day set, Red ends 2/28/30, Bomb 13-14/15-16, Jigsaw 17-19, Bomb's Ballet 10-12); (b) aggregated Variant-arm daily series from workbooks/resource_gains_base.csv. Under Aug2=day5 (days 5..13, no wrap) all seven anchored events reproduce, including the leaderboard claim-spike-day-after rule; the old Aug2=day27 map fails at least six independent tests. Claim numbers reproduce exactly: Chuck 384,250/393,300; Kite 113,375/117,200; TaD 151,100-175,725; Red 19,200; Bomb max 1,700. One unit clarification (not a story change): the claim's RM figures (1.5-1.8M/day, 1.9M Aug 10) and the FF high/low pattern only reproduce as ALL-resource FREE totals under the stated convention (RM is mostly DreamPassToken+UL; FF pays no HC at all \u2014 its signal is UL minutes ~700k/day); RM's free-HC-only series is 165k-307k/day. Both no-phase events verified: live Jigsaw ran ~Aug7-10+ (plan Aug14-16), live bomb_ballet decayed from Aug 2 (plan Aug7-9) \u2014 real live-vs-plan calendar deviations, not phase errors. Sources: D:\\_projects\\r_liveops_2_sim_work\\workbooks\\resource_gains_base.csv, D:\\_projects\\r_liveops_2_sim_work\\workbooks\\NEW_LIVEOPS_CALENDAR_ECO (16).xlsx (cal_new), D:\\_projects\\r_liveops_2_sim_work\\source_docs\\target-day.md (Target Day = ArcheryArena), D:\\_projects\\r_liveops_2_sim_work\\source_docs\\flock-flurry.md (Flock Flurry = FlockRush, pays no HC)."
+ },
+ {
+  "claim_id": "V3-target-day",
+  "verdict": "CONFIRMED",
+  "computed": {
+   "sim_window_days": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "sim_100plus": {
+    "NONPAYER": {
+     "cur_win": 10.70318,
+     "new_win": 21.40636,
+     "ratio": 2
+    },
+    "PAYER": {
+     "cur_win": 9.44182,
+     "new_win": 18.88364,
+     "ratio": 2
+    },
+    "blended_ratio_any_weight": 2
+   },
+   "calendar_check": {
+    "cal_curr_TaD_days": [
+     3,
+     10,
+     17,
+     24,
+     31
+    ],
+    "cal_curr_in_window": [
+     10
+    ],
+    "cal_new_TaD_days": [
+     3,
+     4,
+     5,
+     10,
+     11,
+     12,
+     17,
+     18,
+     19,
+     24,
+     25,
+     26,
+     31,
+     32,
+     33
+    ],
+    "cal_new_in_window": [
+     5,
+     10,
+     11,
+     12
+    ],
+    "cur_win_equals_meas33_times": 0.2,
+    "new_win_equals_sim33_times": 0.26667,
+    "sim33_over_meas33_at_100plus": 1.5
+   },
+   "live_100plus": {
+    "control_free_hc": 47550,
+    "control_player_days": 4096,
+    "control_papd": 11.608887,
+    "variant_free_hc": 110525,
+    "variant_player_days": 4054,
+    "variant_papd": 27.263197,
+    "ratio_V_over_C": 2.348476
+   },
+   "RoR": 0.851616
+  },
+  "notes": "Both sides reproduce exactly. Sim: sim_matrix.json Target Day/HC 100+ gives new_win/cur_win = 2.000000 for NONPAYER and PAYER alike, so any blend weight yields 2.0; mechanism verified against raw cal grids (cal_curr 5x1d at days {3,10,17,24,31}, window hit {10}; cal_new 15x1d, window hits {5,10,11,12}; cur_win = meas_33/5 and new_win = sim_33*4/15 exactly). Caveat: the cal_parsed sheet inside harness/_mockdata.json is STALE for cal_curr Target Day (shows (10,7),(24,7),(1,2)); sim_matrix matches the authoritative raw grid, not the stale parse. Live: F. 100+ ArcheryArena HardCoin free papd Control 11.6089 vs Variant 27.2632, V/C = 2.3485 (claim 2.348). RoR = 2.0/2.3485 = 0.8516, approx 0.85 as claimed. GREEN-cell characterization holds under the stated thresholds."
+ }
+]
