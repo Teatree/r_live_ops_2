@@ -22,18 +22,34 @@
  * generic diff works — the saga HC changes get marked like any other config edit). If a future
  * _v2 is ever a structural rewrite again, add its base name to V2DIFF_STRUCTURAL_SKIP below.
  *
+ * PAIR LIST (2026-08-18): when the engine defines a CONFIG_PAIRED registry (the liveops20_fixes
+ * copy does; this main-stack engine does not), the pairs are DERIVED from it at run time — menu
+ * handlers run after every file has loaded, so the registry is populated (a top-level read would
+ * hit the var-hoisting trap). A config sheet added to that model gets diff-marking for free.
+ * Without the registry, the static V2DIFF_PAIRS list below serves — it now includes the RM split
+ * sheets (RM_1st/RM_2nd gained _v2 proposal twins in the liveops20_fixes workbook; in a workbook
+ * without them the pair just lands in the pop-up's "no _v2 twin" line).
+ *
  * Re-run any time. It is non-destructive: it preserves every other cell's existing font colour and
  * only turns changed cells red. Use "Clear v2 config diff marks" to reset the compared region's
  * text to black (note: that resets ALL font colours in the config region, intentional ones too).
  ************************************************************************************************/
 
-// base sheet -> _v2 sheet. Every config sheet with a _v2 twin.
+// base sheet -> _v2 sheet. Every config sheet with a _v2 twin (static fallback; see header).
 var V2DIFF_PAIRS = [
   ['c_saga','c_saga_v2'], ['c_day','c_day_v2'], ['RR','RR_v2'], ['J','J_v2'],
   ['HH','HH_v2'], ['BB','BB_v2'], ['Ki','Ki_v2'], ['NS','NS_v2'], ['Ph','Ph_v2'],
   ['F','F_v2'], ['Race','Race_v2'], ['TaD','TaD_v2'],
-  ['SP','SP_v2'], ['SP_lb','SP_lb_v2']   // season pass track + challenge (D16)
+  ['SP','SP_v2'], ['SP_lb','SP_lb_v2'],  // season pass track + challenge (D16)
+  ['RM_1st','RM_1st_v2'], ['RM_2nd','RM_2nd_v2']   // RM anchored pairs (2026-08-18)
 ];
+
+// [ [base, base_v2], ... ]: the engine's CONFIG_PAIRED registry when present, else the static list.
+function v2diffPairs_(){
+  if (typeof CONFIG_PAIRED !== 'undefined' && CONFIG_PAIRED)
+    return Object.keys(CONFIG_PAIRED).map(function(b){ return [b, b + '_v2']; });
+  return V2DIFF_PAIRS;
+}
 // base sheets whose _v2 is a structural rewrite (not cell-aligned) -> skip the cell diff.
 // Empty now: c_saga was re-aligned with c_saga_v2, so it is compared like every other pair.
 var V2DIFF_STRUCTURAL_SKIP = [];
@@ -42,12 +58,13 @@ var V2DIFF_RED = '#FF0000';
 // ---- menu entry point: mark the diffs ----
 function markV2ConfigDiffs(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var total = 0, changed = [], zero = [], missing = [], skipped = [];
-  V2DIFF_PAIRS.forEach(function(pair){
+  var total = 0, changed = [], zero = [], missing = [], unauthored = [], skipped = [];
+  v2diffPairs_().forEach(function(pair){
     var base = pair[0], v2 = pair[1];
     if (V2DIFF_STRUCTURAL_SKIP.indexOf(base) !== -1){ skipped.push(base); return; }
     var bs = ss.getSheetByName(base), vs = ss.getSheetByName(v2);
-    if (!bs || !vs){ missing.push(base + '/' + v2); return; }
+    if (bs && !vs){ unauthored.push(v2); return; }   // no _v2 twin = unauthored (normal state)
+    if (!bs){ missing.push(base + '/' + v2); return; }
 
     var brange = bs.getDataRange();                       // OLD sheet's used extent
     var rows = Math.min(brange.getNumRows(), vs.getMaxRows());
@@ -75,9 +92,10 @@ function markV2ConfigDiffs(){
     changed.forEach(function(x){ lines.push('  • ' + x[0] + ':  ' + x[1]); });
   else
     lines.push('  (no config changes found)');
-  if (zero.length)    lines.push('', 'No changes: ' + zero.join(', '));
-  if (skipped.length) lines.push('Skipped (structural rewrite): ' + skipped.join(', '));
-  if (missing.length) lines.push('Missing sheet(s): ' + missing.join(', '));
+  if (zero.length)       lines.push('', 'No changes: ' + zero.join(', '));
+  if (unauthored.length) lines.push('No _v2 twin (unauthored): ' + unauthored.join(', '));
+  if (skipped.length)    lines.push('Skipped (structural rewrite): ' + skipped.join(', '));
+  if (missing.length)    lines.push('Missing base sheet(s): ' + missing.join(', '));
 
   var ui = SpreadsheetApp.getUi();
   ui.alert('v2 config diff — old vs new', lines.join('\n'), ui.ButtonSet.OK);
@@ -86,7 +104,7 @@ function markV2ConfigDiffs(){
 // ---- menu entry point: clear the marks (reset compared region text to black) ----
 function clearV2ConfigDiffs(){
   var ss = SpreadsheetApp.getActiveSpreadsheet(), cleared = 0;
-  V2DIFF_PAIRS.forEach(function(pair){
+  v2diffPairs_().forEach(function(pair){
     if (V2DIFF_STRUCTURAL_SKIP.indexOf(pair[0]) !== -1) return;
     var bs = ss.getSheetByName(pair[0]), vs = ss.getSheetByName(pair[1]);
     if (!bs || !vs) return;
