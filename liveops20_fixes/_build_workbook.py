@@ -44,10 +44,12 @@ CAL_FIRST_COL = 2                  # day = column - 1
 
 # config sheets that come in base/_v2 pairs. base = the anchor (what the variant ran), _v2 = the
 # proposal you author. Must match CONFIG_PAIRED in liveops20_fixes/engine/EcoGainsSim_v4.gs.
+# RM_1st / RM_2nd joined 2026-08-18 (RM anchored): a fresh workbook gets neutral RM_*_v2 clones,
+# so R = 1 until an RM proposal is authored — same contract as every other pair.
 PAIRED = ['c_saga', 'c_day', 'NS', 'SP', 'SP_lb', 'Race', 'TaD', 'Ki', 'J', 'HH', 'BB', 'Ph',
-          'RR', 'F']
-# bottom-up sheets (one ladder, no base/_v2 pair) — nothing to reset
-BOTTOM_UP = ['RM_1st', 'RM_2nd', 'RM']
+          'RR', 'F', 'RM_1st', 'RM_2nd']
+# bottom-up sheets (one ladder, no base/_v2 pair) — nothing to reset ('RM' = last-resort fallback)
+BOTTOM_UP = ['RM']
 # pack/collection sheets that exist in the workbook but not in the 13-resource model
 LEAVE_ALONE = ['PackConfig', 'AlbumConfig', 'CardPoolConfig', 'EcoPackGains', 'SimOutput',
                'SimSummary', 'PlayerBehavior', 'oldEcoGainsSim_PlybyPly', 'LOCal NS_v2', 'TE']

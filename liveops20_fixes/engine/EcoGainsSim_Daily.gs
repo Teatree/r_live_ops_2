@@ -133,9 +133,12 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
   // (from the engine's per-instance breakdown) on its days prop p_day, so RM_2nd-only
   // resources (SPTx2) never land on RM_1st instance days. Sums stay exactly the 33-day RM row.
   // parts == null (carried: no matchables/ladder) falls through to the generic placement.
-  // RM_SIMULATE (EcoGainsSim_v4.gs) off -> RM is carried, so the NEW side is just the measured
-  // total and must be placed by the generic rules; using the bottom-up per-instance rows here would
-  // put a DIFFERENT total on the days than the 33/21-day row carries and break conservation.
+  // RM_SIMULATE (EcoGainsSim_v4.gs) off -> RM is carried OR anchored (RM_ANCHORED): either way
+  // the NEW side is one total row (measured, or measured x R) and must be placed by the generic
+  // p_day rules; using the bottom-up per-instance rows here would put a DIFFERENT total on the
+  // days than the 33/21-day row carries and break conservation. (FLAGGED, anchored mode: the
+  // generic placement smears the single row over the whole cal_new RM lane, so an RM_2nd-only
+  // resource like SPTx2 can land on RM_1st instance days — day-grain display only, totals exact.)
   // Read at run time, not load time: Apps Script loads this file before the v4 one.
   if (isNew && cat === 'Rainbow Maker' && (typeof RM_SIMULATE === 'undefined' || RM_SIMULATE)){
     var parts = rmInstanceRows_(seg, payer, ctx);

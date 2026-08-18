@@ -38,22 +38,68 @@ const gate = (name, ok, detail) => {
 // ---------------------------------------------------------------- child mode: run one engine
 // Every config sheet that comes in a base/_v2 pair. Kept in sync with CONFIG_PAIRED in the engine;
 // gate D asserts the two lists match, so adding a config sheet there can't silently escape gate B.
+// RM_1st / RM_2nd joined 2026-08-18 (RM anchored: base = as-run ladder, _v2 = proposal).
 const PAIRED = ['c_saga', 'c_day', 'NS', 'SP', 'SP_lb', 'Race', 'TaD', 'Ki',
-                'J', 'HH', 'BB', 'Ph', 'RR', 'F', 'TE'];
+                'J', 'HH', 'BB', 'Ph', 'RR', 'F', 'TE', 'RM_1st', 'RM_2nd'];
 
-// argv: --engine <dir> [--legacy] [--identity] [--author]
-//   --legacy   : window forced back to 33 + modelling switches restored (reproduction gate)
-//   --identity : cal_new := cal_curr AND every _v2 := its base sheet (nothing authored, so the
-//                only thing left that could move a number is a bug)
-//   --author   : on top of --identity, edit c_day_v2's day-1 reward (proves the engine is live)
+// argv: --engine <dir> [--legacy] [--identity] [--author] [--rm-lane] [--author-rm] [--rm-thin]
+//   --legacy    : window forced back to 33 + modelling switches restored (reproduction gate)
+//   --identity  : cal_new := cal_curr AND every _v2 := its base sheet (nothing authored, so the
+//                 only thing left that could move a number is a bug)
+//   --author    : on top of --identity, edit c_day_v2's day-1 reward (proves the engine is live)
+//   --rm-lane   : paint a synthetic 2-instance Rainbow Maker lane onto cal_curr BEFORE the
+//                 identity copy (the main workbook's cal_curr has no RM lane — RM was new in the
+//                 redesign — and the anchored path carries without as-run instances)
+//   --author-rm : create RM_1st_v2/RM_2nd_v2 as clones, then bump RM_1st_v2's first coin rung
+//   --rm-thin   : AFTER the identity copy, delete the LAST RM instance from cal_new only — the
+//                 anchored row must not move (T pinned; a T-reading engine would shrink)
 if (process.argv.includes('--engine')) {
   const dir = process.argv[process.argv.indexOf('--engine') + 1];
   const legacy = process.argv.includes('--legacy');
   const identity = process.argv.includes('--identity');
   const author = process.argv.includes('--author');
+  const rmLane = process.argv.includes('--rm-lane');
+  const authorRM = process.argv.includes('--author-rm');
+  const rmThin = process.argv.includes('--rm-thin');
   const data = JSON.parse(fs.readFileSync(MOCK, 'utf8'));
   delete data['cal_parsed'];                       // stale precompute; parse the visual grids
 
+  if (rmLane) {
+    // grid = rows 5..25, cols B..V (day = col - 1). Two 4-day instances at days 2-5 and 9-12,
+    // written into the first fully-empty grid row so no real lane is disturbed.
+    const cal = data['cal_curr'];
+    let row = -1;
+    for (let r = 5; r <= 25; r++) {
+      const vr = cal.values[r - 1] || [];
+      let empty = true;
+      for (let c = 2; c <= 22; c++) {
+        const v = vr[c - 1];
+        if (v !== undefined && v !== null && String(v).trim() !== '') { empty = false; break; }
+      }
+      if (empty) { row = r; break; }
+    }
+    if (row < 0) throw new Error('--rm-lane: no empty cal_curr grid row to paint');
+    while (cal.values.length < row) cal.values.push([]);
+    const vr = cal.values[row - 1];
+    while (vr.length < 22) vr.push('');
+    vr[2] = 'Rainbow Maker';                       // col 3 = day 2
+    vr[9] = 'Rainbow Maker';                       // col 10 = day 9
+    cal.merges = cal.merges || [];
+    cal.merges.push({ r: row, c: 3, nr: 1, nc: 4 }, { r: row, c: 10, nr: 1, nc: 4 });
+    // The main workbook's measured RM rows are soft-launch traces with NO HC row (RM was new in
+    // the redesign), so the anchored ratio path would have nothing to scale and the authoring
+    // gate would vacuously pass on a dead path. Inject one measured anchor cell the same way the
+    // lane is injected — in the child's memory only.
+    const gv = data['data_gains'].values, gh = {};
+    (gv[0] || []).forEach((x, i) => { if (x !== null && x !== '') gh[String(x)] = i; });
+    const anchor = new Array(gv[0].length).fill('');
+    anchor[gh['engagement_segment']] = 'C. 10-19';
+    anchor[gh['payer_flag']] = 'NONPAYER';
+    anchor[gh['resource']] = 'HC';
+    anchor[gh['category']] = 'Rainbow Maker';
+    anchor[gh['amount_per_earner']] = 100;
+    gv.push(anchor);
+  }
   if (identity) {
     data['cal_new'] = JSON.parse(JSON.stringify(data['cal_curr']));
     // Blank the proposal layer by cloning each base sheet over its _v2. The workbook ships REAL v2
@@ -68,6 +114,45 @@ if (process.argv.includes('--engine')) {
     // author a proposal the ordinary way: edit the _v2 sheet
     const c = data['c_day_v2'];
     if (c) c.values[3][1] = (+c.values[3][1] || 0) * 2 + 50;
+  }
+  if (authorRM) {
+    ['RM_1st', 'RM_2nd'].forEach((k) => {
+      if (data[k]) data[k + '_v2'] = JSON.parse(JSON.stringify(data[k]));
+    });
+    // bump the first coin-paying rung of RM_1st_v2, located by headers (never by fixed indices —
+    // gates must not bake sheet layout in)
+    const sh = data['RM_1st_v2'];
+    if (!sh) throw new Error('--author-rm: RM_1st missing from the mockdata');
+    let hr = -1, reqC = -1, coinC = -1;
+    for (let r = 0; r < sh.values.length; r++) {
+      const idx = {};
+      (sh.values[r] || []).forEach((x, i) => { if (x !== null && x !== undefined && x !== '') idx[String(x).trim()] = i; });
+      if (idx['Req Accum'] !== undefined && idx['Coins'] !== undefined) {
+        hr = r; reqC = idx['Req Accum']; coinC = idx['Coins']; break;
+      }
+    }
+    if (hr < 0) throw new Error('--author-rm: RM_1st_v2 ladder header (Req Accum + Coins) not found');
+    let edited = false;
+    for (let r = hr + 1; r < sh.values.length; r++) {
+      const row = sh.values[r] || [];
+      if (row[0] === null || row[0] === undefined || row[0] === '' || isNaN(parseFloat(row[0]))) break;
+      if (+row[coinC] > 0) { row[coinC] = +row[coinC] * 2 + 50; edited = true; break; }
+    }
+    if (!edited) throw new Error('--author-rm: no coin-paying rung found on RM_1st_v2');
+  }
+  if (rmThin) {
+    // delete the LAST RM instance from cal_new only (label cell + its merge)
+    const cal = data['cal_new'];
+    let br = -1, bc = -1;
+    for (let r = 5; r <= 25; r++) {
+      const vr = cal.values[r - 1] || [];
+      for (let c = 2; c <= 22; c++) {
+        if (String(vr[c - 1] || '').trim() === 'Rainbow Maker' && c > bc) { br = r; bc = c; }
+      }
+    }
+    if (br < 0) throw new Error('--rm-thin: no Rainbow Maker instance on cal_new to remove');
+    cal.values[br - 1][bc - 1] = '';
+    cal.merges = (cal.merges || []).filter((m) => !(m.r <= br && br < m.r + m.nr && m.c <= bc && bc < m.c + m.nc));
   }
 
   function mkRange(sheetName, r1, c1, nr, nc) {
@@ -108,6 +193,8 @@ if (process.argv.includes('--engine')) {
 
   eval(fs.readFileSync(path.join(dir, 'EcoGainsSim_v4.gs'), 'utf8'));
   eval(fs.readFileSync(path.join(dir, 'EcoGainsSim_Daily.gs'), 'utf8'));
+  const hcwPath = path.join(dir, 'HCPerWin.gs');           // standalone; absent in the old engine
+  if (fs.existsSync(hcwPath)) eval(fs.readFileSync(hcwPath, 'utf8'));
   if (legacy) {
     // behave exactly like the main stack: no layer shift, 33-day window, 33-column calendar
     if (typeof SIM_DAYS !== 'undefined') SIM_DAYS = 33;
@@ -172,6 +259,7 @@ if (process.argv.includes('--engine')) {
       }
     }
   }
+  if (typeof ECOGAINS_HC_PER_WIN === 'function') out.hcw = ECOGAINS_HC_PER_WIN('10-19');
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 }
@@ -285,6 +373,59 @@ console.log('\n================ E. AUTHORING A _v2 MOVES THE SIM ===============
   gate('and nothing unrelated moves with it', others.length === 0,
        others.length ? others.join(', ') : 'only Daily Gift responded');
   // no restore needed: the edit lives only in the child process's copy of the mock data
+}
+
+console.log('\n================ F. RAINBOW MAKER (ANCHORED — config moves it, cadence does not) ================');
+{
+  // The anchored RM path (2026-08-18): SIM = measured x R over ONE schedule (cal_curr) for both
+  // sides. Three properties, each its own gate: silent when the _v2 ladders are clones; loud when
+  // an RM_1st_v2 rung is edited; and INDIFFERENT to cal_new cadence edits (T pinned) — the exact
+  // behaviour Garry asked for ("simulate the changes with T the same, don't read cal_new").
+  const rmKeys = (o) => Object.keys(o.cells).filter((k) => k.indexOf('|Rainbow Maker|') !== -1);
+  const lane = run(NEW_ENGINE, '--identity', '--rm-lane');
+  gate('anchored RM is silent when no RM _v2 is authored',
+       (lane.catDiff['Rainbow Maker'] || 0) <= 1e-9,
+       `max |diff| ${(lane.catDiff['Rainbow Maker'] || 0).toExponential(1)} with the lane on both calendars`);
+  const rmA = run(NEW_ENGINE, '--identity', '--rm-lane', '--author-rm');
+  const hcMoved = rmKeys(rmA).filter((k) => k.slice(-3) === '|HC' && Math.abs(rmA.cells[k][1]) > 1e-9);
+  gate('editing an RM_1st_v2 coin rung moves the RM HC row', hcMoved.length > 0,
+       hcMoved.length ? `${hcMoved.length} (payer,seg) cells moved, e.g. ${hcMoved[0]} diff ${rmA.cells[hcMoved[0]][1].toFixed(3)}`
+                      : 'no RM HC diff responded');
+  const othersF = Object.keys(rmA.catDiff)
+    .filter((c) => c !== 'Rainbow Maker' && rmA.catDiff[c] > 1e-9 && rmA.catInstances[c] !== 0);
+  gate('nothing unrelated moves with it', othersF.length === 0,
+       othersF.length ? othersF.join(', ') : 'only Rainbow Maker responded');
+  const rmT = run(NEW_ENGINE, '--identity', '--rm-lane', '--author-rm', '--rm-thin');
+  let worstT = 0, worstTK = '';
+  for (const k of new Set([...rmKeys(rmA), ...rmKeys(rmT)])) {
+    const a = rmA.cells[k] || [0, 0], b = rmT.cells[k] || [0, 0];
+    for (let i = 0; i < 2; i++) {
+      const d = Math.abs(a[i] - b[i]);
+      if (d > worstT) { worstT = d; worstTK = `${k}[${i ? 'diff' : 'sim'}] ${a[i]} vs ${b[i]}`; }
+    }
+  }
+  gate('a cal_new cadence edit does NOT move the anchored RM row (T pinned)', worstT < 1e-9,
+       worstT < 1e-9 ? 'RM row identical after deleting a cal_new RM instance' : worstTK);
+}
+
+console.log('\n================ G. HC PER LEVEL WIN (HCPerWin.gs) ================');
+{
+  // Standalone script, standalone constants — the same Apps Script load-order reality that
+  // forces SIM_DAYS/DAILY_DAYS/PBP_DAYS to be declared thrice. Gate the copies, then smoke the
+  // function end to end on the mock workbook.
+  const hDays = grab('HCPerWin.gs', /var HCW_DAYS = (\d+)/);
+  const hDow = grab('HCPerWin.gs', /var HCW_DAY_ONE_DOW = (\d+)/);
+  const engDow = grab('EcoGainsSim_v4.gs', /var SIM_DAY_ONE_DOW = (\d+)/);
+  gate('HCW_DAYS / HCW_DAY_ONE_DOW match the engine window',
+       hDays === simDays && hDow === engDow,
+       `HCW_DAYS ${hDays} (SIM_DAYS ${simDays}) · HCW_DAY_ONE_DOW ${hDow} (engine ${engDow})`);
+  const t = live.hcw || [];
+  const numOk = (i) => [2, 3, 4, 5].every((c) => typeof t[i][c] === 'number' && isFinite(t[i][c]));
+  const ok = t.length === 3 && t[0].length === 6 && t[1][0] === 'NONPAYER' && t[2][0] === 'PAYER'
+             && numOk(1) && numOk(2) && t[1][3] > 0 && t[2][3] > 0 && t[1][4] >= 0 && t[2][4] >= 0;
+  gate('ECOGAINS_HC_PER_WIN("10-19") returns finite per-win rates for both payer rows', ok,
+       ok ? `NONPAYER gain/win ${t[1][3]} spend/win ${t[1][4]} · PAYER gain/win ${t[2][3]} spend/win ${t[2][4]}`
+          : JSON.stringify(t).slice(0, 220));
 }
 
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');

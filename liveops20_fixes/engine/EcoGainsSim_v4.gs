@@ -53,10 +53,14 @@
  *                  data_streaks max_streak_per_day percentiles scaled by N = 1.25 (effective-
  *                  streak factor); window = E_day x Σ p_day. Measured is A/B-diluted → the DIFF
  *                  row is the ROLLOUT EFFECT (full-rollout sim minus diluted measured).
- *   Rainbow Maker  bottom-up survival-weighted (D6/D7): per cal_new instance,
- *                  Σ_k S_dur(ReqAccum_k) x reward_k x reach(inst); data_RM percentiles.
- *                  Split configs since 2026-07-10 (HARDCODED, see CLAUDE.md): start-sorted
- *                  instances #1-#3 read RM_1st, #4-#5 RM_2nd (SPTx2); fallback to RM.
+ *   Rainbow Maker  ANCHORED since 2026-08-18 (RM_ANCHORED): measured x R with
+ *                  R = E_v2/E_base, both sides reach-weighted over the SAME as-run cal_curr
+ *                  schedule (T pinned 1 — cal_new cadence deliberately not read; empty cal_new
+ *                  lane still zeroes). Ladder pairs RM_1st/RM_1st_v2, RM_2nd/RM_2nd_v2
+ *                  (missing _v2 -> base -> R=1). Split-config ordinal map since 2026-07-10
+ *                  (HARDCODED, see CLAUDE.md): start-sorted instances #1-#3 -> RM_1st,
+ *                  #4-#5 -> RM_2nd (SPTx2); fallback to RM. RM_SIMULATE=true restores the old
+ *                  bottom-up model (legacy/reproduction).
  *   River Rush     calendar-driven branches (D4): no cal_new instances today → 0
  *
  * CALENDARS drive cadence + duration: merge = one instance (width = duration), lone filled
@@ -101,8 +105,8 @@ var AUTO_REFRESH = true;
 // it was removed because editing _v2 then silently did nothing. See CONFIG LAYERS at the bottom.)
 //
 // The behavioural differences from engine/pre_collection are only these, each a flagged switch:
-//   SIM_DAYS 21 (+ SIM_DAY_ONE_DOW 1, Monday) · RM_SIMULATE false · JIGSAW_SIMULATE false ·
-//   RIVER_RUSH_ZERO true
+//   SIM_DAYS 21 (+ SIM_DAY_ONE_DOW 1, Monday) · RM anchored (RM_SIMULATE false + RM_ANCHORED true)
+//   · JIGSAW_SIMULATE false · RIVER_RUSH_ZERO true
 //
 // ---- window ----
 // 21 days, day 1 = 2026-07-27, day 21 = 2026-08-16. Every window-length assumption in this project
@@ -675,9 +679,13 @@ function nsEDay_(ladder, S){
 // RM[res] = Σ instances E[res] x reach(inst). Measured rows are soft-launch traces (kept in diff).
 //
 // PER-INSTANCE CONFIG SPLIT (2026-07-10, user decision — HARDCODED, see the CLAUDE.md
-// "Rainbow Maker split configs" note for the planned un-hardcoding): the 5 cal_new instances,
-// ordered by START DAY (the clipped 2-day instance at days 1-2 counts as #1), use:
+// "Rainbow Maker split configs" note for the planned un-hardcoding): instances ordered by
+// START DAY (a clipped leading instance counts as #1) use:
 //   #1-#3 -> 'RM_1st' (no SPTx2)   ·   #4-#5 -> 'RM_2nd' (SPTx2 rewards)
+// The ordinal map was designed for the 33-day plan's 5 cal_new instances; in ANCHORED mode it is
+// applied to the as-run cal_curr lane instead (FLAGGED: with only 3 as-run instances everything
+// maps to RM_1st and RM_2nd never enters — if the 4th instance actually ran on the second-half
+// config, keep it on the cal_curr lane or this map mis-assigns).
 // A split sheet that is missing or has no readable ladder falls back to 'RM' (keeps older
 // workbook exports and the offline harness working). All four views share this mapping:
 // the 33-day sim + Sim per Segment via simRainbowMaker/resultRow_, the daily view via
@@ -690,38 +698,105 @@ function rmSortedInsts_(cal){
     .sort(function(x, y){ return x.start - y.start; });
 }
 // instance ordinal (0-based, start-sorted) -> {sheet, ladder, cfgDur}; fallback chain to 'RM'.
-function rmConfigFor_(i){
-  var name = RM_INSTANCE_SHEETS[Math.max(0, Math.min(i, RM_INSTANCE_SHEETS.length - 1))] || 'RM';
-  var ladder = readRMLadder_(name);
+// useV2 (2026-08-18, RM anchoring): read the '<sheet>_v2' PROPOSAL ladder first — an unauthored
+// or missing _v2 falls back to the base sheet, so absent _v2 sheets read as "config unchanged"
+// (R = 1), the same convention readNSLadder_ uses. The reproduction gate is unaffected: the old
+// inputs carry no RM *_v2 sheets, so the fallback makes useV2 a no-op there.
+function rmConfigFor_(i, useV2){
+  var base = RM_INSTANCE_SHEETS[Math.max(0, Math.min(i, RM_INSTANCE_SHEETS.length - 1))] || 'RM';
+  var name = base, ladder = [];
+  if (useV2){
+    name = base + '_v2';
+    ladder = readRMLadder_(name);
+  }
+  if (!ladder.length){ name = base; ladder = readRMLadder_(name); }
   if (!ladder.length && name !== 'RM'){ name = 'RM'; ladder = readRMLadder_('RM'); }
   return { sheet: name, ladder: ladder, cfgDur: readRMDuration_(name) || 4 };
 }
 
-// Rainbow Maker master switch, mirroring NS_SIMULATE (Garry, 2026-08-17):
-//   false (shipped here) -> RM is CARRIED. The variant already runs Rainbow Maker, the measured
-//     anchor therefore contains it, and no RM change is planned — so simulating it bottom-up would
-//     only replace a measured number with a modelled one and report a difference where there is no
-//     decision to make. Carried means SIM = measured and diff = 0, on all three views.
-//   true -> the bottom-up survival model below (what the 33-day plan stack uses, where RM was new
-//     and had no anchor).
-// Side benefit: the known over-count in the measured RM coin rows at 100+ now cancels out of every
-// diff instead of being amplified by a bottom-up re-pricing. It still inflates the faucet LEVEL, so
-// read RM levels with care until the data is re-pulled.
-// EcoGainsSim_Daily.gs reads this flag at run time for the per-instance placement branch.
+// Rainbow Maker master switches (Garry, 2026-08-17 carried; 2026-08-18 ANCHORED — an RM proposal
+// now exists, so "no RM change is planned" no longer holds and carried would silently ignore it):
+//   RM_SIMULATE true            -> the bottom-up survival model below (what the 33-day plan stack
+//     uses, where RM was new and had no anchor). Diff = model - measured, so model error and the
+//     known 100+ coin over-count land in the diff. Legacy/reproduction only.
+//   RM_SIMULATE false + RM_ANCHORED true (SHIPPED) -> ANCHORED, the same shape as Night Sky (D22):
+//       SIM[res] = measured[res] x R[res],  R[res] = E_v2[res] / E_base[res]
+//     E = the reach-weighted expected ladder payout over ONE schedule used for BOTH sides — the
+//     as-run cal_curr RM lane (user decision 2026-08-18: price the config edit with T pinned 1,
+//     do NOT read the cadence from cal_new). base ladders = RM_1st / RM_2nd (as-run config),
+//     proposal = RM_1st_v2 / RM_2nd_v2 (missing _v2 -> base -> R = 1). Model error and the broken
+//     100+ measured coin level cancel INSIDE R's shape; the diff = measured x (R - 1) still scales
+//     off the measured level, so RM 100+ coin diffs inherit the over-count — re-pull pending.
+//     Removal semantics kept: an empty cal_new RM lane still zeroes the row; anything short of
+//     full removal (fewer/shorter cal_new instances) deliberately does NOT move it (T pinned).
+//     FLAGGED: a _v2 EventDuration edit does not flow either — the survival axis is scaled by the
+//     BASE config duration on both sides (duration is a schedule lever, pinned with T).
+//   both false -> CARRIED (SIM = measured, diff 0), the 2026-08-17 behaviour.
+// EcoGainsSim_Daily.gs reads RM_SIMULATE at run time: bottom-up gets per-instance placement,
+// anchored/carried get the generic p_day placement of the (measured x R) total.
 var RM_SIMULATE = false;
+var RM_ANCHORED = true;
 
 function simRainbowMaker(seg, payer, ctx){
   var meas = measuredRow_('Rainbow Maker', seg, payer, ctx.ds);
-  if (!RM_SIMULATE) return meas;                           // carried -> diff 0 (see switch above)
+  if (!RM_SIMULATE){
+    if (!RM_ANCHORED) return meas;                       // carried -> diff 0 (see switch above)
+    if (!ctx.calCurOk || !ctx.calNewOk) return meas;     // parse fail -> carry (canary catches)
+    if (!rmSortedInsts_(ctx.calNew).length) return zeroRow_();   // removed from the proposal
+    var sched = rmSortedInsts_(ctx.calCur);              // ONE schedule, both sides (T = 1)
+    if (!sched.length) return meas;                      // no as-run instances -> NEEDS-ANCHOR
+    var E = rmAnchoredE_(seg, payer, ctx, sched);
+    if (!E) return meas;                                 // no ladder / no matchables -> carry
+    var out = {};
+    RESOURCES.forEach(function(r){
+      var b = num(E.eBase[r]), v = num(E.eV2[r]);
+      out[r] = num(meas[r]) * (b > 1e-9 ? v / b : 1);
+      if (b <= 1e-9 && v > 0) out[r] += v;               // base-0 addition: no anchor -> bottom-up
+    });
+    return out;
+  }
   if (!ctx.calNewOk) return meas;
   if (!rmSortedInsts_(ctx.calNew).length) return zeroRow_();
   var parts = rmInstanceRows_(seg, payer, ctx);
   if (!parts) return meas;                               // no ladder / no matchables -> carry
-  var out = zeroRow_();
+  var out2 = zeroRow_();
   parts.forEach(function(p){
-    RESOURCES.forEach(function(r){ out[r] = num(out[r]) + num(p.row[r]); });
+    RESOURCES.forEach(function(r){ out2[r] = num(out2[r]) + num(p.row[r]); });
   });
-  return out;
+  return out2;
+}
+
+// Both sides' reach-weighted expected ladder payout over the SAME instance list (anchored mode).
+// Per instance i: base ladder from rmConfigFor_(i), proposal ladder from rmConfigFor_(i, true);
+// ONE survival curve (data_RM matchables percentiles, axis scaled by instanceDur / BASE config
+// duration) and ONE reach weight price both sides, so only ladder edits can move R — the exact
+// property the user asked for ("T the same, don't read the cadence from cal_new").
+// Returns {eBase, eV2} or null when no instance has a readable ladder / matchables distribution.
+function rmAnchoredE_(seg, payer, ctx, sched){
+  var ds = ctx.ds, pct = ds.rmPct(seg, payer);
+  if (!pct) return null;
+  var b = ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  var eBase = zeroRow_(), eV2 = zeroRow_(), any = false;
+  sched.forEach(function(inst, i){
+    var cb = rmConfigFor_(i), cv = rmConfigFor_(i, true);
+    if (!cb.ladder.length) return;
+    any = true;
+    var scale = Math.min(1, inst.dur / cb.cfgDur);       // BASE duration on both sides (pinned)
+    var S = survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],
+                       [pct.p75*scale,.75],[pct.p90*scale,.90]]);
+    if (!S) return;
+    var reach = reachOne_(inst, pWd, pWe);
+    cb.ladder.forEach(function(ms){
+      var s = S(ms.req);
+      for (var res in ms.rew) eBase[res] = num(eBase[res]) + ms.rew[res] * s * reach;
+    });
+    cv.ladder.forEach(function(ms2){
+      var s2 = S(ms2.req);
+      for (var res2 in ms2.rew) eV2[res2] = num(eV2[res2]) + ms2.rew[res2] * s2 * reach;
+    });
+  });
+  return any ? { eBase: eBase, eV2: eV2 } : null;
 }
 
 // Per-instance contributions over cal_new (start-sorted): [{inst, row}] — simRainbowMaker sums
@@ -735,7 +810,7 @@ function rmInstanceRows_(seg, payer, ctx){
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   var any = false;
   var parts = rmSortedInsts_(ctx.calNew).map(function(inst, i){
-    var cfg = rmConfigFor_(i), row = zeroRow_();
+    var cfg = rmConfigFor_(i, true), row = zeroRow_();   // SIM side prices the _v2 proposal (fallback: base)
     if (cfg.ladder.length){
       any = true;
       var scale = Math.min(1, inst.dur / cfg.cfgDur);
@@ -1642,6 +1717,7 @@ function sheetVals_(name){
 // These two registries survive because refreshSims_ derives its watch list from them (see
 // isWatched_): every config sheet in the model, plus its _v2, gets an auto-refresh on edit.
 var CONFIG_PAIRED = {'c_saga':1, 'c_day':1, 'NS':1, 'SP':1, 'SP_lb':1, 'Race':1, 'TaD':1, 'Ki':1,
-                     'J':1, 'HH':1, 'BB':1, 'Ph':1, 'RR':1, 'F':1, 'TE':1};
-// bottom-up config sheets: one ladder, no base/_v2 pair
-var CONFIG_SINGLE = {'RM':1, 'RM_1st':1, 'RM_2nd':1};
+                     'J':1, 'HH':1, 'BB':1, 'Ph':1, 'RR':1, 'F':1, 'TE':1,
+                     'RM_1st':1, 'RM_2nd':1};   // paired since 2026-08-18 (RM anchored: base = as-run, _v2 = proposal)
+// bottom-up config sheets: one ladder, no base/_v2 pair ('RM' is only the last-resort fallback)
+var CONFIG_SINGLE = {'RM':1};
