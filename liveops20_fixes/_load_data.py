@@ -116,41 +116,45 @@ def main():
         _, srows = dicts('data_gains_ab_summary')
         segmap = {'B. 1-9': '0-9', 'C. 10-19': '10-19', 'D. 20-39': '20-39',
                   'E. 40-99': '40-99', 'F. 100+': '100+'}
-        gsum, ssum = defaultdict(float), defaultdict(float)
         # This gate asks ONE question: is data_gains built on the variant cohort? It answers it by
-        # tying HC totals to the summary. Since the 2026-08-17 drop, data_gains ships a CORRECTED
-        # amount plus the raw one in *_uncorrected, while the summary stays raw — so comparing the
-        # corrected column would measure the size of the correction (41.6% at 100+, all Rainbow
-        # Maker) and report it as a wrong cohort, which is a different failure entirely. Tie on the
-        # uncorrected column when it exists so the gate keeps testing the cohort; the correction is
-        # reported separately below.
-        amt = ('category_amount_uncorrected'
-               if grows and 'category_amount_uncorrected' in grows[0] else 'category_amount')
+        # tying HC totals to the summary. data_gains ships a CORRECTED amount (the Rainbow Maker
+        # de-dup) plus the raw one in *_uncorrected — and the SUMMARY's basis has changed across
+        # drops: raw through 2026-08-17, corrected since the 2026-08-18 re-basis drop. Comparing a
+        # fixed column against the wrong-basis summary measures the size of the RM correction
+        # (41% at 100+) and mislabels it as a wrong cohort. So tie LIKE-FOR-LIKE: try both columns
+        # and pass on whichever matches — the winner also tells us which basis the summary is on.
+        # The correction itself is reported separately below, vs the RAW column (never gated —
+        # it is the analytics side fixing a known over-count, not a data defect).
+        has_raw = bool(grows) and 'category_amount_uncorrected' in grows[0]
+        gcor, graw, ssum = defaultdict(float), defaultdict(float), defaultdict(float)
         for r in grows:
             if r['resource'] == 'HC' and r['engagement_segment'] in segmap:
-                gsum[segmap[r['engagement_segment']]] += fnum(r[amt])
+                seg = segmap[r['engagement_segment']]
+                gcor[seg] += fnum(r['category_amount'])
+                graw[seg] += fnum(r['category_amount_uncorrected'] if has_raw else r['category_amount'])
         var = next((a for a in {r['ab_group'] for r in srows} if a.lower().startswith('variant')), None)
         for r in srows:
             if r['resource'] == 'HC' and r['ab_group'] == var:
                 ssum[r['segment']] += fnum(r['total_amount'])
-        worst = max((abs(gsum[s] - ssum[s]) / max(ssum[s], 1) for s in ssum), default=1)
-        raw = ' (on the raw column; the correction is measured separately)' \
-              if amt.endswith('_uncorrected') else ''
-        verdicts['data_gains'] = (('VARIANT' if worst < 0.01 else 'NOT THE VARIANT ARM'),
-                                  f'HC totals tie to summary "{var}" within {worst:.2%}{raw}')
+        def worst_tie(gsum):
+            return max((abs(gsum[s] - ssum[s]) / max(ssum[s], 1) for s in ssum), default=1)
+        w_cor, w_raw = worst_tie(gcor), worst_tie(graw)
+        if w_cor < 0.01:
+            verdicts['data_gains'] = ('VARIANT',
+                f'corrected HC totals tie to summary "{var}" within {w_cor:.2%} (summary is corrected)')
+        elif w_raw < 0.01:
+            verdicts['data_gains'] = ('VARIANT',
+                f'raw HC totals tie to summary "{var}" within {w_raw:.2%} (summary is raw)')
+        else:
+            verdicts['data_gains'] = ('NOT THE VARIANT ARM',
+                f'neither column ties to summary "{var}" (corrected off {w_cor:.2%}, raw off {w_raw:.2%})')
 
-        # The correction itself: how much of each segment's HC faucet the export withdrew. Reported,
-        # never gated — it is the analytics side fixing a known over-count, not a data defect.
-        if amt.endswith('_uncorrected'):
-            corr = defaultdict(float)
-            for r in grows:
-                if r['resource'] == 'HC' and r['engagement_segment'] in segmap:
-                    corr[segmap[r['engagement_segment']]] += fnum(r['category_amount'])
-            hits = sorted(((s, 1 - corr[s] / ssum[s]) for s in ssum if ssum[s]),
+        if has_raw:
+            hits = sorted(((s, 1 - gcor[s] / graw[s]) for s in graw if graw[s]),
                           key=lambda x: -x[1])
             verdicts['data_gains (correction)'] = (
-                'APPLIED',
-                'HC withdrawn by segment: ' + ', '.join(f'{s} {p:.1%}' for s, p in hits))
+                'APPLIED' if any(p > 0.001 for _, p in hits) else 'NONE',
+                'HC withdrawn vs raw by segment: ' + ', '.join(f'{s} {p:.1%}' for s, p in hits))
 
     # data_seg_beh — cohort size against the summary reference
     if 'data_seg_beh' in available and ref_pd:
