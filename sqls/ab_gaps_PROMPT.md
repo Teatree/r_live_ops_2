@@ -1,4 +1,4 @@
-# Prompt — three companion result sets for the LiveOps v2 A/B read-out (players, balances, denominators)
+# Prompt — three companion result sets for the LiveOps v2 A/B genread-out (players, balances, denominators)
 
 Paste this to your query LLM **together with the query that produced
 `resource_gains_by_source_detail_802C_9-day_total` and `resource_spend_by_sink_802C_9-day_total`**
@@ -96,22 +96,23 @@ active in both periods, so `players` in the `'FULL'` row is smaller than the two
 That is correct and is precisely why I need the `'FULL'` row computed independently rather than
 added up.
 
-| column | meaning |
-|---|---|
-| `segment`, `ab_group`, `resource`, `resource_category`, `unit` | same values/labels as the existing exports |
-| `window_tag` | `D1_9` / `D10_PLUS` / `FULL` (see the window section above) |
-| `players` | **distinct players** active in the window in this segment × arm (the denominator; identical across all resources of that key) |
-| `gainers` | distinct players with gain > 0 of this resource in the window |
-| `spenders` | distinct players with spend > 0 of this resource |
-| `excluded_players` | distinct players removed by the exclusion rule for this key (see the symmetry note above) |
-| `gain_total`, `spend_total` | window totals, so this set reconciles against the existing exports |
-| `gain_per_gainer`, `spend_per_spender` | totals ÷ the distinct counts above — **not** ÷ gainer-days |
-| `gain_p50/p75/p90/p99`, `spend_p50/p75/p90/p99` | per-player distribution over `players` (a player with no gain/spend contributes 0) |
-| `net_p10/p50/p90` | per-player **net** distribution — compute each player's `gain − spend` first, **then** percentile. Do not difference the gain and spend percentiles. |
-| `top1_share`, `top5_share`, `top10_share` | share of the segment's total spend (and a parallel set for gain) contributed by the top 1 / 5 / 10 **players**. This is the concentration measure I actually need — it tells me directly whether a cell is one whale. |
-| `spend_events_per_spender` | `spend_events ÷ spenders` — purchases per buyer, distinct from the current rows-per-player-day |
+| column                                                                   | meaning                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `segment`, `ab_group`, `resource`, `resource_category`, `unit` | same values/labels as the existing exports                                                                                                                                                                                  |
+| `window_tag`                                                           | `D1_9` / `D10_PLUS` / `FULL` (see the window section above)                                                                                                                                                           |
+| `players`                                                              | **distinct players** active in the window in this segment × arm (the denominator; identical across all resources of that key)                                                                                        |
+| `gainers`                                                              | distinct players with gain > 0 of this resource in the window                                                                                                                                                               |
+| `spenders`                                                             | distinct players with spend > 0 of this resource                                                                                                                                                                            |
+| `excluded_players`                                                     | distinct players removed by the exclusion rule for this key (see the symmetry note above)                                                                                                                                   |
+| `gain_total`, `spend_total`                                          | window totals, so this set reconciles against the existing exports                                                                                                                                                          |
+| `gain_per_gainer`, `spend_per_spender`                               | totals ÷ the distinct counts above —**not** ÷ gainer-days                                                                                                                                                          |
+| `gain_p50/p75/p90/p99`, `spend_p50/p75/p90/p99`                      | per-player distribution over`players` (a player with no gain/spend contributes 0)                                                                                                                                         |
+| `net_p10/p50/p90`                                                      | per-player**net** distribution — compute each player's `gain − spend` first, **then** percentile. Do not difference the gain and spend percentiles.                                                         |
+| `top1_share`, `top5_share`, `top10_share`                          | share of the segment's total spend (and a parallel set for gain) contributed by the top 1 / 5 / 10**players**. This is the concentration measure I actually need — it tells me directly whether a cell is one whale. |
+| `spend_events_per_spender`                                             | `spend_events ÷ spenders` — purchases per buyer, distinct from the current rows-per-player-day                                                                                                                          |
 
 **Acceptance checks** (verify before delivering):
+
 - On the **`'D1_9'` rows only**: `gain_total` per (segment, ab_group, resource) must equal
   `amount_gained` in `resource_gains_by_source_detail_802C_9-day_total` summed over `source_detail`,
   to the unit. This is the check that proves the new queries and the old exports agree; it cannot
@@ -141,12 +142,12 @@ This one is already daily, so `window_tag` is just a label on each row — but k
 group without re-deriving the date ranges. A balance series is most useful unpooled anyway: I want
 to see the shape across all 16 days, including whether it flattens after 3 Aug.
 
-| column | meaning |
-|---|---|
-| `event_date`, `segment`, `ab_group`, `resource`, `unit` | as above |
-| `players` | distinct players active that day in that key |
-| `balance_open_p25/p50/p75/p90`, `balance_close_p25/p50/p75/p90` | per-player balance at day start / day end. If only one snapshot per player-day exists, emit it once as `balance_eod_*` and say so. |
-| `balance_mean`, `balance_zero_share` | mean balance, and the share of players sitting at a balance of 0 (the rationing signal — a rising zero-share with flat spend means players are constrained, not disinterested) |
+| column                                                              | meaning                                                                                                                                                                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `event_date`, `segment`, `ab_group`, `resource`, `unit`   | as above                                                                                                                                                                        |
+| `players`                                                         | distinct players active that day in that key                                                                                                                                    |
+| `balance_open_p25/p50/p75/p90`, `balance_close_p25/p50/p75/p90` | per-player balance at day start / day end. If only one snapshot per player-day exists, emit it once as`balance_eod_*` and say so.                                             |
+| `balance_mean`, `balance_zero_share`                            | mean balance, and the share of players sitting at a balance of 0 (the rationing signal — a rising zero-share with flat spend means players are constrained, not disinterested) |
 
 Take balances from the daily aggregate table (the same place `hc_gain`/`hc_spend` come from), not by
 cumulating `client_events` — I want the game's own balance, including anything the flow ledger
@@ -158,13 +159,13 @@ picking one; the gap is itself informative.
 `UL <bird>` resources, and `Dream Pass tokens` — every resource that appears in the gains ledger
 with no corresponding sink rows.
 
-| column | meaning |
-|---|---|
-| `granted` | total granted in the window (minutes for UL, tokens for Dream Pass) |
-| `activated` / `consumed` | actually used — UL minutes that started ticking, tokens redeemed against a Season Pass tier |
-| `expired_unused` | granted and never used before expiry or window end |
-| `overlapped` | UL minutes granted while an existing UL timer was still running (i.e. granted on top of itself and worth nothing) — if this is derivable at all, it is the number I most want |
-| `pct_consumed`, `pct_expired`, `pct_overlapped` | the three as shares of `granted` |
+| column                                                | meaning                                                                                                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `granted`                                           | total granted in the window (minutes for UL, tokens for Dream Pass)                                                                                                            |
+| `activated` / `consumed`                          | actually used — UL minutes that started ticking, tokens redeemed against a Season Pass tier                                                                                   |
+| `expired_unused`                                    | granted and never used before expiry or window end                                                                                                                             |
+| `overlapped`                                        | UL minutes granted while an existing UL timer was still running (i.e. granted on top of itself and worth nothing) — if this is derivable at all, it is the number I most want |
+| `pct_consumed`, `pct_expired`, `pct_overlapped` | the three as shares of`granted`                                                                                                                                              |
 
 If `overlapped` is not derivable from the event stream, say so explicitly rather than approximating
 it — I would rather have a documented hole than a number I trust wrongly.
@@ -191,16 +192,16 @@ earliest-assigned players. Report retention per **assignment cohort** and mark a
 observation period is incomplete as null, not zero — a partially-observed D7 that silently reads
 low is worse than a missing one.
 
-| column | meaning |
-|---|---|
-| `players_active`, `players_assigned` | active that day, and total assigned to the arm in that segment — **both**, so I can see activation rate, not just behaviour among the active |
-| `activation_rate` | `players_active ÷ players_assigned` |
-| `d1_retention`, `d3_retention`, `d7_retention` | measured from arm assignment date, not from install |
-| `sessions_per_active`, `session_minutes_per_active` | engagement depth |
-| `levels_attempted_per_active`, `levels_completed_per_active`, `level_win_rate` | the progression read — this also tells me whether the completion buckets are migrating |
-| `bucket_at_assignment` | the segment the player occupied at arm assignment, so this set can be re-cut on a **frozen** cohort (completion bucket is an outcome the Variant changed; the existing exports segment on the current bucket, which is self-selected) |
-| `iap_revenue`, `iap_revenue_per_active`, `payers`, `conversion_rate`, `arppu` | the revenue read on the same cohort and window |
-| `hc_purchased_per_active` | HC acquired via IAP specifically, split out from the free faucet — the existing exports carry `amount_gained_free` / `amount_gained_paid` but I want it on this cohort basis too |
+| column                                                                                  | meaning                                                                                                                                                                                                                                    |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `players_active`, `players_assigned`                                                | active that day, and total assigned to the arm in that segment —**both**, so I can see activation rate, not just behaviour among the active                                                                                         |
+| `activation_rate`                                                                     | `players_active ÷ players_assigned`                                                                                                                                                                                                     |
+| `d1_retention`, `d3_retention`, `d7_retention`                                    | measured from arm assignment date, not from install                                                                                                                                                                                        |
+| `sessions_per_active`, `session_minutes_per_active`                                 | engagement depth                                                                                                                                                                                                                           |
+| `levels_attempted_per_active`, `levels_completed_per_active`, `level_win_rate`    | the progression read — this also tells me whether the completion buckets are migrating                                                                                                                                                    |
+| `bucket_at_assignment`                                                                | the segment the player occupied at arm assignment, so this set can be re-cut on a**frozen** cohort (completion bucket is an outcome the Variant changed; the existing exports segment on the current bucket, which is self-selected) |
+| `iap_revenue`, `iap_revenue_per_active`, `payers`, `conversion_rate`, `arppu` | the revenue read on the same cohort and window                                                                                                                                                                                             |
+| `hc_purchased_per_active`                                                             | HC acquired via IAP specifically, split out from the free faucet — the existing exports carry`amount_gained_free` / `amount_gained_paid` but I want it on this cohort basis too                                                       |
 
 **Acceptance check:** `players_active` per (event_date, segment, ab_group) must reconcile with
 `segment_players` in the daily exports **for the dates those exports cover**, and summing it over
