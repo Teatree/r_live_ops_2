@@ -32,10 +32,10 @@ SHEETS = [
     'SP', 'SP_lb', 'SP_v2', 'SP_lb_v2',
     # Rainbow Maker split configs (2026-07-10, hardcoded RM_1st x3 / RM_2nd x2 — see CLAUDE.md):
     # expected MISSING until the next workbook export; the engine falls back to 'RM'.
-    'RM_1st', 'RM_2nd',
+    'RM_1st', 'RM_2nd', 'RM_1st_v2', 'RM_2nd_v2',
     # Card collection (D19, 2026-08-03). TE feeds the Team Event pack overlay (PACK_ONLY_SPECS);
     # the rest feed CardOpenings.gs / _mock_cards.js. EcoPackGains and PlayerBehavior are GONE.
-    'TE', 'PackConfig', 'AlbumConfig', 'CardPoolConfig', 'SimOutput',
+    'TE', 'PackConfig', 'AlbumConfig', 'CardPoolConfig', 'Col_Cards_Daily',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The
@@ -47,7 +47,7 @@ SHEETS = [
 # listed again (2026-08-18): the pack log gained an 'Earned From' column and the album grids moved
 # J -> L, so the workbook's copy is a layout the engine no longer writes. Drop the entry once the
 # sheet has been re-imported into the live workbook.
-PENDING_IMPORT = {'SimOutput': 'SimOutput_v2.xlsx'}
+PENDING_IMPORT = {'Col_Cards_Daily': 'SimOutput_v2.xlsx'}
 
 
 def dump_sheet(ws):

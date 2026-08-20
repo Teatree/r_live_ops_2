@@ -3,7 +3,7 @@
 // checks the acquisition seam (dailyPacksFor_), the pool/draw semantics, both pity mechanisms,
 // chest purchasing and determinism.
 //
-// Requires PackConfig / SimOutput in _mockdata.json — _dump_mockdata.py overlays the freshly
+// Requires PackConfig / Col_Cards_Daily in _mockdata.json — _dump_mockdata.py overlays the freshly
 // built display/PackConfig_v2.xlsx and display/SimOutput_v2.xlsx (PENDING_IMPORT), so this runs
 // against the layout the engine expects even before the sheets are imported into the workbook.
 const fs = require('fs');
@@ -191,7 +191,7 @@ let firstRun = null;
     flow.bySource.map(s => s.cat).sort().join(', ') === 'Flash Race, Jigsaw, Team Event',
     flow.bySource.map(s => s.cat).join(', '));
 
-  const seg = mkSheet('SimOutput');
+  const seg = mkSheet('Col_Cards_Daily');
   seg.getRange('B2').setValue('10-19');
   seg.getRange('D2').setValue('NONPAYER');
   seg.getRange('G2').setValue(12345);
@@ -201,7 +201,7 @@ let firstRun = null;
 
   const tally = {};
   for (let i = 0; i < 12; i++)
-    tally[data['SimOutput'].values[41 + i][0]] = data['SimOutput'].values[41 + i][1];
+    tally[data['Col_Cards_Daily'].values[41 + i][0]] = data['Col_Cards_Daily'].values[41 + i][1];
   console.log('  tally:', JSON.stringify(tally));
 
   check('tally: cards drawn == new + dupes',
@@ -221,7 +221,7 @@ let firstRun = null;
 
   // running totals: 33 rows, monotonic packs-opened, album tier never decreases
   const tot = [];
-  for (let i = 0; i < 33; i++) tot.push(data['SimOutput'].values[5 + i]);
+  for (let i = 0; i < 33; i++) tot.push(data['Col_Cards_Daily'].values[5 + i]);
   check('running totals: 33 day rows, days 1..33 in order',
     tot.length === 33 && tot.every((r, i) => r[0] === i + 1));
   check('running totals: packs-opened is monotonic non-decreasing',
@@ -232,8 +232,8 @@ let firstRun = null;
 
   // pack log
   const log = [];
-  for (let r = 56; r < data['SimOutput'].values.length; r++) {
-    const row = data['SimOutput'].values[r];
+  for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+    const row = data['Col_Cards_Daily'].values[r];
     if (!row || row[0] === '' || row[0] == null) break;
     log.push(row);
   }
@@ -243,7 +243,7 @@ let firstRun = null;
   check('pack log: every pack name is a known tier or blank',
     log.every(r => r[1] === '' || PACK_RES.indexOf(r[1]) >= 0),
     [...new Set(log.map(r => r[1]))].join(', '));
-  const isEmptyLabel = (t) => t === '(did not play)' || t === '(played — no pack dropped)';
+  const isEmptyLabel = (t) => t === '(did not play)' || t === '(played, no pack dropped)';
   check('pack log: sources are real engine categories (or a chest / an empty-day reason)',
     log.every(r => isEmptyLabel(r[2]) || /Chest Opened/.test(r[2]) || CATEGORY_ORDER.indexOf(r[2]) >= 0),
     [...new Set(log.map(r => r[2]))].join(' | '));
@@ -251,9 +251,9 @@ let firstRun = null;
   // session looked like — that detail is the whole point of splitting the old '(nothing)' label.
   const empties = log.filter(r => isEmptyLabel(r[2]));
   check('pack log: empty days say whether the player showed up',
-    empties.every(r => r[2] === '(did not play)' || r[2] === '(played — no pack dropped)'),
+    empties.every(r => r[2] === '(did not play)' || r[2] === '(played, no pack dropped)'),
     empties.length + ' empty rows');
-  const playedEmpty = log.filter(r => r[2] === '(played — no pack dropped)');
+  const playedEmpty = log.filter(r => r[2] === '(played, no pack dropped)');
   check('pack log: played-but-empty days report the session',
     playedEmpty.length === 0 || playedEmpty.every(r => /level|min|session/.test(String(r[3]))),
     playedEmpty.length ? playedEmpty[0][3] : 'no played-empty days in this run');
@@ -261,37 +261,49 @@ let firstRun = null;
     !log.some(r => r[2] === '(did not play)' && r[1] !== ''));
 
   // STALE-SHEET GUARD. Snapshot / mutate / assert / restore: put an Album label back where the OLD
-  // SimOutput layout had it (column J, inside the widened log) and the run must ABORT rather than
+  // Col_Cards_Daily layout had it (column J, inside the widened log) and the run must ABORT rather than
   // clear over it. Without this, a script/sheet mismatch silently eats the first column of every
   // 3x3 grid and the grids simply render 2 wide, with nothing reporting an error.
   {
-    const snapshot = JSON.stringify(data['SimOutput'].values);
-    data['SimOutput'].values[55][9] = 'Album #1';        // row 56, column J
+    const snapshot = JSON.stringify(data['Col_Cards_Daily'].values);
+    data['Col_Cards_Daily'].values[55][9] = 'Album #1';        // row 56, column J
     let aborted = '';
     try { SimulatePackOpenings(); } catch (e) { aborted = String(e.message || e); }
-    check('stale SimOutput layout aborts instead of clearing over the album grids',
+    check('stale Col_Cards_Daily layout aborts instead of clearing over the album grids',
       /OLD layout/.test(aborted) && /column J/.test(aborted),
       aborted ? aborted.slice(0, 90) + '...' : 'run completed — the guard did NOT fire');
-    data['SimOutput'].values = JSON.parse(snapshot);
+    data['Col_Cards_Daily'].values = JSON.parse(snapshot);
     check('stale-guard fixture restored',
-      JSON.stringify(data['SimOutput'].values) === snapshot);
+      JSON.stringify(data['Col_Cards_Daily'].values) === snapshot);
   }
 
   // Grid geometry: all THREE columns painted, and the set NAME written beside the anchor without
   // clobbering the 'Set #N' label that findGridAnchors_ locates the grid by.
+  // The grid ANCHOR may sit immediately after the log (no spacer) or one column later. Both must
+  // be found: a scan that assumes the spacer silently finds nothing on a hand-arranged sheet,
+  // paints no grid, and leaves whatever stale content was there (exactly what left the live
+  // grids reading 2 columns wide). Gate the scan range, not just the happy path.
+  {
+    const startCol = gridScanRange_().match(/^([A-Z]+)/)[1].split('')
+      .reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0);
+    check('grid scan starts at the first column past the log (no spacer assumed)',
+      startCol === LOG_COLS.length + 1,
+      'scan starts at column ' + startCol + ', log ends at ' + LOG_COLS.length);
+  }
+
   {
     // This gate REPAINTS the grids with a synthetic full collection, so it must snapshot and restore
     // like every other mutating gate here — the determinism check downstream compares the whole
     // sheet byte-for-byte and would otherwise fail on this fixture's leftovers.
-    const gridSnap = JSON.stringify(data['SimOutput'].values);
+    const gridSnap = JSON.stringify(data['Col_Cards_Daily'].values);
     const album = mkSheet('AlbumConfig'), last = album.getLastRow();
     const cat = album.getRange(3, 1, last - 2, 5).getValues()
       .filter(r => r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])))
       .map(r => ({ name: r[1], setNum: Number(r[2]), setName: String(r[3] == null ? '' : r[3]).trim(),
                    rarity: String(r[4]).trim(), key: r[1] + ' ' + String(r[4]).trim() }));
     const full = {}; cat.forEach(c => { full[c.key] = true; });
-    writeAlbumGrids_(mkSheet('SimOutput'), cat, full, 0, 9);
-    const vals = data['SimOutput'].values;
+    writeAlbumGrids_(mkSheet('Col_Cards_Daily'), cat, full, 0, 9);
+    const vals = data['Col_Cards_Daily'].values;
     let anchorRow = -1, anchorCol = -1;
     for (let r = 55; r < vals.length && anchorRow < 0; r++)
       for (let c = 0; c < (vals[r] || []).length; c++)
@@ -308,11 +320,11 @@ let firstRun = null;
         String(vals[anchorRow][anchorCol + 1] || '').trim() !== '',
         String(vals[anchorRow][anchorCol]) + ' | ' + String(vals[anchorRow][anchorCol + 1]));
     }
-    data['SimOutput'].values = JSON.parse(gridSnap);
-    check('grid fixture restored', JSON.stringify(data['SimOutput'].values) === gridSnap);
+    data['Col_Cards_Daily'].values = JSON.parse(gridSnap);
+    check('grid fixture restored', JSON.stringify(data['Col_Cards_Daily'].values) === gridSnap);
   }
 
-  firstRun = JSON.stringify(data['SimOutput'].values);
+  firstRun = JSON.stringify(data['Col_Cards_Daily'].values);
   data = snapshot;   // restore for the next block
 }
 
@@ -320,18 +332,18 @@ let firstRun = null;
 {
   authorLadders();
   eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
-  const seg = mkSheet('SimOutput');
+  const seg = mkSheet('Col_Cards_Daily');
   seg.getRange('B2').setValue('10-19');
   seg.getRange('D2').setValue('NONPAYER');
   seg.getRange('G2').setValue(12345);
   SimulatePackOpenings();
-  check('same seed + same inputs -> byte-identical SimOutput (deterministic)',
-    JSON.stringify(data['SimOutput'].values) === firstRun);
+  check('same seed + same inputs -> byte-identical Col_Cards_Daily (deterministic)',
+    JSON.stringify(data['Col_Cards_Daily'].values) === firstRun);
 
-  const before = JSON.stringify(data['SimOutput'].values);
+  const before = JSON.stringify(data['Col_Cards_Daily'].values);
   seg.getRange('G2').setValue(999);
   SimulatePackOpenings();
-  check('a different seed changes the run', JSON.stringify(data['SimOutput'].values) !== before);
+  check('a different seed changes the run', JSON.stringify(data['Col_Cards_Daily'].values) !== before);
 }
 
 // ---------------------------------------------------------------- 5. segment sensitivity
@@ -339,13 +351,13 @@ let firstRun = null;
   data = JSON.parse(RAW);
   authorLadders();
   eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
-  const seg = mkSheet('SimOutput');
+  const seg = mkSheet('Col_Cards_Daily');
   const run = (s, p) => {
     seg.getRange('B2').setValue(s);
     seg.getRange('D2').setValue(p);
     seg.getRange('G2').setValue(4242);
     SimulatePackOpenings();
-    return data['SimOutput'].values[41][1];        // Total Packs Opened
+    return data['Col_Cards_Daily'].values[41][1];        // Total Packs Opened
   };
   const light = run('0-9', 'NONPAYER');
   const heavy = run('100+', 'PAYER');
@@ -363,13 +375,13 @@ let firstRun = null;
   data = JSON.parse(RAW);
   authorLadders();
   eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
-  const seg = mkSheet('SimOutput');
+  const seg = mkSheet('Col_Cards_Daily');
   seg.getRange('B2').setValue('100+');
   seg.getRange('D2').setValue('PAYER');
   seg.getRange('G2').setValue(7);
   SimulatePackOpenings();
 
-// Column index of a pack-log field, from the engine's own LOG_COLS. NOT from the SimOutput header
+// Column index of a pack-log field, from the engine's own LOG_COLS. NOT from the Col_Cards_Daily header
 // row: that is written by the builder and lags until the sheet is re-imported, so it would report
 // the OLD layout against NEW output. The log gained an 'Earned From' column on 2026-08-18 and every
 // fixed index below it shifted by one — the pity gates then read the blank Album column as
@@ -383,8 +395,8 @@ function logCol(name){
 
   // Rarity mix of everything drawn should track the SNAP POOL shares, not any per-pack grid.
   const log = [];
-  for (let r = 56; r < data['SimOutput'].values.length; r++) {
-    const row = data['SimOutput'].values[r];
+  for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+    const row = data['Col_Cards_Daily'].values[r];
     if (!row || row[0] === '' || row[0] == null) break;
     if (row[logCol('Cards Drawn')]) log.push(String(row[logCol('Cards Drawn')]));
   }
@@ -438,7 +450,7 @@ function logCol(name){
   }
   check('pity fixture applied to all 6 pack tiers', patched === 6, patched + ' rows');
   eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
-  const sh = mkSheet('SimOutput');
+  const sh = mkSheet('Col_Cards_Daily');
   sh.getRange('B2').setValue('100+');
   sh.getRange('D2').setValue('PAYER');
   sh.getRange('G2').setValue(2024);
@@ -454,8 +466,8 @@ function logCol(name){
   const acceptable = new Set(stocked.slice(-2));
   console.log('  pity target rarities (top stocked):', [...acceptable].join('/'));
   let packs = 0, violations = 0, guaranteedHits = 0, streak = 0;
-  for (let r = 56; r < data['SimOutput'].values.length; r++) {
-    const row = data['SimOutput'].values[r];
+  for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+    const row = data['Col_Cards_Daily'].values[r];
     if (!row || row[0] === '' || row[0] == null) break;
     if (!row[logCol('Cards Drawn')]) continue;
     packs++;
@@ -476,8 +488,8 @@ function logCol(name){
   // and the counter must NOT carry between packs: with [0,0,0,1.0] the FIRST card of a pack can
   // never be forced, so across many packs the first card is sometimes not the target.
   let firstCards = 0, firstIsTarget = 0;
-  for (let r = 56; r < data['SimOutput'].values.length; r++) {
-    const row = data['SimOutput'].values[r];
+  for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+    const row = data['Col_Cards_Daily'].values[r];
     if (!row || row[0] === '' || row[0] == null) break;
     if (!row[logCol('Cards Drawn')]) continue;
     const rar = rarityOfCard(String(row[logCol('Cards Drawn')]).split(', ')[0]);
@@ -518,19 +530,19 @@ function logCol(name){
   check('chest cost override applied (harness fixture)', setChestCosts([10, 20, 30]));
 
   const runChests = () => {
-    data['SimOutput'] = JSON.parse(RAW).SimOutput;
-    const sh = mkSheet('SimOutput');            // re-made: `data.SimOutput` was just replaced
+    data['Col_Cards_Daily'] = JSON.parse(RAW).Col_Cards_Daily;
+    const sh = mkSheet('Col_Cards_Daily');            // re-made: `data.Col_Cards_Daily` was just replaced
     sh.getRange('B2').setValue('100+');
     sh.getRange('D2').setValue('PAYER');
     sh.getRange('G2').setValue(31337);
     SimulatePackOpenings();
     let chestRows = 0;
-    for (let r = 56; r < data['SimOutput'].values.length; r++) {
-      const row = data['SimOutput'].values[r];
+    for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+      const row = data['Col_Cards_Daily'].values[r];
       if (!row || row[0] === '' || row[0] == null) break;
       if (/Chest Opened/.test(String(row[2]))) chestRows++;
     }
-    return { spent: data['SimOutput'].values[46][1], chestRows };   // B47 = Stars Spent on Chests
+    return { spent: data['Col_Cards_Daily'].values[46][1], chestRows };   // B47 = Stars Spent on Chests
   };
 
   setPanel('CHEST PURCHASING', 'End-of-Season Buy Probability', 0);
@@ -558,7 +570,7 @@ function logCol(name){
 {
   data = JSON.parse(RAW);
   eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
-  const seg = mkSheet('SimOutput');
+  const seg = mkSheet('Col_Cards_Daily');
   const expectThrow = (name, setup, re) => {
     setup();
     let msg = '';
@@ -577,6 +589,25 @@ function logCol(name){
     seg.getRange('B2').setValue('');
     seg.getRange('D2').setValue('NONPAYER');
   }, /is empty/);
+}
+
+{
+  // No em-dashes (or middle dots / arrows) in anything WRITTEN TO THE SHEET. Comments are exempt;
+  // string literals are not, because those become cell values.
+  const src = fs.readFileSync(path.join(__dirname, '..', 'engine', 'CardOpenings.gs'), 'utf8');
+  const offenders = [];
+  src.split(String.fromCharCode(10)).forEach((line, i) => {
+    const t = line.trim();
+    if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
+    const re = /'([^']*)'|"([^"]*)"/g;
+    let m;
+    while ((m = re.exec(line))) {
+      const lit = m[1] || m[2] || '';
+      if (/[—–·→]/.test(lit)) offenders.push((i + 1) + ': ' + lit.slice(0, 50));
+    }
+  });
+  check('no em-dashes in strings written to the sheet', offenders.length === 0,
+    offenders.length ? offenders.join(' | ') : 'sheet-bound literals are plain ASCII punctuation');
 }
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);

@@ -46,7 +46,7 @@ TALLY_ROWS = [
 
 TOTALS_HDRS = ['Day', 'Star Balance', 'Unique Cards', '% Complete', 'Sets Done', 'Album Tier',
                'Packs Opened']
-LOG_HDRS = ['Day', 'Pack', 'Source', 'Earned From', 'Album', 'Cards Drawn', 'New', 'Dupes',
+LOG_HDRS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
             'Stars Balance', 'Note']
 
 # Album/set grids sit immediately RIGHT of the pack log, derived from the log width rather than

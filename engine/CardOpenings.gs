@@ -10,7 +10,7 @@
  *     saw the redesigned calendar. Packs now come from dailyPacksFor_() — the same engine path
  *     that renders EcoGainsSim_Daily — priced off the _v2 reward ladders against cal_new.
  *   - Player archetypes no longer come from 'PlayerBehavior' (deleted): the sim runs a real
- *     (segment x payer) pair from data_seg_beh, selected in SimOutput.
+ *     (segment x payer) pair from data_seg_beh, selected in Col_Cards_Daily.
  *   - Season length is the engine's 33-day calendar window, not a 29-entry attendance array.
  *   - The draw is COUNT-PROPORTIONAL over the snap pool. The old per-pack rarity-probability grid
  *     is gone: it multiplied the pool counts, so rarity was applied twice. Pack tier now differs
@@ -56,11 +56,11 @@
  *   STAR CHEST COSTS & REWARDS · CHEST PURCHASING · SET REWARDS · ALBUM REWARDS
  * (builders/_build_packconfig.py generates the sheet — never hand-edit it.)
  *
- * SimOutput inputs:  B2 = segment ('0-9'…'100+', 'A. 0')   D2 = payer (NONPAYER|PAYER)
+ * Col_Cards_Daily inputs:  B2 = segment ('0-9'…'100+', 'A. 0')   D2 = payer (NONPAYER|PAYER)
  *                    G2 = seed (blank -> generated and written back, so a run is reproducible)
  ************************************************************************************************/
 
-var SHEET_SIM   = 'SimOutput';
+var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
 var SHEET_PACK  = 'PackConfig';
 var SHEET_ALBUM = 'AlbumConfig';
 
@@ -73,18 +73,21 @@ var TOTALS_FIRST_ROW = 6;                  // running-totals block: one row per 
 var TALLY_FIRST_ROW  = 42;                 // SIMULATION TALLY value column (B)
 var ALBUM_NAMES_POOL = ['Main', 'Super', 'Ultra', 'Mythic', 'Legendary'];
 
-// Column order of the day-by-day pack log. THE ENGINE OWNS THIS, not the sheet: SimOutput's header
+// Column order of the day-by-day pack log. THE ENGINE OWNS THIS, not the sheet: Col_Cards_Daily's header
 // row is written by builders/_build_simoutput.py and lags behind until the sheet is re-imported, so
 // anything deriving indices from the live header reads a stale layout. openPack builds its row from
 // this list and harness/_mock_cards.js reads its indices from it — one definition, no drift.
-// 'Earned From' added 2026-08-18: the ladder row a pack came from (rank / milestone / NS round).
-var LOG_COLS = ['Day', 'Pack', 'Source', 'Earned From', 'Album', 'Cards Drawn', 'New', 'Dupes',
+// 'Source_Detail' added 2026-08-18: the ladder row a pack came from (rank / milestone / NS round).
+var LOG_COLS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
                 'Stars Balance', 'Note'];
-// Album/set grids live to the RIGHT of the pack log, one spacer column clear of it. DERIVED from
-// LOG_COLS, not hardcoded: when the log gained its 10th column the grids had to move J -> L, and a
-// literal range would have left the writer clearing the column the grids were still anchored in.
+// Album/set grids live to the RIGHT of the pack log. The scan starts at the FIRST column past the
+// log and runs wide, rather than assuming an exact offset: the builder leaves one spacer column
+// (grids at L) but a hand-arranged sheet may butt them straight against the log (grids at K), and a
+// scan starting at L silently finds no anchors there, paints nothing, and leaves whatever stale
+// grid was on the sheet. Starting at LOG_COLS.length + 1 covers both and still cannot overlap the
+// log, which ends at LOG_COLS.length.
 function gridScanRange_(){
-  return colLetter_(LOG_COLS.length + 2) + '55:' + colLetter_(LOG_COLS.length + 19) + '260';
+  return colLetter_(LOG_COLS.length + 1) + '55:' + colLetter_(LOG_COLS.length + 20) + '260';
 }
 function colLetter_(n){
   var s = '';
@@ -307,7 +310,7 @@ function SimulatePackOpenings() {
   // ---- selection: a real (segment x payer) pair, same keys the rest of the engine uses -------
   var seg   = String(simOut.getRange(SIM_SEG_CELL).getValue()   || '').trim();
   var payer = String(simOut.getRange(SIM_PAYER_CELL).getValue() || '').trim().toUpperCase();
-  if (!seg)   throw new Error(SHEET_SIM + '!' + SIM_SEG_CELL + ' is empty — pick a player segment.');
+  if (!seg)   throw new Error(SHEET_SIM + '!' + SIM_SEG_CELL + ' is empty, pick a player segment.');
   if (SEG_TO_GAINS[seg] == null)
     throw new Error('Unknown segment "' + seg + '" (use ' + Object.keys(SEG_TO_GAINS).join(' / ') + ').');
   if (payer !== 'NONPAYER' && payer !== 'PAYER')
@@ -544,7 +547,7 @@ function SimulatePackOpenings() {
           var albumRewardStr = formatRewards_(getAlbumReward_(cfg.albumRewards, completedAlbumNum));
           if (!dayAlbumCompleted) dayAlbumCompleted = day;
           if (albumIdx < ALBUM_NAMES.length - 1){
-            albumNote = ALBUM_NAMES[albumIdx] + ' → ' + ALBUM_NAMES[albumIdx + 1] +
+            albumNote = ALBUM_NAMES[albumIdx] + ' -> ' + ALBUM_NAMES[albumIdx + 1] +
                         ' | Album rewards: ' + albumRewardStr + ' | Pool leftover: ' + poolBreakdown(pool);
             albumIdx            += 1;
             pool                 = buildFreshPool();
@@ -604,7 +607,7 @@ function SimulatePackOpenings() {
       var row = openPack(chest.rewardPack, chest.tier + ' Chest Opened - ' + chest.rewardPack, day,
                          'bought with ' + chest.cost + ' stars');
       if (!row){
-        Logger.log("Couldn't open " + chest.tier + ' chest reward "' + chest.rewardPack + '" — refunding');
+        Logger.log("Couldn't open " + chest.tier + ' chest reward "' + chest.rewardPack + '" - refunding');
         balance    += chest.cost;
         starsSpent -= chest.cost;
         break;
@@ -642,7 +645,7 @@ function SimulatePackOpenings() {
     if (sess  > 0) bits.push(sess.toFixed(1) + ' sessions');
     if (lvlsC > 0) bits.push(lvlsC.toFixed(0) + ' levels completed' +
                              (lvlsP > 0 ? ' of ' + lvlsP.toFixed(0) + ' played' : ''));
-    return bits.length ? bits.join(' · ') + '  (segment average for an active day)' : '';
+    return bits.length ? bits.join(', ') + '  (segment average for an active day)' : '';
   }
   var packOpens = [], expectedTotal = 0;
   // A source's pack expectation for a tier is a SUM over ladder rows (ranks / milestones / rounds),
@@ -704,7 +707,7 @@ function SimulatePackOpenings() {
 
     if (output.length === rowsBefore){
       var played = playedOn[day];
-      output.push([day, '', played ? '(played — no pack dropped)' : '(did not play)',
+      output.push([day, '', played ? '(played, no pack dropped)' : '(did not play)',
                    played ? sessionNote_() : '', ALBUM_NAMES[albumIdx],
                    '', '', '', balance, '']);
     }
@@ -728,18 +731,18 @@ function SimulatePackOpenings() {
   simOut.getRange(TALLY_FIRST_ROW, 2, tally.length, 1).setValues(tally);
 
   // --- write pack log ------------------------------------------------------------------------
-  // STALE-SHEET GUARD. The log clear below wipes LOG_COLS.length columns. If SimOutput is still the
+  // STALE-SHEET GUARD. The log clear below wipes LOG_COLS.length columns. If Col_Cards_Daily is still the
   // pre-2026-08-18 layout its Album/Set labels sit in column J, INSIDE that span, so the clear would
   // silently destroy the first column of every 3x3 grid — the grids then render 2 wide and nothing
   // reports an error. Detect it and stop before writing anything.
   var stale = staleGridColumn_(simOut);
   if (stale){
-    var msg = 'SimOutput is the OLD layout: Album/Set labels found in column ' + stale +
+    var msg = 'Col_Cards_Daily is the OLD layout: Album/Set labels found in column ' + stale +
               ', inside the pack log (A..' + colLetter_(LOG_COLS.length) + '). Re-import ' +
-              'display/SimOutput_v2.xlsx — the log gained an "Earned From" column and the grids ' +
+              'display/SimOutput_v2.xlsx: the log gained a "Source_Detail" column and the grids ' +
               'moved to ' + colLetter_(LOG_COLS.length + 2) + '. Nothing was written.';
     Logger.log(msg);
-    SpreadsheetApp.getActive().toast(msg, 'SimulatePackOpenings — STOPPED', 15);
+    SpreadsheetApp.getActive().toast(msg, 'SimulatePackOpenings - STOPPED', 15);
     throw new Error(msg);
   }
   var outCols = LOG_COLS.length;
@@ -752,8 +755,8 @@ function SimulatePackOpenings() {
   writeAlbumGrids_(simOut, catalog, collection, albumIdx, CARDS_PER_SET);
 
   SpreadsheetApp.getActive().toast(
-    'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + ') — ' +
-    seg + ' ' + payer + ' — ' + ALBUM_NAMES[albumIdx] + ' (catalog ' + totalUnique +
+    'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + '), ' +
+    seg + ' ' + payer + ', ' + ALBUM_NAMES[albumIdx] + ' (catalog ' + totalUnique +
     ', balance ' + balance + ', seed ' + seed + ')',
     'SimulatePackOpenings', 6);
   return packsOpenedTotal;

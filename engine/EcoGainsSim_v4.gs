@@ -567,7 +567,7 @@ function packBlockE_(sheetName, blk, positions, prov, blkName){
     rows.forEach(function(rew, i){
       for (res in rew){
         E[res] = num(E[res]) + rew[res] / rows.length;
-        provAdd_(prov, res, tag + 'rank ' + (i + 1) + ' (flat rank avg — no position data)',
+        provAdd_(prov, res, tag + 'rank ' + (i + 1) + ' (flat rank avg, no position data)',
                  rew[res] / rows.length);
       }
     });
@@ -704,7 +704,7 @@ function lbE_(sheetName, spec, positions, inst, prov){
   } else {
     for (var p2 in ladder) for (var res2 in ladder[p2]){
       E[res2] = num(E[res2]) + ladder[p2][res2];
-      provAdd_(prov, res2, 'rank ' + p2 + ' (pot avg — no position data)', ladder[p2][res2]);
+      provAdd_(prov, res2, 'rank ' + p2 + ' (pot avg, no position data)', ladder[p2][res2]);
     }
   }
   if (spec.ms && inst){                                    // Kite score milestone term
@@ -889,6 +889,13 @@ function rmSortedInsts_(cal){
 // instance ordinal (0-based, start-sorted) -> {sheet, ladder, cfgDur}; fallback chain to 'RM'.
 function rmConfigFor_(i){
   var name = RM_INSTANCE_SHEETS[Math.max(0, Math.min(i, RM_INSTANCE_SHEETS.length - 1))] || 'RM';
+  // Prefer the _v2 ladder when one exists (2026-08-18). Every other source in the model is authored
+  // on its _v2 sheet, and Rainbow Maker was the one exception: being bottom-up it read the BASE
+  // ladder directly, so packs typed into RM_1st_v2 / RM_2nd_v2 were never read and RM paid nothing
+  // at all. That is invisible rather than loud, because a bottom-up source with an empty ladder just
+  // contributes zero. Base ladder stays the fallback, so a workbook without _v2 sheets is unchanged.
+  var v2 = name + '_v2';
+  if (readRMLadder_(v2).length) name = v2;
   var ladder = readRMLadder_(name);
   if (!ladder.length && name !== 'RM'){ name = 'RM'; ladder = readRMLadder_('RM'); }
   return { sheet: name, ladder: ladder, cfgDur: readRMDuration_(name) || 4 };
@@ -1448,7 +1455,7 @@ function onOpen(){
 
 // ---- auto-refresh (AUTO_REFRESH switch) ----
 // Every sheet the engine reads; a user edit on any of them re-touches the sim formulas.
-var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','NS','NS_v2','Race','Race_v2',
+var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','RM_1st_v2','RM_2nd_v2','NS','NS_v2','Race','Race_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
   'F','F_v2','TE','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,   // TE: D19 pack lane
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
@@ -1528,7 +1535,7 @@ function refreshSims_(){
     var ns = ss.getSheetByName(SIM_NONCE_SHEET);
     if (!ns){
       ns = ss.insertSheet(SIM_NONCE_SHEET);
-      ns.getRange('B1').setValue('refresh nonce — bumped by refreshSims_ so ECOGAINS_* re-run. Do not delete this sheet.');
+      ns.getRange('B1').setValue('refresh nonce, bumped by refreshSims_ so ECOGAINS_* re-run. Do not delete this sheet.');
       try { ns.hideSheet(); } catch(e){}
     }
 
