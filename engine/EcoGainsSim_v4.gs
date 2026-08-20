@@ -258,6 +258,21 @@ function resultRow_(cat, seg, payer, ctx){
 // A. 0 stays raw (appendix — no behaviour telemetry, §3).
 function measuredRow_(cat, seg, payer, ds){
   var row = ds.dataRow(cat, seg, payer);
+  // Season Pass (Paid): SYNTHETIC anchor, same pattern as the D18 Core SPT one. data_gains has no
+  // '(Paid)' category, so without this the measured side is 0 and the DIFF becomes the whole paid
+  // track - the row would read as a brand-new source appearing from nowhere. Payers held the pass
+  // LAST season too (Garry, 2026-08-21), so what actually changes is how far up the track they
+  // climb: the anchor is the paid track up to the tier the MEASURED SPT reached, and the diff is
+  // the movement. Intercepted here, the one choke point, so DIFF / daily / Sim per Segment agree.
+  if (cat === 'Season Pass (Paid)'){
+    var spSyn = spPaidSynth_(seg, payer, ds);
+    if (spSyn) return spSyn;
+  }
+  // Night Sky as a NEW source (NS_ANCHORED = false): the old calendar is treated as not having run
+  // it at all, so the measured anchor is zero and the whole simulated lane lands in the DIFF. Also
+  // keeps it out of the measured SPT total, so the Season Pass tier does not credit a season that
+  // never happened.
+  if (!NS_ANCHORED && NS_SIMULATE && cat === 'Daily Night Sky Prize') return zeroRow_();
   if (cat === 'Core' && seg !== 'A. 0' && seg !== 'A.0' && !(num(row['SPT']) > 0)){
     var syn = coreSptSynth_(seg, payer, ds);
     if (syn){
@@ -1006,6 +1021,20 @@ var NS_V2_SHEET = 'NS_v2';   // redesign config; missing sheet / missing segment
 //   false           -> NS is CARRIED (= measured from data_gains, diff 0); T is NOT applied
 //                      either, and the PBP sim skips NS milestone claims.
 var NS_SIMULATE = true;
+
+// NS_ANCHORED (2026-08-21, Garry). Two DIFFERENT questions, and the older NS_SIMULATE flag answers
+// neither of them the way it sounds:
+//   NS_SIMULATE = false  -> NS is CARRIED. sim = measured, diff EXACTLY 0. That is "assume nothing
+//                           about Night Sky changed", NOT "Night Sky is new".
+//   NS_ANCHORED = true   -> the D22 model: sim = measured x R x T. The config CHANGE only.
+//   NS_ANCHORED = false  -> NS is a NEW SOURCE: the measured anchor is forced to 0 and the row is
+//                           priced bottom-up on cal_new (E_v2 x expected active days). The DIFF is
+//                           then the WHOLE lane, which is what "there was no Night Sky in the old
+//                           calendar, there is one in the new" actually means.
+// Shipped false: this workbook adds Night Sky on top rather than re-configuring an existing one.
+// Note this restores the pre-D22 pricing, and with it the standing caveat that the bottom-up NS
+// model was never validated against actuals (it looked ~5x hot the last time anyone checked).
+var NS_ANCHORED = false;
 function simNightSky(seg, payer, ctx){
   var ds = ctx.ds, meas = measuredRow_('Daily Night Sky Prize', seg, payer, ds);
   if (!NS_SIMULATE) return meas;                         // flag off -> carried (see switch above)
@@ -1019,11 +1048,17 @@ function simNightSky(seg, payer, ctx){
   var days = reachSum_(nw, num(b.weekday_active_rate),   // 33x1d -> Σ p_day = expected active days
                        num(b.weekend_active_rate));
   var out = {};
-  RESOURCES.forEach(function(r){
-    var base = num(E.eBase[r]), v2 = num(E.eV2[r]);
-    out[r] = num(meas[r]) * (base > 1e-9 ? v2 / base : 1) * T;
-    if (base <= 1e-9 && v2 > 0) out[r] += v2 * days;      // base-0 addition: no anchor -> bottom-up
-  });
+  if (!NS_ANCHORED){
+    // NEW SOURCE: nothing to scale, so every resource is the bottom-up value. measuredRow_ forces
+    // the anchor to 0 for this lane (see below), so the DIFF is the whole thing.
+    RESOURCES.forEach(function(r){ out[r] = num(E.eV2[r]) * days; });
+  } else {
+    RESOURCES.forEach(function(r){
+      var base = num(E.eBase[r]), v2 = num(E.eV2[r]);
+      out[r] = num(meas[r]) * (base > 1e-9 ? v2 / base : 1) * T;
+      if (base <= 1e-9 && v2 > 0) out[r] += v2 * days;    // base-0 addition: no anchor -> bottom-up
+    });
+  }
   // Packs (D19) never have an anchor, so the base-0 addition above would price them without the
   // participation term every other source carries. Overlay the standard pack lane instead (D22).
   return overlayPacks_(out, packLane_('Night Sky', seg, payer, ctx, E.eV2,
@@ -1219,27 +1254,76 @@ function simSeasonPassPaid(seg, payer, ctx){
   if (!ctx.calCurOk || !ctx.calNewOk) return zeroRow_();
   var cur = ctx.calCur['Season Pass'] || [], nw = ctx.calNew['Season Pass'] || [];
   if (!nw.length || !cur.length) return zeroRow_();
+  var sp = spPaidTracks_();
+  if (!sp) return zeroRow_();
+  var t = sptTotals_(seg, payer, ctx);
+  var Ts = spTier_(t.sim * sp.daysV2 / 33, sp.v2.cum);
+  if (!(Ts > 0)) return zeroRow_();
+  var Rlb = spChallengeR_();
+  var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
+  var out = spPaidCum_(sp.v2, Ts);
+  RESOURCES.forEach(function(r){
+    out[r] = num(out[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
+  });
+  return out;
+}
+
+// Cumulative PAID-track reward through tier T, per resource.
+function spPaidCum_(track, T){
+  var out = zeroRow_();
+  for (var i = 0; i < T && i < track.paid.length; i++){
+    var row = track.paid[i] || {};
+    for (var r in row) out[r] = num(out[r]) + num(row[r]);
+  }
+  return out;
+}
+
+// Both SP tracks plus the season lengths, or null when the sheet is unreadable.
+function spPaidTracks_(){
   var base = readSPTrack_('SP');
-  if (!base.cum.length) return zeroRow_();
+  if (!base.cum.length) return null;
   var v2Name = spV2Sheet_('SP');
   var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
   if (!v2.cum.length) v2 = base;
   var daysBase = readSPSeasonDays_('SP') || 33;
   var daysV2 = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
-  var t = sptTotals_(seg, payer, ctx);
-  var Ts = spTier_(t.sim * daysV2 / 33, v2.cum);
-  if (!(Ts > 0)) return zeroRow_();
-  var Rlb = spChallengeR_();
-  var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
-  var out = zeroRow_();
-  for (var i = 0; i < Ts && i < v2.paid.length; i++){
-    var row = v2.paid[i] || {};
-    for (var r in row) out[r] = num(out[r]) + num(row[r]);
-  }
-  RESOURCES.forEach(function(r){
-    out[r] = num(out[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
-  });
-  return out;
+  return { base: base, v2: v2, daysBase: daysBase, daysV2: daysV2 };
+}
+
+// The MEASURED side of Season Pass (Paid): the paid track up to the tier the player's measured SPT
+// reached, on the BASE config. Uses the same tier machinery as the simulated side, so the two are
+// like-for-like and the DIFF is the movement rather than the whole track.
+// Computes its OWN measured SPT total rather than borrowing one the simulated pass leaves behind.
+// The first version read a module cache that sptTotals_ filled, which made the answer depend on
+// whether anything had run first: ECOGAINS_DIFF happened to populate it, a bare measuredRow_ call
+// did not, and the anchor silently read 0. An anchor that changes with call order is not an anchor.
+function spPaidSynth_(seg, payer, ds){
+  if (payer !== 'PAYER' || !ds) return null;
+  var sp = spPaidTracks_();
+  if (!sp) return null;
+  var Tm = spTier_(measuredSptTotal_(seg, payer, ds) * sp.daysBase / 33, sp.base.cum);
+  if (!(Tm > 0)) return zeroRow_();
+  return spPaidCum_(sp.base, Tm);
+}
+
+// Per-earner MEASURED SPT + 2xSPTx2 across every category. The measured half of sptTotals_, pulled
+// out so it needs only `ds` (no calendars, no ctx) and can therefore be reached from measuredRow_.
+// Cached per (seg, payer) on the module, alongside the per-execution sheet cache.
+var _measSptCache = {}, _measSptBusy = false;
+function measuredSptTotal_(seg, payer, ds){
+  var key = seg + '|' + payer;
+  if (_measSptCache[key] != null) return _measSptCache[key];
+  if (_measSptBusy) return 0;                          // re-entry via measuredRow_ -> contribute 0
+  var total = 0;
+  _measSptBusy = true;
+  try {
+    CATEGORY_ORDER.forEach(function(cat){
+      if (cat === 'Season Pass (Paid)') return;        // the row being anchored; pays no SPT anyway
+      var row = measuredRow_(cat, seg, payer, ds);
+      total += num(row['SPT']) + 2 * num(row['SPTx2']);
+    });
+  } finally { _measSptBusy = false; }
+  return (_measSptCache[key] = total);
 }
 
 // Season Pass packs, tier by tier, for the card sim's day-by-day log (2026-08-20).

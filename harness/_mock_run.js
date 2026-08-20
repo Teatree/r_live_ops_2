@@ -91,6 +91,128 @@ eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
   }
 })();
 
+// ---- SEASON PASS (PAID) IS A CHANGE, NOT AN ADD ----------------------------------------------
+// The paid track has no measured category in data_gains, so without a synthetic anchor its DIFF is
+// the WHOLE track and the row reads as a brand-new source. Payers held the pass last season too, so
+// the anchor is the paid track up to the tier their MEASURED SPT reached, and the diff is the
+// movement. Three assertions, because any one alone is passable by a broken implementation:
+//   nothing authored  -> diff 0        (an un-anchored row shows the whole track here)
+//   SPT economy moves -> diff > 0      (a hardcoded anchor never moves)
+//   ...and the MEASURED side must NOT move with it (an anchor read off the SIMULATED tier would)
+function fmtNum(x){ return (Math.round(x * 100) / 100).toFixed(2); }
+function rebuildCtx_(){
+  _sheetValsCache = {};
+  _measSptCache = {};
+  Context = (function(){ let c = null; return { get: function(){
+    if (c) return c;
+    const cur = sanitizeCal_(parseCalendarInstances_(CAL_CUR));
+    const nw = sanitizeCal_(parseCalendarInstances_(CAL_NEW));
+    c = { ds: DataStore.get(), calCur: cur, calNew: nw,
+          calCurOk: hasKeys_(cur), calNewOk: hasKeys_(nw) };
+    return c; } }; })();
+}
+(function seasonPassPaidGate(){
+  const i = (typeof CATEGORY_ORDER !== 'undefined') ? CATEGORY_ORDER.indexOf('Season Pass (Paid)') : -1;
+  if (typeof simSeasonPassPaid !== 'function' || i < 0){
+    console.log('SKIP SP(Paid): not in this engine'); return;
+  }
+  const hc = RESOURCES.indexOf('HC');
+  const track = readSPTrack_('SP');
+  // The tier ladder CAPS: a segment already at the top tier cannot climb, so boosting SPT there
+  // would show no movement for a correct implementation too. Pick one with headroom.
+  let SEG = null;
+  ['0-9', '10-19', '20-39', '40-99', '100+'].forEach((sg) => {
+    if (SEG) return;
+    const ds = Context.get().ds;
+    const tm = spTier_(measuredSptTotal_(sg, 'PAYER', ds) * (readSPSeasonDays_('SP') || 33) / 33, track.cum);
+    if (tm > 0 && tm < track.cum.length) SEG = sg;
+  });
+  if (!SEG){ console.log('SKIP SP(Paid) movement: every segment is at the tier cap on this dump'); return; }
+
+  const P = 'PAYER';
+  const baseMeas = num(measuredRow_('Season Pass (Paid)', SEG, P, Context.get().ds)['HC']);
+  const baseDiff = ECOGAINS_DIFF(P, SEG)[i][hc];
+
+  const snap = JSON.stringify(data['SP_v2'].values);
+  const v = data['SP_v2'].values;
+  ['Normal', 'Hard', 'Extreme'].forEach((d) => {
+    for (let r = 0; r < v.length; r++)
+      for (let c = 0; c < (v[r] || []).length; c++)
+        if (String(v[r][c]).trim() === d){
+          v[r][c + 1] = (parseFloat(v[r][c + 1]) || 0) * 3;
+          v[r][c + 2] = (parseFloat(v[r][c + 2]) || 0) * 3;
+        }
+  });
+  rebuildCtx_();
+  const movedMeas = num(measuredRow_('Season Pass (Paid)', SEG, P, Context.get().ds)['HC']);
+  const movedDiff = ECOGAINS_DIFF(P, SEG)[i][hc];
+
+  if (Math.abs(baseDiff) > 1e-6){
+    console.log('FAIL SP(Paid) diff is 0 when nothing is authored - got ' + fmtNum(baseDiff)); failures++;
+  } else console.log('PASS SP(Paid) diff is 0 when nothing is authored (' + SEG + ', anchor ' + fmtNum(baseMeas) + ' HC)');
+
+  if (!(movedDiff > 1e-6)){
+    console.log('FAIL SP(Paid) does not move when the SPT economy moves - diff ' + fmtNum(movedDiff)); failures++;
+  } else console.log('PASS SP(Paid) moves when the SPT economy moves - diff ' + fmtNum(movedDiff) + ' HC');
+
+  if (Math.abs(movedMeas - baseMeas) > 1e-6){
+    console.log('FAIL SP(Paid) measured anchor moved with the simulation (' + fmtNum(baseMeas) +
+                ' -> ' + fmtNum(movedMeas) + ') - it is not anchored'); failures++;
+  } else console.log('PASS SP(Paid) measured anchor stays put while the sim climbs - ' + fmtNum(baseMeas) + ' HC');
+
+  data['SP_v2'].values = JSON.parse(snap);
+  rebuildCtx_();
+  if (JSON.stringify(data['SP_v2'].values) !== snap){ console.log('FAIL SP(Paid) fixture NOT restored'); failures++; }
+  else console.log('PASS SP(Paid) fixture restored');
+})();
+
+// ---- NIGHT SKY: anchored change vs new source ------------------------------------------------
+// NS_SIMULATE and NS_ANCHORED answer DIFFERENT questions and the names invite confusion:
+// NS_SIMULATE=false CARRIES the lane (diff exactly 0, "nothing changed"), while NS_ANCHORED=false
+// makes it a NEW source (measured forced to 0, the whole lane lands in the diff). Assert the
+// shipped combination produces what its comment claims, so the two can never quietly swap meaning.
+(function nightSkyModeGate(){
+  if (typeof NS_ANCHORED === 'undefined'){ console.log('SKIP NS mode: not in this engine'); return; }
+  const SEG = '20-39', P = 'PAYER';
+  const i = CATEGORY_ORDER.indexOf('Daily Night Sky Prize');
+  const hc = RESOURCES.indexOf('HC');
+  const meas = num(measuredRow_('Daily Night Sky Prize', SEG, P, Context.get().ds)['HC']);
+  const sim = ECOGAINS_SIM(P, SEG)[i][hc];
+  const diff = ECOGAINS_DIFF(P, SEG)[i][hc];
+  if (NS_ANCHORED){
+    console.log('PASS NS is ANCHORED (change only) - measured ' + fmtNum(meas) + ', diff ' + fmtNum(diff));
+  } else if (Math.abs(meas) < 1e-9 && Math.abs(diff - sim) < 1e-6){
+    console.log('PASS NS is a NEW SOURCE - measured 0, whole lane in the diff (' + fmtNum(diff) + ' HC)');
+  } else {
+    console.log('FAIL NS_ANCHORED=false must zero the measured anchor and put the whole lane in the ' +
+                'diff - measured ' + fmtNum(meas) + ', sim ' + fmtNum(sim) + ', diff ' + fmtNum(diff));
+    failures++;
+  }
+})();
+
+
+// ---- NIGHT SKY: anchored change vs new source ------------------------------------------------
+// NS_SIMULATE and NS_ANCHORED answer DIFFERENT questions and the names invite confusion:
+// NS_SIMULATE=false carries the lane (diff exactly 0, "nothing changed"), while NS_ANCHORED=false
+// makes it a NEW source (measured forced to 0, the whole lane lands in the diff). Assert the
+// shipped combination actually produces what its comment claims.
+(function nightSkyModeGate(){
+  if (typeof NS_ANCHORED === 'undefined'){ console.log('SKIP NS mode: not in this engine'); return; }
+  const SEG = '20-39', P = 'PAYER';
+  const i = CATEGORY_ORDER.indexOf('Daily Night Sky Prize');
+  const hc = RESOURCES.indexOf('HC');
+  const meas = num(measuredRow_('Daily Night Sky Prize', SEG, P, Context.get().ds)['HC']);
+  const sim = ECOGAINS_SIM(P, SEG)[i][hc];
+  const diff = ECOGAINS_DIFF(P, SEG)[i][hc];
+  if (NS_ANCHORED){
+    console.log('PASS NS is ANCHORED (change only) - measured ' + fmtNum(meas) + ', diff ' + fmtNum(diff));
+  } else {
+    const ok = Math.abs(meas) < 1e-9 && Math.abs(diff - sim) < 1e-6;
+    if (!ok){ console.log('FAIL NS_ANCHORED=false must zero the measured anchor and put the whole lane in the diff - measured ' + fmtNum(meas) + ', sim ' + fmtNum(sim) + ', diff ' + fmtNum(diff)); failures++; }
+    else console.log('PASS NS is a NEW SOURCE - measured 0, whole lane in the diff (' + fmtNum(diff) + ' HC)');
+  }
+})();
+
 const fmt = (x) => (Math.round(x * 100) / 100).toFixed(2);
 const SEGS = ['0-9', '10-19', '20-39', '40-99', '100+', 'A. 0'];
 
@@ -217,14 +339,26 @@ gate('NS_v2 sheet present (dumped by _dump_mockdata)', !!data['NS_v2']);
     RESOURCES.forEach((r, i) => {
       if (typeof isPackRes_ === 'function' && isPackRes_(r)) return;   // packs gated separately
       const base = num(E.eBase[r]), v2 = num(E.eV2[r]);
-      let want = num(meas[r]) * (base > 1e-9 ? v2 / base : 1) * T;
-      if (base <= 1e-9 && v2 > 0) want += v2 * days;
+      // Two SHIPPED models, and the gate must follow whichever is switched on rather than pinning
+      // one of them. NS_ANCHORED=true is the D22 anchored form; false makes Night Sky a NEW source
+      // (measured forced to 0, priced bottom-up on cal_new), which is what "the old calendar had no
+      // Night Sky" means. Hardcoding the anchored identity here would fail the moment the lane is
+      // legitimately switched to a new source, which is a gate reporting a decision as a defect.
+      let want;
+      if (typeof NS_ANCHORED !== 'undefined' && !NS_ANCHORED){
+        want = v2 * days;
+      } else {
+        want = num(meas[r]) * (base > 1e-9 ? v2 / base : 1) * T;
+        if (base <= 1e-9 && v2 > 0) want += v2 * days;
+      }
       const err = Math.abs(row[i] - want);
       if (err > worstErr) { worstErr = err; worstWhere = `${seg}/${r}`; }
     });
   }
-  gate('NS row == measured x R x T (+ base-0 bottom-up additions), every segment x resource',
-       worstErr < 1e-9, `worst |err| ${worstErr.toExponential(2)} at ${worstWhere}`);
+  const nsForm = (typeof NS_ANCHORED !== 'undefined' && !NS_ANCHORED)
+    ? 'NS row == E_v2 x Σp_day (NEW SOURCE mode), every segment x resource'
+    : 'NS row == measured x R x T (+ base-0 bottom-up additions), every segment x resource';
+  gate(nsForm, worstErr < 1e-9, `worst |err| ${worstErr.toExponential(2)} at ${worstWhere}`);
   console.log('  T/Σp_day per segment: ' + SEG5.map(s => `${s} T=${fmt(nsPart[s].T)} days=${fmt(nsPart[s].days)}`).join(' · '));
 }
 
@@ -442,8 +576,16 @@ console.log('\n================ NS ANCHOR GATES ================');
     const c4 = Context.get();
     const T4 = timingRatio_(c4.calCur['Night Sky'] || [], c4.calNew['Night Sky'] || [], SEG, 'NONPAYER', c4.ds);
     const meas4 = num(measuredRow_('Daily Night Sky Prize', SEG, 'NONPAYER', c4.ds)['HC']);
-    gate('NS_v2 sheet absent -> falls back to NS (R = 1): sim == measured x T',
-         Math.abs(nsHCOf(SEG) - meas4 * T4) < 1e-6, `sim ${fmt(nsHCOf(SEG))} vs ${fmt(meas4 * T4)}`);
+    // The fallback's POINT is "an unauthored NS_v2 reads as config-unchanged", i.e. R = 1 against a
+    // measured anchor. In NEW SOURCE mode there is no measured anchor by construction, so the
+    // assertion to make is the other one: the lane still prices off the NS ladder and is non-zero.
+    if (typeof NS_ANCHORED !== 'undefined' && !NS_ANCHORED){
+      gate('NS_v2 sheet absent -> falls back to the NS ladder (new-source mode: still priced, not zero)',
+           nsHCOf(SEG) > 0, `sim ${fmt(nsHCOf(SEG))} off the NS ladder`);
+    } else {
+      gate('NS_v2 sheet absent -> falls back to NS (R = 1): sim == measured x T',
+           Math.abs(nsHCOf(SEG) - meas4 * T4) < 1e-6, `sim ${fmt(nsHCOf(SEG))} vs ${fmt(meas4 * T4)}`);
+    }
     data['NS_v2'] = savedSheet;
     eval(engineSrc); resetSheetCache();
   }
