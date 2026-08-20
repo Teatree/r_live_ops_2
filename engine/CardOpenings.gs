@@ -311,7 +311,36 @@ function formatPacksOpened_(packsOpenedByTier) {
 }
 
 // ============================== main =========================================================
+// Every function this file needs from its companions, and which file each lives in. All .gs files
+// in an Apps Script project share one namespace, so a companion that was not re-pasted fails at the
+// moment of use with a bare "X is not defined" that names no file. Checked up front instead, so the
+// message says exactly which file to paste.
+var CARD_SIM_COMPANIONS = [
+  ['Context',         'EcoGainsSim_v4.gs'],
+  ['packRungs_',      'EcoGainsSim_v4.gs'],
+  ['spPackTiers_',    'EcoGainsSim_v4.gs'],
+  ['isWeekend_',      'EcoGainsSim_v4.gs'],
+  ['dailyPacksFor_',  'EcoGainsSim_Daily.gs'],
+  ['packGrantPlan_',  'EcoGainsSim_Daily.gs'],
+  ['DAILY_LASTDAY',   'EcoGainsSim_Daily.gs']
+];
+function requireCompanions_(){
+  var missingBy = {};
+  CARD_SIM_COMPANIONS.forEach(function(pair){
+    var ok;
+    try { ok = (eval('typeof ' + pair[0]) !== 'undefined'); } catch (e){ ok = false; }
+    if (!ok) (missingBy[pair[1]] = missingBy[pair[1]] || []).push(pair[0]);
+  });
+  var files = Object.keys(missingBy);
+  if (!files.length) return;
+  throw new Error('CardOpenings.gs needs code that is not in this project yet. Re-paste ' +
+    files.map(function(f){ return f + ' (missing: ' + missingBy[f].join(', ') + ')'; }).join(' and ') +
+    ' from the repo, then run the sim again. All .gs files share one namespace, so a file that was ' +
+    'not updated shows up only as a bare "not defined" at the point of use.');
+}
+
 function SimulatePackOpenings() {
+  requireCompanions_();
   var ss     = SpreadsheetApp.getActiveSpreadsheet();
   var simOut = ss.getSheetByName(SHEET_SIM);
   var album  = ss.getSheetByName(SHEET_ALBUM);

@@ -485,18 +485,21 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     return o;
   }
   function mk(part, exclusive, rungs){
-    rungs = rungs.filter(function(x){ return x.packs && x.p > 0; });
-    if (!rungs.length) return null;
-    // Position on the requirement axis, 0..1. A cumulative ladder is climbed IN ORDER, so rung 1 of
-    // a Rainbow Maker instance (160 matchables against a median of ~83,000) is cleared almost
-    // immediately, while rung 23 takes most of the event. Without this the card sim placed every
-    // rung uniformly across the instance days and could report the first milestone landing on the
-    // LAST day of the event, which is what made a busy day look empty.
+    // maxReq is taken over the WHOLE ladder, before the pack filter. Taking it after would rescale
+    // the axis to whichever rungs happen to pay packs: a Rainbow Maker rung at req 5,310 out of a
+    // 352,260 ladder would score progress 1.0 if it were the only pack-payer, and land on the
+    // instance's LAST day instead of near its start.
     var maxReq = 0;
     rungs.forEach(function(x){ if (num(x.req) > maxReq) maxReq = num(x.req); });
     rungs.forEach(function(x){
       x.progress = (maxReq > 0 && num(x.req) > 0) ? Math.min(1, num(x.req) / maxReq) : 1;
     });
+    rungs = rungs.filter(function(x){ return x.packs && x.p > 0; });
+    if (!rungs.length) return null;
+    // progress is the rung's place on the requirement axis, 0..1: a cumulative ladder is climbed IN
+    // ORDER, so Rainbow Maker rung 1 (160 matchables against a median of ~83,000) is cleared almost
+    // immediately while rung 23 takes most of the event. Without it every rung was placed uniformly
+    // across the instance days, which is what could put the first milestone on the LAST day.
     return { participation: part, groups: [{ exclusive: exclusive, rungs: rungs }] };
   }
 
@@ -517,7 +520,33 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(ladder[pp] || {}) };
     });
     var part = inst ? num(inst.participation_rate) : 0;
-    return mk(part > 0 ? part : 1, true, rungs);       // EXCLUSIVE: one finishing rank per instance
+    var res = mk(part > 0 ? part : 1, true, rungs);    // EXCLUSIVE: one finishing rank per instance
+
+    // Kite also pays a SCORE MILESTONE, which lbE_ folds into the same E the pack lane is priced
+    // from. Leaving it out here would have made the card sim quietly pay less than the gains model
+    // the moment a pack was typed on that row (it pays none today, so nothing changes yet). It is a
+    // separate, NON-exclusive outcome: you keep your finishing rank and clear the score gate too.
+    if (lb.ms && inst){
+      var Sk = survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
+                          [num(inst.final_balance_p75),.75]]);
+      if (Sk){
+        var mCols = rewCols_(v, lb.ms.hdr, lb.ms.c0, lb.ms.c1), msRungs = [];
+        for (var mr = lb.ms.r0; mr <= lb.ms.r1; mr++){
+          var mreq = num(v[mr] && v[mr][lb.ms.reqC]);
+          if (!(mreq > 0)) continue;
+          msRungs.push({ label: 'score milestone (req ' + mreq + ')', p: Sk(mreq),
+                         req: mreq, packs: packsOf(rewRow_(v, mr, mCols)) });
+        }
+        msRungs = msRungs.filter(function(x){ return x.packs && x.p > 0; });
+        if (msRungs.length){
+          msRungs.forEach(function(x){ x.progress = 1; });   // banked by the end of the instance
+          if (res) res.groups.push({ exclusive: false, rungs: msRungs });
+          else res = { participation: part > 0 ? part : 1,
+                       groups: [{ exclusive: false, rungs: msRungs }] };
+        }
+      }
+    }
+    return res;
   }
 
   var coll = COLL_R_SPECS[cat];
