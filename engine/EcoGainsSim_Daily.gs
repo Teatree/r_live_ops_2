@@ -273,7 +273,10 @@ function blankGrid_(){
 // This is the seam CardOpenings.gs consumes: the card sim used to read its own EcoPackGains rate
 // table and hardcoded '1/0/0/1...' schedule strings; it now takes the real simulated pack flow
 // off the same engine path this sheet renders, so the two views can never disagree.
-//   returns { total: [33][6], bySource: [{cat, days:[33][6]}, ...] }   (PACK_RES tier order)
+//   returns { total: [33][6], bySource: [{cat, days:[33][6], prov:{tier:[{label,weight}]}}, ...] }
+// `prov` (2026-08-18) names the ladder row behind each pack tier — rank, milestone index, Night Sky
+// round — so the card sim's day-by-day log can say WHY a pack was granted instead of only which
+// source paid it. It is per-source, not per-day: a source's ladder is identical on every instance.
 // Values are FRACTIONAL expectations (decision D19/13: deterministic attendance) — the caller
 // accumulates them into discrete pack-open events.
 function dailyPacksFor_(seg, payer, ctx){
@@ -289,7 +292,7 @@ function dailyPacksFor_(seg, payer, ctx){
       grid.push(row);
       for (var j = 0; j < row.length; j++) total[i][j] += row[j];
     }
-    if (any) bySource.push({ cat: cat, days: grid });
+    if (any) bySource.push({ cat: cat, days: grid, prov: packProvFor_(cat, seg, payer, ctx) });
   });
   return { total: total, bySource: bySource };
 }

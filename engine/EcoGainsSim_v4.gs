@@ -459,6 +459,63 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst){
   return out;
 }
 
+// Per-source pack PROVENANCE: which ladder row paid each pack tier, for the card sim's log.
+//   returns { '3-star Pack': [{label:'rank 2', weight:0.4}, ...], ... }   (v2 ladder only)
+// Only the _v2 side is described, because packLane_ prices packs off eV2 alone — a pack typed into
+// a base sheet is never granted (it has no route into the sim at all), which is worth knowing.
+// Day-independent by construction: a source's ladder is the same on every instance, so the caller
+// attaches this once per source rather than per day.
+function packProvFor_(cat, seg, payer, ctx){
+  var ds = ctx.ds, prov = {};
+  var lb = LB_R_SPECS[cat], coll = COLL_R_SPECS[cat];
+  if (lb || coll){
+    var spec = lb || coll, inst = ds.eventInst(spec.inst, seg, payer);
+    if (lb){
+      var pos = inst ? [inst.position_p25, inst.position_p50, inst.position_p75]
+                         .map(function(p){ return Math.max(1, Math.round(num(p))); })
+                         .filter(function(p){ return p > 0; }) : [];
+      lbE_(lb.v2, lb, pos, inst, prov);
+    } else {
+      var S = inst ? survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
+                                [num(inst.final_balance_p75),.75]]) : null;
+      var reqs = S ? collReqs_(coll) : [];
+      if (S && reqs.length)
+        collE_(coll.v2, coll, reqs.own ? collReqs_(coll, true) : reqs, S, prov);
+    }
+    return prov;
+  }
+  if (cat === 'Daily Night Sky Prize'){
+    var st = ds.nsStreak(seg, payer);
+    var Sn = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
+                             [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
+    if (Sn) nsEDay_(readNSLadder_(seg, NS_V2_SHEET), Sn, prov);
+    return prov;
+  }
+  if (cat === 'Rainbow Maker'){
+    var pct = ds.rmPct(seg, payer);
+    if (!pct) return prov;
+    var cfg = rmConfigFor_(0);
+    var Sr = survival_([[pct.p10,.10],[pct.p25,.25],[pct.p50,.50],[pct.p75,.75],[pct.p90,.90]]);
+    if (Sr) cfg.ladder.forEach(function(ms, k){
+      var sv = Sr(ms.req);
+      for (var res in ms.rew)
+        provAdd_(prov, res, 'milestone #' + (k + 1) + ' (req accum ' + ms.req + ')', ms.rew[res] * sv);
+    });
+    return prov;
+  }
+  var po = PACK_ONLY_SPECS[cat];
+  if (po){
+    var pinst = ds.eventInst(po.inst, seg, payer);
+    var ppos = pinst ? [pinst.position_p25, pinst.position_p50, pinst.position_p75]
+                         .map(function(p){ return Math.round(num(p)); })
+                         .filter(function(p){ return p > 0; }) : [];
+    po.blocks.forEach(function(blk, bi){
+      packBlockE_(po.sheet, blk, ppos, prov, po.blocks.length > 1 ? 'block ' + (bi + 1) + ':' : '');
+    });
+  }
+  return prov;
+}
+
 // Writes the six pack columns of `packs` over `row`, leaving every other resource untouched.
 function overlayPacks_(row, packs){
   if (!packs) return row;
@@ -488,7 +545,7 @@ var PACK_ONLY_SPECS = {
 // (same treatment as lbE_). WITHOUT rank telemetry -> a FLAT ladder average (pot / rank count):
 // the crudest pricing in the model, because it assumes every rank is equally likely.
 // Team Event has no data_event_inst rows, so it always takes the flat path — FLAGGED.
-function packBlockE_(sheetName, blk, positions){
+function packBlockE_(sheetName, blk, positions, prov, blkName){
   var v = sheetVals_(sheetName), cols = rewCols_(v, blk.hdr, blk.c0, blk.c1);
   var rows = [], byPos = {};
   for (var r = blk.r0; r <= blk.r1; r++){
@@ -497,14 +554,22 @@ function packBlockE_(sheetName, blk, positions){
     byPos[r - blk.r0 + 1] = rew;      // ladders are position-ordered ('1st','2nd',... or 1,2,3)
   }
   var E = zeroRow_(), res;
+  var tag = blkName ? blkName + ' ' : '';
   if (positions && positions.length){
     positions.forEach(function(p){
       var rew = byPos[p] || {};
-      for (res in rew) E[res] = num(E[res]) + rew[res] / positions.length;
+      for (res in rew){
+        E[res] = num(E[res]) + rew[res] / positions.length;
+        provAdd_(prov, res, tag + 'rank ' + p, rew[res] / positions.length);
+      }
     });
   } else if (rows.length){
-    rows.forEach(function(rew){
-      for (res in rew) E[res] = num(E[res]) + rew[res] / rows.length;
+    rows.forEach(function(rew, i){
+      for (res in rew){
+        E[res] = num(E[res]) + rew[res] / rows.length;
+        provAdd_(prov, res, tag + 'rank ' + (i + 1) + ' (flat rank avg — no position data)',
+                 rew[res] / rows.length);
+      }
     });
   }
   return E;
@@ -607,7 +672,19 @@ function rewardR_(cat, seg, payer, ds){
 // Ladder rows are position-ordered; a missing/0 pos cell falls back to the ordinal (Ki_v2's
 // formula-numbered rows). Positions past the ladder pay nothing. No positions -> pot total
 // (both sides get the same treatment, so the ratio degrades to the pot ratio).
-function lbE_(sheetName, spec, positions, inst){
+// ---- pack provenance (D19 follow-up, 2026-08-18) --------------------------------------------
+// The E builders below sum every ladder row into one expected payout, which is all the R ratio and
+// packLane_ need. The card sim's day-by-day log needs the opposite: WHICH ladder row paid a pack —
+// the rank, the milestone index, the Night Sky round. So each builder optionally records its
+// per-row contribution for PACK resources only (coins would be a large and useless collection).
+// Weights are the un-scaled E contributions: packLane_'s participation x reach factors are common
+// to every row of a source, so they cancel when the card sim picks a row proportionally.
+function provAdd_(prov, res, label, amt){
+  if (!prov || !isPackRes_(res) || !(amt > 0)) return;
+  (prov[res] = prov[res] || []).push({ label: label, weight: amt });
+}
+
+function lbE_(sheetName, spec, positions, inst, prov){
   var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
   var ladder = {};
   for (var r = spec.r0; r <= spec.r1; r++){
@@ -619,10 +696,16 @@ function lbE_(sheetName, spec, positions, inst){
   if (positions.length){
     positions.forEach(function(p){
       var rew = ladder[p] || {};
-      for (var res in rew) E[res] = num(E[res]) + rew[res] / positions.length;
+      for (var res in rew){
+        E[res] = num(E[res]) + rew[res] / positions.length;
+        provAdd_(prov, res, 'rank ' + p, rew[res] / positions.length);
+      }
     });
   } else {
-    for (var p2 in ladder) for (var res2 in ladder[p2]) E[res2] = num(E[res2]) + ladder[p2][res2];
+    for (var p2 in ladder) for (var res2 in ladder[p2]){
+      E[res2] = num(E[res2]) + ladder[p2][res2];
+      provAdd_(prov, res2, 'rank ' + p2 + ' (pot avg — no position data)', ladder[p2][res2]);
+    }
   }
   if (spec.ms && inst){                                    // Kite score milestone term
     var S = survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
@@ -633,7 +716,10 @@ function lbE_(sheetName, spec, positions, inst){
         var req = num(v[mr] && v[mr][spec.ms.reqC]);
         if (!(req > 0)) continue;
         var mRew = rewRow_(v, mr, mCols), s = S(req);
-        for (var res3 in mRew) E[res3] = num(E[res3]) + mRew[res3] * s;
+        for (var res3 in mRew){
+          E[res3] = num(E[res3]) + mRew[res3] * s;
+          provAdd_(prov, res3, 'score milestone (req ' + req + ')', mRew[res3] * s);
+        }
       }
     }
   }
@@ -653,7 +739,7 @@ function collReqs_(spec, v2Side){
 
 // survival-weighted milestone payout per resource (collections). The completion row (BB) is
 // gated at the LAST milestone's requirement.
-function collE_(sheetName, spec, reqs, S){
+function collE_(sheetName, spec, reqs, S, prov){
   var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
   var E = zeroRow_(), lastReq = 0;
   for (var i = 0; i < reqs.length; i++){
@@ -661,11 +747,17 @@ function collE_(sheetName, spec, reqs, S){
     if (!(req > 0)) continue;
     lastReq = req;
     var rew = rewRow_(v, spec.r0 + i, cols), s = S(req);
-    for (var res in rew) E[res] = num(E[res]) + rew[res] * s;
+    for (var res in rew){
+      E[res] = num(E[res]) + rew[res] * s;
+      provAdd_(prov, res, 'milestone #' + (i + 1) + ' (req ' + req + ')', rew[res] * s);
+    }
   }
   if (spec.completionRow != null && lastReq > 0){
     var cRew = rewRow_(v, spec.completionRow, cols), cs = S(lastReq);
-    for (var res2 in cRew) E[res2] = num(E[res2]) + cRew[res2] * cs;
+    for (var res2 in cRew){
+      E[res2] = num(E[res2]) + cRew[res2] * cs;
+      provAdd_(prov, res2, 'completion bonus (req ' + lastReq + ')', cRew[res2] * cs);
+    }
   }
   return E;
 }
@@ -761,11 +853,14 @@ function nsE_(seg, payer, ds){
   if (!base.length) return null;
   return { eBase: nsEDay_(base, S), eV2: nsEDay_(readNSLadder_(seg, NS_V2_SHEET), S) };
 }
-function nsEDay_(ladder, S){
+function nsEDay_(ladder, S, prov){
   var E = zeroRow_();
-  ladder.forEach(function(ms){
+  ladder.forEach(function(ms, k){
     var s = S(ms.req);
-    for (var res in ms.rew) E[res] = num(E[res]) + ms.rew[res] * s;
+    for (var res in ms.rew){
+      E[res] = num(E[res]) + ms.rew[res] * s;
+      provAdd_(prov, res, 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')', ms.rew[res] * s);
+    }
   });
   return E;
 }

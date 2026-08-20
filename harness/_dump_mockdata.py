@@ -43,7 +43,11 @@ SHEETS = [
 # the layout the engine actually expects. Drop an entry once the sheet is imported (the overlay
 # then just reproduces the workbook).  {sheet name: display xlsx filename}
 # PackConfig / SimOutput were imported as of workbook (14) — the workbook is now the truth.
-PENDING_IMPORT = {}
+# Sheets whose LOCAL build supersedes the workbook copy until it is re-imported. SimOutput is
+# listed again (2026-08-18): the pack log gained an 'Earned From' column and the album grids moved
+# J -> L, so the workbook's copy is a layout the engine no longer writes. Drop the entry once the
+# sheet has been re-imported into the live workbook.
+PENDING_IMPORT = {'SimOutput': 'SimOutput_v2.xlsx'}
 
 
 def dump_sheet(ws):

@@ -37,7 +37,6 @@ TALLY_R0 = TALLY_HDR + 1                         # 42 == CardOpenings TALLY_FIRS
 LOG_BAR = 55
 LOG_HDR = 56
 LOG_R0 = 57                                      # == CardOpenings OUT_START_ROW
-GRID_C0 = 10                                     # column J — album/set grids live right of the log
 
 TALLY_ROWS = [
     'Total Packs Opened', 'Total Cards Drawn', 'Unique Cards', 'Duplicate Cards',
@@ -47,7 +46,13 @@ TALLY_ROWS = [
 
 TOTALS_HDRS = ['Day', 'Star Balance', 'Unique Cards', '% Complete', 'Sets Done', 'Album Tier',
                'Packs Opened']
-LOG_HDRS = ['Day', 'Pack', 'Source', 'Album', 'Cards Drawn', 'New', 'Dupes', 'Stars Balance', 'Note']
+LOG_HDRS = ['Day', 'Pack', 'Source', 'Earned From', 'Album', 'Cards Drawn', 'New', 'Dupes',
+            'Stars Balance', 'Note']
+
+# Album/set grids sit immediately RIGHT of the pack log, derived from the log width rather than
+# hardcoded: the log gained an 'Earned From' column on 2026-08-18 and a fixed column J would have
+# put 'Album #1' straight on top of 'Note'. One blank spacer column between the two blocks.
+GRID_C0 = len(LOG_HDRS) + 2
 
 N_ALBUMS, N_SETS = 3, 8
 
@@ -139,10 +144,10 @@ ws.cell(TALLY_R0 + TALLY_ROWS.index('Expected Packs (fractional)'), 3,
         'rounding (seeded Bernoulli on each trailing fraction)').font = ARIAL(size=9, color='FF808080')
 
 # ---- pack log ---------------------------------------------------------------------------------
-bar(LOG_BAR, 'DAY-BY-DAY PACK LOG (OUTPUT)', 1, 9)
+bar(LOG_BAR, 'DAY-BY-DAY PACK LOG (OUTPUT)', 1, len(LOG_HDRS))
 header(LOG_HDR, LOG_HDRS)
 for r in range(LOG_R0, LOG_R0 + 220):
-    for c in range(1, 10):
+    for c in range(1, len(LOG_HDRS) + 1):
         ws.cell(r, c).font = ARIAL(size=10)
 
 # ---- album / set grids (scanned by label — 'Album #N' / 'Set #N') -------------------------------

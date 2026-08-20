@@ -73,7 +73,24 @@ var TOTALS_FIRST_ROW = 6;                  // running-totals block: one row per 
 var TALLY_FIRST_ROW  = 42;                 // SIMULATION TALLY value column (B)
 var ALBUM_NAMES_POOL = ['Main', 'Super', 'Ultra', 'Mythic', 'Legendary'];
 
-var GRID_SCAN_RANGE = 'J55:Z260';
+// Column order of the day-by-day pack log. THE ENGINE OWNS THIS, not the sheet: SimOutput's header
+// row is written by builders/_build_simoutput.py and lags behind until the sheet is re-imported, so
+// anything deriving indices from the live header reads a stale layout. openPack builds its row from
+// this list and harness/_mock_cards.js reads its indices from it — one definition, no drift.
+// 'Earned From' added 2026-08-18: the ladder row a pack came from (rank / milestone / NS round).
+var LOG_COLS = ['Day', 'Pack', 'Source', 'Earned From', 'Album', 'Cards Drawn', 'New', 'Dupes',
+                'Stars Balance', 'Note'];
+// Album/set grids live to the RIGHT of the pack log, one spacer column clear of it. DERIVED from
+// LOG_COLS, not hardcoded: when the log gained its 10th column the grids had to move J -> L, and a
+// literal range would have left the writer clearing the column the grids were still anchored in.
+function gridScanRange_(){
+  return colLetter_(LOG_COLS.length + 2) + '55:' + colLetter_(LOG_COLS.length + 19) + '260';
+}
+function colLetter_(n){
+  var s = '';
+  while (n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
+  return s;
+}
 var GRID_DIM        = 3;
 
 // PackConfig block labels (column A). Order matters only for bounding a block's scan.
@@ -302,6 +319,11 @@ function SimulatePackOpenings() {
     simOut.getRange(SIM_SEED_CELL).setValue(seed);
   }
   var rand = mulberry32(seed | 0);
+  // SEPARATE stream for the pack-log's "Earned From" labelling. Provenance is a reporting concern:
+  // drawing it from `rand` would consume from the same sequence the card draws use, so simply
+  // turning the labels on would shift every downstream pull and silently change results that have
+  // nothing to do with labelling. Deterministic (derived from the same seed), independent of it.
+  var provRand = mulberry32((seed | 0) ^ 0x5f3759df);
 
   var SEASON_DAYS = DAILY_DAYS;                        // the engine's calendar window (33)
 
@@ -451,7 +473,7 @@ function SimulatePackOpenings() {
     return any ? out : null;
   }
 
-  function openPack(packName, source, day) {
+  function openPack(packName, source, day, detail) {
     var key   = normalizePackKey(packName);
     var nCard = cfg.cardsPerOpen[key];
     if (!nCard) { Logger.log('No PACK DEFINITIONS row for "' + packName + '", skipping'); return null; }
@@ -552,7 +574,7 @@ function SimulatePackOpenings() {
     else if (setBlock)          note = setBlock;
     else if (albumNote)         note = albumNote;
 
-    return [day, packName, source, startAlbum,
+    return [day, packName, source, detail || '', startAlbum,
             drawn.join(', '), newCards.join(', '), dupes.join(', '), balance, note];
   }
 
@@ -579,7 +601,8 @@ function SimulatePackOpenings() {
       if (!chest) break;
       balance     -= chest.cost;
       starsSpent  += chest.cost;
-      var row = openPack(chest.rewardPack, chest.tier + ' Chest Opened - ' + chest.rewardPack, day);
+      var row = openPack(chest.rewardPack, chest.tier + ' Chest Opened - ' + chest.rewardPack, day,
+                         'bought with ' + chest.cost + ' stars');
       if (!row){
         Logger.log("Couldn't open " + chest.tier + ' chest reward "' + chest.rewardPack + '" — refunding');
         balance    += chest.cost;
@@ -591,8 +614,53 @@ function SimulatePackOpenings() {
   }
 
   // === Stage 1: pack acquisition from the simulated calendar ================================
-  var packFlow = dailyPacksFor_(seg, payer, Context.get());
+  var simCtx = Context.get();
+  var packFlow = dailyPacksFor_(seg, payer, simCtx);
+
+  // ---- attendance + session detail for the empty-day rows -------------------------------------
+  // An empty row used to say only '(nothing)', which conflates two very different days: the player
+  // never opened the game, or they played a full session and no source happened to drop a pack.
+  // Attendance is drawn per day from the segment's weekday/weekend active rate, on its OWN seeded
+  // stream so it cannot perturb a card draw. REPORTING LAYER ONLY — the pack expectations already
+  // carry attendance inside reach(), so this draw explains the day, it does not gate any grant.
+  // Consistency: a day that granted a pack is shown as played regardless of the draw, since
+  // receiving a reward implies activity.
+  var beh = simCtx.ds.beh(seg, payer);
+  var pWd = num(beh.weekday_active_rate), pWe = num(beh.weekend_active_rate);
+  var attRand = mulberry32((seed | 0) ^ 0x9e3779b9);
+  var playedOn = [];
+  for (var ad = 1; ad <= SEASON_DAYS; ad++)
+    playedOn[ad] = attRand() < (isWeekend_(ad) ? pWe : pWd);
+  // Per ACTIVE day, from data_seg_beh — what an average day in this segment looks like.
+  var mins  = num(beh.minutes_per_active_day);
+  var sess  = num(beh.sessions_per_active_day);
+  var lvlsP = num(beh.levels_played_per_active_day);
+  var lvlsC = num(beh.levels_completed_per_active_day);
+  function sessionNote_(){
+    var bits = [];
+    if (mins  > 0) bits.push(mins.toFixed(0) + ' min');
+    if (sess  > 0) bits.push(sess.toFixed(1) + ' sessions');
+    if (lvlsC > 0) bits.push(lvlsC.toFixed(0) + ' levels completed' +
+                             (lvlsP > 0 ? ' of ' + lvlsP.toFixed(0) + ' played' : ''));
+    return bits.length ? bits.join(' · ') + '  (segment average for an active day)' : '';
+  }
   var packOpens = [], expectedTotal = 0;
+  // A source's pack expectation for a tier is a SUM over ladder rows (ranks / milestones / rounds),
+  // so a single granted pack has no one true origin — it is a draw from that mixture. Pick the row
+  // proportional to its share of E, off provRand — a SEPARATE seeded stream, so switching labelling
+  // on cannot perturb a single card draw — and the long-run mix of labels matches the model that
+  // produced the count.
+  function pickOrigin(src, tierName){
+    var rows = src.prov && src.prov[tierName];
+    if (!rows || !rows.length) return '';
+    var tot = 0, i;
+    for (i = 0; i < rows.length; i++) tot += rows[i].weight;
+    if (!(tot > 0)) return '';
+    if (rows.length === 1) return rows[0].label;
+    var x = provRand() * tot;
+    for (i = 0; i < rows.length; i++){ x -= rows[i].weight; if (x <= 0) return rows[i].label; }
+    return rows[rows.length - 1].label;
+  }
   packFlow.bySource.forEach(function(src){
     for (var tier = 0; tier < PACK_RES.length; tier++){
       var acc = 0, lastDay = -1;
@@ -603,14 +671,16 @@ function SimulatePackOpenings() {
         lastDay = d;
         acc += rate;
         while (acc >= 1){
-          packOpens.push({ day: d + 1, packName: PACK_RES[tier], source: src.cat });
+          packOpens.push({ day: d + 1, packName: PACK_RES[tier], source: src.cat,
+                           detail: pickOrigin(src, PACK_RES[tier]) });
           acc -= 1;
         }
       }
       // Trailing fraction: a SEEDED Bernoulli, so the granted count is unbiased (E[granted] ==
       // the simulated expectation). The old EcoPackGains path always rounded this up.
       if (acc > 1e-12 && lastDay >= 0 && rand() < acc)
-        packOpens.push({ day: lastDay + 1, packName: PACK_RES[tier], source: src.cat });
+        packOpens.push({ day: lastDay + 1, packName: PACK_RES[tier], source: src.cat,
+                         detail: pickOrigin(src, PACK_RES[tier]) });
     }
   });
   packOpens.sort(function(a, b){ return a.day - b.day; });
@@ -624,7 +694,7 @@ function SimulatePackOpenings() {
 
     while (packIdx < packOpens.length && packOpens[packIdx].day === day){
       var open = packOpens[packIdx];
-      var row = openPack(open.packName, open.source, day);
+      var row = openPack(open.packName, open.source, day, open.detail);
       if (row){
         output.push(row);
         tryBuyChests(day, output);
@@ -632,8 +702,12 @@ function SimulatePackOpenings() {
       packIdx++;
     }
 
-    if (output.length === rowsBefore)
-      output.push([day, '', '(nothing)', ALBUM_NAMES[albumIdx], '', '', '', balance, '']);
+    if (output.length === rowsBefore){
+      var played = playedOn[day];
+      output.push([day, '', played ? '(played — no pack dropped)' : '(did not play)',
+                   played ? sessionNote_() : '', ALBUM_NAMES[albumIdx],
+                   '', '', '', balance, '']);
+    }
 
     daily.push([day, balance, collectionSize,
                 totalUnique ? collectionSize / totalUnique : 0,
@@ -654,7 +728,21 @@ function SimulatePackOpenings() {
   simOut.getRange(TALLY_FIRST_ROW, 2, tally.length, 1).setValues(tally);
 
   // --- write pack log ------------------------------------------------------------------------
-  var outCols = output.length ? output[0].length : 9;
+  // STALE-SHEET GUARD. The log clear below wipes LOG_COLS.length columns. If SimOutput is still the
+  // pre-2026-08-18 layout its Album/Set labels sit in column J, INSIDE that span, so the clear would
+  // silently destroy the first column of every 3x3 grid — the grids then render 2 wide and nothing
+  // reports an error. Detect it and stop before writing anything.
+  var stale = staleGridColumn_(simOut);
+  if (stale){
+    var msg = 'SimOutput is the OLD layout: Album/Set labels found in column ' + stale +
+              ', inside the pack log (A..' + colLetter_(LOG_COLS.length) + '). Re-import ' +
+              'display/SimOutput_v2.xlsx — the log gained an "Earned From" column and the grids ' +
+              'moved to ' + colLetter_(LOG_COLS.length + 2) + '. Nothing was written.';
+    Logger.log(msg);
+    SpreadsheetApp.getActive().toast(msg, 'SimulatePackOpenings — STOPPED', 15);
+    throw new Error(msg);
+  }
+  var outCols = LOG_COLS.length;
   var lastRow = simOut.getLastRow();
   if (lastRow >= OUT_START_ROW)
     simOut.getRange(OUT_START_ROW, 1, lastRow - OUT_START_ROW + 1, outCols).clearContent();
@@ -673,10 +761,24 @@ function SimulatePackOpenings() {
 
 function countKeys_(o){ var n = 0; for (var k in o) if (o[k]) n++; return n; }
 
+/** Column LETTER of any 'Album #N' / 'Set #N' label sitting inside the pack log's own columns,
+ *  or '' when the sheet layout is current. Cheap scan of the log block's header-ish rows. */
+function staleGridColumn_(simOut){
+  var n = LOG_COLS.length;
+  var rng = simOut.getRange(OUT_START_ROW - 2, 1, 8, n);
+  var v = rng.getValues();
+  for (var r = 0; r < v.length; r++)
+    for (var c = 0; c < v[r].length; c++){
+      var t = String(v[r][c] == null ? '' : v[r][c]).trim();
+      if (/^(Album|Set)\s*#\s*\d+$/i.test(t)) return colLetter_(c + 1);
+    }
+  return '';
+}
+
 /** Finds "Album #N" and "Set #N" labels in the grid area. Returns { albumNum: { setNum: {row,col} } }
  *  where each Set is attached to the most recent Album label above-left of it. */
 function findGridAnchors_(simOut) {
-  var range  = simOut.getRange(GRID_SCAN_RANGE);
+  var range  = simOut.getRange(gridScanRange_());
   var values = range.getValues();
   var r0 = range.getRow(), c0 = range.getColumn();
   var labels = [];
@@ -707,7 +809,7 @@ function findGridAnchors_(simOut) {
 function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet) {
   var anchors = findGridAnchors_(simOut);
   if (!Object.keys(anchors).length){
-    Logger.log('No Album/Set labels found in ' + GRID_SCAN_RANGE);
+    Logger.log('No Album/Set labels found in ' + gridScanRange_());
     return;
   }
   var bySet = {};

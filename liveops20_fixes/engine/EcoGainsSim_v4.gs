@@ -765,10 +765,19 @@ function rmInstanceRows_(seg, payer, ctx){
 // to contain payers' paid-track claims — the telemetry label doesn't split tracks).
 // R_challenge = SP_lb_v2/SP_lb rank-ladder POT ratio (zero-sum like Kite; the Dream Pass rows in
 // data_event_inst are empty, so there is no position distribution to price at).
+// THE PAID TRACK IS SCALED, NOT ADDED (checked 2026-08-18): for a PAYER, spCumTo_ sums FREE+PAID on
+// BOTH sides, so cum_v2/cum_base carries the paid track through the ratio path exactly as it carries
+// the free one. A payer who reaches a higher tier therefore earns proportionally more paid-track
+// reward, which is the intended model — payers are assumed to hold the pass across both sides of the
+// comparison, so it is like-for-like and nothing about the purchase itself needs simulating.
 // No anchor (measured 0 or cum_base 0): tiers GAINED add the ABSOLUTE SP_v2 rewards of tiers
-// (T_meas, T_sim] on top of measured (HYBRID — config absolutes on a measured row, flagged);
-// no tier gain -> carry (never deletes a measured value; e.g. the row's own SPT is carried —
-// the track pays no SPT).
+// (T_meas, T_sim] on top of measured (HYBRID — config absolutes on a measured row, flagged). This
+// fires per RESOURCE, only where the track paid none of that resource through the measured tier, so
+// there is no anchor to scale; on the real ladder it is just SPT/SPTx2, which the track pays 0 of.
+// No tier gain -> carry (never deletes a measured value).
+// STANDING ASSUMPTION (unresolved): the measured '(Free)' category is presumed to contain payers'
+// paid-track claims. If the export is really free-only, a payer's row is a free-only level scaled by
+// a free+paid ratio, and the paid rewards are missing from the level entirely — see README.
 // SP's own SPT contribution enters the totals as measured on BOTH sides (single pass — this IS
 // the recursion guard; ctx._sptBusy is a defensive backstop). SP_v2 / SP_lb_v2 missing or empty
 // -> the base sheet serves both sides (all ratios 1). Season length: 'Season Length (days)'
@@ -796,19 +805,26 @@ function simSeasonPass(seg, payer, ctx){
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);   // D pinned 1 — tier rewards are end-state
   var out = {};
   RESOURCES.forEach(function(r){
-    var m = num(meas[r]);
-    if (m > 0 && num(cb[r]) > 0){                      // anchored: ratio path
-      out[r] = m * (num(cs[r]) / num(cb[r])) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
-    } else if (Ts > Tm){                               // no anchor: additive newly-unlocked tiers
-      var add = 0;
-      for (var i = Tm; i < Ts; i++){
-        add += num(v2.free[i] && v2.free[i][r]);
-        if (payer === 'PAYER') add += num(v2.paid[i] && v2.paid[i][r]);
+    var m = num(meas[r]), b = num(cb[r]), v = num(cs[r]);
+    var body;
+    if (m > 0 && b > 0){                               // anchored: tier progression scales the row
+      body = m * (v / b);                              // cum ratio — FREE for NONPAYER, FREE+PAID
+                                                       // for PAYER, so the paid track scales here
+                                                       // exactly like the free one
+    } else if (Ts > Tm){                               // no anchor for THIS resource: the track paid
+      var add = 0;                                     // none of it through the measured tier, so
+      for (var i = Tm; i < Ts; i++){                   // there is nothing to scale — the only
+        add += num(v2.free[i] && v2.free[i][r]);       // representable value is the absolute reward
+        if (payer === 'PAYER') add += num(v2.paid[i] && v2.paid[i][r]);   // of the tiers newly won
       }
-      out[r] = m + add;                                // HYBRID (absolute config values)
+      body = m + add;                                  // HYBRID (absolute config values)
     } else {
-      out[r] = m;                                      // no anchor, no tier gain -> carry
+      body = m;                                        // no anchor, no tier gain -> carry
     }
+    // R_challenge and the calendar T apply to the ROW, not to one of the two paths. They used to be
+    // multiplied in only on the anchored branch, so a resource that fell to the additive path
+    // silently skipped both — same row, same season, two different calendars. Applied once here.
+    out[r] = body * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
   });
   return out;
 }

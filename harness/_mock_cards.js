@@ -243,9 +243,39 @@ let firstRun = null;
   check('pack log: every pack name is a known tier or blank',
     log.every(r => r[1] === '' || PACK_RES.indexOf(r[1]) >= 0),
     [...new Set(log.map(r => r[1]))].join(', '));
-  check('pack log: sources are real engine categories (or a chest / nothing)',
-    log.every(r => r[2] === '(nothing)' || /Chest Opened/.test(r[2]) || CATEGORY_ORDER.indexOf(r[2]) >= 0),
+  const isEmptyLabel = (t) => t === '(did not play)' || t === '(played — no pack dropped)';
+  check('pack log: sources are real engine categories (or a chest / an empty-day reason)',
+    log.every(r => isEmptyLabel(r[2]) || /Chest Opened/.test(r[2]) || CATEGORY_ORDER.indexOf(r[2]) >= 0),
     [...new Set(log.map(r => r[2]))].join(' | '));
+  // An empty day must say WHICH kind of empty it was, and a played-but-empty day must show what the
+  // session looked like — that detail is the whole point of splitting the old '(nothing)' label.
+  const empties = log.filter(r => isEmptyLabel(r[2]));
+  check('pack log: empty days say whether the player showed up',
+    empties.every(r => r[2] === '(did not play)' || r[2] === '(played — no pack dropped)'),
+    empties.length + ' empty rows');
+  const playedEmpty = log.filter(r => r[2] === '(played — no pack dropped)');
+  check('pack log: played-but-empty days report the session',
+    playedEmpty.length === 0 || playedEmpty.every(r => /level|min|session/.test(String(r[3]))),
+    playedEmpty.length ? playedEmpty[0][3] : 'no played-empty days in this run');
+  check('pack log: a day that granted a pack is never labelled "did not play"',
+    !log.some(r => r[2] === '(did not play)' && r[1] !== ''));
+
+  // STALE-SHEET GUARD. Snapshot / mutate / assert / restore: put an Album label back where the OLD
+  // SimOutput layout had it (column J, inside the widened log) and the run must ABORT rather than
+  // clear over it. Without this, a script/sheet mismatch silently eats the first column of every
+  // 3x3 grid and the grids simply render 2 wide, with nothing reporting an error.
+  {
+    const snapshot = JSON.stringify(data['SimOutput'].values);
+    data['SimOutput'].values[55][9] = 'Album #1';        // row 56, column J
+    let aborted = '';
+    try { SimulatePackOpenings(); } catch (e) { aborted = String(e.message || e); }
+    check('stale SimOutput layout aborts instead of clearing over the album grids',
+      /OLD layout/.test(aborted) && /column J/.test(aborted),
+      aborted ? aborted.slice(0, 90) + '...' : 'run completed — the guard did NOT fire');
+    data['SimOutput'].values = JSON.parse(snapshot);
+    check('stale-guard fixture restored',
+      JSON.stringify(data['SimOutput'].values) === snapshot);
+  }
 
   firstRun = JSON.stringify(data['SimOutput'].values);
   data = snapshot;   // restore for the next block
@@ -304,12 +334,24 @@ let firstRun = null;
   seg.getRange('G2').setValue(7);
   SimulatePackOpenings();
 
+// Column index of a pack-log field, from the engine's own LOG_COLS. NOT from the SimOutput header
+// row: that is written by the builder and lags until the sheet is re-imported, so it would report
+// the OLD layout against NEW output. The log gained an 'Earned From' column on 2026-08-18 and every
+// fixed index below it shifted by one — the pity gates then read the blank Album column as
+// 'Cards Drawn', scanned nothing, and reported "0 violations, 0 honoured": a pass-shaped result that
+// proves nothing. Deriving the index keeps a future column from quietly disarming these gates.
+function logCol(name){
+  const i = LOG_COLS.indexOf(name);
+  if (i < 0) throw new Error('pack log has no "' + name + '" column — LOG_COLS: ' + LOG_COLS.join('|'));
+  return i;
+}
+
   // Rarity mix of everything drawn should track the SNAP POOL shares, not any per-pack grid.
   const log = [];
   for (let r = 56; r < data['SimOutput'].values.length; r++) {
     const row = data['SimOutput'].values[r];
     if (!row || row[0] === '' || row[0] == null) break;
-    if (row[4]) log.push(String(row[4]));
+    if (row[logCol('Cards Drawn')]) log.push(String(row[logCol('Cards Drawn')]));
   }
   const drawn = log.join(', ').split(', ').filter(Boolean);
   const mix = {};
@@ -380,10 +422,10 @@ let firstRun = null;
   for (let r = 56; r < data['SimOutput'].values.length; r++) {
     const row = data['SimOutput'].values[r];
     if (!row || row[0] === '' || row[0] == null) break;
-    if (!row[4]) continue;
+    if (!row[logCol('Cards Drawn')]) continue;
     packs++;
     streak = 0;                                   // counter starts at 0 on every pack
-    for (const card of String(row[4]).split(', ')) {
+    for (const card of String(row[logCol('Cards Drawn')]).split(', ')) {
       const rar = rarityOfCard(card);
       if (!rar) continue;
       if (streak >= 3) {                          // probs[3] == 1.0 -> this pull MUST be the target
@@ -402,8 +444,8 @@ let firstRun = null;
   for (let r = 56; r < data['SimOutput'].values.length; r++) {
     const row = data['SimOutput'].values[r];
     if (!row || row[0] === '' || row[0] == null) break;
-    if (!row[4]) continue;
-    const rar = rarityOfCard(String(row[4]).split(', ')[0]);
+    if (!row[logCol('Cards Drawn')]) continue;
+    const rar = rarityOfCard(String(row[logCol('Cards Drawn')]).split(', ')[0]);
     if (rar) { firstCards++; if (rar === '5★') firstIsTarget++; }
   }
   check('pity: counter does not carry between packs (first card is never forced)',
