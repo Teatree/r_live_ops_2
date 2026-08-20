@@ -346,12 +346,14 @@ function pbpEventState_(spec, label, inst, a, ctx, st, expWins){
   }
   if (spec.family === 'rm'){
     // split configs (2026-07-10, hardcoded in v4's RM_INSTANCE_SHEETS): find this instance's
-    // ordinal among the calendar's start-sorted RM instances -> RM_1st / RM_2nd (fallback RM)
+    // ordinal among the calendar's start-sorted RM instances -> RM_1st / RM_2nd (fallback RM).
+    // cal_new side reads the _v2 proposal ladder (2026-08-18, RM anchoring; missing _v2 -> base),
+    // the same side split NS uses — the cal_curr side always plays the as-run config.
     var rmList = rmSortedInsts_((a.cal === CAL_CUR) ? ctx.calCur : ctx.calNew), ri = 0;
     for (var q = 0; q < rmList.length; q++){
       if (rmList[q].start === inst.start && rmList[q].dur === inst.dur){ ri = q; break; }
     }
-    var rmCfg = rmConfigFor_(ri);
+    var rmCfg = rmConfigFor_(ri, a.cal !== CAL_CUR);
     var pct = ctx.ds.rmPct(a.seg, a.payer), cfgDur = rmCfg.cfgDur;
     var fb = (pct ? num(pct[a.luck]) : 0) * Math.min(1, inst.dur / cfgDur);
     ev.ladder = rmCfg.ladder;

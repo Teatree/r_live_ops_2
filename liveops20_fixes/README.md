@@ -28,7 +28,11 @@ liveops20_fixes/
   PROMPT_variant_data_request.md   hand this to the analytics LLM; it produces the variant-basis
                                    data_* sheets (and three new ones) and pushes them to the workbook
   engine/                          third engine copy, re-based: EcoGainsSim_v4.gs + _Daily + _PBP +
-                                   simPerSegment. SIM_DAYS = 21, anchor = base sheets, proposal = _v2
+                                   simPerSegment. SIM_DAYS = 21, anchor = base sheets, proposal = _v2.
+                                   Plus HCPerWin.gs (2026-08-18): standalone ECOGAINS_HC_PER_WIN(seg)
+                                   — HC gain/spend per level win, per payer, from data_econ +
+                                   data_seg_beh over the 21-day window (per-active-player basis;
+                                   gain counts ALL HC inflows incl. purchases)
   _build_workbook.py               generates the complete variant-basis workbook (config layers,
                                    both calendars, empty data_* targets with exact headers, all
                                    display sheets) into display/
@@ -166,32 +170,55 @@ so a raw ratio flags correct data as whole-population. That bug was in the check
 sheets were meant to close — Core-SPT stays synthetic, there is still no sink model, and the Night
 Sky reach curve is still uncalibrated.
 
-## Rainbow Maker is CARRIED here (2026-08-17, Garry's call)
+## Rainbow Maker: carried (2026-08-17) → ANCHORED (2026-08-18, Garry's call)
 
-`RM_SIMULATE = false` in `liveops20_fixes/engine/EcoGainsSim_v4.gs`, mirroring the existing
-`NS_SIMULATE` switch. The variant already runs Rainbow Maker, so the measured anchor contains it and
-no RM change is planned — simulating it bottom-up would replace a measured number with a modelled
-one and report a difference where there is no decision to make. Carried means **SIM = measured,
-diff = 0**, on the 33/21-day, daily and PBP views alike.
+The carried decision rested on "no RM change is planned". That premise died on 2026-08-18: Garry
+authored RM reward edits (coins +5 on milestones 2 and 9, the m6 slingshot→red and m8
+slingshot→chuck swaps, identical on both ladders) and asked for them to be priced **with T pinned —
+the same schedule on both sides, not read from cal_new**. So RM is now ANCHORED, the same shape as
+Night Sky in D22:
 
-Two consequences worth knowing:
+    SIM[res] = measured[res] x R[res],   R[res] = E_v2[res] / E_base[res]
 
-- `EcoGainsSim_Daily.gs` reads the flag **at run time** in its per-instance placement branch. Without
-  that, the daily view would keep placing bottom-up per-instance amounts whose total no longer
-  matches the carried row, and conservation would break.
-- The known over-count in the measured RM coin rows at 100+ now **cancels out of every diff** instead
-  of being amplified by a re-pricing. It still inflates the faucet *level*, so RM levels stay
-  unreliable until the data is re-pulled — but no proposal comparison is contaminated by it.
+with E = the reach-weighted expected ladder payout over ONE instance list — the as-run `cal_curr`
+RM lane — priced by the same data_RM survival on both sides. Ladder pairs: `RM_1st`/`RM_1st_v2`,
+`RM_2nd`/`RM_2nd_v2` (a missing or empty `_v2` falls back to base ⇒ R = 1, the standard
+"unauthored = unchanged" convention). Switches: `RM_SIMULATE = false` + `RM_ANCHORED = true`;
+`RM_SIMULATE = true` still restores the old bottom-up model (the reproduction gate uses it),
+both false = the 2026-08-17 carried behaviour.
 
-Flipping `RM_SIMULATE` back to `true` restores the bottom-up model. The reproduction gate in
-`_mock_identity.js` sets it to `true` for its legacy run, so that gate keeps measuring the re-base
-alone rather than this decision.
+What the anchoring does and does not price:
+
+- **Ladder edits flow** (rewards on any rung); requirement edits flow too (same survival, shifted).
+- **Cadence does NOT flow, by design**: fewer/shorter cal_new RM instances leave the row untouched
+  (T pinned 1). Full removal from cal_new still zeroes the row (removal semantics kept).
+  A `_v2` EventDuration edit does not flow either — the survival axis is scaled by the BASE config
+  duration on both sides (duration is a schedule lever, pinned with T).
+- The 100+ measured coin over-count cancels inside R's shape but the diff still scales off the
+  measured level (`diff = measured x (R-1)`), so **RM 100+ coin diffs inherit the over-count**
+  until the re-pull lands.
+- The RM_INSTANCE_SHEETS ordinal map (#1–#3 → RM_1st, #4–#5 → RM_2nd) now applies to the as-run
+  lane. FLAGGED: the data (analytics ceiling framing + the AS_RUN seed) says **3 instances × 4d**
+  ran in the window, which maps everything to RM_1st; the live workbook's lanes are drawn with 4
+  instances (2+4+4+4d), whose #4 reads RM_2nd. With today's edits identical on both ladders the two
+  readings move R[HC] by < 0.012, so the choice barely matters — but confirm the as-run lane from
+  the LiveOps config before trusting SPTx2.
+
+Gates (all green 2026-08-18): `_mock_identity.js` section F proves the anchored path is silent with
+`_v2` clones, loud on an RM_1st_v2 coin edit, and **indifferent to a cal_new cadence edit**;
+`_check_built_workbook.js` proves a fresh workbook ships neutral RM `_v2` twins (16 pairs) and
+passes measured through. `EcoGainsSim_Daily.gs` still reads `RM_SIMULATE` at run time: anchored
+mode places the single (measured x R) row by the generic p_day rule — conservation holds; the PBP
+sim reads the `_v2` ladder on the cal_new side only, like NS.
 
 ## Two things that need your decision
 
-**1. ~~Rainbow Maker should be re-anchored.~~ RESOLVED 2026-08-17** — carried instead
-(`RM_SIMULATE = false`, see the section above). Simpler than re-anchoring and correct for the stated
-intent: no RM change is planned, so there is nothing to price.
+**1. ~~Rainbow Maker should be re-anchored.~~ RESOLVED twice** — carried 2026-08-17 ("no RM change
+planned"), then **re-anchored 2026-08-18** when Garry authored RM edits (see the section above).
+The workbook-side wiring was completed 2026-08-18 (verified on the `(2)` export): `RM_1st_v2` /
+`RM_2nd_v2` exist and carry the proposal, both base sheets are byte-identical to the as-run `(1)`
+export, and the cached EcoGainsSim grid shows measured x R — the offline replication reproduces the
+grid's RM sim cells exactly.
 
 **2. The weekend rule changed, and it matters.** The 33-day plan calendars start on a Wednesday;
 this window starts **Monday 2026-07-27**, so Fri/Sat/Sun are days 5, 6, 7 rather than 3, 4, 5. That is
@@ -205,8 +232,9 @@ Deliberately minimal — all in `liveops20_fixes/engine/`. Note there is **no co
 the sheet pairing is the standard `(base, base_v2)` every other copy uses. The variant basis comes
 from the inputs.
 
-1. **Modelling switches**, each documented at its definition: `RM_SIMULATE = false` (Rainbow Maker
-   carried), `JIGSAW_SIMULATE = false` (Jigsaw carried), `RIVER_RUSH_ZERO = true` (River Rush zero on
+1. **Modelling switches**, each documented at its definition: `RM_SIMULATE = false` +
+   `RM_ANCHORED = true` (Rainbow Maker anchored since 2026-08-18 — see its section below),
+   `JIGSAW_SIMULATE = false` (Jigsaw carried), `RIVER_RUSH_ZERO = true` (River Rush zero on
    both sides — the measured side via `measuredRow_`, the one choke point every consumer reads).
 2. **`SIM_DAYS = 21`** replacing the literal 33 in the Core-SPT day loop, the Season-Pass season
    scaling and the calendar's last column. `DAILY_DAYS` and `PBP_DAYS` are separate declarations

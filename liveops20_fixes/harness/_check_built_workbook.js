@@ -118,7 +118,7 @@ console.log('\n================ CONFIG LAYERS ================');
   // base = the config the variant ran (the anchor), _v2 = the proposal you author. A fresh workbook
   // must start with _v2 identical to its base, otherwise it reports a diff nobody authored in it.
   const PAIRED = ['c_saga', 'c_day', 'NS', 'SP', 'SP_lb', 'Race', 'TaD', 'Ki', 'J', 'HH', 'BB',
-                  'Ph', 'RR', 'F'];
+                  'Ph', 'RR', 'F', 'RM_1st', 'RM_2nd'];   // RM paired since 2026-08-18 (anchored)
   const missing = PAIRED.filter(k => data[k] && !data[k + '_v2']);
   const cellsOf = (n) => JSON.stringify((data[n] || {}).values || []);
   const present = PAIRED.filter(k => data[k] && data[k + '_v2']);
@@ -136,8 +136,9 @@ console.log('\n================ IDENTITY ON THE BUILT WORKBOOK ================'
   // Bottom-up sources compute their value from the ladder and ignore the measured anchor, so their
   // diff is their whole value whether or not anything was authored. They are excluded here and
   // asserted separately — see the note printed below, which is a real finding for the v3 work.
-  // Rainbow Maker used to sit here as a bottom-up exception. It is CARRIED now (RM_SIMULATE=false),
-  // so it must obey the same identity as every other carried source — no exception list.
+  // Rainbow Maker used to sit here as a bottom-up exception. It is ANCHORED now (RM_ANCHORED,
+  // 2026-08-18: measured x R over the as-run schedule, _v2 ladders = the proposal), so with _v2
+  // clones it must obey the same identity as every other anchored source — no exception list.
   const BOTTOM_UP_CATS = {};
   // A calendar-driven source with no instances is zeroed by removal semantics. With BORROWED
   // pre-test data that shows up as a negative diff for anything the variant no longer runs (River
@@ -184,11 +185,8 @@ console.log('\n================ IDENTITY ON THE BUILT WORKBOOK ================'
        Object.keys(bottomUpMoved).map(c => `${c} up to ${bottomUpMoved[c].toFixed(0)}`).join(', ')
        || 'none');
   if (Object.keys(bottomUpMoved).length) {
-    console.log('     NOTE for the v3 work: Rainbow Maker is priced bottom-up and ignores the '
-                + 'measured anchor, so on a variant basis its diff is its whole value. The variant '
-                + 'HAS measured RM data now, so RM should be re-anchored to measured x R x T the '
-                + 'way Night Sky was in D22 — otherwise every v3 comparison inherits RM\'s '
-                + 'bottom-up level error (measured at ~1.9x too generous in the A/B read-out).');
+    console.log('     NOTE: a bottom-up source moved — since 2026-08-18 RM is anchored and no '
+                + 'source should be on the bottom-up path in this stack. Check RM_SIMULATE.');
   }
   gate('the sim is not trivially zero (borrowed data is flowing)', simTotal > 1000,
        `Σ|sim| = ${simTotal.toFixed(0)} across ${Object.keys(nonZeroCats).length} categories`);
@@ -197,8 +195,8 @@ console.log('\n================ IDENTITY ON THE BUILT WORKBOOK ================'
 // ---------------------------------------------------------------- 5. carried sources, REAL calendars
 // The identity test above holds the calendars equal. Carried sources ignore the calendar entirely
 // (resultRow_ returns measuredRow_ before any schedule is read), so their diff must be exactly 0
-// even when the two calendars differ — a strictly stronger claim, and the one that matters for
-// Rainbow Maker now that RM_SIMULATE is off.
+// even when the two calendars differ. Rainbow Maker rides along: it is ANCHORED (2026-08-18), and
+// with unauthored _v2 ladders R = 1, so measured passes straight through here too.
 console.log('\n================ CARRIED SOURCES ON THE REAL CALENDARS ================');
 data['cal_new'] = CAL_NEW_REAL;
 eval(fs.readFileSync(path.join(ENGINE, 'EcoGainsSim_v4.gs'), 'utf8'));
@@ -227,10 +225,13 @@ _sheetValsCache = {};
   }
   gate('every carried source diffs exactly 0 with the real calendars', bad.length === 0,
        bad.length ? bad.slice(0, 4).join(', ') : `${CARRIED.length} sources checked`);
-  gate('Rainbow Maker is carried, not re-priced', Math.abs(rmSim - rmMeas) < 1e-9,
+  gate('Rainbow Maker passes measured through while its _v2 ladders are unauthored (anchored, R = 1)',
+       Math.abs(rmSim - rmMeas) < 1e-9,
        `sim ${rmSim.toFixed(0)} vs measured ${rmMeas.toFixed(0)} (identical => the measured RM ` +
        `numbers pass straight through, so the 100+ over-count cancels out of every diff)`);
-  gate('RM_SIMULATE is off in the shipped engine', RM_SIMULATE === false, String(RM_SIMULATE));
+  gate('shipped engine is anchored, not bottom-up or carried',
+       RM_SIMULATE === false && typeof RM_ANCHORED !== 'undefined' && RM_ANCHORED === true,
+       `RM_SIMULATE ${RM_SIMULATE} · RM_ANCHORED ${typeof RM_ANCHORED !== 'undefined' ? RM_ANCHORED : 'undefined'}`);
 }
 
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
