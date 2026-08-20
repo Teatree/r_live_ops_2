@@ -50,6 +50,47 @@ global.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: (n) => 
 
 eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
 
+// ---- SPILL ALIGNMENT ------------------------------------------------------------------------
+// ECOGAINS_SIM returns one row per CATEGORY_ORDER entry, in order, and the display sheet's row
+// labels in column B are static text that nothing ever checked against it. A label added to the
+// sheet without a matching entry does NOT read blank: it shifts every row beneath it onto the next
+// source's numbers, silently. That happened when 'Season Pass (Paid)', 'Col - Sets' and
+// 'Col - Albums' were added to the workbook - Rainbow Maker's HC was being read as FlowerCoop's,
+// and Rainbow Maker's own row showed 0. Compare the two lists whenever the sheet is in the dump.
+(function alignmentGate(){
+  const sheetName = ['EcoGainsSim', 'EcoGainsSim_HC'].find(n => data[n] && data[n].values.length);
+  if (!sheetName) {
+    console.log('SKIP spill alignment: no display sheet in the mockdata dump');
+    return;
+  }
+  const vals = data[sheetName].values;
+  // the labels sit in column B under the 'Source' header of the first segment block
+  let hdr = -1;
+  for (let r = 0; r < vals.length; r++)
+    if (String((vals[r] || [])[1]).trim() === 'Source') { hdr = r; break; }
+  if (hdr < 0) { console.log('SKIP spill alignment: no "Source" header on ' + sheetName); return; }
+  const labels = [];
+  for (let r = hdr + 1; r < vals.length; r++) {
+    const t = String((vals[r] || [])[1] == null ? '' : (vals[r] || [])[1]).trim();
+    if (!t) break;
+    labels.push(t);
+  }
+  const bad = [];
+  const n = Math.max(labels.length, CATEGORY_ORDER.length);
+  for (let i = 0; i < n; i++)
+    if (labels[i] !== CATEGORY_ORDER[i])
+      bad.push('row ' + (hdr + 2 + i) + ': sheet=' + (labels[i] || '(none)') +
+               ' engine=' + (CATEGORY_ORDER[i] || '(none)'));
+  if (bad.length) {
+    console.log('FAIL spill alignment: CATEGORY_ORDER does not match ' + sheetName +
+                ' labels - ' + bad.slice(0, 4).join(' | '));
+    failures = (typeof failures === 'number' ? failures : 0) + 1;
+  } else {
+    console.log('PASS spill alignment: CATEGORY_ORDER matches all ' + labels.length +
+                ' ' + sheetName + ' row labels');
+  }
+})();
+
 const fmt = (x) => (Math.round(x * 100) / 100).toFixed(2);
 const SEGS = ['0-9', '10-19', '20-39', '40-99', '100+', 'A. 0'];
 

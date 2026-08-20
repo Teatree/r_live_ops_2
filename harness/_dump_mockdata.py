@@ -18,6 +18,11 @@ SHEETS = [
     'data_gains', 'data_seg_beh', 'data_event_accrual', 'data_event_kite_accrual', 'data_RM',
     'cal_curr', 'cal_new', 'cal_parsed',
     'c_saga', 'c_saga_v2', 'c_day', 'c_day_v2', 'RM', 'NS', 'NS_v2', 'Sim per Segment',
+    # The display sheet itself, so a gate can check CATEGORY_ORDER against the row LABELS the
+    # spill lands next to. Those labels are static text nothing validated, so a row added to
+    # the sheet without a matching CATEGORY_ORDER entry shifted every row below it onto the
+    # wrong source in silence (found 2026-08-21).
+    'EcoGainsSim', 'EcoGainsSim_HC',
     # PBP engine additions
     'data_streaks', 'data_event_inst',
     'J_v2', 'HH_v2', 'BB_v2', 'Ph_v2', 'Ki_v2', 'TaD_v2', 'Race_v2', 'F_v2',

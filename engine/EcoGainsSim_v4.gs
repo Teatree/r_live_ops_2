@@ -117,12 +117,20 @@ var RESOURCES = ['HC','Slingshot','Shuffle','Comet','Red','Chuck','Bomb',
 var PACK_RES = ['1-star Pack','2-star Pack','3-star Pack','4-star Pack','5-star Pack','6-star Pack'];
 function isPackRes_(r){ return PACK_RES.indexOf(r) !== -1; }
 
-// Sheet row order (must match EcoGainsSim_HC blocks; 25 rows, Saga between River Rush and SP).
+// Sheet row order. THIS LIST IS THE SPILL, POSITION BY POSITION: ECOGAINS_SIM returns one row per
+// entry, in order, and the sheet's column-B labels are static text that is never checked against it.
+// A label added to the sheet without a matching entry here therefore does not read blank - it
+// SHIFTS every row below it onto the wrong source, silently. That is exactly what happened when
+// 'Season Pass (Paid)', 'Col - Sets' and 'Col - Albums' were added to the workbook (2026-08-21):
+// rows 26-32 each showed the NEXT source's numbers (Rainbow Maker's HC appeared under FlowerCoop,
+// Rainbow Maker itself read 0) and the last three rows stayed empty. 28 rows now.
+// If you add a row to the sheet, add it here at the same position, or the block silently mis-reads.
 var CATEGORY_ORDER = [
   'Ads','Bomb Challenge',"Bomb's Ballet",'Chuck Challenge','Core','Daily Gift','Daily Night Sky Prize',
   'Flock Flurry','Hatchling Hideaway','Jigsaw','Kite Festival','Level Race','Other','Photoshoot',
-  'Red Challenge','River Rush','Saga','Season Pass (Free)','Target Day','Team Event','Team Race',
-  'Flash Race','FlowerCoop','Rainbow Maker','IAPs'
+  'Red Challenge','River Rush','Saga','Season Pass (Free)','Season Pass (Paid)','Target Day',
+  'Team Event','Team Race','Flash Race','FlowerCoop','Rainbow Maker','IAPs',
+  'Col - Sets','Col - Albums'
 ];
 
 // display segment -> data_gains label (D8: '0-9' anchors to B. 1-9; A. 0 = appendix, own label)
@@ -148,7 +156,10 @@ var SOURCES = {
   'Kite Festival'         : simKiteFestival,
   'Rainbow Maker'         : simRainbowMaker,
   'River Rush'            : simRiverRush,
-  'Season Pass (Free)'    : simSeasonPass
+  'Season Pass (Free)'    : simSeasonPass,
+  'Season Pass (Paid)'    : simSeasonPassPaid,   // the PAID track, split out 2026-08-21
+  'Col - Sets'            : simColSets,          // card-collection SET completion rewards
+  'Col - Albums'          : simColAlbums         // card-collection ALBUM completion rewards
 };
 
 // config/ladder column header -> engine resource name (shared by RM + NS readers)
@@ -1159,7 +1170,11 @@ function simSeasonPass(seg, payer, ctx){
   var t  = sptTotals_(seg, payer, ctx);
   var Tm = spTier_(t.meas * daysBase / 33, base.cum);
   var Ts = spTier_(t.sim  * daysV2   / 33, v2.cum);
-  var cb = spCumTo_(base, Tm, payer), cs = spCumTo_(v2, Ts, payer);
+  // FREE TRACK ONLY, both sides. Until 2026-08-21 this row folded the PAID track in for payers,
+  // because the workbook had a single 'Season Pass (Free)' row and the measured category was
+  // assumed to contain payers' paid claims too. The sheet now carries a separate
+  // 'Season Pass (Paid)' row, so keeping paid here as well would double-count it.
+  var cb = spCumTo_(base, Tm, 'NONPAYER'), cs = spCumTo_(v2, Ts, 'NONPAYER');
   var Rlb = spChallengeR_();
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);   // D pinned 1 — tier rewards are end-state
   var out = {};
@@ -1169,10 +1184,7 @@ function simSeasonPass(seg, payer, ctx){
       out[r] = m * (num(cs[r]) / num(cb[r])) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
     } else if (Ts > Tm){                               // no anchor: additive newly-unlocked tiers
       var add = 0;
-      for (var i = Tm; i < Ts; i++){
-        add += num(v2.free[i] && v2.free[i][r]);
-        if (payer === 'PAYER') add += num(v2.paid[i] && v2.paid[i][r]);
-      }
+      for (var i = Tm; i < Ts; i++) add += num(v2.free[i] && v2.free[i][r]);   // free track only
       out[r] = m + add;                                // HYBRID (absolute config values)
     } else {
       out[r] = m;                                      // no anchor, no tier gain -> carry
@@ -1184,9 +1196,50 @@ function simSeasonPass(seg, payer, ctx){
   // reach term) x the challenge pot ratio x calendar T.
   var packs = {};
   PACK_RES.forEach(function(r){
-    packs[r] = num(cs[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
+    packs[r] = num(cs[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;   // cs is free-track only now
   });
   return overlayPacks_(out, packs);
+}
+
+// ============================== SEASON PASS (PAID) — split out 2026-08-21 ====================
+// The paid track as its OWN source row. It has NO measured anchor: data_gains emits only a
+// 'Season Pass (Free)' category, so `measured x R` cannot produce it and the row is priced
+// bottom-up off the config, exactly like the pack lane is:
+//
+//   SIM[res] = cum_paid_v2(T_sim)[res] x R_challenge x T          (D pinned 1)
+//
+// where cum_paid is the sum of the PAID column of every tier up to the one the player's simulated
+// SPT reaches. NONPAYER earns nothing here by definition. Garry's call (2026-08-18): payers are
+// assumed to hold the pass across both sides of the comparison, so the track is like-for-like and
+// the purchase itself needs no simulating - what moves is how far up it they climb.
+// The Free row was folding this in for payers until the sheet grew a separate row; it no longer
+// does, so the two rows sum to what the single row used to show.
+function simSeasonPassPaid(seg, payer, ctx){
+  if (payer !== 'PAYER') return zeroRow_();            // no paid track without a purchase
+  if (!ctx.calCurOk || !ctx.calNewOk) return zeroRow_();
+  var cur = ctx.calCur['Season Pass'] || [], nw = ctx.calNew['Season Pass'] || [];
+  if (!nw.length || !cur.length) return zeroRow_();
+  var base = readSPTrack_('SP');
+  if (!base.cum.length) return zeroRow_();
+  var v2Name = spV2Sheet_('SP');
+  var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
+  if (!v2.cum.length) v2 = base;
+  var daysBase = readSPSeasonDays_('SP') || 33;
+  var daysV2 = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
+  var t = sptTotals_(seg, payer, ctx);
+  var Ts = spTier_(t.sim * daysV2 / 33, v2.cum);
+  if (!(Ts > 0)) return zeroRow_();
+  var Rlb = spChallengeR_();
+  var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
+  var out = zeroRow_();
+  for (var i = 0; i < Ts && i < v2.paid.length; i++){
+    var row = v2.paid[i] || {};
+    for (var r in row) out[r] = num(out[r]) + num(row[r]);
+  }
+  RESOURCES.forEach(function(r){
+    out[r] = num(out[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
+  });
+  return out;
 }
 
 // Season Pass packs, tier by tier, for the card sim's day-by-day log (2026-08-20).
@@ -1234,6 +1287,190 @@ function spPackTiers_(seg, payer, ctx){
   return out;
 }
 
+// ============================== COLLECTION SET / ALBUM REWARDS (2026-08-21) ==================
+// Two source rows the workbook grew and the engine never produced. Completing a card SET, or a
+// whole ALBUM, pays real currency out of the PackConfig SET REWARDS / ALBUM REWARDS blocks - the
+// collection feature's own contribution to the faucet, separate from the packs that feed it.
+//
+// Neither has a measured anchor (data_gains has no such category), so both are priced BOTTOM-UP,
+// the same rule the pack lane already follows. The chain is:
+//
+//   packs        SUM over every source of the six pack columns this segment earns  (= packLane_)
+//   cards        SUM_tier packs[tier] x cardsPerOpen[tier]                          (PackConfig)
+//   ownership    P(card c owned) = 1 - (1 - w_c)^cards,  w_c = its share of the SNAP POOL
+//   set k done   PRODUCT over the cards of set k of P(owned)
+//   album done   PRODUCT over EVERY card
+//   gains        SUM_k P(set k done) x setReward_k   /   P(album done) x albumReward_1
+//
+// FLAGGED, and worth knowing before quoting these two rows:
+//   - Draws are treated as INDEPENDENT with replacement over the pool. The card sim draws without
+//     replacement inside a pack and depletes the pool as it goes, so this slightly UNDERSTATES how
+//     fast a collection fills. The pool is ~817 copies against 2-7 cards per pack, so the error is
+//     small, but it is one-directional.
+//   - It ignores the card sim's chapter weighting, both pity mechanisms and star-chest purchases,
+//     all of which pull completion EARLIER. These rows are therefore a floor, not a midpoint.
+//   - Album rewards use tier 1 only: the model has no notion of looping into a second album.
+// The card sim (menu > Simulate card pack openings) remains the exact, per-run answer; this is the
+// closed-form expectation so the gains model can carry the two rows live.
+function colRewardRow_(which, seg, payer, ctx){
+  if (seg === 'A. 0' || seg === 'A.0') return zeroRow_();   // no behaviour telemetry -> no packs
+  var cards = expectedCardsDrawn_(seg, payer, ctx);
+  if (!(cards > 0)) return zeroRow_();
+  var pool = colPool_();
+  if (!pool || !pool.total) return zeroRow_();
+  var pOwn = {};
+  for (var key in pool.count)
+    pOwn[key] = 1 - Math.pow(1 - (pool.count[key] / pool.total), cards);
+
+  var out = zeroRow_();
+  if (which === 'sets'){
+    for (var sn in pool.bySet){
+      var keys = pool.bySet[sn], p = 1;
+      for (var i = 0; i < keys.length; i++) p *= num(pOwn[keys[i]]);
+      if (!(p > 0)) continue;
+      var rew = pool.setRewards['Set ' + sn];
+      if (rew) for (var r in rew) out[r] = num(out[r]) + num(rew[r]) * p;
+    }
+    return out;
+  }
+  var pa = 1;
+  for (var k2 in pOwn) pa *= num(pOwn[k2]);
+  var arew = pool.albumReward;
+  if (arew && pa > 0) for (var r2 in arew) out[r2] = num(out[r2]) + num(arew[r2]) * pa;
+  return out;
+}
+function simColSets  (seg, payer, ctx){ return colRewardRow_('sets',   seg, payer, ctx); }
+function simColAlbums(seg, payer, ctx){ return colRewardRow_('albums', seg, payer, ctx); }
+
+// Total packs this (segment, payer) earns across EVERY source, converted to cards. Mirrors the
+// sptTotals_ pattern - summed off resultRow_ so it picks up every lane's pack overlay - with the
+// same re-entry guard, because the two collection rows are themselves inside CATEGORY_ORDER.
+function expectedCardsDrawn_(seg, payer, ctx){
+  ctx._colCards = ctx._colCards || {};
+  var key = seg + '|' + payer;
+  if (ctx._colCards[key] != null) return ctx._colCards[key];
+  if (ctx._colBusy) return 0;                       // re-entry: contribute nothing to our own input
+  var packs = zeroRow_();
+  ctx._colBusy = true;
+  try {
+    CATEGORY_ORDER.forEach(function(cat){
+      if (cat === 'Col - Sets' || cat === 'Col - Albums') return;
+      var row = resultRow_(cat, seg, payer, ctx);
+      PACK_RES.forEach(function(r){ packs[r] = num(packs[r]) + num(row[r]); });
+    });
+  } finally { ctx._colBusy = false; }
+  var per = colCardsPerOpen_(), cards = 0;
+  PACK_RES.forEach(function(r){ cards += num(packs[r]) * num(per[r]); });
+  return (ctx._colCards[key] = cards);
+}
+
+// 'N-star Pack' -> cards per open, from the PackConfig PACK DEFINITIONS block.
+function colCardsPerOpen_(){
+  var v = sheetVals_('PackConfig'), out = {}, start = -1;
+  for (var r = 0; r < v.length; r++)
+    if (String((v[r] || [])[0]).trim() === 'PACK DEFINITIONS'){ start = r; break; }
+  if (start < 0) return out;
+  for (var r2 = start + 1; r2 < v.length; r2++){
+    var lab = String((v[r2] || [])[0]).trim();
+    if (/^[A-Z][A-Z &]{4,}$/.test(lab)) break;                       // next block label
+    var m = lab.match(/^(\d+)[-\s]*star/i);
+    if (m && num(v[r2][1]) > 0) out[m[1] + '-star Pack'] = Math.round(num(v[r2][1]));
+  }
+  return out;
+}
+
+// The card pool as the gains model needs it: per-card copy counts, the cards of each set, and the
+// two reward tables. Rarity names are reconciled positionally, exactly as CardOpenings.gs does, so
+// AlbumConfig's '6-star' and PackConfig's 'Gold' remain the same tier here too.
+function colPool_(){
+  var pv = sheetVals_('PackConfig'), av = sheetVals_('AlbumConfig');
+  if (!pv.length || !av.length) return null;
+  function block(label){
+    var b = -1;
+    for (var r = 0; r < pv.length; r++)
+      if (String((pv[r] || [])[0]).trim() === label){ b = r; break; }
+    if (b < 0) return [];
+    var out = [];
+    for (var r2 = b + 1; r2 < pv.length; r2++){
+      var lab = String((pv[r2] || [])[0]).trim();
+      if (/^[A-Z][A-Z &]{4,}$/.test(lab)) break;
+      if (lab) out.push(pv[r2]);
+    }
+    return out;
+  }
+  var order = [], qty = {};
+  block('RARITY DEFINITIONS').forEach(function(row){
+    var n = String(row[0]).trim();
+    if (n && !isNaN(parseFloat(row[1]))) order.push(n);
+  });
+  if (!order.length) return null;
+  block('SNAP POOL').forEach(function(row){
+    var n = String(row[0]).trim();
+    if (order.indexOf(n) >= 0 && num(row[1]) > 0) qty[n] = num(row[1]);
+  });
+  function resolve(raw){
+    var t = String(raw == null ? '' : raw).trim();
+    if (order.indexOf(t) >= 0) return t;
+    var m = t.match(/^(\d+)\s*[-\s]?\s*(?:star|★|\*)?$/i);
+    if (m){ var i = Number(m[1]) - 1; if (i >= 0 && i < order.length) return order[i]; }
+    return null;
+  }
+  var byRarity = {}, cards = [];
+  for (var r3 = 2; r3 < av.length; r3++){
+    var row3 = av[r3];
+    if (!row3 || !/^CARD/i.test(String(row3[0]))) continue;
+    var rar = resolve(row3[4]);
+    if (!rar) continue;
+    var c = { key: String(row3[1]) + ' ' + rar, rarity: rar, setNum: Math.round(num(row3[2])) };
+    cards.push(c);
+    (byRarity[rar] = byRarity[rar] || []).push(c);
+  }
+  if (!cards.length) return null;
+  var count = {}, total = 0, bySet = {};
+  for (var rar2 in byRarity){
+    var q = num(qty[rar2]);
+    if (!(q > 0)) continue;                       // a rarity with no pool stock cannot be drawn
+    var list = byRarity[rar2], baseN = Math.floor(q / list.length), rem = q - baseN * list.length;
+    list.forEach(function(c2, i){
+      count[c2.key] = (i < rem) ? baseN + 1 : baseN;
+      total += count[c2.key];
+    });
+  }
+  cards.forEach(function(c3){
+    if (count[c3.key] == null) return;            // rarity had no stock -> unreachable, excluded
+    (bySet[c3.setNum] = bySet[c3.setNum] || []).push(c3.key);
+  });
+  // reward tables, mapped onto engine resource names via RES_MAP
+  function rewards(label){
+    var out = {};
+    block(label).forEach(function(row){
+      var id = String(row[0]).trim();
+      if (!id || isNaN(parseFloat(row[1]))) return;
+      var rew = {};
+      COL_REWARD_COLS.forEach(function(rc){
+        var res = RES_MAP[rc.name];
+        if (res && num(row[rc.col]) > 0) rew[res] = num(rew[res]) + num(row[rc.col]);
+      });
+      out[id] = rew;
+    });
+    return out;
+  }
+  var setR = rewards('SET REWARDS'), albR = rewards('ALBUM REWARDS');
+  return { count: count, total: total, bySet: bySet, setRewards: setR,
+           albumReward: albR['Album 1'] || null };
+}
+// The 21-column reward block every config sheet shares (Coins .. 6-star Dly), by OFFSET from the
+// row's id cell. Mirrors REWARD_COLUMNS in CardOpenings.gs; kept here so the gains engine does not
+// depend on the card sim's file being present.
+var COL_REWARD_COLS = [
+  {col:1,name:'Coins'},{col:2,name:'SPT'},{col:3,name:'SPT x2'},{col:4,name:'Red'},
+  {col:5,name:'Chuck'},{col:6,name:'Bomb'},{col:7,name:'Slingshot'},{col:8,name:'Shuffle'},
+  {col:9,name:'Comet'},{col:10,name:'Unlimited Lives'},{col:11,name:'Unlimited Red'},
+  {col:12,name:'Unlimited Chuck'},{col:13,name:'Unlimited Bomb'},{col:15,name:'Avatar'},
+  {col:16,name:'1-star Dly'},{col:17,name:'2-star Dly'},{col:18,name:'3-star Dly'},
+  {col:19,name:'4-star Dly'},{col:20,name:'5-star Dly'},{col:21,name:'6-star Dly'}
+];
+
 // Per-earner SPT window totals, measured vs simulated, summed over every category (additive-
 // projection convention). Cached on ctx: computed once per execution, shared by the SIM and
 // DIFF spills. 'Season Pass (Free)' itself contributes measured to BOTH sides (no recursion).
@@ -1250,7 +1487,12 @@ function sptTotals_(seg, payer, ctx){
       var mrow = measuredRow_(cat, seg, payer, ds);
       var mSPT = num(mrow['SPT']), mX2 = num(mrow['SPTx2']);
       meas += mSPT + 2 * mX2;
+      // The Season Pass rows and the two collection rows are all priced OFF this total, so they
+      // must not be inside it: Free contributes measured on both sides (the original recursion
+      // guard) and the other three contribute nothing at all. Without this the tier the player
+      // reaches would depend on the rewards that tier itself pays.
       if (cat === 'Season Pass (Free)'){ sim += mSPT + 2 * mX2; return; }
+      if (cat === 'Season Pass (Paid)' || cat === 'Col - Sets' || cat === 'Col - Albums') return;
       var row = resultRow_(cat, seg, payer, ctx);
       sim += num(row['SPT']) + 2 * num(row['SPTx2']);
     });
