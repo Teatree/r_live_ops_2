@@ -337,8 +337,8 @@ function SimulatePackOpenings() {
       return r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])) && validRarities[String(r[4]).trim()];
     })
     .map(function(r){
-      return { name: r[1], setNum: Number(r[2]), rarity: String(r[4]).trim(),
-               key: r[1] + ' ' + String(r[4]).trim() };
+      return { name: r[1], setNum: Number(r[2]), setName: String(r[3] == null ? '' : r[3]).trim(),
+               rarity: String(r[4]).trim(), key: r[1] + ' ' + String(r[4]).trim() };
     });
   if (!catalog.length)
     throw new Error('AlbumConfig has no usable card rows (need a Card ID starting with "CARD" and ' +
@@ -829,6 +829,12 @@ function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet) {
       var cards = bySet[setNum] || [];
       if (cards.length > cardsPerSet)
         Logger.log('Set #' + setNum + ' has ' + cards.length + ' cards, clipping to ' + cardsPerSet);
+      // Set NAME beside the 'Set #N' anchor. AlbumConfig has carried a 'Set Name' column all along
+      // ('Skull Isle', ...) and nothing was writing it, so every grid read as an anonymous 'Set #3'.
+      // Written to the RIGHT of the label, never over it: findGridAnchors_ locates grids by that
+      // exact 'Set #N' text, so overwriting it would make the grids unfindable on the next run.
+      var label = cards.length ? cards[0].setName : '';
+      if (label) simOut.getRange(anchor.row, anchor.col + 1).setValue(label);
       var grid = [['','',''],['','',''],['','','']];
       cards.slice(0, cardsPerSet).forEach(function(c, i){
         if (use[c.key]) grid[Math.floor(i / GRID_DIM)][i % GRID_DIM] = c.rarity;

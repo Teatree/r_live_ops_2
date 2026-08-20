@@ -277,6 +277,41 @@ let firstRun = null;
       JSON.stringify(data['SimOutput'].values) === snapshot);
   }
 
+  // Grid geometry: all THREE columns painted, and the set NAME written beside the anchor without
+  // clobbering the 'Set #N' label that findGridAnchors_ locates the grid by.
+  {
+    // This gate REPAINTS the grids with a synthetic full collection, so it must snapshot and restore
+    // like every other mutating gate here — the determinism check downstream compares the whole
+    // sheet byte-for-byte and would otherwise fail on this fixture's leftovers.
+    const gridSnap = JSON.stringify(data['SimOutput'].values);
+    const album = mkSheet('AlbumConfig'), last = album.getLastRow();
+    const cat = album.getRange(3, 1, last - 2, 5).getValues()
+      .filter(r => r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])))
+      .map(r => ({ name: r[1], setNum: Number(r[2]), setName: String(r[3] == null ? '' : r[3]).trim(),
+                   rarity: String(r[4]).trim(), key: r[1] + ' ' + String(r[4]).trim() }));
+    const full = {}; cat.forEach(c => { full[c.key] = true; });
+    writeAlbumGrids_(mkSheet('SimOutput'), cat, full, 0, 9);
+    const vals = data['SimOutput'].values;
+    let anchorRow = -1, anchorCol = -1;
+    for (let r = 55; r < vals.length && anchorRow < 0; r++)
+      for (let c = 0; c < (vals[r] || []).length; c++)
+        if (String(vals[r][c]).trim() === 'Set #1') { anchorRow = r; anchorCol = c; break; }
+    check('grid anchor found after a repaint', anchorRow >= 0,
+      anchorRow >= 0 ? 'Set #1 at row ' + (anchorRow + 1) + ' col ' + (anchorCol + 1) : 'not found');
+    if (anchorRow >= 0) {
+      const painted = [0, 1, 2].map(i =>
+        [0, 1, 2].filter(j => String((vals[anchorRow + 1 + i] || [])[anchorCol + j] || '') !== '').length);
+      check('every one of the 3 grid columns is painted',
+        painted.every(n => n === 3), 'cells per row: ' + painted.join('/') + ' (want 3/3/3)');
+      check('the set NAME is written beside the anchor, not over it',
+        String(vals[anchorRow][anchorCol]).trim() === 'Set #1' &&
+        String(vals[anchorRow][anchorCol + 1] || '').trim() !== '',
+        String(vals[anchorRow][anchorCol]) + ' | ' + String(vals[anchorRow][anchorCol + 1]));
+    }
+    data['SimOutput'].values = JSON.parse(gridSnap);
+    check('grid fixture restored', JSON.stringify(data['SimOutput'].values) === gridSnap);
+  }
+
   firstRun = JSON.stringify(data['SimOutput'].values);
   data = snapshot;   // restore for the next block
 }
