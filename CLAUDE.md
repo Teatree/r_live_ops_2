@@ -145,6 +145,11 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 - **SQL:** compose via the incremental Python generator pattern (labelled string blocks → validate → write file); separate `.sql` files, never edit SQL in place; read all referenced project files before writing SQL. Athena gotchas: cast `processdate` to INT for partition pruning; `client_events` currency amounts have a 0–9999 cap that silently zeroes large grants (derive HC from `player_daily.hc_gain`); no `COUNT(DISTINCT)` inside a window; `ARBITRARY()` is non-deterministic; Night Sky is logged as *Dream Heist*; `event_tokens` is a MAP on the level-summary view.
 - **Simulation sheets:** Arial, no gridlines, no frozen panes; palette #CFE2F3 data / #E2EFDA sim / #FFF2CC input.
 - **Design/config sheets (Ph style):** never merge cells; everything starts at column A; 0 (not blank) for empty numeric cells; punch-card rule — include ALL in-game currency columns even when unused (zeros); conditional formatting (not static fills) for value-driven styling; zebra-stripe at the logical group level.
+- **Git: COMMIT after every change, NEVER push.** Each completed change lands as its own commit,
+  as soon as it is made and verified. Do not batch several changes into one commit, and do not
+  wait to be asked. Pushing to `r_live_ops_2` is Garry's call alone - never run `git push`.
+  Reason: the workbooks and .gs files are edited from more than one place, so an uncommitted
+  working tree is what turns a routine `git pull` into a merge that can lose work.
 - Communication: terse, implementation-over-questions; make defensible choices and flag them.
 - **Before entering plan mode or writing any plan, ALWAYS ask exactly 15 clarifying questions**, in batches of 4 (4+4+4+3). This is not a ceiling to approach or a target to approximate — ask all 15 every time, even when the task looks clear. The questions must be split between:
   - **things you did not immediately understand** from the request or the code (ambiguous scope, conflicting data, undefined semantics), and
