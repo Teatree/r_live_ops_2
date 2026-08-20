@@ -459,6 +459,155 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst){
   return out;
 }
 
+// ============================== PACK RUNGS (2026-08-20) =====================================
+// packLane_ answers "how many packs per window, on average". The card sim needs the structure
+// UNDERNEATH that average: which discrete outcomes ONE instance can produce, and with what
+// probability. Without it the card sim could only accumulate fractions until they crossed 1, which
+// produced two visible wrongs in the live log:
+//   * Target Day granted "rank 4", "rank 2" and "rank 1" on the SAME day. A leaderboard instance
+//     pays exactly ONE rank, so those three outcomes are mutually exclusive.
+//   * Packs bunched into the last week and busy days came up empty, because each (source, tier)
+//     kept its own separate accumulator and a 0.3/day source needs four days to emit anything.
+//
+// Returns, for ONE instance of one source:
+//   { participation: p, groups: [ { exclusive: bool, rungs: [{label, p, packs:{tier:count}}] } ] }
+//     exclusive true  -> at most ONE rung fires (a rank ladder: you finish in a single place)
+//     exclusive false -> each rung fires independently with probability rung.p (milestone ladder)
+// The card sim draws participation x reach(inst) first, then the rungs. Expectation is unchanged:
+//   leaderboard  E = part x reach x SUM_i (1/n) x packs_i    == packLane_ (E IS the quantile mean)
+//   milestone    E = part x reach x SUM_k S(req_k) x packs_k == packLane_
+// so window totals still agree with the gains model cell for cell.
+function packRungs_(cat, seg, payer, ctx, instOrdinal){
+  var ds = ctx.ds;
+  function packsOf(rew){
+    var o = null;
+    PACK_RES.forEach(function(r){ if (num(rew[r]) > 0){ o = o || {}; o[r] = num(rew[r]); } });
+    return o;
+  }
+  function mk(part, exclusive, rungs){
+    rungs = rungs.filter(function(x){ return x.packs && x.p > 0; });
+    if (!rungs.length) return null;
+    // Position on the requirement axis, 0..1. A cumulative ladder is climbed IN ORDER, so rung 1 of
+    // a Rainbow Maker instance (160 matchables against a median of ~83,000) is cleared almost
+    // immediately, while rung 23 takes most of the event. Without this the card sim placed every
+    // rung uniformly across the instance days and could report the first milestone landing on the
+    // LAST day of the event, which is what made a busy day look empty.
+    var maxReq = 0;
+    rungs.forEach(function(x){ if (num(x.req) > maxReq) maxReq = num(x.req); });
+    rungs.forEach(function(x){
+      x.progress = (maxReq > 0 && num(x.req) > 0) ? Math.min(1, num(x.req) / maxReq) : 1;
+    });
+    return { participation: part, groups: [{ exclusive: exclusive, rungs: rungs }] };
+  }
+
+  var lb = LB_R_SPECS[cat];
+  if (lb){
+    var inst = ds.eventInst(lb.inst, seg, payer);
+    var pos = inst ? [inst.position_p25, inst.position_p50, inst.position_p75]
+                       .map(function(p){ return Math.max(1, Math.round(num(p))); })
+                       .filter(function(p){ return p > 0; }) : [];
+    if (!pos.length) return null;                      // no rank telemetry -> leave it to packLane_
+    var v = sheetVals_(lb.v2), cols = rewCols_(v, lb.hdr, lb.c0, lb.c1), ladder = {};
+    for (var r = lb.r0; r <= lb.r1; r++){
+      var pn = Math.round(num(v[r] && v[r][0]));
+      if (!(pn > 0)) pn = r - lb.r0 + 1;
+      ladder[pn] = rewRow_(v, r, cols);
+    }
+    var rungs = pos.map(function(pp){
+      return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(ladder[pp] || {}) };
+    });
+    var part = inst ? num(inst.participation_rate) : 0;
+    return mk(part > 0 ? part : 1, true, rungs);       // EXCLUSIVE: one finishing rank per instance
+  }
+
+  var coll = COLL_R_SPECS[cat];
+  if (coll){
+    var ci = ds.eventInst(coll.inst, seg, payer);
+    var S = ci ? survival_([[num(ci.final_balance_p25),.25],[num(ci.final_balance_p50),.5],
+                            [num(ci.final_balance_p75),.75]]) : null;
+    if (!S) return null;
+    var reqs = collReqs_(coll);
+    if (!reqs.length) return null;
+    var vr = (coll.reqFrom === 'own') ? collReqs_(coll, true) : reqs;
+    var cv = sheetVals_(coll.v2), ccols = rewCols_(cv, coll.hdr, coll.c0, coll.c1);
+    var crungs = [], lastReq = 0;
+    for (var i = 0; i < vr.length; i++){
+      var req = vr[i];
+      if (!(req > 0)) continue;
+      lastReq = req;
+      crungs.push({ label: 'milestone #' + (i + 1) + ' (req ' + req + ')', p: S(req),
+                    req: req, packs: packsOf(rewRow_(cv, coll.r0 + i, ccols)) });
+    }
+    if (coll.completionRow != null && lastReq > 0)
+      crungs.push({ label: 'completion bonus (req ' + lastReq + ')', p: S(lastReq),
+                    req: lastReq, packs: packsOf(rewRow_(cv, coll.completionRow, ccols)) });
+    var cpart = ci ? num(ci.participation_rate) : 0;
+    return mk(cpart > 0 ? cpart : 1, false, crungs);   // cumulative ladder: rungs fire independently
+  }
+
+  if (cat === 'Daily Night Sky Prize'){
+    var st = ds.nsStreak(seg, payer);
+    var Sn = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
+                             [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
+    if (!Sn) return null;
+    var nrungs = readNSLadder_(seg, NS_V2_SHEET).map(function(ms, k){
+      return { label: 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')', p: Sn(ms.req),
+               req: ms.req, packs: packsOf(ms.rew) };
+    });
+    var ni = ds.eventInst('Night Sky', seg, payer);
+    var npart = ni ? num(ni.participation_rate) : 0;
+    return mk(npart > 0 ? npart : 1, false, nrungs);
+  }
+
+  if (cat === 'Rainbow Maker'){
+    var pct = ds.rmPct(seg, payer);
+    if (!pct) return null;
+    var insts = rmSortedInsts_(ctx.calNew);
+    var idx = Math.max(0, Math.min(instOrdinal || 0, Math.max(0, insts.length - 1)));
+    var cfg = rmConfigFor_(idx);
+    if (!cfg.ladder.length) return null;
+    // the same duration-scaled matchables axis simRainbowMaker uses, so the two agree per instance
+    var dur = insts[idx] ? insts[idx].dur : cfg.cfgDur;
+    var scale = Math.min(1, dur / cfg.cfgDur);
+    var Sr = survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],
+                        [pct.p75*scale,.75],[pct.p90*scale,.90]]);
+    if (!Sr) return null;
+    var rrungs = cfg.ladder.map(function(ms, k){
+      return { label: 'milestone #' + (k + 1) + ' (req accum ' + ms.req + ')', p: Sr(ms.req),
+               req: ms.req, packs: packsOf(ms.rew) };
+    });
+    return mk(1, false, rrungs);                       // RM has no participation telemetry
+  }
+
+  var po = PACK_ONLY_SPECS[cat];
+  if (po){
+    var pi = ds.eventInst(po.inst, seg, payer);
+    var ppos = pi ? [pi.position_p25, pi.position_p50, pi.position_p75]
+                      .map(function(p){ return Math.round(num(p)); })
+                      .filter(function(p){ return p > 0; }) : [];
+    var groups = [];
+    po.blocks.forEach(function(blk, bi){
+      var bv = sheetVals_(po.sheet), bcols = rewCols_(bv, blk.hdr, blk.c0, blk.c1);
+      var byPos = {}, n = 0;
+      for (var r2 = blk.r0; r2 <= blk.r1; r2++){ byPos[r2 - blk.r0 + 1] = rewRow_(bv, r2, bcols); n++; }
+      var tag = (po.blocks.length > 1) ? 'block ' + (bi + 1) + ': ' : '';
+      var use = ppos.length ? ppos
+                            : (function(){ var a = []; for (var q = 1; q <= n; q++) a.push(q); return a; })();
+      var suffix = ppos.length ? '' : ' (flat rank avg, no position data)';
+      var g = use.map(function(pp){
+        return { label: tag + 'rank ' + pp + suffix, p: 1 / use.length, packs: packsOf(byPos[pp] || {}) };
+      }).filter(function(x){ return x.packs; });
+      // Each BLOCK is its own exclusive draw: a Team Event participant places once on the team
+      // leaderboard AND once on the contribution ladder, so both groups fire.
+      if (g.length) groups.push({ exclusive: true, rungs: g });
+    });
+    if (!groups.length) return null;
+    var ppart = pi ? num(pi.participation_rate) : 0;
+    return { participation: ppart > 0 ? ppart : 1, groups: groups };
+  }
+  return null;
+}
+
 // Per-source pack PROVENANCE: which ladder row paid each pack tier, for the card sim's log.
 //   returns { '3-star Pack': [{label:'rank 2', weight:0.4}, ...], ... }   (v2 ladder only)
 // Only the _v2 side is described, because packLane_ prices packs off eV2 alone — a pack typed into
@@ -1009,6 +1158,51 @@ function simSeasonPass(seg, payer, ctx){
     packs[r] = num(cs[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
   });
   return overlayPacks_(out, packs);
+}
+
+// Season Pass packs, tier by tier, for the card sim's day-by-day log (2026-08-20).
+// simSeasonPass prices SP packs as cs[res] x R_challenge x T, where cs is the cumulative reward of
+// EVERY tier up to the one the player reaches. Those are not instance-shaped, so the card sim cannot
+// draw them per instance like the other sources; but they are also not uncertain, because reaching
+// the tier is what pays them. This returns one entry per tier that pays packs:
+//   [ { tier, day, label, packs:{tierName:count} }, ... ]
+// with the landing day placed linearly through the window at the point that tier is reached, so the
+// log shows Season Pass packs arriving as the track is climbed rather than all on the final day.
+// The sum over entries equals cs x R_challenge x T exactly, so the card sim's total still matches
+// the Season Pass row in the gains model.
+function spPackTiers_(seg, payer, ctx){
+  var out = [];
+  if (!ctx || !ctx.calCurOk || !ctx.calNewOk) return out;
+  var cur = ctx.calCur['Season Pass'] || [], nw = ctx.calNew['Season Pass'] || [];
+  if (!nw.length || !cur.length) return out;
+  var base = readSPTrack_('SP');
+  if (!base.cum.length) return out;
+  var v2Name = spV2Sheet_('SP');
+  var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
+  if (!v2.cum.length) v2 = base;
+  var daysBase = readSPSeasonDays_('SP') || 33;
+  var daysV2 = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
+  var t = sptTotals_(seg, payer, ctx);
+  var Ts = spTier_(t.sim * daysV2 / 33, v2.cum);
+  if (!(Ts > 0)) return out;
+  var Rlb = spChallengeR_();
+  var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
+  var win = (typeof DAILY_DAYS !== 'undefined') ? DAILY_DAYS : 33;
+  for (var i = 0; i < Ts && i < v2.free.length; i++){
+    var packs = null;
+    PACK_RES.forEach(function(r){
+      var n = num(v2.free[i] && v2.free[i][r]);
+      if (payer === 'PAYER') n += num(v2.paid[i] && v2.paid[i][r]);
+      n *= ((Rlb[r] != null) ? Rlb[r] : 1) * T;
+      if (n > 0){ packs = packs || {}; packs[r] = n; }
+    });
+    if (!packs) continue;
+    var day = Math.max(1, Math.min(win, Math.ceil(win * (i + 1) / Ts)));
+    out.push({ tier: i + 1, day: day, packs: packs,
+               label: 'season pass tier ' + (i + 1) + ' of ' + Ts +
+                      (payer === 'PAYER' ? ' (free + paid track)' : ' (free track)') });
+  }
+  return out;
 }
 
 // Per-earner SPT window totals, measured vs simulated, summed over every category (additive-

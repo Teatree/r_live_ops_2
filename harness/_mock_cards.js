@@ -279,6 +279,104 @@ let firstRun = null;
 
   // Grid geometry: all THREE columns painted, and the set NAME written beside the anchor without
   // clobbering the 'Set #N' label that findGridAnchors_ locates the grid by.
+  // Both blocks below RUN the sim, which writes Col_Cards_Daily. The determinism gate downstream
+  // compares that sheet byte for byte, so the state is snapshotted here and restored after.
+  const cardsSnap = JSON.stringify(data['Col_Cards_Daily'].values);
+
+  // RARITY RECONCILIATION. AlbumConfig and PackConfig name the top tier differently ('6-star' vs
+  // 'Gold'); the reader used to DROP every card whose rarity was not a defined name, which silently
+  // removed 10 of 72 cards, made six of eight sets uncompletable and orphaned the Gold pool. Assert
+  // the catalog keeps every CARD row, and that an unresolvable rarity is a loud error not a drop.
+  {
+    const albumSh = mkSheet('AlbumConfig');
+    const rows = albumSh.getRange(3, 1, albumSh.getLastRow() - 2, 5).getValues()
+      .filter(r => r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])));
+    const cfgR = loadPackConfig_();
+    const valid = {};
+    cfgR.rarityOrder.forEach(x => { valid[x] = true; });
+    const unresolved = rows.filter(r => {
+      const t = String(r[4]).trim();
+      if (valid[t]) return false;
+      const m = t.match(/^(\d+)\s*[-\s]?\s*(?:star|\u2605|\*)?$/i);
+      return !(m && Number(m[1]) - 1 >= 0 && Number(m[1]) - 1 < cfgR.rarityOrder.length);
+    });
+    check('every AlbumConfig card resolves to a defined rarity (none silently dropped)',
+      unresolved.length === 0,
+      unresolved.length ? unresolved.slice(0, 3).map(r => r[0] + '=' + r[4]).join(', ')
+                        : rows.length + ' card rows all resolvable');
+    // and an unresolvable one must THROW rather than shrink the catalog
+    const snapA = JSON.stringify(data['AlbumConfig'].values);
+    const av = data['AlbumConfig'].values;
+    let hit = -1;
+    for (let r = 2; r < av.length; r++)
+      if (av[r] && String(av[r][0]).indexOf('CARD') === 0) { hit = r; break; }
+    if (hit >= 0) {
+      av[hit][4] = 'Platinum';
+      let threw = '';
+      try { SimulatePackOpenings(); } catch (e) { threw = String(e.message || e); }
+      check('an unknown rarity stops the run instead of dropping the card',
+        /does not define/.test(threw), threw ? threw.slice(0, 90) + '...' : 'run completed silently');
+      data['AlbumConfig'].values = JSON.parse(snapA);
+      check('rarity fixture restored', JSON.stringify(data['AlbumConfig'].values) === snapA);
+    }
+  }
+
+  // LEADERBOARD EXCLUSIVITY. A rank ladder pays exactly ONE place per instance. The old accumulator
+  // emitted "rank 4", "rank 2" and "rank 1" for Target Day on a single day, which are mutually
+  // exclusive outcomes. Assert no source ever shows two different ranks on the same day.
+  {
+    const LB = { 'Target Day': 1, 'Bomb Challenge': 1, 'Chuck Challenge': 1, 'Red Challenge': 1,
+                 'Level Race': 1, 'Flash Race': 1, 'Kite Festival': 1 };
+    let collisions = [];
+    [11, 101, 1009, 7919].forEach(sd => {
+      const sh = mkSheet('Col_Cards_Daily');
+      sh.getRange('B2').setValue('40-99');
+      sh.getRange('D2').setValue('NONPAYER');
+      sh.getRange('G2').setValue(sd);
+      SimulatePackOpenings();
+      const v2 = data['Col_Cards_Daily'].values, seen = {};
+      for (let r = 57; r < 57 + 300; r++) {
+        const row = v2[r - 1];
+        if (!row || row[0] === '' || row[0] == null) break;
+        if (!row[1] || !LB[row[2]]) continue;
+        const k = row[0] + '|' + row[2], rk = String(row[3]);
+        if (seen[k] && seen[k] !== rk) collisions.push('seed ' + sd + ' day ' + row[0] + ' ' + row[2] + ': ' + seen[k] + ' + ' + rk);
+        seen[k] = rk;
+      }
+    });
+    check('a leaderboard never pays two different ranks on the same day',
+      collisions.length === 0, collisions.length ? collisions.slice(0, 3).join(' | ') : '4 seeds clean');
+  }
+
+  // UNBIASEDNESS. Replacing the accumulator with per-instance Bernoulli draws must not change what
+  // the model PAYS, only when it pays it: the granted count has to track the expectation packRungs_
+  // derives from packLane_. Averaged over seeds so a single lucky run cannot hide a systematic
+  // over- or under-grant (the old trailing-fraction round-up was exactly such a bias).
+  {
+    let granted = 0, expected = 0;
+    const seeds = [3, 17, 101, 1009, 7919, 15485863, 32452843, 49979687];
+    seeds.forEach(sd => {
+      const sh = mkSheet('Col_Cards_Daily');
+      sh.getRange('B2').setValue('40-99');
+      sh.getRange('D2').setValue('NONPAYER');
+      sh.getRange('G2').setValue(sd);
+      logs.length = 0;
+      SimulatePackOpenings();
+      const m = (logs.find(x => x.indexOf('Stage 1:') === 0) || '')
+        .match(/Stage 1: (\d+) packs granted \(expected ([\d.]+)\)/);
+      if (m) { granted += +m[1]; expected += +m[2]; }
+    });
+    const bias = expected > 0 ? (granted / expected - 1) * 100 : 0;
+    check('granted pack count is unbiased against the modelled expectation',
+      expected > 0 && Math.abs(bias) < 12,
+      granted + ' granted vs ' + expected.toFixed(1) + ' expected over ' + seeds.length +
+      ' seeds (' + bias.toFixed(1) + '%)');
+  }
+
+  data['Col_Cards_Daily'].values = JSON.parse(cardsSnap);
+  check('sim-run fixtures restored before the determinism check',
+    JSON.stringify(data['Col_Cards_Daily'].values) === cardsSnap);
+
   // The grid ANCHOR may sit immediately after the log (no spacer) or one column later. Both must
   // be found: a scan that assumes the spacer silently finds nothing on a hand-arranged sheet,
   // paints no grid, and leaves whatever stale content was there (exactly what left the live

@@ -52,7 +52,8 @@ LOG_HDRS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'N
 # Album/set grids sit immediately RIGHT of the pack log, derived from the log width rather than
 # hardcoded: the log gained an 'Earned From' column on 2026-08-18 and a fixed column J would have
 # put 'Album #1' straight on top of 'Note'. One blank spacer column between the two blocks.
-GRID_C0 = len(LOG_HDRS) + 2
+GRID_COL_OFFSET = 2            # == GRID_COL_OFFSET in engine/CardOpenings.gs
+GRID_C0 = len(LOG_HDRS) + GRID_COL_OFFSET
 
 N_ALBUMS, N_SETS = 3, 8
 

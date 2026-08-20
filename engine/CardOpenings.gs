@@ -86,6 +86,14 @@ var LOG_COLS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn'
 // scan starting at L silently finds no anchors there, paints nothing, and leaves whatever stale
 // grid was on the sheet. Starting at LOG_COLS.length + 1 covers both and still cannot overlap the
 // log, which ends at LOG_COLS.length.
+// ONE definition of where the grid block starts, shared with builders/_build_simoutput.py
+// (GRID_C0 = len(LOG_HDRS) + GRID_COL_OFFSET). They drifted once already: the engine's self-heal
+// wrote at K while the builder wrote at L, which would have left two label blocks in the scan range
+// and made the anchors ambiguous. Keep the two in step.
+var GRID_COL_OFFSET = 2;
+function gridCol_(){ return LOG_COLS.length + GRID_COL_OFFSET; }
+// The SCAN still starts one column earlier than the block, so a legacy sheet whose grids butt
+// straight against the log is still found rather than silently ignored.
 function gridScanRange_(){
   return colLetter_(LOG_COLS.length + 1) + '55:' + colLetter_(LOG_COLS.length + 20) + '260';
 }
@@ -94,7 +102,14 @@ function colLetter_(n){
   while (n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
   return s;
 }
+// Grid shape. 3x3 is only the DEFAULT: the real shape is derived from PackConfig 'Cards per Set' so
+// raising that value cannot make the painter index past the end of a hardcoded 3-row array.
 var GRID_DIM        = 3;
+function gridShape_(cardsPerSet){
+  var n = Math.max(1, Math.round(cardsPerSet || GRID_DIM * GRID_DIM));
+  var w = Math.ceil(Math.sqrt(n));
+  return { w: w, h: Math.ceil(n / w) };
+}
 
 // PackConfig block labels (column A). Order matters only for bounding a block's scan.
 var PC_BLOCKS = ['SEASON BASICS', 'RARITY DEFINITIONS', 'SNAP POOL', 'PACK DEFINITIONS',
@@ -327,6 +342,11 @@ function SimulatePackOpenings() {
   // turning the labels on would shift every downstream pull and silently change results that have
   // nothing to do with labelling. Deterministic (derived from the same seed), independent of it.
   var provRand = mulberry32((seed | 0) ^ 0x5f3759df);
+  // Stage 1 (which packs are EARNED) and Stage 2 (what is INSIDE them) are separate processes, and
+  // they get separate streams. Sharing one meant any change to the acquisition model reshuffled
+  // every card draw downstream, so unrelated distribution gates moved whenever the grant logic was
+  // touched. Derived from the same seed, so a run is still fully reproducible.
+  var grantRand = mulberry32((seed | 0) ^ 0x27d4eb2f);
 
   var SEASON_DAYS = DAILY_DAYS;                        // the engine's calendar window (33)
 
@@ -335,14 +355,46 @@ function SimulatePackOpenings() {
   cfg.rarityOrder.forEach(function(x){ validRarities[x] = true; });
   var catLastRow  = album.getLastRow();
   var catalogData = catLastRow >= 3 ? album.getRange(3, 1, catLastRow - 2, 5).getValues() : [];
-  var catalog = catalogData
-    .filter(function(r){
-      return r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])) && validRarities[String(r[4]).trim()];
-    })
-    .map(function(r){
-      return { name: r[1], setNum: Number(r[2]), setName: String(r[3] == null ? '' : r[3]).trim(),
-               rarity: String(r[4]).trim(), key: r[1] + ' ' + String(r[4]).trim() };
-    });
+
+  // RARITY NAME RECONCILIATION. AlbumConfig and PackConfig are authored separately and had drifted:
+  // AlbumConfig labels its top tier '6-star' while PackConfig RARITY DEFINITIONS calls the 6th tier
+  // 'Gold'. The old filter simply DROPPED every card whose rarity was not a defined name, so 10 of
+  // the 72 cards vanished from the simulation without a word: six of the eight sets could never be
+  // completed, no album could ever finish, and the 41 'Gold' copies in the SNAP POOL had no card to
+  // attach to. A silent drop of a tenth of the catalog is exactly the failure this reader must not
+  // have, so an 'N-star' name is resolved POSITIONALLY to the Nth defined rarity (rarityOrder is
+  // low->high), and anything still unresolved is a hard error naming the offenders.
+  function resolveRarity(raw){
+    var r = String(raw == null ? '' : raw).trim();
+    if (validRarities[r]) return r;
+    var m = r.match(/^(\d+)\s*[-\s]?\s*(?:star|\u2605|\*)?$/i);
+    if (m){
+      var idx = Number(m[1]) - 1;
+      if (idx >= 0 && idx < cfg.rarityOrder.length) return cfg.rarityOrder[idx];
+    }
+    return null;
+  }
+  var aliased = {}, unresolved = {};
+  var catalog = [];
+  catalogData.forEach(function(r){
+    if (!(r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])))) return;
+    var raw = String(r[4]).trim(), rar = resolveRarity(raw);
+    if (!rar){ unresolved[raw] = (unresolved[raw] || 0) + 1; return; }
+    if (rar !== raw) aliased[raw + ' -> ' + rar] = (aliased[raw + ' -> ' + rar] || 0) + 1;
+    catalog.push({ name: r[1], setNum: Number(r[2]), setName: String(r[3] == null ? '' : r[3]).trim(),
+                   rarity: rar, key: r[1] + ' ' + rar });
+  });
+  Object.keys(aliased).forEach(function(k){
+    Logger.log('AlbumConfig rarity ' + k + ' (' + aliased[k] + ' cards) resolved by tier position - ' +
+               'the two sheets name the same tier differently.');
+  });
+  if (Object.keys(unresolved).length){
+    var list = Object.keys(unresolved).map(function(k){ return '"' + k + '" x' + unresolved[k]; });
+    throw new Error('AlbumConfig uses ' + list.join(', ') + ', which PackConfig RARITY DEFINITIONS ' +
+                    'does not define (' + cfg.rarityOrder.join(', ') + '). Those cards would be ' +
+                    'silently uncollectable, so the run is stopped. Fix the rarity names on one of ' +
+                    'the two sheets.');
+  }
   if (!catalog.length)
     throw new Error('AlbumConfig has no usable card rows (need a Card ID starting with "CARD" and ' +
                     'a Rarity defined in PackConfig RARITY DEFINITIONS).');
@@ -647,45 +699,92 @@ function SimulatePackOpenings() {
                              (lvlsP > 0 ? ' of ' + lvlsP.toFixed(0) + ' played' : ''));
     return bits.length ? bits.join(', ') + '  (segment average for an active day)' : '';
   }
+  // === Stage 1: pack acquisition, drawn PER INSTANCE ==========================================
+  // Replaces the old per-(source,tier) accumulator, which walked the days adding up the fractional
+  // expectation and emitted a pack every time the running total crossed 1. That was unbiased over
+  // the window but wrong about days, in two ways the live log showed plainly:
+  //   * it granted Target Day "rank 4", "rank 2" and "rank 1" on the SAME day. A leaderboard
+  //     instance pays exactly one rank; those outcomes are mutually exclusive.
+  //   * it back-loaded packs into the final week and left busy days empty, because every tier of
+  //     every source held its own separate counter and a 0.3/day lane needs four days to emit.
+  // The plan below carries the discrete structure instead: per instance, did the player take part,
+  // and then which rung(s) did they hit. Expectation per (source, tier) is unchanged, so window
+  // totals still reconcile with the gains model (see packRungs_).
   var packOpens = [], expectedTotal = 0;
-  // A source's pack expectation for a tier is a SUM over ladder rows (ranks / milestones / rounds),
-  // so a single granted pack has no one true origin — it is a draw from that mixture. Pick the row
-  // proportional to its share of E, off provRand — a SEPARATE seeded stream, so switching labelling
-  // on cannot perturb a single card draw — and the long-run mix of labels matches the model that
-  // produced the count.
-  function pickOrigin(src, tierName){
-    var rows = src.prov && src.prov[tierName];
-    if (!rows || !rows.length) return '';
-    var tot = 0, i;
-    for (i = 0; i < rows.length; i++) tot += rows[i].weight;
-    if (!(tot > 0)) return '';
-    if (rows.length === 1) return rows[0].label;
-    var x = provRand() * tot;
-    for (i = 0; i < rows.length; i++){ x -= rows[i].weight; if (x <= 0) return rows[i].label; }
-    return rows[rows.length - 1].label;
+  var plan = packGrantPlan_(seg, payer, simCtx);
+
+  plan.forEach(function(pl){
+    pl.groups.forEach(function(g){
+      g.rungs.forEach(function(rg){
+        for (var t in rg.packs)
+          expectedTotal += pl.participation * pl.reach * rg.p * num(rg.packs[t]);
+      });
+    });
+  });
+
+  // Landing day inside an instance. A rung with a place on the requirement axis is put where that
+  // progress falls (ladders are climbed in order), otherwise the day is sampled from the same
+  // weights the daily gains view uses (last day for rank rewards, accrual share for collections).
+  function pickDay(pl, rung){
+    if (rung && rung.progress != null && pl.days.length > 1 && !DAILY_LASTDAY[pl.cat]){
+      var idx = Math.ceil(rung.progress * pl.days.length) - 1;
+      return pl.days[Math.max(0, Math.min(pl.days.length - 1, idx))];
+    }
+    var x = grantRand(), acc = 0;
+    for (var i = 0; i < pl.days.length; i++){
+      acc += pl.dayW[i];
+      if (x <= acc) return pl.days[i];
+    }
+    return pl.days[pl.days.length - 1];
   }
-  packFlow.bySource.forEach(function(src){
-    for (var tier = 0; tier < PACK_RES.length; tier++){
-      var acc = 0, lastDay = -1;
-      for (var d = 0; d < SEASON_DAYS; d++){
-        var rate = num(src.days[d][tier]);
-        if (rate <= 0) continue;
-        expectedTotal += rate;
-        lastDay = d;
-        acc += rate;
-        while (acc >= 1){
-          packOpens.push({ day: d + 1, packName: PACK_RES[tier], source: src.cat,
-                           detail: pickOrigin(src, PACK_RES[tier]) });
-          acc -= 1;
+  function emitRung(cat, rung, day){
+    for (var t in rung.packs){
+      var n = num(rung.packs[t]);
+      var whole = Math.floor(n);
+      if (n - whole > 1e-12 && grantRand() < (n - whole)) whole += 1;   // fractional counts stay unbiased
+      for (var k = 0; k < whole; k++)
+        packOpens.push({ day: day, packName: t, source: cat, detail: rung.label });
+    }
+  }
+
+  plan.forEach(function(pl){
+    // one draw for "did this player take part in this instance at all"
+    if (!(grantRand() < pl.participation * pl.reach)) return;
+    pl.groups.forEach(function(g){
+      if (g.exclusive){
+        // a rank ladder: the player finishes in exactly ONE place
+        var x = grantRand(), acc = 0, chosen = null;
+        for (var i = 0; i < g.rungs.length; i++){
+          acc += g.rungs[i].p;
+          if (x <= acc){ chosen = g.rungs[i]; break; }
         }
+        if (chosen) emitRung(pl.cat, chosen, pickDay(pl, chosen));
+      } else {
+        // a milestone ladder: each rung is reached (or not) on its own survival probability
+        g.rungs.forEach(function(rg){
+          if (grantRand() < rg.p) emitRung(pl.cat, rg, pickDay(pl, rg));
+        });
       }
-      // Trailing fraction: a SEEDED Bernoulli, so the granted count is unbiased (E[granted] ==
-      // the simulated expectation). The old EcoPackGains path always rounded this up.
-      if (acc > 1e-12 && lastDay >= 0 && rand() < acc)
-        packOpens.push({ day: lastDay + 1, packName: PACK_RES[tier], source: src.cat,
-                         detail: pickOrigin(src, PACK_RES[tier]) });
+    });
+  });
+
+  // Season Pass is not instance-shaped: its packs sit on the season track and are collected as the
+  // player climbs it, so every tier up to the one they reach pays out with certainty. Granting them
+  // on the day that tier is reached (linear through the season) gives real provenance instead of the
+  // blank Source_Detail the old path produced, and keeps the total equal to the track's cs value.
+  var spPacks = spPackTiers_(seg, payer, simCtx);
+  spPacks.forEach(function(tp){
+    for (var t in tp.packs){
+      var n = num(tp.packs[t]);
+      var whole = Math.floor(n);
+      if (n - whole > 1e-12 && grantRand() < (n - whole)) whole += 1;
+      expectedTotal += n;
+      for (var k = 0; k < whole; k++)
+        packOpens.push({ day: tp.day, packName: t, source: 'Season Pass (Free)',
+                         detail: tp.label });
     }
   });
+
   packOpens.sort(function(a, b){ return a.day - b.day; });
   Logger.log('Stage 1: ' + packOpens.length + ' packs granted (expected ' +
              expectedTotal.toFixed(2) + ') for ' + seg + ' ' + payer);
@@ -795,7 +894,9 @@ function buildGridScaffold_(simOut, catalog, cardsPerSet, albumCount){
   });
   setNums.sort(function(a, b){ return a - b; });
   if (!setNums.length) return {};
-  var col = LOG_COLS.length + 1;                 // first column past the log
+  var col = gridCol_();                          // shared with the builder's GRID_C0
+  var shape = gridShape_(cardsPerSet);
+  var blank = []; for (var q0 = 0; q0 < shape.w; q0++) blank.push('');
   var top = OUT_START_ROW - 1;                   // the log's header row; the grid block starts here
                                                  // so an existing 'Album #1' is overwritten in place
                                                  // rather than duplicated one row below it
@@ -803,16 +904,24 @@ function buildGridScaffold_(simOut, catalog, cardsPerSet, albumCount){
   var rows = [], anchors = {};
   for (var a = 1; a <= albums; a++){
     anchors[a] = {};
-    rows.push(['Album #' + a, '', '']);
+    rows.push(['Album #' + a].concat(blank.slice(1)));
     for (var i = 0; i < setNums.length; i++){
       var sn = setNums[i];
       anchors[a][sn] = { row: top + rows.length, col: col };   // sheet row this Set label lands on
-      rows.push(['Set #' + sn, nameOf[sn], '']);
-      for (var g = 0; g < GRID_DIM; g++) rows.push(['', '', '']);
+      rows.push(['Set #' + sn, nameOf[sn]].concat(blank.slice(2)));
+      for (var g = 0; g < shape.h; g++) rows.push(blank.slice());
     }
-    rows.push(['', '', '']);                     // blank spacer between albums
+    rows.push(blank.slice());                    // blank spacer between albums
   }
-  simOut.getRange(top, col, rows.length, GRID_DIM).setValues(rows);
+  // Clear the whole grid region first, INCLUDING any column between the log and the block. A damaged
+  // sheet keeps a legacy block one column to the left (that is how the live sheet ended up with a
+  // 2-wide grid), and writing the new scaffold beside it would leave two 'Album #1' labels inside
+  // the scan range - after which findGridAnchors_ has two candidate origins and picks by row order.
+  // Cleared to the block's full height so a shrunk scaffold cannot leave ghost rows below it either.
+  var legacyFrom = LOG_COLS.length + 1;
+  var wipeCols = (col + shape.w) - legacyFrom;
+  simOut.getRange(top, legacyFrom, rows.length + GRID_DIM, wipeCols).clearContent();
+  simOut.getRange(top, col, rows.length, shape.w).setValues(rows);
   Logger.log('Rebuilt grid scaffold: ' + albums + ' albums x ' + setNums.length +
              ' sets at column ' + colLetter_(col) + ', ' + rows.length + ' rows.');
   return anchors;
@@ -851,13 +960,29 @@ function findGridAnchors_(simOut) {
  *   Album # > current -> blank (not reached) */
 function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet, albumCount) {
   var anchors = findGridAnchors_(simOut);
-  if (!Object.keys(anchors).length){
+  // Rebuild on PARTIAL damage, not just total absence. Checking only for "no anchors at all" meant a
+  // scaffold missing a few 'Set #N' labels stayed broken forever: the survivors suppressed the
+  // rebuild and the missing sets simply never painted. The check is therefore structural - every
+  // album must carry every set in the catalog.
+  var wantSets = {}, nWant = 0;
+  catalog.forEach(function(c){ if (c.setNum != null && !isNaN(c.setNum) && !wantSets[c.setNum]){ wantSets[c.setNum] = 1; nWant++; } });
+  var wantAlbums = Math.max(1, Math.round(albumCount || 1));
+  var complete = Object.keys(anchors).length >= wantAlbums;
+  if (complete){
+    for (var a = 1; a <= wantAlbums && complete; a++){
+      var got = anchors[a];
+      if (!got || Object.keys(got).length < nWant){ complete = false; break; }
+      for (var sn in wantSets) if (!got[sn]){ complete = false; break; }
+    }
+  }
+  if (!complete){
     // SELF-HEAL. The writer used to give up here, which is how the live sheet ended up showing a
     // stale 2-column grid with no set headers: the 'Set #N' labels had been cleared at some point
     // (an older, wider log clear reached the column they lived in), and nothing could ever put them
     // back because painting only ever wrote INTO labels it found. A missing scaffold is now built
     // from the catalog itself, so the grids cannot stay broken across runs.
-    Logger.log('No Album/Set labels found in ' + gridScanRange_() + ' - rebuilding the scaffold.');
+    Logger.log('Album/Set scaffold missing or incomplete in ' + gridScanRange_() +
+                ' - rebuilding it (' + wantAlbums + ' albums x ' + nWant + ' sets).');
     anchors = buildGridScaffold_(simOut, catalog, cardsPerSet, albumCount);
     if (!Object.keys(anchors).length){
       Logger.log('Could not rebuild the album/set scaffold (no catalog sets).');
@@ -887,11 +1012,16 @@ function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet, al
       // exact 'Set #N' text, so overwriting it would make the grids unfindable on the next run.
       var label = cards.length ? cards[0].setName : '';
       if (label) simOut.getRange(anchor.row, anchor.col + 1).setValue(label);
-      var grid = [['','',''],['','',''],['','','']];
+      var shape = gridShape_(cardsPerSet), grid = [];
+      for (var gr = 0; gr < shape.h; gr++){
+        var gline = [];
+        for (var gc = 0; gc < shape.w; gc++) gline.push('');
+        grid.push(gline);
+      }
       cards.slice(0, cardsPerSet).forEach(function(c, i){
-        if (use[c.key]) grid[Math.floor(i / GRID_DIM)][i % GRID_DIM] = c.rarity;
+        if (use[c.key]) grid[Math.floor(i / shape.w)][i % shape.w] = c.rarity;
       });
-      var rng = simOut.getRange(anchor.row + 1, anchor.col, GRID_DIM, GRID_DIM);
+      var rng = simOut.getRange(anchor.row + 1, anchor.col, shape.h, shape.w);
       rng.setValues(grid);
       rng.setHorizontalAlignment('center');
     });

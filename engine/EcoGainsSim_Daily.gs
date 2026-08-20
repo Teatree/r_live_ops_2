@@ -297,6 +297,65 @@ function dailyPacksFor_(seg, payer, ctx){
   return { total: total, bySource: bySource };
 }
 
+// Per-INSTANCE discrete grant plan for packs (2026-08-20). dailyPacksFor_ above gives the card sim
+// an EXPECTATION per day; this gives it the discrete events behind that expectation, so the log can
+// say what actually happened on a given day instead of showing an accumulator crossing 1.
+//
+//   [ { cat, days[], dayW[], reach, participation, groups } , ... ]   one entry per cal_new instance
+//
+// The card sim draws Bernoulli(participation x reach) for the instance, then resolves each group
+// (see packRungs_ in EcoGainsSim_v4.gs). Landing days use exactly the placement rules the daily view
+// uses, so a rung's day distribution matches the per-day series it replaces:
+//   last-day family  -> the instance's final day (rank rewards are granted at instance end)
+//   marginal family  -> the accrual curve's marginal share across the instance days
+//   everything else  -> proportional to p_day within the instance
+// Season Pass is NOT instance-shaped (its packs come from the whole reached track), so it is handled
+// separately in the card sim rather than here.
+function packGrantPlan_(seg, payer, ctx){
+  ctx = ctx || Context.get();
+  var ds = ctx.ds, b = ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  // NO 1/1 fallback here, unlike dailySeries_. That fallback exists so a segment without activity
+  // rates still gets a DISTRIBUTION over days for a total it already has; this function decides
+  // whether packs are earned at all. Handing a rate-less segment reach = 1 gave the 'A. 0' appendix
+  // packs, which it must never get (no behaviour telemetry to price reach with) -- and packLane_
+  // agrees: it bails on `!(reach > 0)`. Zero rates therefore means an empty plan.
+  function pDay(d){ return isWeekend_(d) ? pWe : pWd; }
+
+  var plan = [];
+  CATEGORY_ORDER.forEach(function(cat){
+    if (cat === 'Season Pass (Free)') return;               // whole-track, not per instance
+    var label = DAILY_CAL_LABEL[cat];
+    if (!label) return;
+    var insts = (ctx.calNew[label] || []).slice()
+                  .sort(function(x, y){ return x.start - y.start; });   // RM keys its ladder off this
+    insts.forEach(function(inst, i){
+      var rr = packRungs_(cat, seg, payer, ctx, i);
+      if (!rr) return;
+      var reach = reachOne_(inst, pWd, pWe);
+      if (!(reach > 0)) return;
+      var days = ((inst && inst.days) || []).filter(function(d){ return d >= 1 && d <= DAILY_DAYS; });
+      if (!days.length) return;
+      var w;
+      if (DAILY_LASTDAY[cat]){
+        w = days.map(function(_, j){ return j === days.length - 1 ? 1 : 0; });
+      } else if (DAILY_MARGINAL[cat]){
+        var curve = ds.accrualCurve(DAILY_MARGINAL[cat], seg, payer, false);
+        if (curve.length){
+          w = [];
+          for (var j = 1; j <= days.length; j++)
+            w.push(Math.max(0, curveRaw_(curve, j) - curveRaw_(curve, j - 1)));
+        } else w = days.map(function(d){ return pDay(d); });
+      } else {
+        w = days.map(function(d){ return pDay(d); });
+      }
+      plan.push({ cat: cat, days: days, dayW: normalize_(w), reach: reach,
+                  participation: rr.participation, groups: rr.groups });
+    });
+  });
+  return plan;
+}
+
 // ---- small helpers ----
 function emptyDays_(){
   var out = [];
