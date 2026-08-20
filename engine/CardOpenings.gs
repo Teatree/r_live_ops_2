@@ -752,7 +752,7 @@ function SimulatePackOpenings() {
   if (output.length)
     simOut.getRange(OUT_START_ROW, 1, output.length, outCols).setValues(output);
 
-  writeAlbumGrids_(simOut, catalog, collection, albumIdx, CARDS_PER_SET);
+  writeAlbumGrids_(simOut, catalog, collection, albumIdx, CARDS_PER_SET, ALBUM_NAMES.length);
 
   SpreadsheetApp.getActive().toast(
     'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + '), ' +
@@ -776,6 +776,46 @@ function staleGridColumn_(simOut){
       if (/^(Album|Set)\s*#\s*\d+$/i.test(t)) return colLetter_(c + 1);
     }
   return '';
+}
+
+/** Writes a fresh Album/Set scaffold to the right of the pack log and returns its anchors.
+ *  Layout per album:  'Album #N' <album name>
+ *                     'Set #K'   <set name>
+ *                     3 x GRID_DIM rows of grid
+ *  Set numbers and names come from the CATALOG, so the scaffold always matches AlbumConfig.
+ *  Only called when no anchors exist at all: a sheet that still has its labels is never rewritten,
+ *  so a hand-arranged layout survives untouched. */
+function buildGridScaffold_(simOut, catalog, cardsPerSet, albumCount){
+  var setNums = [], seen = {}, nameOf = {};
+  catalog.forEach(function(c){
+    if (c.setNum == null || isNaN(c.setNum) || seen[c.setNum]) return;
+    seen[c.setNum] = true;
+    setNums.push(c.setNum);
+    nameOf[c.setNum] = c.setName || '';
+  });
+  setNums.sort(function(a, b){ return a - b; });
+  if (!setNums.length) return {};
+  var col = LOG_COLS.length + 1;                 // first column past the log
+  var top = OUT_START_ROW - 1;                   // the log's header row; the grid block starts here
+                                                 // so an existing 'Album #1' is overwritten in place
+                                                 // rather than duplicated one row below it
+  var albums = Math.max(1, Math.round(albumCount || 1));
+  var rows = [], anchors = {};
+  for (var a = 1; a <= albums; a++){
+    anchors[a] = {};
+    rows.push(['Album #' + a, '', '']);
+    for (var i = 0; i < setNums.length; i++){
+      var sn = setNums[i];
+      anchors[a][sn] = { row: top + rows.length, col: col };   // sheet row this Set label lands on
+      rows.push(['Set #' + sn, nameOf[sn], '']);
+      for (var g = 0; g < GRID_DIM; g++) rows.push(['', '', '']);
+    }
+    rows.push(['', '', '']);                     // blank spacer between albums
+  }
+  simOut.getRange(top, col, rows.length, GRID_DIM).setValues(rows);
+  Logger.log('Rebuilt grid scaffold: ' + albums + ' albums x ' + setNums.length +
+             ' sets at column ' + colLetter_(col) + ', ' + rows.length + ' rows.');
+  return anchors;
 }
 
 /** Finds "Album #N" and "Set #N" labels in the grid area. Returns { albumNum: { setNum: {row,col} } }
@@ -809,11 +849,20 @@ function findGridAnchors_(simOut) {
  *   Album # < current -> every card shown (that album was completed)
  *   Album # == current -> the in-progress collection
  *   Album # > current -> blank (not reached) */
-function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet) {
+function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet, albumCount) {
   var anchors = findGridAnchors_(simOut);
   if (!Object.keys(anchors).length){
-    Logger.log('No Album/Set labels found in ' + gridScanRange_());
-    return;
+    // SELF-HEAL. The writer used to give up here, which is how the live sheet ended up showing a
+    // stale 2-column grid with no set headers: the 'Set #N' labels had been cleared at some point
+    // (an older, wider log clear reached the column they lived in), and nothing could ever put them
+    // back because painting only ever wrote INTO labels it found. A missing scaffold is now built
+    // from the catalog itself, so the grids cannot stay broken across runs.
+    Logger.log('No Album/Set labels found in ' + gridScanRange_() + ' - rebuilding the scaffold.');
+    anchors = buildGridScaffold_(simOut, catalog, cardsPerSet, albumCount);
+    if (!Object.keys(anchors).length){
+      Logger.log('Could not rebuild the album/set scaffold (no catalog sets).');
+      return;
+    }
   }
   var bySet = {};
   catalog.forEach(function(c){ (bySet[c.setNum] = bySet[c.setNum] || []).push(c); });

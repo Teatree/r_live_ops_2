@@ -291,6 +291,38 @@ let firstRun = null;
       'scan starts at column ' + startCol + ', log ends at ' + LOG_COLS.length);
   }
 
+  // SELF-HEAL. Strip every Album/Set label from the sheet, as the live workbook had ended up, and
+  // the writer must REBUILD the scaffold rather than silently painting nothing. Without this the
+  // grids stay stale forever and no error is raised anywhere.
+  {
+    const snap = JSON.stringify(data['Col_Cards_Daily'].values);
+    const vals = data['Col_Cards_Daily'].values;
+    let wiped = 0;
+    for (let r = 0; r < vals.length; r++)
+      for (let c = 0; c < (vals[r] || []).length; c++)
+        if (/^(Album|Set)\s*#\s*\d+$/i.test(String(vals[r][c]).trim())) { vals[r][c] = ''; wiped++; }
+    check('grid-label fixture wiped some labels', wiped > 0, wiped + ' labels removed');
+    const album = mkSheet('AlbumConfig'), lastA = album.getLastRow();
+    const cat2 = album.getRange(3, 1, lastA - 2, 5).getValues()
+      .filter(r => r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])))
+      .map(r => ({ name: r[1], setNum: Number(r[2]), setName: String(r[3] == null ? '' : r[3]).trim(),
+                   rarity: String(r[4]).trim(), key: r[1] + ' ' + String(r[4]).trim() }));
+    const full2 = {}; cat2.forEach(c => { full2[c.key] = true; });
+    writeAlbumGrids_(mkSheet('Col_Cards_Daily'), cat2, full2, 0, 9, 3);
+    let sets = 0, named = 0;
+    for (let r = 0; r < vals.length; r++)
+      for (let c = 0; c < (vals[r] || []).length; c++)
+        if (/^Set\s*#\s*\d+$/i.test(String(vals[r][c]).trim())) {
+          sets++;
+          if (String((vals[r] || [])[c + 1] || '').trim()) named++;
+        }
+    check('missing scaffold is rebuilt from the catalog', sets > 0, sets + ' Set labels recreated');
+    check('every rebuilt Set label carries its set name', sets > 0 && named === sets,
+      named + '/' + sets + ' named');
+    data['Col_Cards_Daily'].values = JSON.parse(snap);
+    check('grid-label fixture restored', JSON.stringify(data['Col_Cards_Daily'].values) === snap);
+  }
+
   {
     // This gate REPAINTS the grids with a synthetic full collection, so it must snapshot and restore
     // like every other mutating gate here — the determinism check downstream compares the whole
