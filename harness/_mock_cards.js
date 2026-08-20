@@ -348,6 +348,69 @@ let firstRun = null;
       collisions.length === 0, collisions.length ? collisions.slice(0, 3).join(' | ') : '4 seeds clean');
   }
 
+  // COLLECTION ECO GAINS. Completing a set or an album pays real currency out of the PackConfig
+  // SET REWARDS / ALBUM REWARDS blocks. That payout used to exist ONLY as text in a Note cell, so
+  // the collection feature's contribution to the economy was unreadable as a number. Assert it is
+  // now totalled, per source, and that the total equals the sum over the completions that actually
+  // happened - not merely that it is non-zero, which a stuck accumulator would also satisfy.
+  {
+    const snap = JSON.stringify(data['Col_Cards_Daily'].values);
+    const raceSnap = JSON.stringify(data['Race_v2'].values);
+    // hand every rank of one leaderboard a fat pack so sets actually complete in a 33-day run
+    const rv = data['Race_v2'].values;
+    const packCol = (rv[8] || []).findIndex(c => String(c).trim() === '6-star Dly');
+    if (packCol > 0) {
+      for (let r = 9; r <= 18; r++) {
+        if (!rv[r]) rv[r] = [];
+        while (rv[r].length <= packCol) rv[r].push('');
+        rv[r][packCol] = 8;
+      }
+    }
+    const sh = mkSheet('Col_Cards_Daily');
+    sh.getRange('B2').setValue('40-99');
+    sh.getRange('D2').setValue('NONPAYER');
+    sh.getRange('G2').setValue(4242);
+    logs.length = 0;
+    SimulatePackOpenings();
+
+    const v = data['Col_Cards_Daily'].values;
+    const setCoins = +((v[41] || [])[4]) || 0;          // E42
+    const setAll = String((v[42] || [])[4] || '');      // E43
+    const albCoins = +((v[43] || [])[4]) || 0;          // E44
+
+    // independently re-derive from the log's own completion notes
+    const cfgR = loadPackConfig_();
+    let expectSetCoins = 0, setsSeen = 0;
+    for (let r = 57; r < 57 + 300; r++) {
+      const row = v[r - 1];
+      if (!row || row[0] === '' || row[0] == null) break;
+      const note = String(row[9] || '');
+      const m = note.match(/Set (\d+) completed/g);
+      if (!m) continue;
+      m.forEach(x => {
+        const id = 'Set ' + x.match(/\d+/)[0];
+        setsSeen++;
+        expectSetCoins += num((cfgR.setRewards.map[id] || {})['Coins']);
+      });
+    }
+    check('set-completion eco gains are totalled, not just noted',
+      setsSeen === 0 || setCoins > 0,
+      setsSeen + ' set completions in the log, Set Reward Coins = ' + setCoins);
+    check('set-reward coins equal the sum over the completions that happened',
+      Math.abs(setCoins - expectSetCoins) < 1e-6,
+      setCoins + ' written vs ' + expectSetCoins + ' re-derived from the log notes');
+    check('the per-resource breakdown is written beside the coin total',
+      setsSeen === 0 || /Coins/.test(setAll), setAll.slice(0, 60));
+    check('album-reward coins are a number (0 when no album completed)',
+      isFinite(albCoins), String(albCoins));
+
+    data['Race_v2'].values = JSON.parse(raceSnap);
+    data['Col_Cards_Daily'].values = JSON.parse(snap);
+    check('collection-eco-gains fixture restored',
+      JSON.stringify(data['Race_v2'].values) === raceSnap &&
+      JSON.stringify(data['Col_Cards_Daily'].values) === snap);
+  }
+
   // UNBIASEDNESS. Replacing the accumulator with per-instance Bernoulli draws must not change what
   // the model PAYS, only when it pays it: the granted count has to track the expectation packRungs_
   // derives from packLane_. Averaged over seeds so a single lucky run cannot hide a systematic

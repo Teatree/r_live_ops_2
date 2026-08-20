@@ -44,6 +44,15 @@ TALLY_ROWS = [
     'Album Tier Reached', 'Day Album Completed', 'Expected Packs (fractional)', 'Segment / Payer',
 ]
 
+# Eco gains PAID OUT BY the collection feature (2026-08-21), written BESIDE the tally (labels in D,
+# values in E) because the tally column would otherwise run into the pack log's bar at row 55.
+# Set and album completions grant real currency from the SET REWARDS / ALBUM REWARDS blocks; those
+# payouts used to exist only as note text, so the feature's contribution could not be read as a
+# number. Keep REWARD_ROWS/REWARD_C0 in step with REWARD_TALLY_ROW/REWARD_TALLY_COL in the engine.
+REWARD_C0 = 4                                    # == REWARD_TALLY_COL in engine/CardOpenings.gs
+REWARD_ROWS = ['Set Reward Coins', 'Set Rewards (all resources)',
+               'Album Reward Coins', 'Album Rewards (all resources)']
+
 TOTALS_HDRS = ['Day', 'Star Balance', 'Unique Cards', '% Complete', 'Sets Done', 'Album Tier',
                'Packs Opened']
 LOG_HDRS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
@@ -130,6 +139,12 @@ for i in range(DAYS):
 # ---- tally ------------------------------------------------------------------------------------
 bar(TALLY_BAR, 'SIMULATION TALLY', 1, 2)
 header(TALLY_HDR, ['Metric', 'Value'])
+for i, label in enumerate(REWARD_ROWS):
+    r = TALLY_R0 + i
+    lab = ws.cell(r, REWARD_C0, label)
+    lab.font = ARIAL(size=11)
+    ws.cell(r, REWARD_C0 + 1).font = ARIAL(size=11, bold=True)
+
 for i, label in enumerate(TALLY_ROWS):
     r = TALLY_R0 + i
     lc = ws.cell(r, 1, label)

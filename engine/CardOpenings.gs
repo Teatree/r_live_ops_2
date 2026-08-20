@@ -45,7 +45,9 @@
  *            Buy Probability on the final day); on success the player buys the most expensive
  *            affordable chest and opens its reward pack. Repeats while the roll keeps passing.
  *  Rewards:  Set completions (per album) and Album completions append reward info to the Note
- *            column, sourced from the PackConfig SET REWARDS / ALBUM REWARDS blocks. If a Set and
+ *            column AND are totalled as ECO GAINS (2026-08-21) into the SIMULATION TALLY, per
+ *            source, so the collection feature's contribution to the economy is a number rather
+ *            than only note text. Sourced from the PackConfig SET REWARDS / ALBUM REWARDS blocks. If a Set and
  *            an Album complete on the same pack the two blocks are separated by ` ====== `.
  *            Cumulative packs opened per star tier are shown with each Set completion (never
  *            reset). An album index beyond the defined rows reuses the last row (loops).
@@ -71,6 +73,11 @@ var SIM_SEED_CELL  = 'G2';
 var OUT_START_ROW    = 57;                 // first row of the day-by-day pack log
 var TOTALS_FIRST_ROW = 6;                  // running-totals block: one row per calendar day
 var TALLY_FIRST_ROW  = 42;                 // SIMULATION TALLY value column (B)
+// COLLECTION ECO GAINS block: labels in column D, values in column E, four rows from this one.
+// Beside the tally, not below it - the tally starts at row 42 and the pack log's bar is at row 55,
+// so appending rows there would run the two blocks into each other.
+var REWARD_TALLY_ROW = 42;
+var REWARD_TALLY_COL = 4;                  // D = labels, E = values
 var ALBUM_NAMES_POOL = ['Main', 'Super', 'Ultra', 'Mythic', 'Legendary'];
 
 // Column order of the day-by-day pack log. THE ENGINE OWNS THIS, not the sheet: Col_Cards_Daily's header
@@ -481,6 +488,20 @@ function SimulatePackOpenings() {
   var setsCompletedInAlbum = {};
   var packsOpenedByTier    = {1:0,2:0,3:0,4:0,5:0,6:0};
   var packsOpenedTotal     = 0;
+  // ECO GAINS from the collection feature itself. Set and album completions pay real currency out
+  // of the PackConfig SET REWARDS / ALBUM REWARDS blocks, and until now that payout only ever
+  // appeared as TEXT in the Note column - it was never totalled, so the feature's contribution to
+  // the economy could not be read off the sheet at all. Kept per source, because a set completion
+  // and an album completion are different levers.
+  var setRewardGains   = {};                 // {resourceName: amount} from SET REWARDS
+  var albumRewardGains = {};                 // {resourceName: amount} from ALBUM REWARDS
+  function addRewardGains_(into, rewards){
+    if (!rewards) return;
+    REWARD_COLUMNS.forEach(function(rc){
+      var v = num(rewards[rc.name]);
+      if (v > 0) into[rc.name] = num(into[rc.name]) + v;
+    });
+  }
 
   function owned(key){ return collection[key] === true; }
   function acquire(key){ if (!owned(key)){ collection[key] = true; collectionSize++; return true; } return false; }
@@ -617,6 +638,7 @@ function SimulatePackOpenings() {
             setsCompletedInAlbum[setNum] = true;
             setsCompletedTotal++;
             var setId = 'Set ' + setNum;
+            addRewardGains_(setRewardGains, cfg.setRewards.map[setId]);
             setCompletionNotes.push(setId + ' completed | Rewards: ' +
               formatRewards_(cfg.setRewards.map[setId]) + ' | packs opened: ' +
               formatPacksOpened_(packsOpenedByTier));
@@ -625,7 +647,9 @@ function SimulatePackOpenings() {
 
         if (collectionSize === totalUnique){
           var completedAlbumNum = albumIdx + 1;
-          var albumRewardStr = formatRewards_(getAlbumReward_(cfg.albumRewards, completedAlbumNum));
+          var albumReward = getAlbumReward_(cfg.albumRewards, completedAlbumNum);
+          addRewardGains_(albumRewardGains, albumReward);
+          var albumRewardStr = formatRewards_(albumReward);
           if (!dayAlbumCompleted) dayAlbumCompleted = day;
           if (albumIdx < ALBUM_NAMES.length - 1){
             albumNote = ALBUM_NAMES[albumIdx] + ' -> ' + ALBUM_NAMES[albumIdx + 1] +
@@ -845,6 +869,8 @@ function SimulatePackOpenings() {
                 countKeys_(setsCompletedInAlbum), albumIdx + 1, packsOpenedTotal]);
   }
   Logger.log('Stage 2: ' + output.length + ' output rows.');
+  Logger.log('Collection ECO GAINS - set rewards: ' + formatRewards_(setRewardGains) +
+             ' | album rewards: ' + formatRewards_(albumRewardGains));
 
   // --- write running totals ------------------------------------------------------------------
   simOut.getRange(TOTALS_FIRST_ROW, 1, SEASON_DAYS, daily[0].length).setValues(daily);
@@ -857,6 +883,20 @@ function SimulatePackOpenings() {
     [Math.round(expectedTotal * 100) / 100], [seg + ' / ' + payer]
   ];
   simOut.getRange(TALLY_FIRST_ROW, 2, tally.length, 1).setValues(tally);
+
+  // --- collection eco gains (2026-08-21) ------------------------------------------------------
+  // What the collection feature PAYS OUT, as numbers. Set and album completions grant real currency
+  // from the PackConfig SET REWARDS / ALBUM REWARDS blocks, and that payout previously existed only
+  // as text in a Note cell, so the feature's contribution to the economy could not be read off the
+  // sheet. Written as its OWN block beside the tally rather than appended to it: the tally column
+  // starts at row 42 and the pack log's bar sits at row 55, so four more rows would collide.
+  // Coins get their own cell because that is the currency every other lane is measured in.
+  simOut.getRange(REWARD_TALLY_ROW, REWARD_TALLY_COL + 1, 4, 1).setValues([
+    [num(setRewardGains['Coins'])],
+    [formatRewards_(setRewardGains)],
+    [num(albumRewardGains['Coins'])],
+    [formatRewards_(albumRewardGains)]
+  ]);
 
   // --- write pack log ------------------------------------------------------------------------
   // STALE-SHEET GUARD. The log clear below wipes LOG_COLS.length columns. If Col_Cards_Daily is still the
@@ -885,7 +925,8 @@ function SimulatePackOpenings() {
   SpreadsheetApp.getActive().toast(
     'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + '), ' +
     seg + ' ' + payer + ', ' + ALBUM_NAMES[albumIdx] + ' (catalog ' + totalUnique +
-    ', balance ' + balance + ', seed ' + seed + ')',
+    ', balance ' + balance + ', seed ' + seed + ') | set rewards ' +
+    formatRewards_(setRewardGains) + ' | album rewards ' + formatRewards_(albumRewardGains),
     'SimulatePackOpenings', 6);
   return packsOpenedTotal;
 }
