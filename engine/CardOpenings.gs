@@ -121,7 +121,7 @@ function gridShape_(cardsPerSet){
 // PackConfig block labels (column A). Order matters only for bounding a block's scan.
 var PC_BLOCKS = ['SEASON BASICS', 'RARITY DEFINITIONS', 'SNAP POOL', 'PACK DEFINITIONS',
                  'PACK PITY CONFIG', 'STAR CHEST COSTS & REWARDS', 'CHEST PURCHASING',
-                 'SET REWARDS', 'ALBUM REWARDS'];
+                 'SET REWARDS', 'ALBUM REWARDS', 'ALBUM SET SKEW'];
 
 // Reward columns of the SET/ALBUM REWARDS blocks — the 21-column block every config sheet in the
 // workbook shares (Coins .. 6-star Dly). row[0] is the ID; row[1..21] are these, in order.
@@ -153,6 +153,12 @@ var PITY_CONFIG = { enabled: true, threshold: 3 };
 //
 // State source: `setsCompletedInAlbum` (resets on album advance), so chapter weighting resets per
 // album. Out-of-range / missing / non-finite / negative entries default to 1.0.
+//
+// AUTHORED ON THE SHEET: `beforeCompleted` below is only the FALLBACK. The live weights come from
+// PackConfig's 'ALBUM SET SKEW' block (one row per album, one 'SET #n' column per set), read by
+// loadPackConfig_ into cfg.albumSetSkew and applied in chapterMultFor. The block was ignored until
+// 2026-08-25 — a 900 typed on the sheet was inert and the run silently used these constants.
+// `afterCompleted` stays in code: the sheet has no before/after dimension to author.
 var CHAPTER_WEIGHTS = {
   beforeCompleted: [3.0, 2.5, 2.0, 1.5, 1.2, 1.0, 0.8, 0.6],
   afterCompleted:  [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
@@ -270,6 +276,43 @@ function loadPackConfig_(){
     return { map: map, order: order };
   }
 
+  // ALBUM SET SKEW: one row per ALBUM (col A 'Album 1', 'Album 2', ...), one column per set,
+  // located by its 'SET #n' header rather than by position — so the sheet can grow a column or
+  // re-order without silently re-assigning every weight. Read into a dense array indexed by
+  // set-1, blanks defaulting to 1.0 (NEUTRAL, not "skip"): an earlier reader dropped empty cells
+  // with `continue`, which shifted every later set one place left the moment one cell was blank.
+  // Absent block -> [] -> chapterMultFor falls back to the CHAPTER_WEIGHTS constant, so older
+  // PackConfig sheets keep working unchanged.
+  var albumSetSkew = [];
+  (function(){
+    var b = labelRow('ALBUM SET SKEW');
+    if (b < 0) return;
+    var setCol = {}, maxSet = 0;                       // 'SET #n' header -> column index
+    for (var r = b + 1; r < v.length; r++){
+      var row = v[r] || [], hit = false;
+      for (var c = 1; c < row.length; c++){
+        var m = /^SET\s*#?\s*(\d+)$/i.exec(String(row[c]).trim());
+        if (!m) continue;
+        hit = true;
+        var n = Number(m[1]);
+        if (setCol[n] == null){ setCol[n] = c; if (n > maxSet) maxSet = n; }
+      }
+      if (hit) break;
+      if (/^album\s*\d+/i.test(String(row[0]).trim())) break;   // rows started; no header found
+    }
+    if (!maxSet) return;                               // header row absent -> leave the fallback
+    blockRows('ALBUM SET SKEW', function(row){ return /^album\s*\d+/i.test(String(row[0]).trim()); })
+      .forEach(function(row){
+        var w = [];
+        for (var s = 1; s <= maxSet; s++){
+          var raw = (setCol[s] != null) ? row[setCol[s]] : '';
+          var x = parseFloat(String(raw).trim());
+          w.push((isFinite(x) && x >= 0) ? x : 1.0);   // blank / junk / negative -> neutral
+        }
+        albumSetSkew.push(w);
+      });
+  })();
+
   var cardsPerSet = Math.round(basics['Cards per Set'] || 0);
   var albumCount  = Math.round(basics['Album Count (before loop)'] || 0);
   if (!(cardsPerSet > 0)) throw new Error("PackConfig 'Cards per Set' is missing or <= 0.");
@@ -288,7 +331,8 @@ function loadPackConfig_(){
     buyStartDay:  buy['Urgency Start Day'],
     buyEndProb:   buy['End-of-Season Buy Probability'],
     setRewards:   rewardTable('SET REWARDS'),
-    albumRewards: rewardTable('ALBUM REWARDS')
+    albumRewards: rewardTable('ALBUM REWARDS'),
+    albumSetSkew: albumSetSkew
   };
 }
 
@@ -506,11 +550,25 @@ function SimulatePackOpenings() {
   function owned(key){ return collection[key] === true; }
   function acquire(key){ if (!owned(key)){ collection[key] = true; collectionSize++; return true; } return false; }
 
+  // Effective draw multiplier for a card of `setNum`, for the album currently in progress.
+  //   completed in this album -> CHAPTER_WEIGHTS.afterCompleted (only duplicates remain, so the
+  //                              skew is switched off; the sheet has no before/after dimension,
+  //                              which is why this half stays in code)
+  //   otherwise               -> the PackConfig 'ALBUM SET SKEW' row for this album, so the skew
+  //                              is a property of WHICH ALBUM the player is on. Beyond the last
+  //                              authored album row the last row repeats (same convention as
+  //                              getAlbumReward_). No block on the sheet -> CHAPTER_WEIGHTS.
   function chapterMultFor(setNum) {
     if (setNum === undefined || setNum === null) return 1.0;
     var idx = (setNum - 1) | 0;
-    var arr = setsCompletedInAlbum[setNum] ? CHAPTER_WEIGHTS.afterCompleted
-                                           : CHAPTER_WEIGHTS.beforeCompleted;
+    var arr;
+    if (setsCompletedInAlbum[setNum]) {
+      arr = CHAPTER_WEIGHTS.afterCompleted;
+    } else {
+      var rows = cfg.albumSetSkew || [];
+      arr = rows.length ? rows[Math.min(albumIdx, rows.length - 1)]
+                        : CHAPTER_WEIGHTS.beforeCompleted;
+    }
     if (!arr || idx < 0 || idx >= arr.length) return 1.0;
     var v = Number(arr[idx]);
     return (isFinite(v) && v >= 0) ? v : 1.0;
