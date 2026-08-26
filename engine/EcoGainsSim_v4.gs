@@ -1354,19 +1354,29 @@ function spPackTiers_(seg, payer, ctx){
   var Rlb = spChallengeR_();
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
   var win = (typeof DAILY_DAYS !== 'undefined') ? DAILY_DAYS : 33;
+  // ONE ENTRY PER TRACK PER TIER (2026-08-25). The two tracks used to be summed into a single
+  // entry labelled '(free + paid track)', so every pack a payer earned was logged as
+  // 'Season Pass (Free)' and the paid track was invisible in the day-by-day log even though the
+  // gains grid showed it as its own row. They are different sources - the paid track is
+  // purchase-gated - and a tier that pays on BOTH tracks is exactly the case that has to stay
+  // legible, so they are emitted separately and land on the same day rather than being merged.
+  // The per-track sums still add to the same cs value, so the card sim's totals continue to
+  // reconcile with the Season Pass rows in the gains model.
+  var tracks = [{ rows: v2.free, source: 'Season Pass (Free)', what: 'free track' }];
+  if (payer === 'PAYER')
+    tracks.push({ rows: v2.paid, source: 'Season Pass (Paid)', what: 'paid track' });
   for (var i = 0; i < Ts && i < v2.free.length; i++){
-    var packs = null;
-    PACK_RES.forEach(function(r){
-      var n = num(v2.free[i] && v2.free[i][r]);
-      if (payer === 'PAYER') n += num(v2.paid[i] && v2.paid[i][r]);
-      n *= ((Rlb[r] != null) ? Rlb[r] : 1) * T;
-      if (n > 0){ packs = packs || {}; packs[r] = n; }
-    });
-    if (!packs) continue;
     var day = Math.max(1, Math.min(win, Math.ceil(win * (i + 1) / Ts)));
-    out.push({ tier: i + 1, day: day, packs: packs,
-               label: 'season pass tier ' + (i + 1) + ' of ' + Ts +
-                      (payer === 'PAYER' ? ' (free + paid track)' : ' (free track)') });
+    for (var k = 0; k < tracks.length; k++){
+      var tr = tracks[k], packs = null, row = tr.rows[i];
+      PACK_RES.forEach(function(r){
+        var n = num(row && row[r]) * ((Rlb[r] != null) ? Rlb[r] : 1) * T;
+        if (n > 0){ packs = packs || {}; packs[r] = n; }
+      });
+      if (!packs) continue;
+      out.push({ tier: i + 1, day: day, packs: packs, source: tr.source,
+                 label: 'season pass tier ' + (i + 1) + ' of ' + Ts + ' (' + tr.what + ')' });
+    }
   }
   return out;
 }

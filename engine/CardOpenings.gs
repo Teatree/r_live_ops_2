@@ -891,7 +891,7 @@ function SimulatePackOpenings() {
       if (n - whole > 1e-12 && grantRand() < (n - whole)) whole += 1;
       expectedTotal += n;
       for (var k = 0; k < whole; k++)
-        packOpens.push({ day: tp.day, packName: t, source: 'Season Pass (Free)',
+        packOpens.push({ day: tp.day, packName: t, source: tp.source || 'Season Pass (Free)',
                          detail: tp.label });
     }
   });
