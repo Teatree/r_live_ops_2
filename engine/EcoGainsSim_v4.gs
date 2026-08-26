@@ -1608,6 +1608,21 @@ function spV2Sheet_(base){
 // layout is stable, so the reward-column offsets (D..W free, X..AQ paid) stay fixed. The two tracks
 // repeat the same reward headers ('Coins', 'SPT', ...), so each range maps through rewCols_
 // separately — a single whole-row scan would collapse them onto the first (free) match.
+// 0-based column where the SP header's reward names start repeating = the first PAID column.
+// Scans right from the free block's first reward column (3) for the first header that has already
+// been seen; that is where the second track begins. Returns the historic 23 when nothing repeats,
+// so a sheet with only a free track keeps its old behaviour.
+function spPaidStart_(v, hdr){
+  var row = v[hdr] || [], seen = {};
+  for (var c = 3; c < row.length; c++){
+    var name = String(row[c] == null ? '' : row[c]).trim();
+    if (!name) continue;
+    if (seen[name]) return c;
+    seen[name] = true;
+  }
+  return 23;
+}
+
 function readSPTrack_(sheetName){
   var v = sheetVals_(sheetName);
   var out = { cum: [], free: [], paid: [] };
@@ -1616,7 +1631,14 @@ function readSPTrack_(sheetName){
   for (var i = 0; i < v.length; i++)
     if (String((v[i] || [])[2]).trim().toLowerCase() === 'cumul'){ hdr = i; break; }
   if (hdr < 0) return out;                                  // no ladder found -> caller carries
-  var fCols = rewCols_(v, hdr, 3, 22), pCols = rewCols_(v, hdr, 23, 42);
+  // The two tracks repeat the same reward headers, so the split is found by locating where the
+  // header run STARTS OVER rather than by pinning D..W / X..AQ. Retiring a pack tier means
+  // deleting a reward column, which slides the paid block one to the left; with fixed ranges the
+  // paid track then loses its first column ('Coins') to the free range and silently reads 0 -
+  // a whole track's coin payout gone with no error anywhere. Falls back to the historic
+  // 3..22 / 23..42 offsets if the headers never repeat (single-track sheet).
+  var split = spPaidStart_(v, hdr);
+  var fCols = rewCols_(v, hdr, 3, split - 1), pCols = rewCols_(v, hdr, split, v[hdr].length - 1);
   for (var r = hdr + 1; r < v.length; r++){
     var c = num(v[r] && v[r][2]);
     if (!(c > 0)) break;

@@ -352,12 +352,13 @@ function getAlbumReward_(tbl, albumNum) {
   if (!tbl.order.length) return null;
   return tbl.map[tbl.order[tbl.order.length - 1]];     // beyond the table -> last row loops
 }
+// Tiers come from whatever PACK DEFINITIONS authors, NOT from a fixed 1..6 sweep: the season can
+// ship five tiers (or seven) and this line has to follow the sheet rather than pin the count.
 function formatPacksOpened_(packsOpenedByTier) {
-  var parts = [];
-  for (var tier = 1; tier <= 6; tier++){
-    var cnt = packsOpenedByTier[tier] || 0;
-    if (cnt > 0) parts.push(tier + '★: ' + cnt);
-  }
+  var tiers = [];
+  for (var k in packsOpenedByTier) if (num(packsOpenedByTier[k]) > 0) tiers.push(Number(k));
+  tiers.sort(function(a, b){ return a - b; });
+  var parts = tiers.map(function(t){ return t + '★: ' + packsOpenedByTier[t]; });
   return parts.length ? parts.join(', ') : '(none)';
 }
 
@@ -530,7 +531,13 @@ function SimulatePackOpenings() {
   var dayAlbumCompleted    = 0;
   var finalAlbumNoted      = false;
   var setsCompletedInAlbum = {};
-  var packsOpenedByTier    = {1:0,2:0,3:0,4:0,5:0,6:0};
+  // seeded from the tiers PACK DEFINITIONS actually authors, so retiring a tier on the sheet
+  // retires it here too (and adding one needs no code change)
+  var packsOpenedByTier    = {};
+  Object.keys(cfg.cardsPerOpen).forEach(function(k){
+    var m = /^(\d+)-star/.exec(k);
+    if (m) packsOpenedByTier[Number(m[1])] = 0;
+  });
   var packsOpenedTotal     = 0;
   // ECO GAINS from the collection feature itself. Set and album completions pay real currency out
   // of the PackConfig SET REWARDS / ALBUM REWARDS blocks, and until now that payout only ever
