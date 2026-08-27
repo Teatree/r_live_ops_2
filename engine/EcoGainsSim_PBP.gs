@@ -300,7 +300,11 @@ function pbpSimulate_(a){
     plays.forEach(function(pl){ if (pl.streak > bestRun) bestRun = pl.streak; });
     var baseStreak = a.sampled ? bestRun : num(st.max_streak_per_day_p50);
     var effStreak = baseStreak * NS_STREAK_N;
-    readNSLadder_(a.seg, a.cal === CAL_NEW ? NS_V2_SHEET : 'NS').forEach(function(ms, mi){
+    // D23: on cal_new the ladder also depends on the DAY — 'NS_v2' is the weekend variant and
+    // 'NS_v2_weekday' the weekday one (nsLadderForDay_; no weekday sheet -> 'NS_v2' every day, the
+    // D22 behaviour). cal_curr is unaffected: the live game runs one Night Sky.
+    var nsLad = (a.cal === CAL_NEW) ? nsLadderForDay_(a.seg, a.day) : readNSLadder_(a.seg, 'NS');
+    nsLad.forEach(function(ms, mi){
       if (ms.req <= effStreak + 1e-9)
         grantsE.push({ cat: 'Daily Night Sky Prize', rew: ms.rew,
           note: 'm' + (mi + 1) + ' @ ' + ms.req + ' (eff streak ' + Math.round(effStreak*100)/100 +

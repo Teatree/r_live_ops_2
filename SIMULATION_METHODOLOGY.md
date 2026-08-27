@@ -66,7 +66,7 @@ carried**:
 | Kite Festival, Target Day | `simKiteFestival`, `simTargetDay` | [6.4](#64-score-based-leaderboards-kite-festival--target-day) | measured × R × T (D=1) |
 | Bomb / Chuck / Red Challenge, Level Race, Flash Race | `simBombChallenge` … `simFlashRace` | [6.5](#65-rank-leaderboards-bombs--chucks--reds-challenge-level-race-flash-race) | measured × R × T (D=1) |
 | Hatchling Hideaway, Jigsaw, Bomb's Ballet, Photoshoot | `simHatchlingHideaway` … `simPhotoshoot` | [6.6](#66-collections-hatchling-hideaway-jigsaw-bombs-ballet-photoshoot) | measured × R × D × T |
-| Daily Night Sky Prize | `simNightSky` | [6.7](#67-night-sky) | anchored `meas × R × T` on `NS`/`NS_v2` (D22); `NS_SIMULATE = false` → carried |
+| Daily Night Sky Prize | `simNightSky` | [6.7](#67-night-sky) | anchored `meas × R × T` on `NS`/`NS_v2` (D22); redesign split weekend `NS_v2` / weekday `NS_v2_weekday`, day-type weighted (D23); `NS_SIMULATE = false` → carried |
 | Rainbow Maker | `simRainbowMaker` | [6.8](#68-rainbow-maker) | bottom-up survival-weighted |
 | River Rush | `simRiverRush` | [6.9](#69-river-rush) | calendar-driven → 0 today |
 
@@ -242,7 +242,7 @@ capped at 1. `S(req)` = the fraction of players whose relevant quantity reaches 
 Degenerate input (no positive percentiles) → null → the caller carries. Three users, three
 distributions:
 - **Collection / leaderboard R** — over `final_balance_pXX` (progress), 📊 `data_event_inst`.
-- **[Night Sky](#67-night-sky)** — over `max_streak_per_day_p25/50/75/90 × ` [NS_STREAK_N](#ns_streak_n), 📊 `data_streaks`. The same S prices BOTH ladders (`NS` and `NS_v2`), which is what lets a requirement edit move R.
+- **[Night Sky](#67-night-sky)** — over `max_streak_per_day_p25/50/75/90 × ` [NS_STREAK_N](#ns_streak_n), 📊 `data_streaks`. The same S prices EVERY ladder (`NS`, `NS_v2`, `NS_v2_weekday`), which is what lets a requirement edit move R — and what makes the D23 day-type blend a pure weighting rather than a second model.
 - **[Rainbow Maker](#68-rainbow-maker)** — over `p10..p90_matchables_window × scale`, 📊 `data_RM`.
 - **[Daily Gift](#63-daily-gift) weights** — over `login_streak_p50/75/90`, 📊 `data_seg_beh`.
 
@@ -253,7 +253,7 @@ For anything priced off the tail (past p90), also report the conservative `S = 0
 
 `E` = an **expected ladder payout per resource** under a population distribution — the building block
 of both [R](#r-reward-ratio) (`lbE_` / `collE_`) and the bottom-up sims. `E_day` = the
-[Night Sky](#67-night-sky) per-active-day expected payout, `E_day[res] = Σ_k S(CumStreakReq_k) × reward_k[res]` — computed on both `NS` and `NS_v2` since D22, and divided into R.
+[Night Sky](#67-night-sky) per-active-day expected payout, `E_day[res] = Σ_k S(CumStreakReq_k) × reward_k[res]` — computed on `NS` and `NS_v2` since D22 (and on `NS_v2_weekday` since D23, the two redesign values blended by day type before being divided into R).
 
 ### modalDur
 
@@ -269,6 +269,16 @@ modal duration, so it doesn't distort D — but its *real* day list is still use
 NS Excel study: a player tends to land ~a second streak of similar size over a day, and the factor
 absorbs streak resets. Every streak percentile is multiplied by it before [S](#s-survival-function)
 is built. Shared by the 33-day engine and the PBP sim.
+
+### NS_DAYTYPE_SPLIT / NS_V2_WEEKDAY_SHEET
+
+`NS_V2_WEEKDAY_SHEET = 'NS_v2_weekday'` and `NS_DAYTYPE_SPLIT = true` (D23) — the **two Night Skies**
+switch. When that sheet exists and has a block for the segment, ⚙️ `NS_v2` is read as the **weekend**
+ladder and ⚙️ `NS_v2_weekday` as the **weekday** one, and the two are blended by expected active days
+per day type (see [§6.7](#67-night-sky)). Absent sheet, or the flag set false → `NS_v2` prices every
+day and the model is the D22 one, bit for bit. Weekday/weekend comes from the engine's single
+[isWeekend_](#41-the-verified-merge-rule) rule (`(day−1) % 7 ∈ {2,3,4}` → Fri/Sat/Sun), the same one
+reach and the daily view already use, so there is no second definition of "weekend" to drift.
 
 ---
 
@@ -1005,6 +1015,16 @@ S(51.25) = 0 for every later one — this segment's expected config payout is on
 > bottom-up survival machinery survives only as the **E** term behind R (and for resources that have
 > no anchor at all). `NS_SIMULATE` is kept as the on/off for the whole lane.
 
+> **Update: TWO NIGHT SKIES since D23 (2026-08-27).** The redesign runs a **weekend** variant and a
+> **weekday** variant. ⚙️ `NS_v2` is the **weekend** ladder and ⚙️ `NS_v2_weekday` the weekday one
+> (that second sheet is what identifies the split: when it exists, `NS_v2` is by definition the
+> weekend config). A day-type is not a calendar row — 🗓️ `cal_new` still carries ONE `Night Sky` row
+> filled on all 33 days — so the two ladders are folded into a single expected-per-active-day value
+> **weighted by the expected active days of each day type**, which is what "the weekend event is only
+> available on 15 of the 33 days" means in a window-total model. Everything downstream (R, the
+> no-anchor addition, the pack lane) is unchanged. No `NS_v2_weekday` sheet → the blend collapses to
+> `NS_v2` and the model is exactly the D22 one. `NS_DAYTYPE_SPLIT = false` forces that collapse.
+
 **Overview.** A daily-reset win-streak ladder (config-segmented, D14). It is a *rate* — it resets
 every day — so its expected payout is priced **per active day** on each side of the comparison, and
 the two are divided into a ratio. Night Sky also ran as an **A/B test**, so the measured value is
@@ -1017,10 +1037,11 @@ flowchart TD
   FLAG{"NS_SIMULATE?"} -->|false| CARRY["return measured (carried)"]
   FLAG -->|true| INST{"cal_new has NS instances?"}
   INST -->|no| ZERO["return 0 (removal semantics)"]
-  INST -->|yes| LAD["ladder per segment, BOTH sides — NS + NS_v2 (missing → NS)"]
+  INST -->|yes| LAD["ladder per segment — NS (base) + NS_v2 (weekend) + NS_v2_weekday (weekday, optional)"]
   ST["S = survival(max_streak_per_day p25/50/75/90 × NS_STREAK_N 1.25) — data_streaks"] --> E
-  LAD --> E["E_base, E_v2 [res] = Σ_k S(CumStreakReq_k) × reward_k[res]"]
-  E --> R["R[res] = E_v2 / E_base"]
+  LAD --> E["E_base, E_wd, E_we [res] = Σ_k S(CumStreakReq_k) × reward_k[res]"]
+  E --> BL["E_v2[res] = (E_wd × Σweekday p_day + E_we × Σweekend p_day) ÷ Σall p_day  — D23 day-type blend"]
+  BL --> R["R[res] = E_v2 / E_base"]
   R --> OUT["SIMULATED[res] = measured[res] × R[res] × T"]
   T["T = Σp_day(cal_new) ÷ Σp_day(cal_curr) — both calendars × data_seg_beh"] --> OUT
   E --> ADD["E_base = 0 and E_v2 > 0 → ADD E_v2[res] × Σp_day (no anchor)"] --> OUT
@@ -1032,13 +1053,24 @@ flowchart TD
 2. No 🗓️ `cal_new` Night Sky instances → **0** for every resource (removal semantics, as River Rush).
 3. **streak** ← 📊 `data_streaks` `max_streak_per_day_p25/50/75/90`. Build [S](#s-survival-function)
    over each percentile × [NS_STREAK_N](#ns_streak_n) (= 1.25). No streak row → carry measured.
-4. **ladders** ← the segment's own 3-milestone block on ⚙️ `NS` and on ⚙️ `NS_v2`
-   (`readNSLadder_(seg, sheet)`, gate column `Cum Streak Req`). A missing `NS_v2` sheet, a missing
-   segment row, or an unreadable ladder falls back to ⚙️ `NS` → `R = 1` (an unauthored redesign
-   reads as "config unchanged", never as a zero). No base ladder → carry measured.
+4. **ladders** ← the segment's own 3-milestone block on ⚙️ `NS` (base), ⚙️ `NS_v2` (redesign —
+   the **weekend** variant since D23) and, when the sheet exists, ⚙️ `NS_v2_weekday`
+   (`readNSLadder_(seg, sheet)` / `nsWeekdayLadder_(seg)`, gate column `Cum Streak Req`). A missing
+   `NS_v2` sheet, a missing segment row, or an unreadable ladder falls back to ⚙️ `NS` → `R = 1` (an
+   unauthored redesign reads as "config unchanged", never as a zero). A missing **weekday** sheet
+   falls back to ⚙️ `NS_v2`, NOT to `NS` — "there is one redesign ladder", not "weekdays keep the
+   live config", which would be an economy difference invented by an absent sheet. No base ladder →
+   carry measured.
 5. **[E_day](#e-and-e_day)** on each side: `E[res] = Σ_k S(CumStreakReq_k) × reward_k[res]`
-   (cumulative gating, honest — no free milestone). The **same S** prices both sides, so a
+   (cumulative gating, honest — no free milestone). The **same S** prices every ladder, so a
    **requirement** edit in `NS_v2` moves R exactly as a reward edit does.
+5b. **day-type blend (D23)** — the two redesign ladders become one per-active-day value:
+   `E_v2[res] = (E_wd[res] × Σ_weekday p_day + E_we[res] × Σ_weekend p_day) ÷ Σ_all p_day`, summed
+   over the 🗓️ `cal_new` Night Sky days and split by [isWeekend_](#calendar-reader) (Fri/Sat/Sun → 15
+   of 33 days). It is a **weighted average of two rates**, i.e. the same kind of number step 5
+   always produced, so steps 6–8 below are untouched. Weights are shares of *expected active days*,
+   not of calendar days: a segment that plays more at the weekend gives the weekend ladder more
+   weight. `nsDayTypeSplit_` returns the split; `NS_DAYTYPE_SPLIT = false` disables it.
 6. **R\[res] = E_v2\[res] / E_base\[res]**, and **T** = `timingRatio_` over the NS lane of both
    calendars (D = 1 — NS instances are one day, there is no duration curve to interpolate).
 7. `SIMULATED[res] = measured[res] × R[res] × T`, with two per-resource exceptions:
@@ -1050,6 +1082,13 @@ flowchart TD
    (`E_v2 × participation × Σreach`) rather than that addition — so a pack on an NS milestone is
    priced exactly like a pack anywhere else.
 9. `A. 0` never reaches here (`appendixRow_` intercepts the appendix segment) → carried, as before.
+10. **The other three views resolve individual days, so they use the ladders directly rather than
+   the blend** — and still sum to it. The [daily view](#7-the-daily-view-ecogains_daily) splits each
+   NS resource's window total between the two day types in the blend's own proportion
+   (`nsDayTypeRows_`) and spreads each part over its days ∝ p_day; the
+   [PBP ledger](#14-the-play-by-play-sim-ecogains_pbp) reads `nsLadderForDay_(seg, day)`; the card
+   sim's pack rungs read the ladder of the instance's own day. Conservation is gated
+   (`_mock_daily.js`: the 33 days reconcile with the 33-day row, per resource).
 
 **In plain words.** Night Sky pays you each day for win streaks: chain wins without losing and you
 claim rewards at streak milestones; everything resets the next day. Telemetry tells us what players
@@ -1078,7 +1117,9 @@ config change — the "what would full rollout be worth" question is no longer a
 
 the composite terms expand to:
 
-> **R\[res] = E_v2\[res] / E_base\[res]**, each **E\[res] = [Σ](https://en.wikipedia.org/wiki/Summation)ₖ [S](#s-survival-function)(CumStreakReq_k) × reward_k\[res]** over the segment's milestones k on ⚙️ `NS` (base) / ⚙️ `NS_v2` (redesign)
+> **R\[res] = E_v2\[res] / E_base\[res]**, each **E\[res] = [Σ](https://en.wikipedia.org/wiki/Summation)ₖ [S](#s-survival-function)(CumStreakReq_k) × reward_k\[res]** over the segment's milestones k on ⚙️ `NS` (base) / the redesign ladders
+>
+> **E_v2\[res] = ( E_wd\[res] × Σ_weekday p_day + E_we\[res] × Σ_weekend p_day ) ÷ ( Σ_weekday p_day + Σ_weekend p_day )** — the D23 day-type blend, `E_we` off ⚙️ `NS_v2` (weekend), `E_wd` off ⚙️ `NS_v2_weekday` (= `E_we` when that sheet is absent)
 >
 > **S(x) = 1 − [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)(x)** over **max_streak_per_day [percentiles](https://en.wikipedia.org/wiki/Percentile) p25/50/75/90 × [NS_STREAK_N](#ns_streak_n)** (📊 `data_streaks`) — the SAME S on both sides
 >
@@ -1102,6 +1143,12 @@ the composite terms expand to:
   day long, so its reach is just [p_day](#reach-and-p_day) (📊 `data_seg_beh`), and 33 of them sum to
   the expected count of days played. It appears only inside T (as a ratio) and in the no-anchor
   addition.
+- **E_wd / E_we and the day-type weights (D23)** — the weekday and weekend redesign ladders priced
+  separately, then averaged by how many *active* days of each type the window holds. Σ_weekend p_day
+  covers the 15 Fri/Sat/Sun days of the 33-day block, Σ_weekday p_day the other 18, each day counted
+  at the segment's own [p_day](#reach-and-p_day). Typical weights land near **41–46% weekend**, so a
+  reward that exists only on the weekend ladder is paid at roughly 45% of its face value over the
+  window — not at 100%, and not at 15/33 = 45.5% either, because activity rates differ by day type.
 
 **How did you simulate this?** I scaled the measured Night Sky earnings by how much the redesigned
 ladder is worth relative to the live one. The live ladder is ⚙️ `NS` — that is the configuration the
@@ -1135,6 +1182,22 @@ changed; the players simply stop reaching the milestones.
 NS SPT is 0 and `E_base[SPT]` is 0, so there is no ratio to take. The engine adds the bottom-up value
 instead — `E_v2[SPT]` 4.777/day × Σ p_day 9.76 = **46.62 SPT** — and that flows into
 [`sptTotals_`](#611-season-pass-spt-tier-coupling), so the Season Pass tier can respond.
+
+*Example 4 — the weekend variant (D23).* Workbook `_LIVEOPS_CALENDAR` authors ⚙️ `NS_v2_weekday` as
+a verbatim copy of ⚙️ `NS` (weekdays keep the live ladder) and re-authors ⚙️ `NS_v2` as the weekend
+one, adding a Red and a Chuck booster on the first milestone for 40-99 and 100+ and swapping
+Chuck → Bomb on the third for the lower segments. Because HC is untouched on both ladders, R\[HC]
+stays 1 and the **coin** row does not move at all. The booster rows do: for 40-99 nonpayers the
+window's active Night Sky days split 3.25 weekday / 2.53 weekend, so the weekend share is
+**43.8%** — and Red falls from 3.74 (if the weekend ladder ran every day) to **2.22**, Chuck from
+2.71 to **1.19**, Bomb from 1.03 to **0.45**. Nothing else in the model changed; the weekend rewards
+are simply paid on the days the weekend event actually runs.
+
+**Flagged (D23).** The split is a *rate* weighting, not a behavioural one. It assumes a player's
+streak distribution and participation are the same on both day types — the same S and the same
+`data_streaks` percentiles price both ladders — so it captures "the weekend ladder only runs on
+weekend days" but NOT "players build longer streaks over a weekend". If the weekend variant is meant
+to be reached more easily than its requirements imply, this model will under-price it.
 
 **What the re-anchor gave up (flagged).** The old bottom-up branch produced an *absolute*
 full-rollout estimate (e.g. 455.6 HC for 20-39 against 86.9 measured — a ≈5× gap present with
@@ -1662,7 +1725,7 @@ simulated) and ONLY distribute them over days — column sums reconcile with the
 | collections | ∝ reach(inst) | accrual-curve **marginal** share/day (`share(d) − share(d−1)`) |
 | Rainbow Maker | each instance places its OWN per-resource row (`rmInstanceRows_` — split configs RM_1st ×3 / RM_2nd ×2, so SPTx2 lands only on RM_2nd instance days; the clipped 2-day instance gets its true smaller share, not a reach-proportional slice) | ∝ [p_day](#reach-and-p_day) within instance (no curve — flagged) |
 | Core/Saga/Daily Gift | — | every day ∝ p_day |
-| Night Sky | — | over its 33×1d instances ∝ p_day (carried when `NS_SIMULATE = false`) |
+| Night Sky | — | over its 33×1d instances ∝ p_day; since D23 each resource's total is first split weekend/weekday in the blend's proportion, then spread ∝ p_day within each day type (`nsDayTypeRows_`). Carried when `NS_SIMULATE = false` |
 | Season Pass (Free) | ∝ reach(inst) over the `Season Pass` lane | ∝ p_day within instance (tier claims are continuous — same as RM; the lane covers all 33 days today) |
 | non-calendar (Ads, Teams, Other, IAPs; River Rush current side) | — | flat ÷33 (diff uniform) |
 
@@ -1791,7 +1854,7 @@ don't exist, so the entry is harmless until you create it).
 | Season Pass row == measured on every resource | EXPECTED when `SP_v2` is absent AND the tier didn't move (SPT_sim lands in the same Cumul band); with workbook (10) data the tier DROPS, so an all-equal row means the coupling isn't running — check the `SP` sheet headers (row 4) and the `Season Pass` calendar lane |
 | Season Pass SPT (its own row) diff = 0 while other resources move | SPEC (the track pays no SPT → no anchor → carried; D16 fallback rule) |
 | River Rush SIMULATED = 0, diff = −measured | SPEC (removed from cal_new) |
-| Night Sky diff = 0 everywhere | EXPECTED when `NS_v2` == `NS` (D22: R = 1, T = 1 → sim == measured), or when `NS_SIMULATE = false` (carried). A NONZERO diff with identical sheets is the bug. |
+| Night Sky diff = 0 everywhere | EXPECTED when `NS_v2` == `NS` (D22: R = 1, T = 1 → sim == measured), or when `NS_SIMULATE = false` (carried). A NONZERO diff with identical sheets is the bug. Since D23 add: `NS_v2_weekday` == `NS_v2` makes the day-type split a no-op — identical ladders cannot move the row. A resource that moves LESS than the `NS_v2` edit implies is the weekend weighting working, not a lost edit. |
 | A source with measured>0 sims 0 and it's not River Rush | BUG — check calendar labels, `cal_parsed` staleness, seg/payer labels |
 | EVERY timed event = measured (diff 0) at once | calendar parse fail-safe engaged — run Precompute; check the Kite canary (must differ from measured) |
 | Whole segment block zero | segment tag cell / label mismatch (`SEG_TO_GAINS`), or data sheet headers not on row 1 |
@@ -1981,7 +2044,7 @@ average). Score events (Kite, Target Day) stay streak-driven with their config s
 to hit the measured day target. Leaderboard payouts land on E only for instances ending that day, at
 the Luck percentile of `position_pXX`.
 
-**Night Sky (gated on `NS_SIMULATE`, ON since D21; since D22 the ledger reads ⚙️ `NS` on cal_curr and ⚙️ `NS_v2` on cal_new — the one exception to "ladders come from the _v2 sheets for both calendars", so PBP agrees with the anchored window sim):** pays
+**Night Sky (gated on `NS_SIMULATE`, ON since D21; since D22 the ledger reads ⚙️ `NS` on cal_curr and ⚙️ `NS_v2` on cal_new — the one exception to "ladders come from the _v2 sheets for both calendars", so PBP agrees with the anchored window sim; since D23 the cal_new choice is also per DAY — `nsLadderForDay_(seg, day)` reads ⚙️ `NS_v2` on Fri/Sat/Sun and ⚙️ `NS_v2_weekday` otherwise, so simulating a Tuesday shows the weekday event and a Saturday the weekend one):** pays
 on the E row — effective streak = base × [NS_STREAK_N](#ns_streak_n) (1.25); base =
 `max_streak_per_day_p50` (Expected) or the trace's longest realized win run (Sampled). EVERY milestone
 whose `Cum Streak Req` is cleared pays, each on its own row (honest cumulative gate). Seed-averaging

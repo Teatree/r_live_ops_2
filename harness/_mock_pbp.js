@@ -349,6 +349,40 @@ check('NS Expected: some segment reaches a milestone (ladder/streak read sane)',
         Math.abs(beforeNew - beforeCur) < 1e-9, `${beforeNew} vs ${beforeCur}`);
 }
 
+// D23: on cal_new the ledger also picks the ladder by DAY TYPE — 'NS_v2' on Fri/Sat/Sun and
+// 'NS_v2_weekday' on the other days. Zero the weekday ladder's HC and the cal_new ledger must pay
+// NS coins on weekend days only, while cal_curr (one live Night Sky) is untouched.
+{
+  const nsHCday = (cal, day) =>
+    nsClaimRows(ECOGAINS_PBP(cal, day, '10-19', 'NONPAYER', 'Expected', 'p50', 1))
+      .reduce((s, r) => { const m = String(r[CLAIMS_COL]).match(/Coins: ([\d.]+)/); return s + (m ? +m[1] : 0); }, 0);
+  const WD = 1, WE = 3;                                  // day 1 = Wednesday, day 3 = Friday
+  const saved = data['NS_v2_weekday'] ? JSON.parse(JSON.stringify(data['NS_v2_weekday'])) : null;
+  const cl = JSON.parse(JSON.stringify(data['NS_v2']));
+  for (let r = 0; r < cl.values.length; r++) {
+    const hc = (cl.values[r] || []).indexOf('HC Reward');
+    if (hc === -1) continue;
+    for (let k = r + 1; k < cl.values.length && String((cl.values[k] || [])[0]).trim() !== ''; k++)
+      cl.values[k][hc] = 0;
+  }
+  const beforeWd = nsHCday('cal_new', WD), beforeWe = nsHCday('cal_new', WE);
+  const beforeCurWd = nsHCday('cal_curr', WD);
+  data['NS_v2_weekday'] = cl;
+  _sheetValsCache = {};
+  const afterWd = nsHCday('cal_new', WD), afterWe = nsHCday('cal_new', WE);
+  const afterCurWd = nsHCday('cal_curr', WD);
+  if (saved) data['NS_v2_weekday'] = saved; else delete data['NS_v2_weekday'];
+  _sheetValsCache = {};
+  check('NS_v2_weekday HC = 0 -> cal_new WEEKDAY ledger pays no NS coins',
+        beforeWd > 0 && Math.abs(afterWd) < 1e-9, `day ${WD}: ${beforeWd} -> ${afterWd}`);
+  check('NS_v2_weekday HC = 0 -> cal_new WEEKEND ledger unchanged (still reads NS_v2)',
+        beforeWe > 0 && Math.abs(afterWe - beforeWe) < 1e-9, `day ${WE}: ${beforeWe} -> ${afterWe}`);
+  check('NS_v2_weekday HC = 0 -> cal_curr ledger unchanged (one live Night Sky)',
+        Math.abs(afterCurWd - beforeCurWd) < 1e-9, `${beforeCurWd} -> ${afterCurWd}`);
+  check('NS day-type mutation restored (baseline reproduces)',
+        Math.abs(nsHCday('cal_new', WD) - beforeWd) < 1e-9);
+}
+
 // back to the shipped defaults for the smoke tests
 eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
 eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));

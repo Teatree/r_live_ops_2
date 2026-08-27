@@ -6,18 +6,35 @@ import glob
 import json
 import os
 import re
+import sys
+
 import openpyxl
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-books = glob.glob(os.path.join(HERE, '..', 'workbooks', 'NEW_LIVEOPS_CALENDAR_ECO*.xlsx'))
-books.sort(key=lambda n: int((re.search(r'\((\d+)\)', n) or [0, 0])[1]))
-SRC = books[-1]
+# Default source: the highest-numbered NEW_LIVEOPS_CALENDAR_ECO export. A workbook that is NOT in
+# that series (a one-off variant export) can be dumped by passing its path or its filename:
+#     python harness/_dump_mockdata.py "workbooks/_LIVEOPS_CALENDAR.xlsx"
+if len(sys.argv) > 1:
+    SRC = sys.argv[1]
+    if not os.path.exists(SRC):
+        SRC = os.path.join(HERE, '..', 'workbooks', sys.argv[1])
+    if not os.path.exists(SRC):
+        raise SystemExit('no such workbook: ' + sys.argv[1])
+else:
+    books = glob.glob(os.path.join(HERE, '..', 'workbooks', 'NEW_LIVEOPS_CALENDAR_ECO*.xlsx'))
+    books.sort(key=lambda n: int((re.search(r'\((\d+)\)', n) or [0, 0])[1]))
+    SRC = books[-1]
 
 SHEETS = [
     # v4 engine
     'data_gains', 'data_seg_beh', 'data_event_accrual', 'data_event_kite_accrual', 'data_RM',
     'cal_curr', 'cal_new', 'cal_parsed',
-    'c_saga', 'c_saga_v2', 'c_day', 'c_day_v2', 'RM', 'NS', 'NS_v2', 'Sim per Segment',
+    'c_saga', 'c_saga_v2', 'c_day', 'c_day_v2', 'RM', 'NS', 'NS_v2',
+    # 'NS_v2_weekday' (D23): the WEEKDAY redesign ladder — 'NS_v2' is then the WEEKEND one.
+    # Expected MISSING in workbooks predating the split; the engine then reads 'NS_v2' every
+    # day, which is the D22 behaviour, and the harness gates exercise exactly that fallback.
+    'NS_v2_weekday',
+    'Sim per Segment',
     # The display sheet itself, so a gate can check CATEGORY_ORDER against the row LABELS the
     # spill lands next to. Those labels are static text nothing validated, so a row added to
     # the sheet without a matching CATEGORY_ORDER entry shifted every row below it onto the
@@ -88,4 +105,8 @@ for name, fname in PENDING_IMPORT.items():
 
 with open(os.path.join(HERE, '_mockdata.json'), 'w', encoding='utf-8') as f:
     json.dump(out, f)
-print('written _mockdata.json from', SRC, '—', len(out), 'sheets')
+# The workbook name reaches this print verbatim and Windows consoles are cp1252, so a
+# non-latin-1 filename (an emoji in a one-off export) would crash the script AFTER it had
+# already written the dump. Report a console-safe name instead.
+safe = os.path.basename(SRC).encode('ascii', 'replace').decode('ascii')
+print('written _mockdata.json from', safe, '-', len(out), 'sheets')

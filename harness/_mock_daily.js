@@ -77,6 +77,38 @@ check('Night Sky NEW pays every day', ns.every(row => row[HC] > 0));
   }
   check('NS daily sums reconcile with simulated 33-day NS row', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
 }
+// D23 weekday/weekend split: with a weekday ladder present the per-day series must SEPARATE the
+// two day types per resource, and must still sum to the 33-day row. Injected here (no workbook
+// predating the split ships 'NS_v2_weekday'), so the gate holds on any dump.
+{
+  const NS_I = CATEGORY_ORDER.indexOf('Daily Night Sky Prize');
+  const SEG = '40-99';
+  const saved = data['NS_v2_weekday'] ? JSON.parse(JSON.stringify(data['NS_v2_weekday'])) : null;
+  const cl = JSON.parse(JSON.stringify(data['NS_v2']));
+  for (let r = 0; r < cl.values.length; r++) {            // zero the HC rewards on WEEKDAYS
+    const hc = (cl.values[r] || []).indexOf('HC Reward');
+    if (hc === -1) continue;
+    for (let k = r + 1; k < cl.values.length && String((cl.values[k] || [])[0]).trim() !== ''; k++)
+      cl.values[k][hc] = 0;
+  }
+  data['NS_v2_weekday'] = cl;
+  _sheetValsCache = {};
+  const g = ECOGAINS_DAILY('NONPAYER', SEG, 'Daily Night Sky Prize', 'NEW');
+  const win = ECOGAINS_SIM('NONPAYER', SEG)[NS_I];
+  const paid = g.map((row, d) => row[HC] > 1e-12 ? d + 1 : 0).filter(Boolean);
+  const nsDays = [...new Set((Context.get().calNew['Night Sky'] || []).flatMap(i => i.days))];
+  const wantWeekend = nsDays.filter(d => d >= 1 && d <= 33 && isWeekend_(d)).sort((a, b) => a - b);
+  check('NS weekday HC zeroed -> HC lands on WEEKEND days only',
+        JSON.stringify(paid) === JSON.stringify(wantWeekend),
+        'got ' + JSON.stringify(paid) + ' expect ' + JSON.stringify(wantWeekend));
+  let mx = 0;
+  for (let j = 0; j < RESOURCES.length; j++) mx = Math.max(mx, Math.abs(colSum(g, j) - win[j]));
+  check('NS split daily sums still reconcile with the 33-day NS row', mx < 1e-9,
+        'max err ' + mx.toExponential(2));
+  if (saved) data['NS_v2_weekday'] = saved; else delete data['NS_v2_weekday'];
+  _sheetValsCache = {};
+}
+
 // weekend days should carry slightly less for 0-9 (pWe 0.2763 < pWd 0.2868)
 check('NS weekday > weekend allocation', ns[0][HC] > ns[2][HC], `wed ${ns[0][HC].toFixed(4)} vs fri ${ns[2][HC].toFixed(4)}`);
 
