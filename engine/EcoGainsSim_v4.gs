@@ -1376,6 +1376,13 @@ function measuredSptTotal_(seg, payer, ds){
 // the Season Pass row in the gains model.
 function spPackTiers_(seg, payer, ctx){
   var out = [];
+  // 'A. 0' is the appendix segment: no behaviour telemetry, so nothing can price its reach.
+  // packGrantPlan_ already refuses it (zero activity rates -> empty plan) and colRewardRow_ below
+  // carries the same guard, but the Season Pass track is not instance-shaped and so slipped past
+  // both - it pays every tier up to the one reached, with no reach term to be zero. A. 0 was
+  // therefore handed 1-2 Season Pass packs out of an otherwise completely empty season, which is
+  // exactly the tier coupling the appendix rules say is not applied to it (CLAUDE.md, D8/section 3).
+  if (seg === 'A. 0' || seg === 'A.0') return out;
   if (!ctx || !ctx.calCurOk || !ctx.calNewOk) return out;
   var cur = ctx.calCur['Season Pass'] || [], nw = ctx.calNew['Season Pass'] || [];
   if (!nw.length || !cur.length) return out;
