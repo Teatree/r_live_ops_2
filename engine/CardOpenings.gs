@@ -605,6 +605,15 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     if (m) packsOpenedByTier[Number(m[1])] = 0;
   });
   var packsOpenedTotal     = 0;
+  // Packs and cards attributed to the source that paid them, for the stochastic run's per-source
+  // table. Kept here rather than derived from the log afterwards: the log is a reporting artefact
+  // that gets cleared and re-parsed, and re-deriving a number from formatted text is how the two
+  // copies drift apart.
+  var bySource             = {};
+  // The cumulative per-day series the cloud charts. Deliberately NOT the `daily` array below:
+  // that one feeds the existing sheet and carries collectionSize / sets-in-album, both of which
+  // RESET on album advance. A progress curve must not fall to zero when a player does well.
+  var dailyCloud           = [];
   // ECO GAINS from the collection feature itself. Set and album completions pay real currency out
   // of the PackConfig SET REWARDS / ALBUM REWARDS blocks, and until now that payout only ever
   // appeared as TEXT in the Note column - it was never totalled, so the feature's contribution to
@@ -813,6 +822,11 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     else if (setBlock)          note = setBlock;
     else if (albumNote)         note = albumNote;
 
+    var sk = sourceKey_(source);
+    var bs = bySource[sk] || (bySource[sk] = { packs: 0, cards: 0 });
+    bs.packs += 1;
+    bs.cards += drawn.length;
+
     return [day, packName, source, detail || '', startAlbum,
             drawn.join(', '), newCards.join(', '), dupes.join(', '), balance, note];
   }
@@ -995,6 +1009,13 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
                    '', '', '', balance, '']);
     }
 
+    // totalNew, not collectionSize: unique cards ACQUIRED across the season, which keeps rising
+    // through an album advance instead of resetting to 0. albumPct passes 100% the same way, so
+    // "finished album 1 and a third into album 2" reads 133%.
+    dailyCloud.push({ packs: packsOpenedTotal, cards: totalCardsDrawn, unique: totalNew,
+                      sets: setsCompletedTotal,
+                      albumPct: (albumIdx + (totalUnique ? collectionSize / totalUnique : 0)) * 100,
+                      balance: balance });
     daily.push([day, balance, collectionSize,
                 totalUnique ? collectionSize / totalUnique : 0,
                 countKeys_(setsCompletedInAlbum), albumIdx + 1, packsOpenedTotal]);
@@ -1004,7 +1025,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
              ' | album rewards: ' + formatRewards_(albumRewardGains));
 
   return {
-    daily: daily, log: output,
+    daily: daily, dailyCloud: dailyCloud, log: output, bySource: bySource,
     packsOpenedTotal: packsOpenedTotal, packsOpenedByTier: packsOpenedByTier,
     totalCardsDrawn: totalCardsDrawn, totalNew: totalNew, totalDupes: totalDupes,
     starsEarned: starsEarned, starsSpent: starsSpent, balance: balance,
@@ -1120,6 +1141,16 @@ function SimulatePackOpenings() {
 }
 
 function countKeys_(o){ var n = 0; for (var k in o) if (o[k]) n++; return n; }
+
+// Tally key for a pack's source. A chest's log Source names the reward pack too
+// ('Gold Chest Opened - 5-star Pack'), which in a per-source table would spread the chests across
+// one row per (tier, pack) pair; this collapses them to the tier. THE LOG TEXT IS UNCHANGED - only
+// the tally key is normalised, so the single-player sheet reads exactly as it always has.
+function sourceKey_(source){
+  var s = String(source == null ? '' : source);
+  var i = s.indexOf(' Chest Opened');
+  return (i > 0) ? ('Star Chest (' + s.slice(0, i) + ')') : s;
+}
 
 /** Column LETTER of any 'Album #N' / 'Set #N' label sitting inside the pack log's own columns,
  *  or '' when the sheet layout is current. Cheap scan of the log block's header-ish rows. */
