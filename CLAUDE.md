@@ -121,6 +121,8 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 
 **Pack values are authored by hand** on the `1-star Dly`…`6-star Dly` columns that already exist on every ladder — until a number is typed there, every pack column reads 0, which is correct rather than a plumbing failure. Flagged: `reach × participation_rate` mildly under-counts high-participation events, and `Team Event` has no `data_event_inst` rows so its ladder is priced at a flat rank average (crudest pricing in the model).
 
+**ENVELOPE SEASON CUTOFF (D26, 2026-09-01).** The collection season is shorter than the 33-day window: after `SEASON_LAST_DAY` (29) no source pays envelopes — the in-game name for the six `*-star Pack` resources. **Only envelopes stop.** HC, SPT, SPTx2, boosters and Unlimited Lives keep paying on all 33 days, and no non-pack number changes at all. An instance wholly past the cutoff leaves `packLane_`'s reach sum (so the window total drops); an instance straddling it pays its envelopes IN FULL, with any pack landing past the cutoff settling on day 29. `Season Pass` is exempt via `SEASON_EXEMPT_LANES` (its track is climbed during the season). `SEASON_CUTOFF = false` restores the pre-D26 model exactly. `engine/pre_collection/` needs no mirror — it has no pack lane.
+
 > ### ⚠ HARDCODED ASSUMPTION — Kite Festival opt-in = 0.35 (D25, 2026-09-01)
 >
 > **If a Kite pack number ever looks odd, this is why. It is an assumption, not a measurement — 15-31× the observed rate.**

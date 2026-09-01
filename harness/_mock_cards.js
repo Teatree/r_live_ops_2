@@ -1053,5 +1053,133 @@ function logCol(name){
     offenders.length ? offenders.join(' | ') : 'sheet-bound literals are plain ASCII punctuation');
 }
 
+
+// ------------------------------------------- 9. SEASON CUTOFF for envelopes (D26, 2026-09-01)
+// The collection season ends at SEASON_LAST_DAY while the calendar window stays 33 days. After the
+// cutoff no source hands out envelopes (the six *-star Pack resources) -- and NOTHING ELSE STOPS.
+// Every gate here asserts a RULE, not a workbook state: each toggles SEASON_CUTOFF and compares, so
+// none can rot when the calendar or the authored ladders change.
+{
+  console.log('\n================ SEASON CUTOFF (D26) ================');
+  const CUT_PAIRS = [['20-39', 'PAYER'], ['0-9', 'NONPAYER'], ['100+', 'PAYER']];
+  const NONPACK = RESOURCES.filter(r => !isPackRes_(r));
+
+  const sweep = () => {
+    Context.reset && Context.reset();
+    const ctx = Context.get();
+    const out = {};
+    CUT_PAIRS.forEach(pair => {
+      const seg = pair[0], payer = pair[1], key = seg + '|' + payer;
+      const rec = { packByCat: {}, packTot: 0, nonpack: 0, latePack: 0, lateNon: 0, consErr: 0 };
+      CATEGORY_ORDER.forEach(cat => {
+        const W = resultRow_(cat, seg, payer, ctx);
+        const p = PACK_RES.reduce((a, r) => a + num(W[r]), 0);
+        if (p > 1e-12) rec.packByCat[cat] = p;
+        rec.packTot += p;
+        NONPACK.forEach(r => { rec.nonpack += num(W[r]); });
+        const ser = dailySeries_(cat, seg, payer, ctx, true);
+        PACK_RES.forEach(r => {
+          let sum = 0;
+          for (let d = 0; d < DAILY_DAYS; d++) {
+            sum += num(ser[d][r]);
+            if (d + 1 > SEASON_LAST_DAY) rec.latePack += num(ser[d][r]);
+          }
+          rec.consErr = Math.max(rec.consErr, Math.abs(sum - num(W[r])));
+        });
+        for (let d = SEASON_LAST_DAY; d < DAILY_DAYS; d++)
+          NONPACK.forEach(r => { rec.lateNon += num(ser[d][r]); });
+      });
+      out[key] = rec;
+    });
+    return out;
+  };
+
+  const on = sweep();
+  SEASON_CUTOFF = false; const off = sweep(); SEASON_CUTOFF = true;
+  const back = sweep();
+  const K = pair => pair[0] + '|' + pair[1];
+
+  // 1. THE rule: no envelope is placed after the season ends.
+  check('no envelopes placed after SEASON_LAST_DAY',
+    CUT_PAIRS.every(p => on[K(p)].latePack < 1e-9),
+    CUT_PAIRS.map(p => K(p) + ' ' + on[K(p)].latePack.toExponential(1)).join(' | '));
+
+  // 2. The counterpart, and the point of the whole correction: ONLY envelopes stop. If this fails,
+  //    the change has become a shorter simulation instead of a shorter collection season.
+  check('non-pack resources still paid on the days after the cutoff',
+    CUT_PAIRS.every(p => on[K(p)].lateNon > 0),
+    CUT_PAIRS.map(p => K(p) + ' ' + on[K(p)].lateNon.toFixed(1)).join(' | '));
+
+  // 3. The cutoff must not move a single non-pack number, anywhere.
+  let worst = 0;
+  CUT_PAIRS.forEach(p => { worst = Math.max(worst, Math.abs(on[K(p)].nonpack - off[K(p)].nonpack)); });
+  check('cutoff leaves every non-pack window total bit-identical', worst < 1e-9,
+    'max drift ' + worst.toExponential(2) + ' over ' + CUT_PAIRS.length + ' segment/payer pairs');
+
+  // 4. Conservation: the 33-day series still sums to the window row, per resource.
+  const cons = Math.max.apply(null, CUT_PAIRS.map(p => on[K(p)].consErr));
+  check('daily envelope series still sums to the window row', cons < 1e-9,
+    'max |sum(33 days) - row| = ' + cons.toExponential(2));
+
+  // classify the cal_new lanes by how they sit against the cutoff
+  const ctxC = Context.get();
+  const wholly = [], straddle = [];
+  CATEGORY_ORDER.forEach(cat => {
+    const lane = DAILY_CAL_LABEL[cat];
+    if (!lane || SEASON_EXEMPT_LANES[lane]) return;
+    const insts = ctxC.calNew[lane] || [];
+    if (!insts.length) return;
+    const lo = i => Math.min.apply(null, i.days), hi = i => Math.max.apply(null, i.days);
+    if (insts.some(i => lo(i) > SEASON_LAST_DAY)) wholly.push(cat);
+    if (insts.some(i => lo(i) <= SEASON_LAST_DAY && hi(i) > SEASON_LAST_DAY)) straddle.push(cat);
+  });
+
+  // 5. Instances WHOLLY past the cutoff stop paying, so the source's envelope total must fall.
+  const payingWholly = wholly.filter(c => (off['20-39|PAYER'].packByCat[c] || 0) > 1e-12);
+  const dropped = payingWholly.filter(c =>
+    (on['20-39|PAYER'].packByCat[c] || 0) < off['20-39|PAYER'].packByCat[c] - 1e-9);
+  check('every source with an out-of-season instance loses envelopes',
+    payingWholly.length > 0 && dropped.length === payingWholly.length,
+    payingWholly.length ? dropped.join(', ') + ' (of ' + payingWholly.join(', ') + ')'
+                        : 'no out-of-season instance pays packs in this workbook');
+
+  // 6. "Events cut in the middle still give the full reward" -- a straddler's envelope total is
+  //    UNCHANGED. Its packs merely land on or before the last day, which gate 1 already covers.
+  const strad = straddle.filter(c => (off['20-39|PAYER'].packByCat[c] || 0) > 1e-12);
+  check('straddling instances pay their envelopes in full',
+    strad.length > 0 && strad.every(c =>
+      Math.abs((on['20-39|PAYER'].packByCat[c] || 0) - off['20-39|PAYER'].packByCat[c]) < 1e-9),
+    strad.length ? strad.join(', ') : 'no straddling instance pays packs in this workbook');
+
+  // 7. Season Pass is exempt: the track is climbed during the season, so it pays its whole reached
+  //    ladder even though the calendar draws a second pass instance past the cutoff.
+  check('Season Pass envelopes are exempt from the cutoff',
+    ['Season Pass (Free)', 'Season Pass (Paid)'].every(c =>
+      Math.abs((on['20-39|PAYER'].packByCat[c] || 0) - (off['20-39|PAYER'].packByCat[c] || 0)) < 1e-9),
+    'free ' + (on['20-39|PAYER'].packByCat['Season Pass (Free)'] || 0).toFixed(3) +
+    ' / paid ' + (on['20-39|PAYER'].packByCat['Season Pass (Paid)'] || 0).toFixed(3));
+
+  // 8. The card sim's DISCRETE plan must agree with the placement above.
+  const plan = packGrantPlan_('20-39', 'PAYER', Context.get());
+  const badDay = plan.filter(p => Math.max.apply(null, p.days) > SEASON_LAST_DAY);
+  check('packGrantPlan_ never lands a grant past SEASON_LAST_DAY', badDay.length === 0,
+    badDay.length ? badDay.map(p => p.cat + ' -> ' + p.days.join(',')).join(' | ')
+                  : plan.length + ' instance plans, all on or before day ' + SEASON_LAST_DAY);
+  const spLate = spPackTiers_('20-39', 'PAYER', Context.get()).filter(t => t.day > SEASON_LAST_DAY);
+  check('Season Pass tiers never grant an envelope past SEASON_LAST_DAY', spLate.length === 0,
+    spLate.length ? 'tiers ' + spLate.map(t => t.tier).join(',') : 'all pass tiers settle in-season');
+
+  // 9. The master switch is a real switch, and the sweep is side-effect free.
+  let restore = 0;
+  CUT_PAIRS.forEach(p => { restore = Math.max(restore, Math.abs(on[K(p)].packTot - back[K(p)].packTot)); });
+  check('SEASON_CUTOFF round-trips cleanly (off -> on reproduces the same totals)', restore < 1e-9,
+    'max drift ' + restore.toExponential(2));
+  check('SEASON_CUTOFF = false restores the full 33-day envelope flow',
+    CUT_PAIRS.every(p => off[K(p)].packTot >= on[K(p)].packTot - 1e-9) &&
+    CUT_PAIRS.some(p => off[K(p)].packTot > on[K(p)].packTot + 1e-9),
+    CUT_PAIRS.map(p => K(p) + ' ' + off[K(p)].packTot.toFixed(2) + ' -> ' +
+      on[K(p)].packTot.toFixed(2)).join(' | '));
+}
+
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures ? 1 : 0);

@@ -508,11 +508,54 @@ function packParticipation_(cat, inst){
   return (p > 0) ? p : 1;                                // no telemetry -> full participation
 }
 
+// ---- SEASON CUTOFF for ENVELOPES (D26, 2026-09-01) -------------------------------------------
+// The card-collection SEASON is shorter than the 33-day calendar window: it runs to
+// SEASON_LAST_DAY, and after that no source hands out envelopes (the six *-star Pack resources)
+// because there is no album left to put them in. NOTHING ELSE STOPS — HC, SPT, SPTx2, boosters and
+// Unlimited Lives are paid on all 33 days exactly as before, so this is a pack-lane change and not
+// a shorter simulation. Packs are simulated-side only (data_gains has no pack rows, so the measured
+// anchor is 0), which makes this inherently a cal_new-side rule with no measured counterpart.
+//
+// Two rules, both from the user (2026-09-01):
+//   * an instance ENTIRELY past the cutoff pays no envelopes at all — it drops out of the pack
+//     lane's reach sum, so the window total itself shrinks;
+//   * an instance STRADDLING the cutoff pays its envelopes IN FULL ("events cut in the middle
+//     still give the full reward") — reach is NOT clipped — but any envelope whose landing day
+//     would fall past the cutoff lands on SEASON_LAST_DAY instead, so the card sim never opens a
+//     pack after the album has closed.
+// Season Pass is exempt: its track is climbed during the season, so it pays its whole reached
+// ladder even though the calendar draws a second pass instance past the cutoff.
+var SEASON_LAST_DAY = 29;     // last day the collection season is live (calendar window is 33)
+var SEASON_CUTOFF   = true;   // false -> pre-D26 behaviour: envelopes on all 33 days
+var SEASON_EXEMPT_LANES = { 'Season Pass': 1 };
+
+// True when any day of the instance falls inside the season. Deliberately ANY, not ALL: a straddler
+// is in-season and pays in full.
+function instInSeason_(inst){
+  if (!SEASON_CUTOFF) return true;
+  var d = (inst && inst.days) || [];
+  for (var i = 0; i < d.length; i++) if (d[i] <= SEASON_LAST_DAY) return true;
+  return false;
+}
+
+// The instances of one calendar lane that still pay envelopes.
+function seasonInsts_(list, calLabel){
+  if (!SEASON_CUTOFF || SEASON_EXEMPT_LANES[calLabel]) return list || [];
+  return (list || []).filter(instInSeason_);
+}
+
+// Envelope landing day: past the cutoff, settle on the season's last day rather than vanish.
+function seasonDay_(d){
+  return (SEASON_CUTOFF && d > SEASON_LAST_DAY) ? SEASON_LAST_DAY : d;
+}
+
 function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
   var out = {};
   PACK_RES.forEach(function(r){ out[r] = 0; });
   if (!eV2 || !ctx.calNewOk) return out;
-  var nw = ctx.calNew[calLabel] || [];
+  // D26: instances wholly outside the collection season pay no envelopes, so they leave the reach
+  // sum and the window total drops. Straddlers stay, at their FULL unclipped reach.
+  var nw = seasonInsts_(ctx.calNew[calLabel] || [], calLabel);
   if (!nw.length) return out;
   var beh = ctx.ds.beh(seg, payer);
   var reach = reachSum_(nw, num(beh.weekday_active_rate), num(beh.weekend_active_rate));
@@ -1531,7 +1574,10 @@ function spPackTiers_(seg, payer, ctx){
   if (payer === 'PAYER')
     tracks.push({ rows: v2.paid, source: 'Season Pass (Paid)', what: 'paid track' });
   for (var i = 0; i < Ts && i < v2.free.length; i++){
-    var day = Math.max(1, Math.min(win, Math.ceil(win * (i + 1) / Ts)));
+    // D26: the pass keeps its WHOLE reached ladder (the track is climbed during the season), but a
+    // tier whose linear landing day falls past the collection season settles on the season's last
+    // day — otherwise the card sim would open an envelope with no album left to file it in.
+    var day = seasonDay_(Math.max(1, Math.min(win, Math.ceil(win * (i + 1) / Ts))));
     for (var k = 0; k < tracks.length; k++){
       var tr = tracks[k], packs = null, row = tr.rows[i];
       PACK_RES.forEach(function(r){

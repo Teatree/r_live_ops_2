@@ -149,10 +149,20 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
         if (!dl.length) return;
         var wts = dl.map(function(day){ return isWeekend_(day) ? qWe : qWd; });
         var sum = 0; wts.forEach(function(x){ sum += x; });
+        // D26: this branch places days itself, so it has to honour the envelope cutoff on its own —
+        // RM instance #5 straddles it in the current cal_new. Packs from an instance wholly outside
+        // the season are skipped (packLane_ already dropped them from the window total, so keeping
+        // them here would break conservation); packs from a straddler are kept IN FULL and settle
+        // on the season's last day. Every non-pack resource keeps its natural day.
+        var packOut = !instInSeason_(p.inst);
         dl.forEach(function(day, j){
           if (day < 1 || day > DAILY_DAYS) return;
           var w = sum > 0 ? wts[j] / sum : 1 / dl.length;
-          RESOURCES.forEach(function(r){ days[day - 1][r] += num(p.row[r]) * w; });
+          RESOURCES.forEach(function(r){
+            if (!isPackRes_(r)){ days[day - 1][r] += num(p.row[r]) * w; return; }
+            if (packOut) return;
+            days[seasonDay_(day) - 1][r] += num(p.row[r]) * w;
+          });
         });
       });
       return days;
@@ -176,11 +186,42 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
   if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }        // no rate data -> even weighting
 
   var weights = dayWeights_(cat, insts, pWd, pWe, ds, seg, payer);
+  // D26: the six envelope resources follow a DIFFERENT day distribution from the other 13 — the
+  // collection season ends at SEASON_LAST_DAY, so packs are placed only on in-season instances and
+  // any pack landing past the cutoff settles on its last day. Everything else keeps the full
+  // 33-day placement, because only envelopes stop being rewarded.
+  var packW = isNew ? packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer) : weights;
   for (var d = 0; d < DAILY_DAYS; d++){
-    if (!weights[d]) continue;
-    RESOURCES.forEach(function(r){ days[d][r] += num(W[r]) * weights[d]; });
+    if (!weights[d] && !packW[d]) continue;
+    RESOURCES.forEach(function(r){
+      var w = isPackRes_(r) ? packW[d] : weights[d];
+      if (w) days[d][r] += num(W[r]) * w;
+    });
   }
   return days;
+}
+
+// Day weights for the ENVELOPE resources (D26). Same placement rules as dayWeights_, but built on
+// the in-season instances only and with any weight past the cutoff folded onto SEASON_LAST_DAY.
+// Folding rather than dropping is what makes a straddler pay in full: the instance survives the
+// filter, so its whole share is still distributed — just never onto a day after the album closed.
+// An instance wholly past the cutoff is already gone from packLane_'s reach sum, so dropping it
+// here keeps the per-day series summing to the (reduced) window total.
+function packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer){
+  if (typeof SEASON_CUTOFF === 'undefined' || !SEASON_CUTOFF)
+    return dayWeights_(cat, insts, pWd, pWe, ds, seg, payer);
+  var lane = DAILY_CAL_LABEL[cat];
+  var live = seasonInsts_(insts, lane);
+  if (insts.length && !live.length){                    // every instance is outside the season
+    var zero = []; for (var i = 0; i < DAILY_DAYS; i++) zero.push(0);
+    return zero;
+  }
+  var w = dayWeights_(cat, live, pWd, pWe, ds, seg, payer);
+  var out = [], d;
+  for (d = 0; d < DAILY_DAYS; d++) out.push(0);
+  for (d = 0; d < DAILY_DAYS; d++)
+    if (w[d]) out[seasonDay_(d + 1) - 1] += w[d];
+  return out;
 }
 
 // Night Sky per-day rows under the D23 weekday/weekend split. Returns a 33-entry day array whose
@@ -200,23 +241,27 @@ function nsDayTypeRows_(W, seg, payer, ctx){
   var b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }
-  var wdDays = [], weDays = [], wdW = [], weW = [], sumWd = 0, sumWe = 0;
-  insts.forEach(function(inst){
-    ((inst && inst.days) || []).forEach(function(d){
-      if (d < 1 || d > DAILY_DAYS) return;
-      if (isWeekend_(d)){ weDays.push(d); weW.push(pWe); sumWe += pWe; }
-      else              { wdDays.push(d); wdW.push(pWd); sumWd += pWd; }
-    });
-  });
-  if (!wdDays.length || !weDays.length) return null;   // one day type only -> nothing to split
+  // D26: envelopes and everything else use DIFFERENT day sets. Night Sky runs a 1-day instance on
+  // all 33 days, so its four instances past the collection season still pay HC and boosters but no
+  // packs — split the days once for the 13 normal resources and once for the six envelope ones.
+  var all = nsSplitDays_(insts, pWd, pWe);
+  if (!all.wdDays.length || !all.weDays.length) return null;  // one day type only -> nothing to split
+  var pk = nsSplitDays_(seasonInsts_(insts, 'Night Sky'), pWd, pWe);
   var days = emptyDays_();
   RESOURCES.forEach(function(r){
     var tot = num(W[r]);
     if (!tot) return;
-    var mWd = num(E.eV2Weekday[r]) * sumWd, mWe = num(E.eV2Weekend[r]) * sumWe;
-    var shWe = (mWd + mWe > 1e-12) ? mWe / (mWd + mWe) : sumWe / (sumWd + sumWe);
-    place(weDays, weW, sumWe, tot * shWe);
-    place(wdDays, wdW, sumWd, tot * (1 - shWe));
+    var S = isPackRes_(r) ? pk : all;
+    if (!S.wdDays.length && !S.weDays.length) return;   // no in-season NS day -> no envelopes
+    var mWd = num(E.eV2Weekday[r]) * S.sumWd, mWe = num(E.eV2Weekend[r]) * S.sumWe;
+    var shWe = (mWd + mWe > 1e-12) ? mWe / (mWd + mWe)
+                                   : (S.sumWd + S.sumWe > 0 ? S.sumWe / (S.sumWd + S.sumWe) : 0);
+    place(S.weDays, S.weW, S.sumWe, tot * shWe);
+    place(S.wdDays, S.wdW, S.sumWd, tot * (1 - shWe));
+    // No day clamp here: the envelope day set (pk) is already filtered to in-season instances, and
+    // Night Sky instances are single days, so a pack day can never exceed the cutoff. Clamping
+    // unconditionally would fold the NON-pack resources of days 30-33 onto the last day too, which
+    // is exactly the D23 'HC lands on weekend days only' gate's failure mode.
     function place(dl, wl, sum, amt){
       if (!dl.length || !amt) return;
       dl.forEach(function(d, j){
@@ -225,6 +270,21 @@ function nsDayTypeRows_(W, seg, payer, ctx){
     }
   });
   return days;
+}
+
+// Split a Night Sky instance list into its weekday and weekend days, carrying the p_day weight and
+// its running sum for each. Factored out of nsDayTypeRows_ so the envelope resources can be split
+// over the in-season instances while the other resources keep the full 33-day set (D26).
+function nsSplitDays_(insts, pWd, pWe){
+  var S = { wdDays: [], weDays: [], wdW: [], weW: [], sumWd: 0, sumWe: 0 };
+  (insts || []).forEach(function(inst){
+    ((inst && inst.days) || []).forEach(function(d){
+      if (d < 1 || d > DAILY_DAYS) return;
+      if (isWeekend_(d)){ S.weDays.push(d); S.weW.push(pWe); S.sumWe += pWe; }
+      else              { S.wdDays.push(d); S.wdW.push(pWd); S.sumWd += pWd; }
+    });
+  });
+  return S;
 }
 
 // normalized weight per day (sums to 1) implementing the placement rules above.
@@ -394,7 +454,11 @@ function packGrantPlan_(seg, payer, ctx){
     insts.forEach(function(inst, i){
       var rr = packRungs_(cat, seg, payer, ctx, i);
       if (!rr) return;
-      var reach = reachOne_(inst, pWd, pWe);
+      // D26: an instance wholly past the collection season grants no envelopes. The ordinal `i` is
+      // still the UNFILTERED one, because Rainbow Maker keys RM_1st/RM_2nd off instance order —
+      // filtering before the ordinal would silently re-point the split at the wrong config sheet.
+      if (!SEASON_EXEMPT_LANES[label] && !instInSeason_(inst)) return;
+      var reach = reachOne_(inst, pWd, pWe);       // NOT clipped: a straddler pays in full
       if (!(reach > 0)) return;
       var days = ((inst && inst.days) || []).filter(function(d){ return d >= 1 && d <= DAILY_DAYS; });
       if (!days.length) return;
@@ -411,7 +475,12 @@ function packGrantPlan_(seg, payer, ctx){
       } else {
         w = days.map(function(d){ return pDay(d); });
       }
-      plan.push({ cat: cat, days: days, dayW: normalize_(w), reach: reach,
+      // D26: a straddler keeps its full ladder and its full day weights, but an envelope that would
+      // land past the collection season settles on its last day. Clamping the day LIST (rather than
+      // dropping rungs) is what keeps "cut in the middle still pays the full reward" true; repeated
+      // days are harmless, the card sim indexes days/dayW in lockstep.
+      plan.push({ cat: cat, days: days.map(function(d){ return seasonDay_(d); }),
+                  dayW: normalize_(w), reach: reach,
                   participation: rr.participation, groups: rr.groups });
     });
   });

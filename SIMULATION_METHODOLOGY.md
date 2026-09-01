@@ -1597,6 +1597,7 @@ packs[res] = E_v2[res] x participation_rate x SUM_{inst in cal_new[label]} reach
 |---|---|---|
 | `E_v2` | `rewardE_(cat, seg, payer, ds).eV2` | the SAME expected ladder payout the R ratio is built from |
 | `participation_rate` | `packParticipation_(cat, inst)` | resolves: `Participation` label on the `_v2` config sheet -> `PACK_PARTICIPATION` map -> measured `data_event_inst` rate -> 1.0. E is priced CONDITIONAL on taking part. **⚠ Kite Festival is HARDCODED to 0.35 (D23) against a measured 0.01-0.03 — see below** |
+| season cutoff | `seasonInsts_(list, lane)` / `seasonDay_(d)` | **D26**: \Sreach runs over the IN-SEASON instances only. An instance wholly past `SEASON_LAST_DAY` (29) pays no envelopes; a straddler pays IN FULL with its landing day clamped to the cutoff. `Season Pass` exempt (`SEASON_EXEMPT_LANES`). Envelopes ONLY - every other resource is untouched. `SEASON_CUTOFF = false` restores the pre-D26 model |
 | `reach(inst)` | `reachOne_` | the same `1 - PROD(1 - p_day)` the T term uses |
 
 > **⚠ HARDCODED OPT-IN — Kite Festival = 0.35 (D25, 2026-09-01).** `PACK_PARTICIPATION` in

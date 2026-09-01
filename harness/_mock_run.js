@@ -561,12 +561,19 @@ console.log('\n================ NS ANCHOR GATES ================');
         const E = nsE_(SEG, 'NONPAYER', c5.ds);
         const inst = c5.ds.eventInst('Night Sky', SEG, 'NONPAYER');
         const part = (inst && num(inst.participation_rate) > 0) ? num(inst.participation_rate) : 1;
-        const reach = reachSum_(c5.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
-        return { sim: nsResOf(SEG, '3-star Pack'), want: num(E.eV2['3-star Pack']) * part * reach, part };
+        // D26: the reach sum runs over the IN-SEASON instances only — an instance wholly past the
+        // envelope cutoff pays no packs, and Night Sky is the source that feels it most (4 of its
+        // 33 one-day instances fall outside). Recomputing the expectation with seasonInsts_ keeps
+        // this a test of the PRICING RULE rather than of a particular calendar's length.
+        const nsInsts = seasonInsts_(c5.calNew['Night Sky'] || [], 'Night Sky');
+        const reach = reachSum_(nsInsts, num(b.weekday_active_rate), num(b.weekend_active_rate));
+        return { sim: nsResOf(SEG, '3-star Pack'), want: num(E.eV2['3-star Pack']) * part * reach,
+                 part, nIn: nsInsts.length, nAll: (c5.calNew['Night Sky'] || []).length };
       });
-      gate('NS packs priced through packLane_ (E_v2 x participation x Σreach)',
+      gate('NS packs priced through packLane_ (E_v2 x participation x Σreach, in-season instances)',
            got.want > 0 && Math.abs(got.sim - got.want) < 1e-6,
-           `sim ${fmt(got.sim)} vs ${fmt(got.want)} (participation ${fmt(got.part)})`);
+           `sim ${fmt(got.sim)} vs ${fmt(got.want)} (participation ${fmt(got.part)}, ` +
+           `${got.nIn}/${got.nAll} instances in season)`);
     }
 
     // missing NS_v2 entirely -> fall back to NS -> R = 1 -> sim == measured x T
