@@ -91,7 +91,11 @@ SHEETS = [
 # with it the user's own hand-added formulas - by a builder artefact. The ECO lineage has no
 # Col_Cards_Daily at all, which is honest: that workbook has no card sim. Run the card
 # harnesses against the collections dump instead (--data collections).
-PENDING_IMPORT = {}
+# Col_Cards_Cloud / Col_Cards_Totals are the D24 stochastic sheets: freshly built and not yet
+# imported into any workbook, so the overlay is the ONLY way the harness sees the layout the
+# engine writes into. Drop each entry once the sheet is imported.
+PENDING_IMPORT = {'Col_Cards_Cloud':  'Col_Cards_Cloud_v1.xlsx',
+                  'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
 
 
 def dump_sheet(ws):
