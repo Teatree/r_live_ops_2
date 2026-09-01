@@ -193,6 +193,27 @@ pay in full with the landing day clamped.
 coupling (D16), so Mighty Doors will move the Season Pass row on both sides. Expect a second-order
 effect on top of the first-order one.
 
+## Config sheet
+
+`display/MD_v1.xlsx` (sheet **`MD`**, built by `builders/_build_mightydoors.py`; duplicate the
+imported sheet as `MD_v2`). Rewards are defined **per node** in the shared 21-column grammar, the
+same way `RM_1st_v2` defines milestones and `HH_v2` defines gates -- 60 rows, one per stage. Tier
+survives only as a derived reference column.
+
+**Slot composition, not slot position.** A node declares how many doors it has and how many are
+Pig / Reward / Empty. Which door hides the Pig is a runtime draw (p5: the Failure outcome "can
+appear randomly in any of the available choice positions") and is deliberately NOT configurable.
+A `Slots OK?` column self-checks that the three add up to `Choices`; if they do not, every
+survival number below is meaningless and nothing else on the sheet would say so. Empty slots are
+not failures -- they end the stage with no reward and no loss -- which is why `Survive p` and
+`P(reward | survived)` are two separate derived columns, and why the cumulative-reward helper
+weights each node by the latter.
+
+Behaviour is per segment (continue take-up, cash-out stage, runs per active day), because this
+event has no accrual to separate player types with. The sheet carries the standard
+`Player Reach Simulation (per event day) - SIMULATED` block at AH1, the same one HH_v2, BB_v2,
+J_v2, Ph_v2 and both RM sheets carry.
+
 ## Flags / open questions
 
 1. **Cash-out policy is completely unknown** and it is the largest single lever on the payout. A
