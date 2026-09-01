@@ -433,46 +433,19 @@ function requireCompanions_(){
     'not updated shows up only as a bare "not defined" at the point of use.');
 }
 
-function SimulatePackOpenings() {
-  requireCompanions_();
-  var ss     = SpreadsheetApp.getActiveSpreadsheet();
-  var simOut = ss.getSheetByName(SHEET_SIM);
-  var album  = ss.getSheetByName(SHEET_ALBUM);
-  if (!simOut) throw new Error("Sheet '" + SHEET_SIM + "' not found.");
-  if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
+// ============================== SHARED SEASON CORE (2026-09-01, D24) =========================
+// SimulatePackOpenings was one 600-line function: sheet reads at the top, every piece of simulation
+// state in closures, sheet writes at the bottom. Fine for one player, impossible for many - so the
+// middle is split out here. THE SPLIT LINE IS SHEET ACCESS: nothing below touches SpreadsheetApp,
+// and everything expensive is passed in rather than recomputed per player.
+//
+// There is exactly ONE copy of the season rules. The single-player run and the stochastic run both
+// call runOneCardSeason_, so they cannot drift apart - which is the failure this project keeps
+// hitting whenever the same value ends up living in two places.
 
-  var cfg           = loadPackConfig_();
-  var CARDS_PER_SET = cfg.cardsPerSet;
-  var ALBUM_NAMES   = cfg.albumNames;
-
-  // ---- selection: a real (segment x payer) pair, same keys the rest of the engine uses -------
-  var seg   = String(simOut.getRange(SIM_SEG_CELL).getValue()   || '').trim();
-  var payer = String(simOut.getRange(SIM_PAYER_CELL).getValue() || '').trim().toUpperCase();
-  if (!seg)   throw new Error(SHEET_SIM + '!' + SIM_SEG_CELL + ' is empty, pick a player segment.');
-  if (SEG_TO_GAINS[seg] == null)
-    throw new Error('Unknown segment "' + seg + '" (use ' + Object.keys(SEG_TO_GAINS).join(' / ') + ').');
-  if (payer !== 'NONPAYER' && payer !== 'PAYER')
-    throw new Error(SHEET_SIM + '!' + SIM_PAYER_CELL + ' must be NONPAYER or PAYER (got "' + payer + '").');
-
-  var seed = Number(simOut.getRange(SIM_SEED_CELL).getValue());
-  if (!seed || !isFinite(seed)) {
-    seed = Math.floor(Math.random() * 2147483647) + 1;
-    simOut.getRange(SIM_SEED_CELL).setValue(seed);
-  }
-  var rand = mulberry32(seed | 0);
-  // SEPARATE stream for the pack-log's "Earned From" labelling. Provenance is a reporting concern:
-  // drawing it from `rand` would consume from the same sequence the card draws use, so simply
-  // turning the labels on would shift every downstream pull and silently change results that have
-  // nothing to do with labelling. Deterministic (derived from the same seed), independent of it.
-  var provRand = mulberry32((seed | 0) ^ 0x5f3759df);
-  // Stage 1 (which packs are EARNED) and Stage 2 (what is INSIDE them) are separate processes, and
-  // they get separate streams. Sharing one meant any change to the acquisition model reshuffled
-  // every card draw downstream, so unrelated distribution gates moved whenever the grant logic was
-  // touched. Derived from the same seed, so a run is still fully reproducible.
-  var grantRand = mulberry32((seed | 0) ^ 0x27d4eb2f);
-
-  var SEASON_DAYS = DAILY_DAYS;                        // the engine's calendar window (33)
-
+/** AlbumConfig -> the card catalog, its lookups, and a fresh-pool factory. Deterministic: build it
+ *  once for the whole sim, not once per simulated player. */
+function loadCardCatalog_(cfg, album){
   // ---- catalog (AlbumConfig) ----------------------------------------------------------------
   var validRarities = {};
   cfg.rarityOrder.forEach(function(x){ validRarities[x] = true; });
@@ -556,6 +529,57 @@ function SimulatePackOpenings() {
     return cfg.rarityOrder.map(function(r){ return r + '=' + (counts[r] || 0); }).join(', ') +
            ' (' + total + ' total)';
   }
+
+  return { catalog: catalog, rarityOf: rarityOf, setOf: setOf, cardKeysBySet: cardKeysBySet,
+           rarityRank: rarityRank, totalUnique: totalUnique,
+           buildFreshPool: buildFreshPool, poolBreakdown: poolBreakdown };
+}
+
+/** The per-(segment x payer) work that carries NO randomness: the discrete pack grant plan, the
+ *  Season Pass track, and the behaviour rates. packGrantPlan_ and spPackTiers_ walk the calendar and
+ *  every config sheet, so calling them per simulated player would multiply the cost of a 50-player
+ *  sweep by 50 for an identical result. Nothing in the core mutates what this returns. */
+function cardSeasonPre_(seg, payer, ctx){
+  ctx = ctx || Context.get();
+  var b = ctx.ds.beh(seg, payer);
+  return {
+    ctx:     ctx,
+    plan:    packGrantPlan_(seg, payer, ctx),
+    spPacks: spPackTiers_(seg, payer, ctx),
+    pWd:   num(b.weekday_active_rate),    pWe:  num(b.weekend_active_rate),
+    mins:  num(b.minutes_per_active_day), sess: num(b.sessions_per_active_day),
+    lvlsP: num(b.levels_played_per_active_day),
+    lvlsC: num(b.levels_completed_per_active_day)
+  };
+}
+
+/** One player's 33-day season. Pure: no sheet reads, no sheet writes, no Math.random - the seed
+ *  fully determines the result. */
+function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
+  var CARDS_PER_SET = cfg.cardsPerSet;
+  var ALBUM_NAMES   = cfg.albumNames;
+
+  var rand = mulberry32(seed | 0);
+  // (a fourth stream for pack-log provenance was declared here and never read - the log takes
+  // its Source_Detail from rung.label. Removed 2026-09-01.)
+  // Stage 1 (which packs are EARNED) and Stage 2 (what is INSIDE them) are separate processes, and
+  // they get separate streams. Sharing one meant any change to the acquisition model reshuffled
+  // every card draw downstream, so unrelated distribution gates moved whenever the grant logic was
+  // touched. Derived from the same seed, so a run is still fully reproducible.
+  var grantRand = mulberry32((seed | 0) ^ 0x27d4eb2f);
+
+  var SEASON_DAYS = DAILY_DAYS;                        // the engine's calendar window (33)
+
+  // catalog bindings - the core reads these exactly as it did when they were its own locals
+  var catalog        = cat.catalog,
+      rarityOf       = cat.rarityOf,
+      setOf          = cat.setOf,
+      cardKeysBySet  = cat.cardKeysBySet,
+      rarityRank     = cat.rarityRank,
+      totalUnique    = cat.totalUnique,
+      buildFreshPool = cat.buildFreshPool,
+      poolBreakdown  = cat.poolBreakdown;
+  var simCtx = pre.ctx;
 
   // === Mutable simulation state ==============================================================
   var albumIdx             = 0;
@@ -835,7 +859,6 @@ function SimulatePackOpenings() {
   // purely to be discarded, which is the single most expensive thing the card sim did. Removed
   // 2026-09-01; output is byte-identical (no side effects - Context and DataStore are memoized and
   // it draws no random numbers), and the stochastic run repeats this work N times per segment.
-  var simCtx = Context.get();
 
   // ---- attendance + session detail for the empty-day rows -------------------------------------
   // An empty row used to say only '(nothing)', which conflates two very different days: the player
@@ -845,17 +868,13 @@ function SimulatePackOpenings() {
   // carry attendance inside reach(), so this draw explains the day, it does not gate any grant.
   // Consistency: a day that granted a pack is shown as played regardless of the draw, since
   // receiving a reward implies activity.
-  var beh = simCtx.ds.beh(seg, payer);
-  var pWd = num(beh.weekday_active_rate), pWe = num(beh.weekend_active_rate);
+  var pWd = pre.pWd, pWe = pre.pWe;
   var attRand = mulberry32((seed | 0) ^ 0x9e3779b9);
   var playedOn = [];
   for (var ad = 1; ad <= SEASON_DAYS; ad++)
     playedOn[ad] = attRand() < (isWeekend_(ad) ? pWe : pWd);
   // Per ACTIVE day, from data_seg_beh — what an average day in this segment looks like.
-  var mins  = num(beh.minutes_per_active_day);
-  var sess  = num(beh.sessions_per_active_day);
-  var lvlsP = num(beh.levels_played_per_active_day);
-  var lvlsC = num(beh.levels_completed_per_active_day);
+  var mins = pre.mins, sess = pre.sess, lvlsP = pre.lvlsP, lvlsC = pre.lvlsC;
   function sessionNote_(){
     var bits = [];
     if (mins  > 0) bits.push(mins.toFixed(0) + ' min');
@@ -876,7 +895,7 @@ function SimulatePackOpenings() {
   // and then which rung(s) did they hit. Expectation per (source, tier) is unchanged, so window
   // totals still reconcile with the gains model (see packRungs_).
   var packOpens = [], expectedTotal = 0;
-  var plan = packGrantPlan_(seg, payer, simCtx);
+  var plan = pre.plan;              // per-permutation: computed once by cardSeasonPre_
 
   plan.forEach(function(pl){
     pl.groups.forEach(function(g){
@@ -937,7 +956,7 @@ function SimulatePackOpenings() {
   // player climbs it, so every tier up to the one they reach pays out with certainty. Granting them
   // on the day that tier is reached (linear through the season) gives real provenance instead of the
   // blank Source_Detail the old path produced, and keeps the total equal to the track's cs value.
-  var spPacks = spPackTiers_(seg, payer, simCtx);
+  var spPacks = pre.spPacks;        // ditto
   spPacks.forEach(function(tp){
     for (var t in tp.packs){
       var n = num(tp.packs[t]);
@@ -983,6 +1002,63 @@ function SimulatePackOpenings() {
   Logger.log('Stage 2: ' + output.length + ' output rows.');
   Logger.log('Collection ECO GAINS - set rewards: ' + formatRewards_(setRewardGains) +
              ' | album rewards: ' + formatRewards_(albumRewardGains));
+
+  return {
+    daily: daily, log: output,
+    packsOpenedTotal: packsOpenedTotal, packsOpenedByTier: packsOpenedByTier,
+    totalCardsDrawn: totalCardsDrawn, totalNew: totalNew, totalDupes: totalDupes,
+    starsEarned: starsEarned, starsSpent: starsSpent, balance: balance,
+    setsCompletedTotal: setsCompletedTotal, albumIdx: albumIdx,
+    dayAlbumCompleted: dayAlbumCompleted, expectedTotal: expectedTotal,
+    setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
+    collection: collection, collectionSize: collectionSize
+  };
+}
+
+
+function SimulatePackOpenings() {
+  requireCompanions_();
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var simOut = ss.getSheetByName(SHEET_SIM);
+  var album  = ss.getSheetByName(SHEET_ALBUM);
+  if (!simOut) throw new Error("Sheet '" + SHEET_SIM + "' not found.");
+  if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
+
+  var cfg           = loadPackConfig_();
+  var CARDS_PER_SET = cfg.cardsPerSet;
+  var ALBUM_NAMES   = cfg.albumNames;
+
+  // ---- selection: a real (segment x payer) pair, same keys the rest of the engine uses -------
+  var seg   = String(simOut.getRange(SIM_SEG_CELL).getValue()   || '').trim();
+  var payer = String(simOut.getRange(SIM_PAYER_CELL).getValue() || '').trim().toUpperCase();
+  if (!seg)   throw new Error(SHEET_SIM + '!' + SIM_SEG_CELL + ' is empty, pick a player segment.');
+  if (SEG_TO_GAINS[seg] == null)
+    throw new Error('Unknown segment "' + seg + '" (use ' + Object.keys(SEG_TO_GAINS).join(' / ') + ').');
+  if (payer !== 'NONPAYER' && payer !== 'PAYER')
+    throw new Error(SHEET_SIM + '!' + SIM_PAYER_CELL + ' must be NONPAYER or PAYER (got "' + payer + '").');
+
+  var seed = Number(simOut.getRange(SIM_SEED_CELL).getValue());
+  if (!seed || !isFinite(seed)) {
+    seed = Math.floor(Math.random() * 2147483647) + 1;
+    simOut.getRange(SIM_SEED_CELL).setValue(seed);
+  }
+
+  var cat = loadCardCatalog_(cfg, album);
+  var pre = cardSeasonPre_(seg, payer, Context.get());
+  var res = runOneCardSeason_(seg, payer, seed, cfg, cat, pre);
+
+  // unpack into the names the write block below has always used
+  var SEASON_DAYS      = DAILY_DAYS;
+  var daily            = res.daily,              output             = res.log,
+      packsOpenedTotal = res.packsOpenedTotal,   totalCardsDrawn    = res.totalCardsDrawn,
+      totalNew         = res.totalNew,           totalDupes         = res.totalDupes,
+      starsEarned      = res.starsEarned,        starsSpent         = res.starsSpent,
+      balance          = res.balance,            setsCompletedTotal = res.setsCompletedTotal,
+      albumIdx         = res.albumIdx,           dayAlbumCompleted  = res.dayAlbumCompleted,
+      expectedTotal    = res.expectedTotal,      setRewardGains     = res.setRewardGains,
+      albumRewardGains = res.albumRewardGains,   collection         = res.collection;
+  var catalog = cat.catalog, totalUnique = cat.totalUnique;
+  var CARDS_PER_SET = cfg.cardsPerSet, ALBUM_NAMES = cfg.albumNames;
 
   // --- write running totals ------------------------------------------------------------------
   simOut.getRange(TOTALS_FIRST_ROW, 1, SEASON_DAYS, daily[0].length).setValues(daily);
