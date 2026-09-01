@@ -36,6 +36,17 @@ const check = (name, ok, detail) => {
 };
 const f2 = (x) => (Math.round(x * 100) / 100);
 
+// Last row of a PackConfig block: the next row whose column A starts with any PC_BLOCKS label.
+// Module scope because both the pity round-trip (section 1) and the skew fixture (section 6) bound
+// a block this way.
+function pcBlockEnd(v, b) {
+  for (let r = b + 1; r < v.length; r++) {
+    const a = String((v[r] || [])[0]).trim();
+    if (PC_BLOCKS.some(L => a.indexOf(L) === 0)) return r;
+  }
+  return v.length;
+}
+
 // ---------------------------------------------------------------- writable sheet mock
 function ensure(sheet, r, c) {
   while (sheet.values.length < r) sheet.values.push([]);
@@ -195,13 +206,45 @@ let cfg;
   check('PackConfig: 6 pack definitions with cards/open 2..7',
     JSON.stringify(PACK_RES.map(p => cfg.cardsPerOpen[p])) === '[2,3,4,5,6,7]',
     JSON.stringify(PACK_RES.map(p => cfg.cardsPerOpen[p])));
-  check('PackConfig: pity table read, 6-star forces highest rarity',
-    cfg.pity['6-star Pack'].forceHighest === true &&
-    JSON.stringify(cfg.pity['6-star Pack'].probs) === '[0,0.8,0.8,1]',
-    JSON.stringify(cfg.pity['6-star Pack']));
-  check('PackConfig: 5-star pity probs read, does NOT force highest',
-    cfg.pity['5-star Pack'].forceHighest === false &&
-    cfg.pity['5-star Pack'].probs.length === 4);
+  // Pity is AUTHORED on the sheet and gets RETUNED: when the 6th pack tier was retired the whole
+  // ladder shifted down a step, so 5-star now forces highest and 6-star is a flat [0]. The old
+  // gates named those two tiers explicitly and so asserted one day's config - they went red on a
+  // deliberate design change, which is the opposite of what a gate is for. Assert the RULE: the
+  // reader round-trips whatever PACK PITY CONFIG says, whichever tier it says it about.
+  const stripBrackets = (x) => String(x == null ? '' : x).split('[').join('').split(']').join('');
+  const sheetPity = {}, pityTypos = [];
+  {
+    const v = data['PackConfig'].values;
+    let b = -1;
+    for (let r = 0; r < v.length; r++)
+      if (String((v[r] || [])[0]).trim().indexOf('PACK PITY CONFIG') === 0) { b = r; break; }
+    if (b >= 0) {
+      const end = pcBlockEnd(v, b);
+      for (let r = b + 1; r < end; r++) {
+        const name = String((v[r] || [])[0]).trim();
+        if (!name || name.toUpperCase() === 'PACK TYPE') continue;
+        const key = normalizePackKey(name);
+        if (cfg.cardsPerOpen[key] === undefined) { pityTypos.push(name); continue; }
+        const probs = stripBrackets(v[r][1]).split(',')
+          .map(x => parseFloat(x)).filter(x => isFinite(x));
+        const force = String(v[r][2]).trim().toUpperCase();
+        sheetPity[key] = { probs: probs.length ? probs : [0],
+                           forceHighest: (force === 'TRUE' || force === 'YES' || force === '1') };
+      }
+    }
+  }
+  const readBack = {};
+  Object.keys(sheetPity).forEach(k => { readBack[k] = cfg.pity[k]; });
+  check('PackConfig: pity table round-trips the sheet (probs + forceHighest)',
+    Object.keys(sheetPity).length > 0 &&
+    JSON.stringify(readBack) === JSON.stringify(sheetPity),
+    Object.keys(sheetPity).map(k => k.replace(' Pack', '') + (sheetPity[k].forceHighest ? '*' : '') +
+      '=[' + sheetPity[k].probs.join(',') + ']').join(' ') + '   (* = forces highest rarity)');
+  // A pity row naming a pack PACK DEFINITIONS does not define is unreachable: the pity silently
+  // never applies, and nothing else would notice.
+  check('PackConfig: every pity row names a defined pack tier',
+    pityTypos.length === 0,
+    pityTypos.length ? 'unmatched: ' + pityTypos.join(', ') : Object.keys(sheetPity).length + ' rows');
   check('PackConfig: chests sorted most-expensive-first',
     cfg.chests.length === 3 && cfg.chests[0].cost === 1000 && cfg.chests[2].cost === 250,
     cfg.chests.map(c => `${c.tier}@${c.cost}->${c.rewardPack}`).join(', '));
@@ -222,8 +265,34 @@ let cfg;
   const flow = dailyPacksFor_('10-19', 'NONPAYER', Context.get());
   check('dailyPacksFor_ returns a 33 x 6 total grid',
     flow.total.length === DAILY_DAYS && flow.total.every(r => r.length === 6));
-  check('no pack ladder authored yet -> zero pack flow (plumbing only, D19/1)',
-    flow.total.every(r => r.every(v => v === 0)) && flow.bySource.length === 0);
+  // "No ladder -> zero flow" used to be assertable against the sheet as shipped, because nothing
+  // had been typed on the pack columns yet. The workbook now authors them, so that gate was
+  // reporting a design milestone as a failure. Mutation-gate the PLUMBING rule instead: strip every
+  // '*-star Dly' value everywhere, and the flow must go to exactly zero. This can never rot.
+  const packDlyHdrs = PACK_RES.map(r => r.replace(' Pack', ' Dly'));
+  const zeroSnap = JSON.stringify(data);
+  let zeroedCells = 0;
+  Object.keys(data).forEach(name => {
+    const sh = data[name];
+    if (!sh || !sh.values) return;
+    const cols = {};
+    sh.values.forEach(row => (row || []).forEach((cell, c) => {
+      if (packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
+    }));
+    if (!Object.keys(cols).length) return;
+    sh.values.forEach(row => Object.keys(cols).forEach(c => {
+      if (row && typeof row[c] === 'number' && row[c] !== 0) { row[c] = 0; zeroedCells++; }
+    }));
+  });
+  _sheetValsCache = {};
+  const zeroFlow = dailyPacksFor_('10-19', 'NONPAYER', Context.get());
+  check('no authored pack ladder -> zero pack flow (plumbing only, D19/1)',
+    zeroedCells > 0 && zeroFlow.total.every(r => r.every(v => v === 0)) &&
+    zeroFlow.bySource.length === 0,
+    zeroedCells + ' authored pack cells blanked, ' + zeroFlow.bySource.length + ' sources left');
+  data = JSON.parse(zeroSnap);
+  _sheetValsCache = {};
+  check('zero-flow fixture restored', JSON.stringify(data) === zeroSnap);
 }
 
 // ---------------------------------------------------------------- 3. end-to-end with a ladder
@@ -250,9 +319,19 @@ let firstRun = null;
   const flow = dailyPacksFor_('10-19', 'NONPAYER', Context.get());
   const expected = flow.total.reduce((s, r) => s + r.reduce((a, b) => a + b, 0), 0);
   check('authored ladders produce a nonzero pack flow', expected > 0, 'expected packs ' + f2(expected));
+  // The old form asserted the attributed set was EXACTLY the three sheets this fixture authors,
+  // which held only while the workbook itself had no pack ladders. It now authors many, so assert
+  // the two rules that actually matter: authoring a pack on a sheet makes that source appear, and
+  // every attributed source is a real engine category (not a stray sheet name or a label typo).
+  const attributed = flow.bySource.map(s => s.cat);
+  const authored = ['Flash Race', 'Jigsaw', 'Team Event'];
+  const missing = authored.filter(c => attributed.indexOf(c) < 0);
+  const bogus = attributed.filter(c => CATEGORY_ORDER.indexOf(c) < 0);
   check('pack flow is attributed to the sources that pay them',
-    flow.bySource.map(s => s.cat).sort().join(', ') === 'Flash Race, Jigsaw, Team Event',
-    flow.bySource.map(s => s.cat).join(', '));
+    missing.length === 0 && bogus.length === 0,
+    (missing.length ? 'authored but unattributed: ' + missing.join(', ') + '  ' : '') +
+    (bogus.length ? 'not an engine category: ' + bogus.join(', ') + '  ' : '') +
+    attributed.length + ' sources: ' + attributed.join(', '));
 
   const seg = mkSheet('Col_Cards_Daily');
   seg.getRange('B2').setValue('10-19');
@@ -670,9 +749,117 @@ function logCol(name){
   check('Gold cards drawn iff the snap pool stocks them',
     goldQty > 0 ? (mix['Gold'] || 0) > 0 : !mix['Gold'],
     `pool qty ${goldQty}, drawn ${mix['Gold'] || 0}`);
-  check('1★ is the most-drawn rarity (largest pool share)',
-    totalDrawn === 0 || Object.keys(mix).every(k => k === '1★' || mix['1★'] >= mix[k]),
-    JSON.stringify(mix));
+  // Pool-proportionality is only the whole story when the ALBUM SET SKEW is NEUTRAL. The skew
+  // multiplies a card's draw weight by its SET, and the workbook now authors Album 1 at
+  // [15, 7.5, 2, 1.5, ...] - so the early sets, and whatever rarities they happen to hold, are
+  // pulled far harder than their pool share. The old gate asserted 1-star dominance against the
+  // shipped sheet and so went red on a feature working as designed (the skew was inert until
+  // 2026-08-25 and typing a 900 into it did nothing at all).
+  // Split it into the two rules that are actually true, each mutation-gated:
+  //   (a) with the skew neutralised, draws track the snap pool -> 1-star dominates;
+  //   (b) with the skew as authored, the most-skewed set is drawn harder than under (a).
+  const setOfCardName = {};
+  (data['AlbumConfig'].values || []).forEach(r => {
+    if (r && r[1] && r[2] !== '' && r[2] != null) setOfCardName[String(r[1]).trim()] = Number(r[2]);
+  });
+  const runMix = (seed) => {
+    const sg = mkSheet('Col_Cards_Daily');
+    sg.getRange('B2').setValue('100+');
+    sg.getRange('D2').setValue('PAYER');
+    sg.getRange('G2').setValue(seed === undefined ? 7 : seed);
+    SimulatePackOpenings();
+    const rows = [];
+    for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+      const row = data['Col_Cards_Daily'].values[r];
+      if (!row || row[0] === '' || row[0] == null) break;
+      if (row[logCol('Cards Drawn')]) rows.push(String(row[logCol('Cards Drawn')]));
+    }
+    const keys = rows.join(', ').split(', ').filter(Boolean);
+    const rar = {}, bySet = {};
+    keys.forEach(k => {
+      const m = k.match(/(\d★|Gold)$/);
+      if (m) rar[m[1]] = (rar[m[1]] || 0) + 1;
+      const nm = k.slice(0, k.lastIndexOf(' '));
+      const sn = setOfCardName[nm];
+      if (sn) bySet[sn] = (bySet[sn] || 0) + 1;
+    });
+    return { rar, bySet, total: keys.length };
+  };
+
+  // (a) THREE things bend the mix away from raw pool shares, and all three must be switched off
+  // before "rarity is a property of the pool" is a testable statement:
+  //     * ALBUM SET SKEW    - multiplies a card's weight by its set;
+  //     * rarity pity       - forceHighest drags pulls onto the rarest stocked tier;
+  //     * dry-streak pity   - forces an UNOWNED card, and 1-star is the tier a player completes
+  //                           first, so "give them something new" systematically steers away from
+  //                           it. This one is why 2-star out-drew 1-star even with the skew off.
+  const skewSnap = JSON.stringify(data);
+  let skewCells = 0, pityCells = 0;
+  {
+    const v = data['PackConfig'].values;
+    const flatten = (label, fn) => {
+      let b = -1;
+      for (let r = 0; r < v.length; r++)
+        if (String((v[r] || [])[0]).trim().indexOf(label) === 0) { b = r; break; }
+      if (b < 0) return;
+      for (let r = b + 1; r < pcBlockEnd(v, b); r++) if (v[r]) fn(v[r]);
+    };
+    flatten('ALBUM SET SKEW', row => row.forEach((cell, c) => {
+      if (c > 0 && typeof cell === 'number' && cell !== 1) { row[c] = 1; skewCells++; }
+    }));
+    flatten('PACK PITY CONFIG', row => {
+      if (!String(row[0]).trim() || String(row[0]).trim().toUpperCase() === 'PACK TYPE') return;
+      row[1] = '[0]'; row[2] = 'FALSE'; pityCells++;
+    });
+  }
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  PITY_CONFIG.enabled = false;                       // dry-streak pity lives in code, not the sheet
+  // ONE seed cannot decide this. 1-star leads 2-star by only 281:214 in the pool, and a season is
+  // ~220 draws, so the sd on each count is ~6 and the two overlap constantly - the old single-seed
+  // gate was a coin-flip dressed as an assertion. Aggregate several seeds so the pool ratio is
+  // decisive, and report observed-vs-expected so a REAL bias is visible rather than just a verdict.
+  const SEEDS = [7, 11, 23, 101, 555, 900];
+  const neutral = { rar: {}, bySet: {}, total: 0 };
+  SEEDS.forEach(sd => {
+    const m = runMix(sd);
+    Object.keys(m.rar).forEach(k => { neutral.rar[k] = (neutral.rar[k] || 0) + m.rar[k]; });
+    Object.keys(m.bySet).forEach(k => { neutral.bySet[k] = (neutral.bySet[k] || 0) + m.bySet[k]; });
+    neutral.total += m.total;
+  });
+  PITY_CONFIG.enabled = true;
+  const poolN = Object.values(cfg.qtyByRarity).reduce((a, b) => a + b, 0);
+  console.log('  neutral mix (no skew, no pity), ' + SEEDS.length + ' seeds, ' + neutral.total +
+              ' draws  [observed vs pool-proportional]:');
+  console.log('    ' + Object.keys(cfg.qtyByRarity).map(r => {
+    const exp = neutral.total * cfg.qtyByRarity[r] / poolN;
+    return r + ' ' + (neutral.rar[r] || 0) + '/' + exp.toFixed(0);
+  }).join('   '));
+  check('with skew and both pity mechanisms off, 1★ is the most-drawn rarity (pool decides)',
+    skewCells > 0 && pityCells > 0 && neutral.total > 0 &&
+    Object.keys(neutral.rar).every(k => k === '1★' || neutral.rar['1★'] >= neutral.rar[k]),
+    skewCells + ' skew weights + ' + pityCells + ' pity rows flattened -> ' +
+    JSON.stringify(neutral.rar));
+
+  // (b) restore the authored skew: the set it favours most must be drawn harder than when neutral.
+  data = JSON.parse(skewSnap);
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  check('skew fixture restored', JSON.stringify(data) === skewSnap);
+  const skewRow = (loadPackConfig_().albumSetSkew || [])[0] || [];
+  let topSet = 1;
+  skewRow.forEach((w, i) => { if (w > (skewRow[topSet - 1] || 0)) topSet = i + 1; });
+  const skewed = { rar: {}, bySet: {}, total: 0 };
+  SEEDS.forEach(sd => {
+    const m = runMix(sd);
+    Object.keys(m.rar).forEach(k => { skewed.rar[k] = (skewed.rar[k] || 0) + m.rar[k]; });
+    Object.keys(m.bySet).forEach(k => { skewed.bySet[k] = (skewed.bySet[k] || 0) + m.bySet[k]; });
+    skewed.total += m.total;
+  });
+  console.log('  authored-skew mix:', JSON.stringify(skewed.rar), 'of', skewed.total,
+              '| by set:', JSON.stringify(skewed.bySet));
+  check('the authored ALBUM SET SKEW actually biases the draw toward its favoured set',
+    skewRow.length === 0 || (skewed.bySet[topSet] || 0) >= (neutral.bySet[topSet] || 0),
+    'album 1 skew [' + skewRow.join(', ') + '] favours set ' + topSet + ': ' +
+    (neutral.bySet[topSet] || 0) + ' cards neutral -> ' + (skewed.bySet[topSet] || 0) + ' skewed');
 
   // The pool is finite and drawn without replacement: no card key may be drawn more times than
   // it has copies within a single album run. Album advance rebuilds it, so check the weaker
