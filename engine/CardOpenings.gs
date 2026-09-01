@@ -189,9 +189,46 @@ function loadPackConfig_(){
   var v = sheetVals_(SHEET_PACK);
   if (!v.length) throw new Error("Sheet '" + SHEET_PACK + "' is missing or empty.");
 
+  // Block labels are matched EXACT FIRST, then by prefix at a word boundary (2026-09-01).
+  // The sheet's chest panel had been hand-renamed 'CHEST PURCHASING (SIM CONTROLS)' while this
+  // file still looked for exactly 'CHEST PURCHASING'. Three things then broke at once, silently:
+  //   * the panel was never found, so buyMinStars/buyStartDay/buyEndProb came back undefined and
+  //     degraded to minStars=Infinity / endProb=0 - NO CHEST WAS EVER BOUGHT in a live run, so
+  //     'Stars Spent on Chests' and the star balance were structurally wrong, not merely zero;
+  //   * with no label to bound it, the STAR CHEST block ran on past its own rows and swallowed the
+  //     three purchasing parameters as if they were chests ('Min Stars to Consider Buying' priced
+  //     at 250 stars, reward pack 'no purchase below this star balance');
+  //   * neither failure raised anything - the run just quietly stopped buying.
+  // A trailing parenthetical or dash on a block heading is a normal thing for a designer to add, so
+  // the reader tolerates it. The boundary check keeps it honest: the character after the label must
+  // be non-alphanumeric, so 'SET REWARDS' cannot match a hypothetical 'SET REWARDSX'. Exact wins
+  // wherever both exist, and a prefix resolution is LOGGED so the drift stays visible.
+  var WORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  function labelBoundaryOk_(cell, label){
+    if (cell.length === label.length) return true;
+    return WORD_CHARS.indexOf(cell.charAt(label.length)) < 0;
+  }
+  var _labelRowMemo = {};
   function labelRow(label){
-    for (var r = 0; r < v.length; r++) if (String(v[r][0]).trim() === label) return r;
-    return -1;
+    if (_labelRowMemo[label] !== undefined) return _labelRowMemo[label];
+    var r, cell, hit = -1;
+    for (r = 0; r < v.length; r++)
+      if (String(v[r][0]).trim() === label){ hit = r; break; }
+    if (hit < 0){
+      for (r = 0; r < v.length; r++){
+        cell = String(v[r][0]).trim();
+        if (cell.length > label.length && cell.indexOf(label) === 0 &&
+            labelBoundaryOk_(cell, label)){
+          Logger.log('PackConfig block "' + label + '" matched by prefix on "' + cell +
+                     '" (row ' + (r + 1) + ') - the sheet heading has been renamed. Harmless, ' +
+                     'but rename it back or update PC_BLOCKS to keep the two in step.');
+          hit = r;
+          break;
+        }
+      }
+    }
+    _labelRowMemo[label] = hit;
+    return hit;
   }
   // rows of a block, filtered by `keep(row)`. Bounded by the next block label so a runaway
   // predicate can never swallow the rest of the sheet.
@@ -263,6 +300,12 @@ function loadPackConfig_(){
     .sort(function(a, b){ return b.cost - a.cost; });
 
   var buy = panel('CHEST PURCHASING');
+  // Degrading to "never buy" is deliberate (see minStars/startDay/endProb below), but it must not
+  // be silent: a run with no chest purchases looks exactly like a run where the panel went missing.
+  if (!Object.keys(buy).length)
+    Logger.log('PackConfig has no readable CHEST PURCHASING panel - no chest will be bought, ' +
+               'so Stars Spent stays 0 and the star balance only ever rises. Check the block ' +
+               'heading in column A.');
 
   function rewardTable(label){
     var map = {}, order = [];
