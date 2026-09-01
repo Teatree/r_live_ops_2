@@ -23,6 +23,7 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 | river-rush.md | River Rush | streak-competitive (carried stub) | full PDF + RR configs + prior context |
 | season-pass.md | Season Pass (Dream Pass) | always-on SPT track + challenge LB (simulated via D16 tier coupling) | SP/SP_lb configs + data_gains SPT rows (added 2026-07-10); design PDF present, thinly mined |
 | card-collection.md | Card Collection (packs/albums/chests) | pack GAINS bottom-up on every ladder (D19) + a downstream pack-OPENING sim | PackConfig/AlbumConfig configs; **every pack ladder cell is still 0 — values authored by hand**; no design PDF mined yet |
+| mighty-doors.md | Mighty Doors (Tower of Fortune) | push-your-luck gamble ladder (NEW, never shipped) | full 27p design deck, added 2026-09-02 — **DESIGN ONLY: no config sheet, no calendar lane, no measured rows, not simulated**; deck names the reward pool and tier structure but gives no reward VALUES, no continue cost, no duration and no ticket supply |
 
 ## Cross-cutting facts established while compiling
 
