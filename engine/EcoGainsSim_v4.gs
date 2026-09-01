@@ -2069,6 +2069,7 @@ function onOpen(){
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
     .addSeparator()
     .addItem('Simulate card pack openings', 'SimulatePackOpenings')   // CardOpenings.gs
+    .addItem('Simulate card cloud (all segments)', 'SimulateCardCloud')   // CardOpenings.gs
     .addSeparator()
     .addItem('Mark v2 config diffs (red)', 'markV2ConfigDiffs')   // V2Diff.gs
     .addItem('Clear v2 config diff marks', 'clearV2ConfigDiffs')  // V2Diff.gs

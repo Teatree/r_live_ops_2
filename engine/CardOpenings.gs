@@ -1316,3 +1316,459 @@ function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet, al
     });
   });
 }
+
+/************************************************************************************************
+ * STOCHASTIC RUN (2026-09-01, D24) — SimulateCardCloud.
+ * ---------------------------------------------------------------------------------------------
+ * SimulatePackOpenings plays ONE player once. That is enough to debug the mechanics and useless
+ * for design questions: a single seed cannot say whether 35 packs is typical or lucky. This runs
+ * N players (default 50) across all 10 segment x payer permutations and reports the DISTRIBUTION.
+ *
+ * Cost. runOneCardSeason_ is pure and cheap; the expensive things are the calendar walk and the
+ * config-sheet reads, so they are hoisted: PackConfig and the catalog once for the whole sweep,
+ * cardSeasonPre_ once per permutation. 500 players therefore cost 10 engine walks, not 500.
+ *
+ * Two output sheets, both written by this function:
+ *   Col_Cards_Cloud   the 33-day cumulative series per metric - p10/p25/p50/p75/p90/MEAN, plus a
+ *                     block of MEANS for every permutation on one axis for cross-segment charts.
+ *   Col_Cards_Totals  the summary tables, and the two input cells.
+ *
+ * SHEET CONTRACT — every block is located by its column-A BAR LABEL at run time, exactly like
+ * loadPackConfig_ does with PackConfig. Row numbers are NOT load-bearing: the builder can move a
+ * block, or a designer can insert a note row, without touching this file. What IS shared with
+ * builders/_build_cardcloud.py is the label text and the column layout below - keep them in step.
+ ************************************************************************************************/
+
+var SHEET_CLOUD  = 'Col_Cards_Cloud';
+var SHEET_TOTALS = 'Col_Cards_Totals';
+
+// 'A. 0' is deliberately absent: data_seg_beh has no row for it, packGrantPlan_ refuses to price
+// reach without behaviour telemetry, and spPackTiers_ now carries the same guard - so it could only
+// ever produce ten columns of zeros that read like a bug.
+var CLOUD_SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+'];
+var CLOUD_PAYERS   = ['NONPAYER', 'PAYER'];
+
+// The six cumulative series. Keys match runOneCardSeason_'s dailyCloud rows.
+var CLOUD_METRICS = [
+  { key: 'packs',    label: 'Packs Opened' },
+  { key: 'cards',    label: 'Cards Drawn' },
+  { key: 'unique',   label: 'Unique Cards' },
+  { key: 'sets',     label: 'Sets Completed' },
+  { key: 'albumPct', label: 'Album %' },
+  { key: 'balance',  label: 'Star Balance' }
+];
+var CLOUD_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'MEAN'];
+
+var CLOUD_DEFAULT_PLAYERS = 50;
+var CLOUD_MAX_PLAYERS     = 500;
+// Apps Script kills a menu run at 6 minutes. Stop early and write what we have rather than dying
+// mid-write and leaving half a sheet that looks like a finished result.
+var CLOUD_TIME_BUDGET_MS  = 300000;
+
+// Input + stamp cells on the two sheets (builders/_build_cardcloud.py writes their labels).
+var CLOUD_PLAYERS_CELL      = 'B2';   // Col_Cards_Totals: players per permutation
+var CLOUD_SEED_CELL         = 'D2';   // Col_Cards_Totals: seed (blank -> generated, written back)
+var CLOUD_TOTALS_STAMP_CELL = 'F2';
+var CLOUD_STAMP_CELL        = 'A2';   // Col_Cards_Cloud run stamp
+
+// Block bar labels. THE SHEET IS SEARCHED FOR THESE, so they must match builders/_build_cardcloud.py.
+var CLOUD_BAR_MEANS = 'MEANS - ALL PERMUTATIONS';
+var CLOUD_BAR_BANDS = 'PER-PERMUTATION BANDS';
+// One band block per permutation, below the bands bar: label row, group row, header row, 33 data
+// rows, one spacer. Only the BAR is located by label; the ten sub-blocks sit at this stride under
+// it, so the builder must reserve the same 10 x CLOUD_BAND_STRIDE rows.
+var CLOUD_BAND_STRIDE = 37;
+var TB = {
+  totals:       'TOTALS (mean per player)',
+  totalsBand:   'TOTALS (p10-p90 across players)',
+  cadence:      'CADENCE (per calendar day, all 33)',
+  ecoTotal:     'ECONOMY IMPACT - TOTAL (mean per player)',
+  ecoSets:      'ECONOMY IMPACT - FROM SET COMPLETIONS',
+  ecoAlbums:    'ECONOMY IMPACT - FROM ALBUM COMPLETIONS',
+  ulMinutes:    'UNLIMITED BOOSTERS IN MINUTES',
+  packsSrc:     'PACKS PER SOURCE (mean)',
+  packsSrcBand: 'PACKS PER SOURCE (p10-p90)',
+  cardsSrc:     'CARDS PER SOURCE (mean)',
+  cardsSrcBand: 'CARDS PER SOURCE (p10-p90)'
+};
+
+var TOTALS_ROWS = [
+  'Total Packs Opened', 'Total Cards Drawn', 'Unique Cards', 'Duplicate Cards',
+  'Stars Earned', 'Stars Spent on Chests', 'Final Star Balance', 'Sets Completed',
+  'Album Completion %', 'Albums Completed'
+];
+var CADENCE_ROWS = ['Packs per day (mean)', 'Packs per day (p10-p90)',
+                    'Sets per day (mean)',  'Sets per day (p10-p90)'];
+var UL_ROWS = ['Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb'];
+
+// Rows reserved for the per-source blocks. The SOURCE SET IS DERIVED AT RUN TIME (which sources can
+// pay a pack depends on the calendar and on what is authored on the _v2 ladders), so this file
+// writes those labels; the builder only reserves and styles the area.
+var CLOUD_SRC_ROWS = 30;
+
+// ---------------------------------------------------------------------------------------------
+
+/** All 10 permutations, in sheet column order. */
+function cloudPermutations_(){
+  var out = [];
+  CLOUD_SEGMENTS.forEach(function(seg){
+    CLOUD_PAYERS.forEach(function(payer){
+      out.push({ seg: seg, payer: payer, label: seg + ' ' + payer });
+    });
+  });
+  return out;
+}
+
+/** Linear-interpolated percentile of an ASCENDING array. p in [0,1]. */
+function pctl_(sorted, p){
+  var n = sorted.length;
+  if (!n) return 0;
+  if (n === 1) return sorted[0];
+  var idx = (n - 1) * p, lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+/** {p10,p25,p50,p75,p90,MEAN} over a sample. */
+function stats_(values){
+  var v = values.slice().sort(function(a, b){ return a - b; });
+  var s = 0, i;
+  for (i = 0; i < v.length; i++) s += v[i];
+  return { p10: pctl_(v, 0.10), p25: pctl_(v, 0.25), p50: pctl_(v, 0.50),
+           p75: pctl_(v, 0.75), p90: pctl_(v, 0.90),
+           MEAN: v.length ? s / v.length : 0 };
+}
+
+/** A p10-p90 band as display text. */
+function band_(values, dp){
+  var st = stats_(values), d = (dp == null) ? 1 : dp;
+  return round_(st.p10, d) + ' - ' + round_(st.p90, d);
+}
+function round_(x, dp){
+  var f = Math.pow(10, dp == null ? 2 : dp);
+  return Math.round(num(x) * f) / f;
+}
+
+/**
+ * Seed for player k of permutation p. NOT base+k: mulberry32 seeds that differ by one produce
+ * streams whose first outputs are related, and 500 near-adjacent seeds is exactly the case where
+ * that would show up as structure in the percentiles. Avalanche them instead, so any single player
+ * is still reproducible from (seed, permutation index, player index).
+ */
+function playerSeed_(base, permIdx, k){
+  var x = ((base | 0) ^ Math.imul(permIdx + 1, 0x9E3779B1) ^ Math.imul(k + 1, 0x85EBCA6B)) | 0;
+  x = Math.imul(x ^ (x >>> 16), 0x7FEB352D) | 0;
+  x = Math.imul(x ^ (x >>> 15), 0x846CA68B) | 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x || 1;
+}
+
+/** Row index (1-based) of a block's bar label in column A, or -1. Prefix match at a word boundary,
+ *  same rule as loadPackConfig_ - a renamed heading with a trailing note still resolves. */
+function findBlockRow_(vals, label){
+  var i, cell;
+  for (i = 0; i < vals.length; i++)
+    if (String((vals[i] || [])[0]).trim() === label) return i + 1;
+  for (i = 0; i < vals.length; i++){
+    cell = String((vals[i] || [])[0]).trim();
+    if (cell.length > label.length && cell.indexOf(label) === 0 &&
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+          .indexOf(cell.charAt(label.length)) < 0) return i + 1;
+  }
+  return -1;
+}
+
+/** Aggregate one permutation's N player results. */
+function cloudAggregate_(runs, perm){
+  var i, m, d;
+  var pick = function(fn){ return runs.map(fn); };
+
+  // per-day series: {metricKey: [33][{p10..MEAN}]}
+  var series = {};
+  CLOUD_METRICS.forEach(function(met){
+    var days = [];
+    for (d = 0; d < DAILY_DAYS; d++){
+      var col = [];
+      for (i = 0; i < runs.length; i++) col.push(num(runs[i].dailyCloud[d][met.key]));
+      days.push(stats_(col));
+    }
+    series[met.key] = days;
+  });
+
+  // totals, in TOTALS_ROWS order
+  var totals = [
+    pick(function(r){ return r.packsOpenedTotal; }),
+    pick(function(r){ return r.totalCardsDrawn; }),
+    pick(function(r){ return r.totalNew; }),
+    pick(function(r){ return r.totalDupes; }),
+    pick(function(r){ return r.starsEarned; }),
+    pick(function(r){ return r.starsSpent; }),
+    pick(function(r){ return r.balance; }),
+    pick(function(r){ return r.setsCompletedTotal; }),
+    pick(function(r){ return r.dailyCloud[DAILY_DAYS - 1].albumPct; }),
+    pick(function(r){ return r.albumIdx; })          // albums FINISHED, not the tier reached
+  ];
+
+  var perDayPacks = pick(function(r){ return r.packsOpenedTotal / DAILY_DAYS; });
+  var perDaySets  = pick(function(r){ return r.setsCompletedTotal / DAILY_DAYS; });
+
+  // eco gains: mean per player, per resource, from sets / albums / both
+  var eco = { sets: {}, albums: {}, total: {} };
+  REWARD_COLUMNS.forEach(function(rc){
+    var s = 0, a = 0;
+    for (i = 0; i < runs.length; i++){
+      s += num(runs[i].setRewardGains[rc.name]);
+      a += num(runs[i].albumRewardGains[rc.name]);
+    }
+    var n = runs.length || 1;
+    eco.sets[rc.name]   = s / n;
+    eco.albums[rc.name] = a / n;
+    eco.total[rc.name]  = (s + a) / n;
+  });
+
+  // per-source packs / cards, as samples so a band can be taken
+  var bySource = {};
+  for (i = 0; i < runs.length; i++)
+    for (var k in runs[i].bySource)
+      if (!bySource[k]) bySource[k] = { packs: [], cards: [] };
+  Object.keys(bySource).forEach(function(k){
+    for (i = 0; i < runs.length; i++){
+      var e = runs[i].bySource[k];
+      bySource[k].packs.push(e ? e.packs : 0);      // absent = this player got none, not missing
+      bySource[k].cards.push(e ? e.cards : 0);
+    }
+  });
+
+  return { perm: perm, n: runs.length, series: series, totals: totals,
+           perDayPacks: perDayPacks, perDaySets: perDaySets, eco: eco, bySource: bySource,
+           expectedPacks: runs.length ? runs[0].expectedTotal : 0 };
+}
+
+// ============================== the run ======================================================
+
+function SimulateCardCloud(){
+  requireCompanions_();
+  var t0 = new Date().getTime();
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var cloud  = ss.getSheetByName(SHEET_CLOUD);
+  var totals = ss.getSheetByName(SHEET_TOTALS);
+  var album  = ss.getSheetByName(SHEET_ALBUM);
+  if (!cloud)  throw new Error("Sheet '" + SHEET_CLOUD + "' not found - import display/Col_Cards_Cloud_v1.xlsx.");
+  if (!totals) throw new Error("Sheet '" + SHEET_TOTALS + "' not found - import display/Col_Cards_Totals_v1.xlsx.");
+  if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
+
+  // ---- inputs -------------------------------------------------------------------------------
+  var tVals = totals.getDataRange().getValues();
+  var nPlayers = Math.round(num(totals.getRange(CLOUD_PLAYERS_CELL).getValue()));
+  if (!(nPlayers > 0)) nPlayers = CLOUD_DEFAULT_PLAYERS;
+  if (nPlayers > CLOUD_MAX_PLAYERS) nPlayers = CLOUD_MAX_PLAYERS;
+  var seed = Number(totals.getRange(CLOUD_SEED_CELL).getValue());
+  if (!seed || !isFinite(seed)){
+    seed = Math.floor(Math.random() * 2147483647) + 1;
+    totals.getRange(CLOUD_SEED_CELL).setValue(seed);
+  }
+
+  // ---- hoisted: everything that does not depend on the player ---------------------------------
+  var cfg = loadPackConfig_();
+  var cat = loadCardCatalog_(cfg, album);
+  var ctx = Context.get();
+
+  var perms = cloudPermutations_();
+  var agg = [], stoppedAt = -1, timings = [];
+
+  for (var pi = 0; pi < perms.length; pi++){
+    var elapsed = new Date().getTime() - t0;
+    if (pi > 0 && elapsed + (elapsed / pi) > CLOUD_TIME_BUDGET_MS){
+      stoppedAt = pi;
+      Logger.log('TIME BUDGET: stopping after ' + pi + ' of ' + perms.length +
+                 ' permutations (' + Math.round(elapsed / 1000) + 's used). Lower the player count.');
+      break;
+    }
+    var p = perms[pi], tp = new Date().getTime();
+    var pre = cardSeasonPre_(p.seg, p.payer, ctx);
+    var runs = [];
+    for (var k = 0; k < nPlayers; k++)
+      runs.push(runOneCardSeason_(p.seg, p.payer, playerSeed_(seed, pi, k), cfg, cat, pre));
+    agg.push(cloudAggregate_(runs, p));
+    var ms = new Date().getTime() - tp;
+    timings.push(p.label + ' ' + (ms / 1000).toFixed(1) + 's');
+    Logger.log('  ' + p.label + ': ' + nPlayers + ' players in ' + (ms / 1000).toFixed(1) + 's');
+  }
+
+  writeCloudSheet_(cloud, agg, nPlayers, seed);
+  writeTotalsSheet_(totals, tVals, agg, nPlayers, seed);
+
+  var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
+  var msg = agg.length + ' of ' + perms.length + ' permutations x ' + nPlayers +
+            ' players in ' + secs + 's (seed ' + seed + ')' +
+            (stoppedAt >= 0 ? '  -- STOPPED EARLY on the 6-minute limit, lower B2' : '');
+  Logger.log(msg + ' | ' + timings.join(', '));
+  SpreadsheetApp.getActive().toast(msg, 'SimulateCardCloud', 10);
+  return agg.length;
+}
+
+// ============================== writers ======================================================
+// The ENGINE writes every piece of text on these two sheets - group labels, headers, permutation
+// names, resource names, source names. The builder writes only the formatting, the input cells and
+// the BAR LABELS this file searches for. One shared string per block instead of a whole layout
+// duplicated across two files, which is the drift this project keeps paying for.
+
+/** Col_Cards_Cloud: the MEANS comparison block, then one p10-p90 band block per permutation. */
+function writeCloudSheet_(sh, agg, nPlayers, seed){
+  var vals = sh.getDataRange().getValues();
+  var perms = cloudPermutations_();
+  var d, m, j, s, row, rows, grp, hdr;
+
+  sh.getRange(CLOUD_STAMP_CELL).setValue(
+    nPlayers + ' players x ' + agg.length + ' permutations | seed ' + seed + ' | ' +
+    DAILY_DAYS + '-day cal_new window | ' + stamp_() +
+    '  (every series is a RUNNING TOTAL through that day)');
+
+  // ---- MEANS: Day | metric1 x 10 permutations | metric2 x 10 ... -------------------------------
+  var rMeans = findBlockRow_(vals, CLOUD_BAR_MEANS);
+  if (rMeans < 0) throw new Error("Col_Cards_Cloud has no '" + CLOUD_BAR_MEANS +
+                                  "' bar in column A - re-import display/Col_Cards_Cloud_v1.xlsx.");
+  grp = ['']; hdr = ['Day'];
+  CLOUD_METRICS.forEach(function(met){
+    perms.forEach(function(p, i){ grp.push(i === 0 ? met.label : ''); hdr.push(p.label); });
+  });
+  sh.getRange(rMeans + 1, 1, 1, grp.length).setValues([grp]);
+  sh.getRange(rMeans + 2, 1, 1, hdr.length).setValues([hdr]);
+
+  rows = [];
+  for (d = 0; d < DAILY_DAYS; d++){
+    row = [d + 1];
+    for (m = 0; m < CLOUD_METRICS.length; m++)
+      for (j = 0; j < perms.length; j++)
+        row.push(agg[j] ? round_(agg[j].series[CLOUD_METRICS[m].key][d].MEAN, 2) : '');
+    rows.push(row);
+  }
+  sh.getRange(rMeans + 3, 1, DAILY_DAYS, rows[0].length).setValues(rows);
+
+  // ---- BANDS: one block per permutation, at a fixed stride below the single bands bar -----------
+  var rBands = findBlockRow_(vals, CLOUD_BAR_BANDS);
+  if (rBands < 0) throw new Error("Col_Cards_Cloud has no '" + CLOUD_BAR_BANDS +
+                                  "' bar in column A - re-import display/Col_Cards_Cloud_v1.xlsx.");
+  for (j = 0; j < perms.length; j++){
+    var r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
+    var a = agg[j];
+    sh.getRange(r0, 1).setValue(perms[j].label + (a ? '' : '   (not run)'));
+    grp = ['']; hdr = ['Day'];
+    CLOUD_METRICS.forEach(function(met){
+      CLOUD_STATS.forEach(function(st, i){ grp.push(i === 0 ? met.label : ''); hdr.push(st); });
+    });
+    sh.getRange(r0 + 1, 1, 1, grp.length).setValues([grp]);
+    sh.getRange(r0 + 2, 1, 1, hdr.length).setValues([hdr]);
+    rows = [];
+    for (d = 0; d < DAILY_DAYS; d++){
+      row = [d + 1];
+      for (m = 0; m < CLOUD_METRICS.length; m++){
+        var st = a ? a.series[CLOUD_METRICS[m].key][d] : null;
+        for (s = 0; s < CLOUD_STATS.length; s++)
+          row.push(st ? round_(st[CLOUD_STATS[s]], 2) : '');
+      }
+      rows.push(row);
+    }
+    sh.getRange(r0 + 3, 1, DAILY_DAYS, rows[0].length).setValues(rows);
+  }
+}
+
+/** Col_Cards_Totals: label in column A, one column per permutation from B. */
+function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
+  var perms = cloudPermutations_(), nCols = perms.length;
+
+  sh.getRange(CLOUD_TOTALS_STAMP_CELL).setValue(
+    nPlayers + ' players per permutation | seed ' + seed + ' | ' + stamp_() +
+    '  |  every range is p10-p90 ACROSS PLAYERS, not min-max');
+
+  function block(label, firstHdr, labels, valueFn, clearRows){
+    var r = findBlockRow_(tVals, label);
+    if (r < 0){ Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped."); return; }
+    var hdr = [firstHdr];
+    perms.forEach(function(p){ hdr.push(p.label); });
+    sh.getRange(r + 1, 1, 1, hdr.length).setValues([hdr]);
+    if (clearRows) sh.getRange(r + 2, 1, clearRows, 1 + nCols).clearContent();
+    if (!labels.length) return;
+    var grid = labels.map(function(lab, i){
+      var line = [lab];
+      for (var j = 0; j < nCols; j++) line.push(agg[j] ? valueFn(agg[j], i, lab) : '');
+      return line;
+    });
+    sh.getRange(r + 2, 1, grid.length, grid[0].length).setValues(grid);
+  }
+
+  block(TB.totals, 'Metric', TOTALS_ROWS,
+        function(a, i){ return round_(stats_(a.totals[i]).MEAN, 2); });
+  block(TB.totalsBand, 'Metric', TOTALS_ROWS,
+        function(a, i){ return band_(a.totals[i], 1); });
+  block(TB.cadence, 'Metric', CADENCE_ROWS, function(a, i){
+    if (i === 0) return round_(stats_(a.perDayPacks).MEAN, 3);
+    if (i === 1) return band_(a.perDayPacks, 3);
+    if (i === 2) return round_(stats_(a.perDaySets).MEAN, 3);
+    return band_(a.perDaySets, 3);
+  });
+
+  var resNames = REWARD_COLUMNS.map(function(rc){ return rc.name; });
+  block(TB.ecoTotal,  'Resource', resNames, function(a, i, lab){ return round_(a.eco.total[lab], 2); });
+  block(TB.ecoSets,   'Resource', resNames, function(a, i, lab){ return round_(a.eco.sets[lab], 2); });
+  block(TB.ecoAlbums, 'Resource', resNames, function(a, i, lab){ return round_(a.eco.albums[lab], 2); });
+
+  // ---- unlimited boosters in minutes ----------------------------------------------------------
+  // Column B is an INPUT (minutes per unit): read, never written back as anything but what it held.
+  // Blank -> the minutes cells read '-' rather than a number invented from a default nobody chose.
+  // This is the one block whose permutation columns start at C.
+  var rUL = findBlockRow_(tVals, TB.ulMinutes);
+  if (rUL > 0){
+    var perUnit = UL_ROWS.map(function(_, i){
+      var cell = (tVals[rUL + 1 + i] || [])[1];
+      var x = parseFloat(cell);
+      return (cell !== '' && cell != null && isFinite(x) && x > 0) ? x : null;
+    });
+    var hdrUL = ['Booster', 'Minutes per unit'];
+    perms.forEach(function(p){ hdrUL.push(p.label); });
+    sh.getRange(rUL + 1, 1, 1, hdrUL.length).setValues([hdrUL]);
+    var gridUL = UL_ROWS.map(function(lab, i){
+      var line = [lab, perUnit[i] == null ? '' : perUnit[i]];
+      for (var j = 0; j < nCols; j++)
+        line.push(!agg[j] ? '' :
+                  (perUnit[i] == null ? '-' : round_(num(agg[j].eco.total[lab]) * perUnit[i], 1)));
+      return line;
+    });
+    sh.getRange(rUL + 2, 1, gridUL.length, gridUL[0].length).setValues(gridUL);
+  }
+
+  // ---- per source -----------------------------------------------------------------------------
+  // The source set is derived at run time (which sources can pay a pack depends on the calendar and
+  // on what is authored on the _v2 ladders), so this file owns those labels. Every source that paid
+  // a pack in ANY permutation gets a row in ALL of them: a zero is a finding - Kite at a 0.35
+  // opt-in, or a ladder with no pack typed on it - whereas a missing row reads as a plumbing bug.
+  var srcSet = {};
+  agg.forEach(function(a){ Object.keys(a.bySource).forEach(function(k){ srcSet[k] = true; }); });
+  var srcs = Object.keys(srcSet).sort();
+  if (srcs.length > CLOUD_SRC_ROWS){
+    Logger.log('More pack sources (' + srcs.length + ') than reserved rows (' + CLOUD_SRC_ROWS +
+               ') - the tail is not shown. Widen CLOUD_SRC_ROWS and the builder together.');
+    srcs = srcs.slice(0, CLOUD_SRC_ROWS);
+  }
+  function sample(a, lab, which){
+    return a.bySource[lab] ? a.bySource[lab][which] : zerosN_(a.n);
+  }
+  block(TB.packsSrc, 'Source', srcs,
+        function(a, i, lab){ return round_(stats_(sample(a, lab, 'packs')).MEAN, 2); },
+        CLOUD_SRC_ROWS);
+  block(TB.packsSrcBand, 'Source', srcs,
+        function(a, i, lab){ return band_(sample(a, lab, 'packs'), 0); }, CLOUD_SRC_ROWS);
+  block(TB.cardsSrc, 'Source', srcs,
+        function(a, i, lab){ return round_(stats_(sample(a, lab, 'cards')).MEAN, 2); },
+        CLOUD_SRC_ROWS);
+  block(TB.cardsSrcBand, 'Source', srcs,
+        function(a, i, lab){ return band_(sample(a, lab, 'cards'), 0); }, CLOUD_SRC_ROWS);
+}
+
+function zerosN_(n){ var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }
+function stamp_(){
+  var d = new Date();
+  function p2(x){ return (x < 10 ? '0' : '') + x; }
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' +
+         p2(d.getHours()) + ':' + p2(d.getMinutes());
+}
