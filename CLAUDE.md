@@ -116,16 +116,17 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 
 **Pack values are authored by hand** on the `1-star Dly`…`6-star Dly` columns that already exist on every ladder — until a number is typed there, every pack column reads 0, which is correct rather than a plumbing failure. Flagged: `reach × participation_rate` mildly under-counts high-participation events, and `Team Event` has no `data_event_inst` rows so its ladder is priced at a flat rank average (crudest pricing in the model).
 
-> ### ⚠ HARDCODED ASSUMPTION — Kite Festival opt-in = 0.75 (D23, 2026-09-01)
+> ### ⚠ HARDCODED ASSUMPTION — Kite Festival opt-in = 0.35 (D23, 2026-09-01)
 >
-> **If a Kite pack number ever looks odd, this is why. It is an assumption, not a measurement — 31× the observed rate.**
+> **If a Kite pack number ever looks odd, this is why. It is an assumption, not a measurement — 15-31× the observed rate.**
 >
-> `PACK_PARTICIPATION = { 'Kite Festival': 0.75 }` in `engine/EcoGainsSim_v4.gs`, applied by `packParticipation_`.
+> `PACK_PARTICIPATION = { 'Kite Festival': 0.35 }` in `engine/EcoGainsSim_v4.gs`, applied by `packParticipation_`.
+> (Set to 0.75 first, lowered to 0.35 the same day — 75% read as implausibly high for an opt-in league.)
 > Measured Kite opt-in in `data_event_inst` is **1–3%** (0.0096 at `0-9` NONPAYER … 0.0327 at `100+` PAYER) — the
 > Festival is a league you have to JOIN. At the measured rate the card sim's per-instance gate
 > (`participation × reach`) was 1.6%, so a pack typed onto every one of the 60 `Ki_v2` rank rows produced a Kite pack
-> in only ~8% of runs and read as "Kite isn't simulated". User decision 2026-09-01: price the redesign at 0.75.
-> **Effect (20-39 PAYER): Kite packs/season 0.0816 → 2.5405; runs granting ≥1 Kite pack 23/200 → 194/200.**
+> in only ~8% of runs and read as "Kite isn't simulated". User decision 2026-09-01: price the redesign at 0.35.
+> **Effect (20-39 PAYER): Kite packs/season 0.0816 → 1.1855; runs granting ≥1 Kite pack 23/200 → 146/200.**
 >
 > **Scope: the pack lane ONLY.** `rewardR_` is a v2/base ratio, so participation cancels out of it — Kite's HC,
 > boosters and SPT are untouched, and pack flow for every other source is unchanged to the cent.

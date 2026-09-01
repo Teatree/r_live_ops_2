@@ -478,7 +478,7 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
 // Kite Festival is the case in point: measured opt-in is 1-3% (0.0241 at 20-39 PAYER) because you
 // have to join a league. At that rate the card sim grants a Kite pack in ~8% of runs, so a pack
 // typed onto every one of the 60 Ki_v2 rank rows looks like it does nothing at all. The redesign
-// assumes a far more visible event, so the pack lane is priced at PACK_PARTICIPATION instead.
+// assumes a far more visible event, so the pack lane is priced at PACK_PARTICIPATION instead (0.75 on 2026-09-01, lowered to 0.35 the same day - 75% read as implausibly high for an opt-in league).
 //
 // Resolution order (first hit wins):
 //   1. a 'Participation' label on the source's _v2 config sheet, value in the cell to its right -
@@ -493,7 +493,7 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
 //
 // SCOPE: participation enters the PACK LANE ONLY. rewardR_ is a v2/base ratio, so participation
 // cancels out of it - changing this moves Kite's pack columns and nothing else about Kite.
-var PACK_PARTICIPATION = { 'Kite Festival': 0.75 };   // redesign assumption (measured: ~0.01-0.03)
+var PACK_PARTICIPATION = { 'Kite Festival': 0.35 };   // redesign assumption (measured: ~0.01-0.03)
 
 function packParticipation_(cat, inst){
   var spec = LB_R_SPECS[cat] || COLL_R_SPECS[cat] || PACK_ONLY_SPECS[cat];
