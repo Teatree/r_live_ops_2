@@ -77,7 +77,14 @@ var DAILY_CAL_LABEL = {
   'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":"Bomb's Ballet Show",
   'Jigsaw':'Jigsaw Puzzle', 'Photoshoot':'Photoshoot', 'Rainbow Maker':'Rainbow Maker',
   'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky',
-  'Season Pass (Free)':'Season Pass',
+  // BOTH season-pass rows sit on the SAME lane. '(Paid)' was split out of '(Free)' on 2026-08-21
+  // and added to CATEGORY_ORDER / SOURCES in the v4 engine, but not here - so it fell through to
+  // dayWeights_'s no-instances branch and its whole window total was spread FLAT over all 33 days.
+  // At 20-39 PAYER that painted 125 HC of diff as 3.79 on every single day, including days the
+  // pass lane does not even cover (it runs 30d@1), which reads as "the redesign changed a day
+  // where nothing happened". A missing map entry is silent: nothing errors, the window total is
+  // still right, only the placement is wrong.
+  'Season Pass (Free)':'Season Pass', 'Season Pass (Paid)':'Season Pass',
   'Team Event':'Team Event', 'Team Race':'Team Race', 'Flock Flurry':'Flock Flurry'   // D19
 };
 

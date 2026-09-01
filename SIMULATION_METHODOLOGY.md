@@ -1596,8 +1596,26 @@ packs[res] = E_v2[res] x participation_rate x SUM_{inst in cal_new[label]} reach
 | term | source | note |
 |---|---|---|
 | `E_v2` | `rewardE_(cat, seg, payer, ds).eV2` | the SAME expected ladder payout the R ratio is built from |
-| `participation_rate` | `data_event_inst` | E is priced CONDITIONAL on taking part; absent -> 1.0 (flagged) |
+| `participation_rate` | `packParticipation_(cat, inst)` | resolves: `Participation` label on the `_v2` config sheet -> `PACK_PARTICIPATION` map -> measured `data_event_inst` rate -> 1.0. E is priced CONDITIONAL on taking part. **⚠ Kite Festival is HARDCODED to 0.35 (D23) against a measured 0.01-0.03 — see below** |
 | `reach(inst)` | `reachOne_` | the same `1 - PROD(1 - p_day)` the T term uses |
+
+> **⚠ HARDCODED OPT-IN — Kite Festival = 0.35 (D25, 2026-09-01).** `PACK_PARTICIPATION` in
+> `EcoGainsSim_v4.gs` replaces the MEASURED rate with a design assumption. Kite's measured opt-in is
+> **1-3%** (it is a league you must join); at that rate the card sim's per-instance gate
+> (`participation x reach`) was 1.6%, so a pack on every one of the 60 `Ki_v2` rank rows appeared in
+> only ~8% of runs. The redesign is priced at 0.35 instead (0.75 first, lowered the same day - 75%
+> read as implausibly high for an opt-in league): Kite packs/season at 20-39 PAYER go
+> **0.0816 -> 1.1855**, runs granting >=1 pack **23/200 -> 146/200**. This is an ASSUMPTION, up to
+> 31x the measured rate, and every Kite pack number is conditional on it. Scope is the pack lane
+> ONLY - `rewardR_` is a v2/base ratio so participation cancels out of it, and no other source
+> changed by a cent. Override without touching code: a `Participation` label on `Ki_v2`, value in
+> the cell to its right. `harness/_mock_cards.js` section 0 prints every active override, with its
+> measured counterpart, on every run.
+>
+> The same lookup guards a trap worth knowing: a rate that EXPORTS rounded to `0.0` is
+> indistinguishable from "no telemetry", so the `-> 1.0` fallback prices it at FULL participation,
+> ~40x too high. The `_LIVEOPS_CALENDAR` export does this for Kite, Level Race, Photoshoot, River
+> Rush, Dream Pass and Season Pass Leaderboard.
 
 There is deliberately **no D term**: a pack grant is a rank or milestone payout that E has already
 priced at the measured rank/progress distribution, so stretching the event does not multiply it.
@@ -1707,6 +1725,95 @@ byte-identical output (gated).
 engine's in Apps Script's shared global namespace — one silently replaced the other. The menu item
 now lives in `EcoGainsSim_v4.gs`'s single `onOpen`, and `_mock_cards.js` gates that no
 CardOpenings global collides with an engine global.
+
+
+## 6.14 The stochastic run (`SimulateCardCloud`) — the distribution, not one draw
+
+**Why it exists.** §6.13's sim plays one player once. That is the right tool for debugging a
+mechanic and the wrong one for a design question: a single seed cannot say whether 35 packs is
+typical or lucky. The suspected "pack overshoot" of 2026-08-25 took 200 manual re-runs to settle as
+variance (35.17 observed vs 35.04 expected, sd 4.75). This makes that the default.
+
+Menu: **EcoGainsSim ▸ Simulate card cloud (all segments)**.
+
+### The split that makes it possible
+
+`SimulatePackOpenings` was one 600-line function — sheet reads at the top, all simulation state in
+closures, sheet writes at the bottom. It is now split along **sheet access**:
+
+| | |
+|---|---|
+| `loadCardCatalog_(cfg, album)` | AlbumConfig → catalog, lookups, fresh-pool factory. Once per sweep. |
+| `cardSeasonPre_(seg, payer, ctx)` | the per-permutation work with NO randomness: `packGrantPlan_`, `spPackTiers_`, behaviour rates. Once per permutation. |
+| `runOneCardSeason_(seg, payer, seed, cfg, cat, pre)` | one player's 33 days. **Pure** — no `SpreadsheetApp`, no `Math.random`; the seed fully determines the result. |
+| `SimulatePackOpenings` / `SimulateCardCloud` | read inputs, call the core once / N×10 times, write. |
+
+**There is exactly one copy of the season rules.** That is the point, not a tidiness preference:
+every "the sim ignores my edit" bug in this project's history has been the same value living in two
+places and the reader taking the copy nobody was editing. The load-bearing gate is
+`the two entry points share one season core (same seed -> same tally)`. The extraction itself was
+verified byte-identical — SHA-256 over four segment/payer pairs × two seeds unchanged.
+
+**Cost.** `packGrantPlan_` and `spPackTiers_` each walk the calendar and every config sheet, so they
+are hoisted out of the player loop: 500 players cost **10 engine walks, not 500** (3.9s in node for
+50×10). Apps Script kills a menu run at 6 minutes, so the run logs elapsed time per permutation
+and stops cleanly with a partial write and a message rather than dying mid-write.
+
+**Seeding.** `playerSeed_(base, permIdx, k)` avalanches the three indices rather than using
+`base + k`. mulberry32 seeds one apart produce related first outputs, and 500 near-adjacent seeds is
+exactly the case where that would surface as structure in the percentiles. Any single player stays
+reproducible from its three indices; a gate checks 2000 streams are distinct.
+
+### What it reports
+
+Ten permutations — five segments × two payer flags. **`A. 0` is excluded by construction**:
+`data_seg_beh` has no row for it, `packGrantPlan_` refuses to price reach without behaviour
+telemetry, and `spPackTiers_` now carries the same guard (see §6.12), so it could only ever
+produce ten columns of zeros that read like a bug.
+
+Six **cumulative** series per day: Packs Opened, Cards Drawn, Unique Cards, Sets Completed, Album %,
+Star Balance — each as p10 / p25 / p50 / p75 / p90 / MEAN.
+
+Two subtleties worth knowing, both because the per-album counters RESET on album advance:
+
+* **Unique Cards counts `totalNew`, not `collectionSize`.** `collectionSize` drops to 0 when a
+  player finishes an album, so a progress curve built from it falls to zero exactly when a player
+  does well.
+* **Album % is `albums_done × 100 + progress through the current album`**, so 133% means
+  "finished album 1, a third into album 2". The sheet's own `% Complete` on `Col_Cards_Daily` is the
+  per-album one and is unchanged.
+
+**Ranges are p10-p90 across players, never min-max** (user decision, D24). With 50 players the true
+extremes are single outliers that move every run; the band is what stays readable.
+
+**Economy impact is the collection feature's OWN payout** — SET REWARDS + ALBUM REWARDS, in the
+config sheet's 21 `REWARD_COLUMNS` spelling with no mapping layer, split total / from sets / from
+albums. It is not the segment's whole economy; that is `EcoGainsSim`. Unlimited boosters are
+reported in raw config units, with a labelled **minutes-per-unit input column the engine reads and
+never writes** — blank leaves the minutes columns reading `-`, never a number nobody chose.
+
+**Per-source rows show zeros deliberately.** A zero is a finding — Kite at its D25 0.35 assumed
+opt-in, or a ladder with no pack authored on it. A missing row reads as a plumbing failure.
+
+### Sheet contract
+
+Two sheets, `Col_Cards_Cloud` and `Col_Cards_Totals`, both generated by the single builder
+`builders/_build_cardcloud.py`. **Every block is located by scanning column A for its BAR LABEL**,
+exactly as `loadPackConfig_` does with PackConfig — row numbers are not load-bearing, so a block
+can be moved or a note row inserted without touching code. The only strings shared between builder
+and engine are those bar labels plus `CLOUD_BAND_STRIDE` and `CLOUD_SRC_ROWS`; every other piece of
+text on both sheets (group labels, headers, permutation names, resource names, source names) is
+written by the engine at run time, so there is nothing to drift.
+
+### Gates (`harness/_mock_cloud.js`, 26)
+
+Beyond the shared-core equivalence above, the two that carry the most weight:
+
+* **`mean packs granted matches the modelled expectation within Monte-Carlo error`** — 200
+  players, tolerance 3·sd/√N. This is what would catch a rounding bias creeping back into the
+  trailing-fraction grant (the bug D19b fixed by making it a Bernoulli).
+* **percentile ordering** over all 1980 band cells, plus cumulative-never-falls and the MEANS block
+  agreeing cell-for-cell with each band block's MEAN column.
 
 ---
 

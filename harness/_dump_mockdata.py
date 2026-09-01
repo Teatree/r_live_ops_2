@@ -2,6 +2,17 @@
 # Dumps values (data_only=True — cached results of live formulas) + merges for every sheet the
 # engines read: EcoGainsSim_v4.gs, EcoGainsSim_Daily.gs, EcoGainsSim_PBP.gs. Run after every
 # workbook re-export, before offline harness runs (_mock_run.js / _mock_daily.js / _mock_pbp.js).
+#
+# --workbook / --out (2026-09-01, D24). The default glob only ever matched NEW_LIVEOPS_CALENDAR_ECO*,
+# so the CARD-COLLECTION workbooks (COLLECTIONS_UNDER_NEW_CALENDAR*) could not be dumped at all and
+# _mock_cards.js had no data to run against: the workbook of record reverted PackConfig pre-D19, so
+# the card harness died on 'PACK DEFINITIONS block is empty' rather than reporting a single gate.
+# The two lineages need two dumps, not one:
+#   python harness/_dump_mockdata.py
+#   python harness/_dump_mockdata.py --workbook "workbooks/COLLECTIONS_UNDER_NEW_CALENDAR (3).xlsx" \
+#          --out harness/_mockdata_collections.json
+import argparse
+import datetime
 import glob
 import json
 import os
@@ -11,19 +22,35 @@ import sys
 import openpyxl
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# Default source: the highest-numbered NEW_LIVEOPS_CALENDAR_ECO export. A workbook that is NOT in
-# that series (a one-off variant export) can be dumped by passing its path or its filename:
-#     python harness/_dump_mockdata.py "workbooks/_LIVEOPS_CALENDAR.xlsx"
-if len(sys.argv) > 1:
-    SRC = sys.argv[1]
+# Default source: the highest-numbered NEW_LIVEOPS_CALENDAR_ECO export. A workbook that is NOT
+# in that series (a one-off variant export) is dumped by passing --workbook, either a path or a
+# bare filename living in workbooks/:
+#     python harness/_dump_mockdata.py --workbook "_LIVEOPS_CALENDAR.xlsx"
+ap = argparse.ArgumentParser(description="Dump a workbook to a harness mockdata JSON.")
+ap.add_argument('--workbook', help='path to the .xlsx to dump (default: highest-numbered '
+                                   'workbooks/NEW_LIVEOPS_CALENDAR_ECO*.xlsx)')
+ap.add_argument('--out', help='output json path (default: harness/_mockdata.json)')
+args = ap.parse_args()
+
+if args.workbook:
+    SRC = (args.workbook if os.path.isabs(args.workbook)
+           else os.path.join(HERE, '..', args.workbook))
     if not os.path.exists(SRC):
-        SRC = os.path.join(HERE, '..', 'workbooks', sys.argv[1])
-    if not os.path.exists(SRC):
-        raise SystemExit('no such workbook: ' + sys.argv[1])
+        # also accept a bare filename living in workbooks/
+        alt = os.path.join(HERE, '..', 'workbooks', os.path.basename(args.workbook))
+        if not os.path.exists(alt):
+            raise SystemExit('No such workbook: ' + args.workbook)
+        SRC = alt
 else:
     books = glob.glob(os.path.join(HERE, '..', 'workbooks', 'NEW_LIVEOPS_CALENDAR_ECO*.xlsx'))
+    if not books:
+        raise SystemExit('No NEW_LIVEOPS_CALENDAR_ECO*.xlsx in workbooks/ — pass --workbook.')
     books.sort(key=lambda n: int((re.search(r'\((\d+)\)', n) or [0, 0])[1]))
     SRC = books[-1]
+
+OUT = ((args.out if os.path.isabs(args.out)
+        else os.path.join(HERE, '..', args.out))
+       if args.out else os.path.join(HERE, '_mockdata.json'))
 
 SHEETS = [
     # v4 engine
@@ -69,7 +96,16 @@ SHEETS = [
 # listed again (2026-08-18): the pack log gained an 'Earned From' column and the album grids moved
 # J -> L, so the workbook's copy is a layout the engine no longer writes. Drop the entry once the
 # sheet has been re-imported into the live workbook.
-PENDING_IMPORT = {'Col_Cards_Daily': 'SimOutput_v2.xlsx'}
+# Col_Cards_Daily DROPPED 2026-09-01: the collections workbook now ships the current layout
+# (Source_Detail in D, album grids at L), so the overlay was replacing the real sheet - and
+# with it the user's own hand-added formulas - by a builder artefact. The ECO lineage has no
+# Col_Cards_Daily at all, which is honest: that workbook has no card sim. Run the card
+# harnesses against the collections dump instead (--data collections).
+# Col_Cards_Cloud / Col_Cards_Totals are the D24 stochastic sheets: freshly built and not yet
+# imported into any workbook, so the overlay is the ONLY way the harness sees the layout the
+# engine writes into. Drop each entry once the sheet is imported.
+PENDING_IMPORT = {'Col_Cards_Cloud':  'Col_Cards_Cloud_v1.xlsx',
+                  'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
 
 
 def dump_sheet(ws):
@@ -103,10 +139,18 @@ for name, fname in PENDING_IMPORT.items():
     out[name] = dump_sheet(src_ws)
     print(f'OVERLAY {name} <- display/{fname} (rebuilt, not yet imported into the workbook)')
 
-with open(os.path.join(HERE, '_mockdata.json'), 'w', encoding='utf-8') as f:
+# Provenance. A dump is indistinguishable from any other once written, and this repo now keeps two
+# (the ECO lineage and the collections lineage) — a harness reading the wrong one reports confusing
+# failures rather than an obvious 'wrong file'. Not a sheet: no harness iterates the top-level keys.
+out['_meta'] = {'source': os.path.basename(SRC),
+                'dumped': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'sheets': sorted(k for k in out if k != '_meta')}
+
+with open(OUT, 'w', encoding='utf-8') as f:
     json.dump(out, f)
 # The workbook name reaches this print verbatim and Windows consoles are cp1252, so a
 # non-latin-1 filename (an emoji in a one-off export) would crash the script AFTER it had
 # already written the dump. Report a console-safe name instead.
 safe = os.path.basename(SRC).encode('ascii', 'replace').decode('ascii')
-print('written _mockdata.json from', safe, '-', len(out), 'sheets')
+print('written', os.path.relpath(OUT, os.path.join(HERE, '..')), 'from',
+      safe, '—', len(out) - 1, 'sheets')

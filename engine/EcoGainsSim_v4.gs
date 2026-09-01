@@ -450,7 +450,7 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   RESOURCES.forEach(function(r){
     out[r] = num(meas[r]) * ((R[r] != null) ? R[r] : 1) * D * T;
   });
-  return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx, E && E.eV2, E && E.inst));
+  return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx, E && E.eV2, E && E.inst, cat));
 }
 
 // ============================== PACK LANE (D19 — bottom-up, simulated side only) ==============
@@ -470,7 +470,45 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
 // FLAGGED (SIMULATION_METHODOLOGY §): reach and participation_rate both encode activity, so their
 // product mildly under-counts high-participation events; no joint estimator is available.
 // FLAGGED: no participation telemetry -> priced at full participation (1.0).
-function packLane_(calLabel, seg, payer, ctx, eV2, inst){
+// ---- participation, and when a MEASURED rate is the wrong number ---------------------------
+// data_event_inst measures how many players opted into the event AS IT RAN. For an opt-in event a
+// redesign can move that number a long way, and no measurement of the new design exists - it is an
+// assumption, and assumptions belong on the sheet, not buried in a rate column.
+//
+// Kite Festival is the case in point: measured opt-in is 1-3% (0.0241 at 20-39 PAYER) because you
+// have to join a league. At that rate the card sim grants a Kite pack in ~8% of runs, so a pack
+// typed onto every one of the 60 Ki_v2 rank rows looks like it does nothing at all. The redesign
+// assumes a far more visible event, so the pack lane is priced at PACK_PARTICIPATION instead (0.75 on 2026-09-01, lowered to 0.35 the same day - 75% read as implausibly high for an opt-in league).
+//
+// Resolution order (first hit wins):
+//   1. a 'Participation' label on the source's _v2 config sheet, value in the cell to its right -
+//      authored, so it can be changed without touching code
+//   2. PACK_PARTICIPATION below - a FLAGGED design assumption, not a measurement
+//   3. the measured data_event_inst participation_rate
+//   4. 1.0 when there is no telemetry at all
+//
+// Note (3) and (4) are not distinguishable when the rate reads exactly 0: a rounded export turns a
+// real 0.024 into 0.0 and the lane then prices at FULL participation, ~40x too high. Authoring the
+// number removes that trap for the sources that carry one.
+//
+// SCOPE: participation enters the PACK LANE ONLY. rewardR_ is a v2/base ratio, so participation
+// cancels out of it - changing this moves Kite's pack columns and nothing else about Kite.
+var PACK_PARTICIPATION = { 'Kite Festival': 0.35 };   // redesign assumption (measured: ~0.01-0.03)
+
+function packParticipation_(cat, inst){
+  var spec = LB_R_SPECS[cat] || COLL_R_SPECS[cat] || PACK_ONLY_SPECS[cat];
+  var sheet = spec && (spec.v2 || spec.sheet);
+  if (sheet){
+    var raw = readSPLabel_(sheet, 'Participation');     // generic label scan, any sheet
+    var x = parseFloat(raw);
+    if (raw !== null && raw !== '' && isFinite(x) && x >= 0) return x;
+  }
+  if (PACK_PARTICIPATION[cat] != null) return num(PACK_PARTICIPATION[cat]);
+  var p = inst ? num(inst.participation_rate) : 0;
+  return (p > 0) ? p : 1;                                // no telemetry -> full participation
+}
+
+function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
   var out = {};
   PACK_RES.forEach(function(r){ out[r] = 0; });
   if (!eV2 || !ctx.calNewOk) return out;
@@ -479,8 +517,7 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst){
   var beh = ctx.ds.beh(seg, payer);
   var reach = reachSum_(nw, num(beh.weekday_active_rate), num(beh.weekend_active_rate));
   if (!(reach > 0)) return out;
-  var part = inst ? num(inst.participation_rate) : 0;
-  if (!(part > 0)) part = 1;                             // no telemetry -> full participation
+  var part = packParticipation_(cat, inst);
   PACK_RES.forEach(function(r){ out[r] = num(eV2[r]) * part * reach; });
   return out;
 }
@@ -545,8 +582,8 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     var rungs = pos.map(function(pp){
       return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(ladder[pp] || {}) };
     });
-    var part = inst ? num(inst.participation_rate) : 0;
-    var res = mk(part > 0 ? part : 1, true, rungs);    // EXCLUSIVE: one finishing rank per instance
+    var part = packParticipation_(cat, inst);
+    var res = mk(part, true, rungs);    // EXCLUSIVE: one finishing rank per instance
 
     // Kite also pays a SCORE MILESTONE, which lbE_ folds into the same E the pack lane is priced
     // from. Leaving it out here would have made the card sim quietly pay less than the gains model
@@ -567,7 +604,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
         if (msRungs.length){
           msRungs.forEach(function(x){ x.progress = 1; });   // banked by the end of the instance
           if (res) res.groups.push({ exclusive: false, rungs: msRungs });
-          else res = { participation: part > 0 ? part : 1,
+          else res = { participation: part,
                        groups: [{ exclusive: false, rungs: msRungs }] };
         }
       }
@@ -596,8 +633,8 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     if (coll.completionRow != null && lastReq > 0)
       crungs.push({ label: 'completion bonus (req ' + lastReq + ')', p: S(lastReq),
                     req: lastReq, packs: packsOf(rewRow_(cv, coll.completionRow, ccols)) });
-    var cpart = ci ? num(ci.participation_rate) : 0;
-    return mk(cpart > 0 ? cpart : 1, false, crungs);   // cumulative ladder: rungs fire independently
+    var cpart = packParticipation_(cat, ci);
+    return mk(cpart, false, crungs);   // cumulative ladder: rungs fire independently
   }
 
   if (cat === 'Daily Night Sky Prize'){
@@ -618,8 +655,8 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
                req: ms.req, packs: packsOf(ms.rew) };
     });
     var ni = ds.eventInst('Night Sky', seg, payer);
-    var npart = ni ? num(ni.participation_rate) : 0;
-    return mk(npart > 0 ? npart : 1, false, nrungs);
+    var npart = packParticipation_(cat, ni);
+    return mk(npart, false, nrungs);
   }
 
   if (cat === 'Rainbow Maker'){
@@ -665,8 +702,8 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       if (g.length) groups.push({ exclusive: true, rungs: g });
     });
     if (!groups.length) return null;
-    var ppart = pi ? num(pi.participation_rate) : 0;
-    return { participation: ppart > 0 ? ppart : 1, groups: groups };
+    var ppart = packParticipation_(cat, pi);
+    return { participation: ppart, groups: groups };
   }
   return null;
 }
@@ -809,7 +846,7 @@ function packOnlyRow_(cat, seg, payer, ctx){
     var e = packBlockE_(spec.sheet, blk, pos);
     PACK_RES.forEach(function(r){ E[r] = num(E[r]) + num(e[r]); });
   });
-  return packLane_(spec.cal, seg, payer, ctx, E, inst);
+  return packLane_(spec.cal, seg, payer, ctx, E, inst, cat);
 }
 
 // ============================== REWARD-CONFIG RATIO R (added 2026-07-06) =====================
@@ -1117,7 +1154,8 @@ function simNightSky(seg, payer, ctx){
   // Packs (D19) never have an anchor, so the base-0 addition above would price them without the
   // participation term every other source carries. Overlay the standard pack lane instead (D22).
   return overlayPacks_(out, packLane_('Night Sky', seg, payer, ctx, E.eV2,
-                                      ds.eventInst('Night Sky', seg, payer)));
+                                      ds.eventInst('Night Sky', seg, payer),
+                                      'Daily Night Sky Prize'));
 }
 
 // Expected per-DAY payout of the NS ladder, both sides, under one survival curve.
@@ -1458,6 +1496,13 @@ function measuredSptTotal_(seg, payer, ds){
 // the Season Pass row in the gains model.
 function spPackTiers_(seg, payer, ctx){
   var out = [];
+  // 'A. 0' is the appendix segment: no behaviour telemetry, so nothing can price its reach.
+  // packGrantPlan_ already refuses it (zero activity rates -> empty plan) and colRewardRow_ below
+  // carries the same guard, but the Season Pass track is not instance-shaped and so slipped past
+  // both - it pays every tier up to the one reached, with no reach term to be zero. A. 0 was
+  // therefore handed 1-2 Season Pass packs out of an otherwise completely empty season, which is
+  // exactly the tier coupling the appendix rules say is not applied to it (CLAUDE.md, D8/section 3).
+  if (seg === 'A. 0' || seg === 'A.0') return out;
   if (!ctx || !ctx.calCurOk || !ctx.calNewOk) return out;
   var cur = ctx.calCur['Season Pass'] || [], nw = ctx.calNew['Season Pass'] || [];
   if (!nw.length || !cur.length) return out;
@@ -2144,6 +2189,7 @@ function onOpen(){
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
     .addSeparator()
     .addItem('Simulate card pack openings', 'SimulatePackOpenings')   // CardOpenings.gs
+    .addItem('Simulate card cloud (all segments)', 'SimulateCardCloud')   // CardOpenings.gs
     .addSeparator()
     .addItem('Mark v2 config diffs (red)', 'markV2ConfigDiffs')   // V2Diff.gs
     .addItem('Clear v2 config diff marks', 'clearV2ConfigDiffs')  // V2Diff.gs
