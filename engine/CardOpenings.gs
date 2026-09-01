@@ -415,7 +415,6 @@ var CARD_SIM_COMPANIONS = [
   ['packRungs_',      'EcoGainsSim_v4.gs'],
   ['spPackTiers_',    'EcoGainsSim_v4.gs'],
   ['isWeekend_',      'EcoGainsSim_v4.gs'],
-  ['dailyPacksFor_',  'EcoGainsSim_Daily.gs'],
   ['packGrantPlan_',  'EcoGainsSim_Daily.gs'],
   ['DAILY_LASTDAY',   'EcoGainsSim_Daily.gs']
 ];
@@ -830,8 +829,13 @@ function SimulatePackOpenings() {
   }
 
   // === Stage 1: pack acquisition from the simulated calendar ================================
+  // NOTE: dailyPacksFor_ used to be called here and its result thrown away - a leftover from the
+  // pre-2026-08-20 acquisition model, before packGrantPlan_ replaced the per-day expectation with
+  // the discrete per-instance plan below. It ran dailySeries_ over all 25 categories on every run
+  // purely to be discarded, which is the single most expensive thing the card sim did. Removed
+  // 2026-09-01; output is byte-identical (no side effects - Context and DataStore are memoized and
+  // it draws no random numbers), and the stochastic run repeats this work N times per segment.
   var simCtx = Context.get();
-  var packFlow = dailyPacksFor_(seg, payer, simCtx);
 
   // ---- attendance + session detail for the empty-day rows -------------------------------------
   // An empty row used to say only '(nothing)', which conflates two very different days: the player
