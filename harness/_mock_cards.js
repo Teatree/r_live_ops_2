@@ -9,8 +9,25 @@
 const fs = require('fs');
 const path = require('path');
 const ENGINE = (f) => path.join(__dirname, '..', 'engine', f);
-const RAW = fs.readFileSync(path.join(__dirname, '_mockdata.json'), 'utf8');
+// --data <name|path> picks the dump (2026-09-01). The card sim lives in the COLLECTIONS
+// workbook lineage, not the ECO one: _mockdata.json has no PackConfig worth reading and
+// loadPackConfig_ dies on it before a single gate runs. Default is therefore the
+// collections dump; pass --data main to force the ECO dump.
+const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockdata.json',
+                       wb14: '_mockdata_wb14.json' };
+function dataPath(){
+  const i = process.argv.indexOf('--data');
+  const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
+  const f = DATA_ALIASES[pick] || pick;
+  return path.isAbsolute(f) ? f : path.join(__dirname, f);
+}
+const DATA_FILE = dataPath();
+const RAW = fs.readFileSync(DATA_FILE, 'utf8');
 let data = JSON.parse(RAW);
+console.log('data: ' + path.basename(DATA_FILE) +
+            (data._meta ? '  (from ' + data._meta.source + ', dumped ' + data._meta.dumped + ')'
+                        : ''));
+console.log('');
 
 let failures = 0;
 const check = (name, ok, detail) => {
