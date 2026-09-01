@@ -126,9 +126,37 @@ always rounded that remainder up).
 Season length = the engine's 33-day calendar window on `cal_new`. `PackConfig`'s old
 `Season Duration (days)` input is retired.
 
+
+### 6b. Stochastic mode (D24, 2026-09-01)
+
+`SimOutput`/`Col_Cards_Daily` above is ONE player. **EcoGainsSim ▸ Simulate card cloud (all
+segments)** runs N players (default 50, `Col_Cards_Totals!B2`; seed in `D2`) across all ten
+segment × payer permutations and writes the distribution to `Col_Cards_Cloud` (six cumulative
+series as p10/p25/p50/p75/p90/MEAN per day, plus a MEANS block for cross-segment charts) and
+`Col_Cards_Totals` (totals, cadence, the feature's own economy payout, packs and cards per source).
+
+Both entry points go through **one shared season core** (`runOneCardSeason_`), so they cannot
+describe different games. `A. 0` is excluded — no `data_seg_beh` row, so nothing can price its
+reach. Ranges on those sheets are **p10-p90 across players, not min-max**. See
+SIMULATION_METHODOLOGY §6.14.
+
 ## 7. Open questions / flagged assumptions
 
-1. **Pack ladder values are all 0** — nothing is measurable until they are authored.
+0. **RESOLVED 2026-09-01 — chests were never bought.** The `CHEST PURCHASING` heading had been
+   renamed on the sheet to `CHEST PURCHASING (SIM CONTROLS)` while `loadPackConfig_` matched it
+   exactly, so the panel was never found and the run degraded to `minStars = Infinity`. Block labels
+   now match by prefix at a word boundary. See D24a.
+1. **RESOLVED (D21)** — pack ladder values are authored. But the D24 sweep found that **two
+   authored reward blocks are currently unreachable**. Over 2000 simulated players (200 per
+   permutation, seed 1):
+   * **Not one completes an album.** Best case anywhere is 63 of 72 unique cards (100+ PAYER);
+     medians run 22 (0-9 NONPAYER) to 53 (100+ PAYER). So ALBUM REWARDS never pay, and albums 2
+     and 3 are unreachable in a 33-day season.
+   * **Not one buys a star chest.** Max stars earned anywhere is 238 against a `Min Stars to
+     Consider Buying` of 250 — and the cheapest chest (Bronze) also costs 250. The threshold sits
+     ~5% above the best outcome the pack flow can produce, so the whole chest lane is inert.
+   Both are real model outputs, not plumbing failures. Either the pack flow is short, or the album
+   size / chest costs are set for a longer season than 33 days. **Open design question.**
 2. **`PACK PITY CONFIG` semantics — RESOLVED 2026-08-03** (user): consecutive-miss counter, resets
    on a hit, per-pack (no carry-over), target = highest rarity with stock. Gated in
    `_mock_cards.js`. Remaining sub-question: `PityForceHighestRarity = FALSE` (the 5-star pack)
@@ -140,20 +168,30 @@ Season length = the engine's 33-day calendar window on `cal_new`. `PackConfig`'s
    rank average (every rank equally likely), the crudest pricing in the model.
 5. **Packs have no spend model** — they are gains-only and blank in every NET block, even though
    the card sim opens them. If pack *stock* ever matters, that is a new lane.
-6. **Gold cards are unreachable** (SNAP POOL Qty = 0), so `Stars on Duplicate = 6` never pays.
-   Intentional?
+6. **RESOLVED** — Gold is stocked (SNAP POOL Qty 41 since workbook (14)) and is drawn: 72 of
+   1265 draws in the neutral-fixture measurement, against 63 expected from its pool share.
 7. **`CardPoolConfig`** is now unreferenced. Delete it, or keep it as a scratch sheet?
 
 ## 8. Verification
 
 ```
+# the card sim lives ONLY in the collections workbooks - dump that lineage, not the ECO one
+python harness/_dump_mockdata.py --workbook "workbooks/COLLECTIONS_UNDER_NEW_CALENDAR (3).xlsx" \
+       --out harness/_mockdata_collections.json
+
 node harness/_mock_cards.js     # PackConfig reader, pool/draw, pity, chests, determinism, namespace
+node harness/_mock_cloud.js     # the stochastic run: shared-core equivalence, percentiles, unbiased grant
 node harness/_mock_run.js       # pack-lane gates: 19-wide spill, per-source pack injection, TE overlay
 node harness/_mock_daily.js     # pack columns blank (not 0) in the NET blocks
 node harness/_mock_pbp.js       # 30-column ledger carries the six pack columns
 python builders/_build_packconfig.py && python builders/_build_simoutput.py
+python builders/_build_cardcloud.py     # -> Col_Cards_Cloud_v1.xlsx + Col_Cards_Totals_v1.xlsx
 ```
 
-`_dump_mockdata.py` overlays the freshly built `PackConfig_v2.xlsx` / `SimOutput_v2.xlsx` over the
-workbook dump (`PENDING_IMPORT`), so the harness tests the layout the engine expects even before
-the sheets are imported. Remove those entries once imported.
+`_mock_cards.js` and `_mock_cloud.js` default to `_mockdata_collections.json`; `--data main` forces
+the ECO dump (where `PackConfig` is pre-D19 and `loadPackConfig_` throws on load).
+
+`_dump_mockdata.py` overlays freshly built display xlsx over the workbook dump (`PENDING_IMPORT`),
+so the harness tests the layout the engine expects even before the sheets are imported. **Remove
+each entry once imported** — leaving one there makes the overlay replace the REAL sheet, and any
+formulas added to it, with a builder artefact (this happened to `Col_Cards_Daily`).
