@@ -116,6 +116,29 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 
 **Pack values are authored by hand** on the `1-star Dly`…`6-star Dly` columns that already exist on every ladder — until a number is typed there, every pack column reads 0, which is correct rather than a plumbing failure. Flagged: `reach × participation_rate` mildly under-counts high-participation events, and `Team Event` has no `data_event_inst` rows so its ladder is priced at a flat rank average (crudest pricing in the model).
 
+> ### ⚠ HARDCODED ASSUMPTION — Kite Festival opt-in = 0.75 (D23, 2026-09-01)
+>
+> **If a Kite pack number ever looks odd, this is why. It is an assumption, not a measurement — 31× the observed rate.**
+>
+> `PACK_PARTICIPATION = { 'Kite Festival': 0.75 }` in `engine/EcoGainsSim_v4.gs`, applied by `packParticipation_`.
+> Measured Kite opt-in in `data_event_inst` is **1–3%** (0.0096 at `0-9` NONPAYER … 0.0327 at `100+` PAYER) — the
+> Festival is a league you have to JOIN. At the measured rate the card sim's per-instance gate
+> (`participation × reach`) was 1.6%, so a pack typed onto every one of the 60 `Ki_v2` rank rows produced a Kite pack
+> in only ~8% of runs and read as "Kite isn't simulated". User decision 2026-09-01: price the redesign at 0.75.
+> **Effect (20-39 PAYER): Kite packs/season 0.0816 → 2.5405; runs granting ≥1 Kite pack 23/200 → 194/200.**
+>
+> **Scope: the pack lane ONLY.** `rewardR_` is a v2/base ratio, so participation cancels out of it — Kite's HC,
+> boosters and SPT are untouched, and pack flow for every other source is unchanged to the cent.
+>
+> **To change it without touching code:** put a `Participation` label anywhere on `Ki_v2` with the value in the cell
+> to its right. `packParticipation_` resolves sheet label → `PACK_PARTICIPATION` → measured rate → 1.0.
+>
+> Same mechanism guards a real trap: a rate that exports rounded to `0.0` is indistinguishable from "no telemetry",
+> and both readers then price at FULL participation (~40× too high). The `_LIVEOPS_CALENDAR` export has exactly that
+> for Kite, Level Race, Photoshoot, River Rush, Dream Pass and Season Pass Leaderboard.
+>
+> `harness/_mock_cards.js` section 0 PRINTS every active override on every run, so it cannot rot quietly.
+
 **Card sim (`CardOpenings.gs`, menu ▸ Simulate card pack openings).** Consumes that pack flow: `dailyPacksFor_(seg, payer)` in `EcoGainsSim_Daily.gs` returns a 33×6 per-day grid broken down by source, which the card sim turns into discrete pack opens (trailing fraction resolved by a **seeded Bernoulli** so the granted count is unbiased). Draws are **count-proportional over the `PackConfig` SNAP POOL, without replacement** — rarity is a property of the pool and drifts as it depletes; the old per-pack rarity-probability grid was deleted because it multiplied the pool counts and applied rarity twice. Pack tier now differs only by `Cards/Open` + the pity table. `EcoPackGains` and `PlayerBehavior` are **deleted** — segments/attendance come from `data_seg_beh`, the schedule from `cal_new`. See `source_docs/card-collection.md`.
 
 **Data flow:** SQL queries → `data_*` sheets in the live workbook (headers on row 1, data from row 2) → `EcoGainsSim_v4.gs` reads them plus the visual calendar grids, all LIVE at recalc (decision D12: no numbers in code) → spills per segment block in `EcoGainsSim_HC`.

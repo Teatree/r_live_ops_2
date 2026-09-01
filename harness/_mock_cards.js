@@ -98,6 +98,52 @@ eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
 // strips comments so a gate can look for real code, not prose in a doc block
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
+// ------------------------------------------------- 0. HARDCODED ASSUMPTIONS (printed, not hidden)
+// PACK_PARTICIPATION overrides a MEASURED number with a design assumption, which is exactly the
+// kind of thing that goes unnoticed for months and then makes a result look inexplicable. Every
+// active override is printed on EVERY harness run, next to the rate it is replacing, so the
+// distance between assumption and measurement is impossible to miss. See CLAUDE.md (D23).
+{
+  const overrides = Object.keys(typeof PACK_PARTICIPATION !== 'undefined' ? PACK_PARTICIPATION : {});
+  console.log('\n================ HARDCODED ASSUMPTIONS (PACK_PARTICIPATION) ================');
+  if (!overrides.length) {
+    console.log('  none — every source uses its measured data_event_inst participation_rate');
+  } else {
+    const ctx0 = Context.get();
+    overrides.forEach((cat) => {
+      const assumed = PACK_PARTICIPATION[cat];
+      const seen = ['0-9', '20-39', '100+'].map((seg) => {
+        const inst = ctx0.ds.eventInst((LB_R_SPECS[cat] || COLL_R_SPECS[cat] ||
+                                        PACK_ONLY_SPECS[cat] || {}).inst || cat, seg, 'PAYER');
+        return seg + '=' + (inst ? Number(inst.participation_rate).toFixed(4) : 'n/a');
+      }).join('  ');
+      const worst = Math.max(...['0-9', '20-39', '100+'].map((seg) => {
+        const inst = ctx0.ds.eventInst((LB_R_SPECS[cat] || COLL_R_SPECS[cat] ||
+                                        PACK_ONLY_SPECS[cat] || {}).inst || cat, seg, 'PAYER');
+        const p = inst ? Number(inst.participation_rate) : 0;
+        return p > 0 ? assumed / p : 0;
+      }));
+      console.log('  ' + cat + ': ASSUMED ' + assumed + '   measured (PAYER) ' + seen +
+                  (worst > 1 ? '   -> up to ' + worst.toFixed(0) + 'x the measured rate' : ''));
+    });
+    console.log('  These are DESIGN ASSUMPTIONS, not measurements. Any pack number for these');
+    console.log('  sources is conditional on them. Override per source with a "Participation"');
+    console.log('  label on its _v2 config sheet (value in the cell to the right).');
+  }
+  console.log('============================================================================\n');
+  // The resolution ORDER is the contract; if it ever silently changes, every pack number for an
+  // overridden source moves without a failing test anywhere else.
+  check('PACK_PARTICIPATION overrides the measured participation_rate',
+    typeof packParticipation_ === 'function' &&
+    Object.keys(PACK_PARTICIPATION).every(c => packParticipation_(c, { participation_rate: 0.0123 })
+                                               === PACK_PARTICIPATION[c]),
+    overrides.length ? overrides.map(c => c + '=' + PACK_PARTICIPATION[c]).join(', ') : '(none set)');
+  check('a source with no override still uses its measured rate',
+    packParticipation_('Bomb Challenge', { participation_rate: 0.4 }) === 0.4);
+  check('no telemetry at all still falls back to full participation',
+    packParticipation_('Bomb Challenge', null) === 1);
+}
+
 // ---------------------------------------------------------------- 0. namespace hygiene
 {
   const names = (src) => {

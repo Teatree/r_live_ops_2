@@ -1533,8 +1533,25 @@ packs[res] = E_v2[res] x participation_rate x SUM_{inst in cal_new[label]} reach
 | term | source | note |
 |---|---|---|
 | `E_v2` | `rewardE_(cat, seg, payer, ds).eV2` | the SAME expected ladder payout the R ratio is built from |
-| `participation_rate` | `data_event_inst` | E is priced CONDITIONAL on taking part; absent -> 1.0 (flagged) |
+| `participation_rate` | `packParticipation_(cat, inst)` | resolves: `Participation` label on the `_v2` config sheet -> `PACK_PARTICIPATION` map -> measured `data_event_inst` rate -> 1.0. E is priced CONDITIONAL on taking part. **⚠ Kite Festival is HARDCODED to 0.75 (D23) against a measured 0.01-0.03 — see below** |
 | `reach(inst)` | `reachOne_` | the same `1 - PROD(1 - p_day)` the T term uses |
+
+> **⚠ HARDCODED OPT-IN — Kite Festival = 0.75 (D23, 2026-09-01).** `PACK_PARTICIPATION` in
+> `EcoGainsSim_v4.gs` replaces the MEASURED rate with a design assumption. Kite's measured opt-in is
+> **1-3%** (it is a league you must join); at that rate the card sim's per-instance gate
+> (`participation x reach`) was 1.6%, so a pack on every one of the 60 `Ki_v2` rank rows appeared in
+> only ~8% of runs. The redesign is priced at 0.75 instead: Kite packs/season at 20-39 PAYER go
+> **0.0816 -> 2.5405**, runs granting >=1 pack **23/200 -> 194/200**. This is an ASSUMPTION, up to
+> 66x the measured rate, and every Kite pack number is conditional on it. Scope is the pack lane
+> ONLY - `rewardR_` is a v2/base ratio so participation cancels out of it, and no other source
+> changed by a cent. Override without touching code: a `Participation` label on `Ki_v2`, value in
+> the cell to its right. `harness/_mock_cards.js` section 0 prints every active override, with its
+> measured counterpart, on every run.
+>
+> The same lookup guards a trap worth knowing: a rate that EXPORTS rounded to `0.0` is
+> indistinguishable from "no telemetry", so the `-> 1.0` fallback prices it at FULL participation,
+> ~40x too high. The `_LIVEOPS_CALENDAR` export does this for Kite, Level Race, Photoshoot, River
+> Rush, Dream Pass and Season Pass Leaderboard.
 
 There is deliberately **no D term**: a pack grant is a rank or milestone payout that E has already
 priced at the measured rank/progress distribution, so stretching the event does not multiply it.
