@@ -2,22 +2,6 @@
 # event from design_pdfs/DRBL-Mighty Doors (DB Tower of Fortune)-010926-212845.pdf.
 # See source_docs/mighty-doors.md for the mechanics this encodes.
 #
-# REWARDS LIVE ON THE NODES (rewritten 2026-09-02 after review)
-#   Every config sheet in this workbook defines rewards per NODE with the full 21-column grammar:
-#   RM_1st_v2 one row per milestone, HH_v2 one row per gate, NS_v2 one row per streak milestone.
-#   The first draft of this sheet grouped rewards into six TIER rows, which was an invention. There
-#   is now one row per stage, 60 of them, each carrying all 21 reward columns. 'Tier' survives only
-#   as a derived reference column.
-#
-# SLOT COMPOSITION, NOT SLOT POSITION
-#   Deck p5: "The Failure outcome can appear randomly in any of the available choice positions."
-#   Which door hides the Pig is therefore a runtime draw and cannot be configured. What a node CAN
-#   declare is how many doors it has and how many of those are Pig / Reward / Empty - the slot
-#   composition. 'Slots OK?' self-checks that the three add up to Choices, because if they do not,
-#   every survival number below it is meaningless and nothing else would say so.
-#   Empty slots are not failures: they end the stage with no reward and no loss. That is why
-#   survival and P(reward | survived) are two separate derived columns rather than one.
-#
 # WHAT IS AUTHORED HERE vs WHAT IS DERIVED
 #   The deck specifies the STRUCTURE completely (60 stages, 4 doors, 1 Pig per standard stage, safe
 #   stages every 5th plus milestones at 30/60, six reward tiers of 10 stages) and gives NOT ONE
@@ -64,6 +48,7 @@
 # Sheet name is 'MD' (user decision: the calendar lane is 'MD', not the full event name). Duplicate
 # the imported sheet as 'MD_v2' — the engine reads the _v2 sheet for the redesign side, exactly as
 # NS_v2 shipped as a verbatim clone of NS.
+import json
 import os
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -78,6 +63,15 @@ REWARD_COLS = ['Coins', 'SPT', 'SPT x2', 'Red', 'Chuck', 'Bomb', 'Slingshot', 'S
                'Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb',
                'COOP Token', 'Avatar', '1-star Dly', '2-star Dly', '3-star Dly', '4-star Dly',
                '5-star Dly', '6-star Dly']
+
+# The reward ladder is keyed by ENGINE resource names; the sheet's columns use the config-sheet
+# spelling. One map, so the two lists cannot drift apart silently.
+RES_ALIAS = {'Coins': 'HC', 'SPT x2': 'SPTx2',
+             'Unlimited Red': 'UL Red', 'Unlimited Chuck': 'UL Chuck',
+             'Unlimited Bomb': 'UL Bomb',
+             '1-star Dly': '1-star Pack', '2-star Dly': '2-star Pack',
+             '3-star Dly': '3-star Pack', '4-star Dly': '4-star Pack',
+             '5-star Dly': '5-star Pack', '6-star Dly': '6-star Pack'}
 
 TOTAL_STAGES = 60
 N_TIERS = 6
@@ -125,83 +119,135 @@ def put(r, c, v, kind='out', numfmt=None):
     return cell
 
 
-ws['A1'] = 'MIGHTY DOORS (Tower of Fortune) — event configuration'
-ws['A1'].font = ARIAL(size=14, bold=True)
-note(2, 'Yellow = input you author. Green = derived by formula, do not type over. Blue = fixed by '
-        'the design deck. Every reward VALUE ships at 0: the deck specifies structure only.')
+LAD = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '_md_ladder.json')))
+LADDER = LAD['ladder']
 
-r = 4
+# Guard against the failure this map exists to prevent: the first build silently dropped every
+# UL Bomb / UL Chuck / UL Red payout because those three aliases were missing, and a zero column
+# looks exactly like "not authored yet". Fail the build instead.
+_sheet_keys = {RES_ALIAS.get(c, c) for c in REWARD_COLS}
+_lost = sorted({k for node in LADDER for k in node} - _sheet_keys)
+if _lost:
+    raise SystemExit('reward ladder produces resources with no sheet column: %s' % _lost)
+
+ws['A1'] = 'MIGHTY DOORS (Tower of Fortune)'
+ws['A1'].font = ARIAL(size=14, bold=True)
+
+r = 3
 
 # ---------------------------------------------------------------- RUN CONFIG
 bar(r, 'RUN CONFIG', 4); r += 1
-hdr(r, ['Parameter', 'Value', 'Source', 'Note']); r += 1
+hdr(r, ['Parameter', 'Value', 'What it means']); r += 1
 RUN_FIRST = r
 RUN = {}
 run_rows = [
-    ('Total Stages',                60,    'data', 'deck p5', 'configurable; 60 default'),
-    ('Choices per Stage (default)', 4,     'in',   'deck p5', 'min 2, max 4 — the primary difficulty dial'),
-    ('Failure Outcomes per Stage',  1,     'data', 'deck p5', 'HARD RULE: only one Pig can ever appear per stage'),
-    ('Safe Stage Every N Stages',   5,     'in',   'deck p6', 'stages 5,10,15,... carry no Pig'),
-    ('Major Milestone Stage',       30,    'in',   'deck p6', 'safe, Special rewards'),
-    ('Aspirational Milestone Stage', 60,   'in',   'deck p6', 'safe, Higher rewards; completing it auto-claims'),
-    ('Reward Tier Size (stages)',   10,    'in',   'deck p6', 'six tiers: 1-10, 11-20, ... 51-60 (reference only — rewards are per NODE)'),
-    ('Tickets per Run',             1,     'in',   'deck p9', 'no storage cap exists for tickets'),
-    ('Empty Outcomes Enabled',      'FALSE', 'in', 'deck p22', 'supported but off by default; set Empty Slots per node to use them'),
-    ('Cash-Out Variant',            'A',   'in',   'deck p23', 'A = cash out after any successful stage · B = safe stages only (A/B pending)'),
-    ('Event Duration (days)',       0,     'in',   'UNKNOWN',  '⚠ deck gives no default — blocks the calendar lane and T'),
-    ('Runs per Player per Instance', 0,    'in',   'UNKNOWN',  '⚠ set by ticket supply, which is unconfigured — the faucet scales linearly with this'),
+    ('Total Stages', 60, 'in', 'How many nodes a full run has.'),
+    ('Choices per Stage (default)', 4, 'in', 'How many doors are shown at a node. Min 2, max 4.'),
+    ('Failure Outcomes per Stage', 1, 'in', 'Base number of Pigs. The STAGES table raises this on later tiers.'),
+    ('Safe Stage Every N Stages', 5, 'in', 'Every Nth node carries no Pig at all.'),
+    ('Major Milestone Stage', 30, 'in', 'A safe node with a large bundle.'),
+    ('Aspirational Milestone Stage', 60, 'in', 'The final node. Reaching it auto claims everything.'),
+    ('Reward Tier Size (stages)', 10, 'in', 'Only used to label the Tier column.'),
+    ('Tickets per Run', 1, 'in', 'Tickets spent to start one run.'),
+    ('Ticket Recharge (hours)', LAD['recharge_hours'], 'in',
+     'Hours for ONE ticket to come back. 12 means two free runs a day.'),
+    ('Starting Tickets', LAD['start_tickets'], 'in', 'Tickets the player already holds when the event opens.'),
+    ('Empty Outcomes Enabled', 'FALSE', 'in', 'If TRUE, some doors pay nothing without ending the run.'),
+    ('Cash-Out Variant', 'A', 'in', 'A: bank at any node. B: bank only on safe nodes.'),
+    ('Event Duration (days)', 3, 'in', 'How long one instance runs.'),
 ]
-for name, val, kind, src, nt in run_rows:
+for name, val, kind, meaning in run_rows:
     ws.cell(r, 1, name).font = ARIAL(size=10)
     put(r, 2, val, kind)
-    ws.cell(r, 3, src).font = ARIAL(size=9, color='FF666666')
-    ws.cell(r, 4, nt).font = ARIAL(size=9, italic=True, color='FF666666')
+    ws.cell(r, 3, meaning).font = ARIAL(size=9, italic=True, color='FF666666')
     RUN[name] = '$B$%d' % r
     r += 1
-r += 1
+# Runs per player is now DERIVED from the recharge rate instead of being a hand typed unknown.
+ws.cell(r, 1, 'Runs per Player per Instance').font = ARIAL(size=10, bold=True)
+put(r, 2, '=IF({rec}<=0,{st},{st}+({dur}*24)/{rec})'.format(
+    rec=RUN['Ticket Recharge (hours)'], st=RUN['Starting Tickets'],
+    dur=RUN['Event Duration (days)']), 'out', '0.0')
+ws.cell(r, 3, 'DERIVED: starting tickets plus one per recharge period over the event. '
+              'The whole faucet scales linearly with this.').font = ARIAL(size=9, italic=True,
+                                                                          color='FF666666')
+RUN['Runs per Player per Instance'] = '$B$%d' % r
+RUNS_ROW = r
+r += 2
 
 # ---------------------------------------------------------------- SEGMENT BEHAVIOUR
 SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+']
-bar(r, 'SEGMENT BEHAVIOUR (no telemetry exists — these are the answer, not a detail)', 6); r += 1
-note(r, 'What separates player types in this event. Mighty Doors has no accrual — a run is walked '
-        'in one sitting — so a whale and a new player differ only in how often they pay to continue '
-        'and how deep they push before cashing out. Deck p2: the feature exists to create '
-        '"additional spending opportunities for whales and highly engaged players".'); r += 1
+bar(r, 'SEGMENT BEHAVIOUR', 6); r += 1
 hdr(r, ['Segment', 'Continue Take-Up', 'Cash-Out Stage', 'Runs per Active Day',
-        'Max Continues per Run', 'Note']); r += 1
+        'Max Continues per Run', 'What this row says about this player type']); r += 1
 SEG_FIRST = r
+BEH_NOTE = {
+    '0-9': 'Rarely pays to revive, banks early at the first safe node.',
+    '10-19': 'Occasionally revives, pushes one safe node further.',
+    '20-39': 'Revives one time in five, comfortable going past the halfway safe node.',
+    '40-99': 'Often revives, pushes deep because the coins are affordable.',
+    '100+': 'Revives more often than not, so the Pig rarely stops the run.',
+}
 for seg in SEGMENTS:
     put(r, 1, seg, 'data')
-    put(r, 2, 0, 'in', '0.0%')      # P(pay to continue when the Pig appears)
-    put(r, 3, 0, 'in')              # stage this segment walks away at (0 = never cashes out)
-    put(r, 4, 0, 'in', '0.00')      # runs started per active day — set by ticket supply
-    put(r, 5, 0, 'in')              # 0 = unlimited (user decision 2026-09-02)
-    ws.cell(r, 6, 'take-up 1.0 removes the Pig entirely for this segment'
-            if seg == '100+' else '').font = ARIAL(size=9, italic=True, color='FF666666')
+    put(r, 2, LAD['take'][seg], 'in', '0%')
+    put(r, 3, LAD['stop'][seg], 'in')
+    put(r, 4, '=IF({rec}<=0,0,24/{rec})'.format(rec=RUN['Ticket Recharge (hours)']), 'out', '0.0')
+    put(r, 5, 0, 'in')
+    ws.cell(r, 6, BEH_NOTE[seg]).font = ARIAL(size=9, italic=True, color='FF666666')
     r += 1
 SEG_ROW = {seg: SEG_FIRST + i for i, seg in enumerate(SEGMENTS)}
+# Column meanings, written once under the block so nobody has to guess.
+for txt in [
+    'Continue Take-Up: the chance this player PAYS COINS to revive when a Pig ends their run. '
+    'It is not a retention number. At 100% the Pig never stops them and every run reaches the end.',
+    'Cash-Out Stage: the node where this player voluntarily stops and banks what they have. '
+    'They only get paid if they actually REACH it, because a Pig before then loses everything.',
+    'Runs per Active Day: DERIVED from Ticket Recharge, so it is the same for every segment.',
+    'Max Continues per Run: 0 means unlimited, which is the current decision.',
+]:
+    ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
+    r += 1
 r += 1
 
-# ---------------------------------------------------------------- STAGE NODES
-# One row per node with the full 21-column reward grammar, exactly like RM_1st_v2's milestone rows,
-# HH_v2's gates and NS_v2's streak milestones. Tier-level reward blocks were a departure from the
-# house pattern and are gone: the tier is now a derived REFERENCE column only.
-#
-# SLOT COMPOSITION, not slot POSITION. Deck p5: "The Failure outcome can appear randomly in any of
-# the available choice positions" — so which door hides the Pig is a runtime draw, not config. What
-# a node declares is how many doors it has and how many of them are Pig / Reward / Empty. 'Slots OK?'
-# is a self-check: the three must add up to Choices, or the survival maths below is meaningless.
+# ---------------------------------------------------------------- CONTINUE COST LADDER (INPUT)
+# Moved above the SIM PART divider: it is something you author, not something the sheet works out.
+bar(r, 'CONTINUE COST LADDER', 4); r += 1
+for txt in [
+    'What it is: the COIN PRICE of reviving after a Pig, within a single run. The first revive in '
+    'a run costs row 1, the second costs row 2, and so on. Costs must rise each time (deck p8).',
+    'This is an INPUT you author. It is a coin SINK, the only one this event has, and it is how '
+    'the feature is meant to make money.',
+]:
+    ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
+    r += 1
+hdr(r, ['Continue # in this run', 'Cost (Coins)', 'Cumulative if they revive this many times']); r += 1
+CONT_FIRST = r
+CONT_COSTS = [50, 75, 110, 165, 250, 375, 560, 840, 1260, 1890]      # roughly x1.5 each time
+for i, cost in enumerate(CONT_COSTS, start=1):
+    put(r, 1, i, 'data')
+    put(r, 2, cost, 'in')
+    put(r, 3, '=SUM($B${a}:$B{r})'.format(a=CONT_FIRST, r=r), 'out')
+    r += 1
+CONT_LAST = r - 1
+r += 1
+
+# ---------------------------------------------------------------- STAGES
 NODE_LEAD = ['Stage', 'Type', 'Tier', 'Choices', 'Reward Slots', 'Pig Slots', 'Empty Slots',
-             'Slots OK?', 'Survive p', 'P(reward | survived)']
-bar(r, 'STAGE NODES — one row per node, rewards in the standard 21-column grammar',
-    len(NODE_LEAD) + len(REWARD_COLS)); r += 1
-note(r, 'Author the reward behind a REWARD door at each node. Pig Slots is the slot COMPOSITION — '
-        'the deck places the Pig randomly among the doors, so position is not configurable. Empty '
-        'Slots pay nothing and are not a failure, which is why survival and reward-odds are two '
-        'separate columns.'); r += 1
+             'Survive p', 'P(reward | survived)']
+bar(r, 'STAGES', len(NODE_LEAD) + len(REWARD_COLS)); r += 1
+for txt in [
+    'One row per node. Pig Slots rises with depth (1 for stages 1 to 20, 2 for 21 to 40, 3 for 41 '
+    'to 60) and never goes above 3, so later nodes are far more dangerous. Safe nodes carry none.',
+    'Which door hides the Pig is drawn at random when the player arrives, so only the COUNT is '
+    'configurable, never the position.',
+    'Rewards are tuned so the event pays each segment roughly 75% of what Rainbow Maker pays, '
+    'allowing for 3 days against Rainbow Maker 4. See builders/_md_ladder.py for the solve.',
+]:
+    ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
+    r += 1
 hdr(r, NODE_LEAD + REWARD_COLS); r += 1
 NODE_FIRST = r
-NODE_C0 = len(NODE_LEAD) + 1                        # first reward column (K)
+NODE_C0 = len(NODE_LEAD) + 1
 for st in range(1, TOTAL_STAGES + 1):
     row = NODE_FIRST + st - 1
     put(row, 1, st, 'data')
@@ -212,38 +258,49 @@ for st in range(1, TOTAL_STAGES + 1):
     put(row, 3, '=MIN({nt},MAX(1,ROUNDUP(A{r}/{ts},0)))'.format(
         r=row, nt=N_TIERS, ts=RUN['Reward Tier Size (stages)']))
     put(row, 4, '=%s' % RUN['Choices per Stage (default)'], 'in')
-    put(row, 6, '=IF($B{r}="Standard",{p},0)'.format(r=row, p=RUN['Failure Outcomes per Stage']))
-    put(row, 7, 0, 'in')                            # empty slots — off unless authored
-    put(row, 5, '=MAX(0,$D{r}-$F{r}-$G{r})'.format(r=row))          # rewards fill what is left
-    put(row, 8, '=IF($E{r}+$F{r}+$G{r}=$D{r},"OK","MISMATCH")'.format(r=row))
-    put(row, 9, '=IF($D{r}<=0,0,($D{r}-$F{r})/$D{r})'.format(r=row), 'out', '0.0%')
-    put(row, 10, '=IF($D{r}-$F{r}<=0,0,$E{r}/($D{r}-$F{r}))'.format(r=row), 'out', '0.0%')
-    for j in range(len(REWARD_COLS)):
-        put(row, NODE_C0 + j, 0, 'in')
+    # Pig ramp: 1 / 2 / 3 by tier pair, never above 3, and never on a safe node.
+    put(row, 6, '=IF($B{r}<>"Standard",0,MIN(3,MAX({p},IF($C{r}<=2,1,IF($C{r}<=4,2,3)))))'.format(
+        r=row, p=RUN['Failure Outcomes per Stage']))
+    put(row, 7, 0, 'in')
+    put(row, 5, '=MAX(0,$D{r}-$F{r}-$G{r})'.format(r=row))
+    put(row, 8, '=IF($D{r}<=0,0,($D{r}-$F{r})/$D{r})'.format(r=row), 'out', '0.0%')
+    put(row, 9, '=IF($D{r}-$F{r}<=0,0,$E{r}/($D{r}-$F{r}))'.format(r=row), 'out', '0.0%')
+    payout = LADDER[st - 1]
+    for j, res in enumerate(REWARD_COLS):
+        put(row, NODE_C0 + j, payout.get(RES_ALIAS.get(res, res), 0), 'in')
 NODE_LAST = NODE_FIRST + TOTAL_STAGES - 1
 NODE_NCOL = len(NODE_LEAD) + len(REWARD_COLS)
-# A safe node (no Pig) is tinted by RULE, and a bad slot composition is shouted about.
 ws.conditional_formatting.add(
     'A%d:%s%d' % (NODE_FIRST, CL(NODE_NCOL), NODE_LAST),
     FormulaRule(formula=['$F%d=0' % NODE_FIRST], fill=fill('FFE8F5E9')))
 ws.conditional_formatting.add(
-    'H%d:H%d' % (NODE_FIRST, NODE_LAST),
-    CellIsRule(operator='equal', formula=['"MISMATCH"'], fill=fill('FFF4CCCC'),
-               font=ARIAL(size=10, bold=True)))
+    'F%d:F%d' % (NODE_FIRST, NODE_LAST),
+    CellIsRule(operator='greaterThanOrEqual', formula=['2'], fill=fill('FFF4CCCC')))
 ws.conditional_formatting.add(
     '%s%d:%s%d' % (CL(NODE_C0), NODE_FIRST, CL(NODE_NCOL), NODE_LAST),
     CellIsRule(operator='greaterThan', formula=['0'], fill=fill('FFD9EAD3'),
                font=ARIAL(size=10, bold=True)))
 r = NODE_LAST + 2
 
+# ================================================================ SIM PART
+bar(r, 'SIM PART', 12); r += 1
+
 # ---------------------------------------------------------------- PER-SEGMENT PROGRESSION
 SEG_SUB = ['Survive (w/ cont.)', 'Reach p', 'P(end here)', 'Cum P(ended)']
 SEG_C0 = 2
-bar(r, 'PER-SEGMENT PROGRESSION (derived from STAGE NODES + SEGMENT BEHAVIOUR)',
-    1 + len(SEGMENTS) * len(SEG_SUB)); r += 1
-note(r, 'The tower is the same for everyone; the odds of getting anywhere are not. A segment that '
-        'always continues never meets the Pig at all. Cum P(ended) is what the reach simulation '
-        'reads for its percentile.'); r += 1
+bar(r, 'PER-SEGMENT PROGRESSION', 1 + len(SEGMENTS) * len(SEG_SUB)); r += 1
+for txt in [
+    'Survive (w/ cont.): chance this player gets past this node once you allow for them paying to '
+    'revive. Higher than the raw odds, because a revive turns a Pig into a guaranteed reward.',
+    'Reach p: chance they ever arrive at this node at all, having survived every node before it '
+    'and not banked early.',
+    'P(end here): chance their run finishes at this node, either because they banked or because a '
+    'Pig got them and they refused to pay.',
+    'Cum P(ended): running total of the column to its left, so it climbs to 1.0 by the last node. '
+    'The reach simulation reads this to find the typical stopping point.',
+]:
+    ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
+    r += 1
 hdr(r, ['Stage'])
 for i, seg in enumerate(SEGMENTS):
     for j, lbl in enumerate(SEG_SUB):
@@ -260,14 +317,14 @@ for st in range(1, TOTAL_STAGES + 1):
         c0 = SEG_C0 + i * len(SEG_SUB)
         C = lambda k: CL(c0 + k)
         take, stop = '$B$%d' % SEG_ROW[seg], '$C$%d' % SEG_ROW[seg]
-        put(row, c0 + 0, '=$I{n}+(1-$I{n})*{t}'.format(n=nrow, t=take), 'out', '0.0%')
+        put(row, c0 + 0, '=$H{n}+(1-$H{n})*{t}'.format(n=nrow, t=take), 'out', '0.0%')
         if st == 1:
             put(row, c0 + 1, 1, 'out', '0.000%')
         else:
             p = row - 1
             put(row, c0 + 1, '={c1}{p}*{c0}{p}*IF(AND({s}>0,$A{p}>={s}),0,1)'.format(
                 c1=C(1), c0=C(0), p=p, s=stop), 'out', '0.000%')
-        put(row, c0 + 2, ('={c1}{r}*(IF(AND({s}>0,$A{r}>={s}),{c0}{r},0)+(1-$I{n})*(1-{t}))').format(
+        put(row, c0 + 2, ('={c1}{r}*(IF(AND({s}>0,$A{r}>={s}),{c0}{r},0)+(1-$H{n})*(1-{t}))').format(
             c1=C(1), c0=C(0), r=row, n=nrow, s=stop, t=take), 'out', '0.000%')
         put(row, c0 + 3, '=SUM({c2}${f}:{c2}{r})'.format(c2=C(2), f=PRG_FIRST, r=row), 'out', '0.000%')
 PRG_LAST = PRG_FIRST + TOTAL_STAGES - 1
@@ -275,38 +332,29 @@ r = PRG_LAST + 2
 
 # ---------------------------------------------------------------- RUN EXPECTATION
 bar(r, 'RUN EXPECTATION BY PLAYER TYPE (derived)', 1 + len(SEGMENTS)); r += 1
-note(r, 'Rewards banked in a run are LOST on an un-continued Pig (deck p7), so "pays anything" is '
-        'not the same as "reaches a stage". A segment that never cashes out and never continues '
-        'walks away with nothing almost every run, however rich the ladder is.'); r += 1
+ws.cell(r, 1, 'Rewards banked in a run are LOST if a Pig ends it and the player will not pay, so '
+              'reaching a node is not the same as being paid for it.').font = ARIAL(
+    size=9, italic=True, color='FF666666'); r += 1
 hdr(r, ['Metric'] + SEGMENTS); r += 1
 EXP_FIRST = r
 SC = lambda i, k: CL(SEG_C0 + i * len(SEG_SUB) + k)
 exp_rows = [
-    ('P(reach Major Milestone)',
-     lambda i, seg: '=IFERROR(INDEX({c}{a}:{c}{b},MATCH({m},$A{a}:$A{b},0)),0)'.format(
-         c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, m=RUN['Major Milestone Stage']), '0.000%'),
-    ('P(reach Final Stage)',
-     lambda i, seg: '=IFERROR(INDEX({c}{a}:{c}{b},MATCH({m},$A{a}:$A{b},0)),0)'.format(
-         c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, m=RUN['Aspirational Milestone Stage']), '0.00000%'),
-    ('P(run pays NOTHING)',
-     lambda i, seg: '=SUMPRODUCT({c}{a}:{c}{b},(1-$I${nf}:$I${nl}),(1-$B${sr}))'.format(
-         c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, nf=NODE_FIRST, nl=NODE_LAST,
-         sr=SEG_ROW[seg]), '0.0%'),
-    # EXP_FIRST + 2, not r + 2: these lambdas are called inside the loop that increments r, so a
-    # relative reference late-binds to whatever row the loop has reached.
-    ('P(run pays ANYTHING)',
-     lambda i, seg: '=1-{c}{r}'.format(c=CL(2 + i), r=EXP_FIRST + 2), '0.0%'),
-    ('Expected stage reached',
-     lambda i, seg: '=SUM({c}{a}:{c}{b})'.format(c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST), '0.00'),
-    ('Expected continues per run',
-     lambda i, seg: '=SUMPRODUCT({c}{a}:{c}{b},(1-$I${nf}:$I${nl}),$B${sr})'.format(
-         c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, nf=NODE_FIRST, nl=NODE_LAST,
-         sr=SEG_ROW[seg]), '0.000'),
-    # Single source of truth for "how far does this player type get": both the cumulative reward
-    # helper and the AH1 reach simulation read THIS row rather than recomputing it.
-    ('Stage reached at percentile',
-     lambda i, seg: '=MIN({t},COUNTIF({c}{a}:{c}{b},"<"&$AI$2)+1)'.format(
-         t=TOTAL_STAGES, c=SC(i, 3), a=PRG_FIRST, b=PRG_LAST), '0'),
+    ('P(reach Major Milestone)', lambda i, s: '=IFERROR(INDEX({c}{a}:{c}{b},MATCH({m},$A{a}:$A{b},0)),0)'.format(
+        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, m=RUN['Major Milestone Stage']), '0.000%'),
+    ('P(reach Final Stage)', lambda i, s: '=IFERROR(INDEX({c}{a}:{c}{b},MATCH({m},$A{a}:$A{b},0)),0)'.format(
+        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, m=RUN['Aspirational Milestone Stage']), '0.00000%'),
+    ('P(run pays NOTHING)', lambda i, s: '=SUMPRODUCT({c}{a}:{c}{b},(1-$H${nf}:$H${nl}),(1-$B${sr}))'.format(
+        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, nf=NODE_FIRST, nl=NODE_LAST, sr=SEG_ROW[s]), '0.0%'),
+    ('P(run pays ANYTHING)', lambda i, s: '=1-{c}{r}'.format(c=CL(2 + i), r=EXP_FIRST + 2), '0.0%'),
+    ('Expected stage reached', lambda i, s: '=SUM({c}{a}:{c}{b})'.format(
+        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST), '0.00'),
+    ('Expected continues per run', lambda i, s: '=SUMPRODUCT({c}{a}:{c}{b},(1-$H${nf}:$H${nl}),$B${sr})'.format(
+        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, nf=NODE_FIRST, nl=NODE_LAST, sr=SEG_ROW[s]), '0.000'),
+    ('Coins spent on continues per run', lambda i, s: '=IFERROR(INDEX($C${cf}:$C${cl},'
+        'MIN({n},MAX(1,ROUND({c}{er},0)))),0)*{c}{er}/MAX({c}{er},1)'.format(
+        cf=CONT_FIRST, cl=CONT_LAST, n=len(CONT_COSTS), c=CL(2 + i), er=EXP_FIRST + 5), '0.0'),
+    ('Stage reached at percentile', lambda i, s: '=MIN({t},COUNTIF({c}{a}:{c}{b},"<"&$AI$2)+1)'.format(
+        t=TOTAL_STAGES, c=SC(i, 3), a=PRG_FIRST, b=PRG_LAST), '0'),
 ]
 for name, fn, numfmt in exp_rows:
     ws.cell(r, 1, name).font = ARIAL(size=10, bold=True)
@@ -318,9 +366,8 @@ r += 1
 
 # ---------------------------------------------------------------- CUMULATIVE REWARD
 bar(r, 'CUMULATIVE REWARD AT THE REACHED STAGE (derived)', 1 + len(SEGMENTS)); r += 1
-note(r, 'Everything a segment has banked by its reached stage: every node up to it, each weighted '
-        'by the odds that door held a reward rather than an empty. One SUMPRODUCT per resource — '
-        'no tier bookkeeping, because rewards live on the nodes now.'); r += 1
+ws.cell(r, 1, 'Everything this player type has banked by the node they stop at, counting every '
+              'node up to it.').font = ARIAL(size=9, italic=True, color='FF666666'); r += 1
 hdr(r, ['Resource'] + SEGMENTS); r += 1
 CUM_FIRST = r
 for k, res in enumerate(REWARD_COLS):
@@ -328,77 +375,29 @@ for k, res in enumerate(REWARD_COLS):
     col = CL(NODE_C0 + k)
     for i, seg in enumerate(SEGMENTS):
         m = '{c}${pr}'.format(c=CL(2 + i), pr=PCT_ROW)
-        put(r, 2 + i, '=SUMPRODUCT(($A${a}:$A${b}<={m})*$J${a}:$J${b}*{c}${a}:{c}${b})'.format(
+        put(r, 2 + i, '=SUMPRODUCT(($A${a}:$A${b}<={m})*$I${a}:$I${b}*{c}${a}:{c}${b})'.format(
             a=NODE_FIRST, b=NODE_LAST, m=m, c=col), 'out', '0.00')
     r += 1
 CUM_LAST = r - 1
-r += 1
-
-# ---------------------------------------------------------------- CONTINUE COSTS
-bar(r, 'CONTINUE COST LADDER (this is a COIN SINK, not a faucet)', 4); r += 1
-note(r, 'Deck p8/p24: costs MUST escalate after each consecutive continue within the same run; the '
-        'curve is configurable and undefined. Unlimited continues (user, 2026-09-02).'); r += 1
-hdr(r, ['Continue #', 'Cost (Coins)', 'Cumulative', 'Note']); r += 1
-CONT_FIRST = r
-for i in range(1, 11):
-    put(r, 1, i, 'data')
-    put(r, 2, 0, 'in')
-    put(r, 3, '=SUM($B${a}:$B{r})'.format(a=CONT_FIRST, r=r), 'out')
-    if i == 1:
-        ws.cell(r, 4, 'first continue in a run').font = ARIAL(size=9, italic=True, color='FF666666')
-    r += 1
-ws.conditional_formatting.add('B%d:B%d' % (CONT_FIRST, r - 1),
-                              CellIsRule(operator='greaterThan', formula=['0'], fill=fill('FFF4CCCC')))
-r += 1
-
-# ---------------------------------------------------------------- REWARD POOL MAP
-bar(r, 'REWARD POOL MAP (deck p7 -> the 19-resource sim universe)', 3); r += 1
-note(r, 'Why some deck rewards have no column above: they are outside the resource universe. '
-        'Recorded so the omission reads as a decision, not an oversight.'); r += 1
-hdr(r, ['Deck reward', 'Sim resource', 'Modelled?']); r += 1
-for deck_name, sim_res, modelled in [
-    ('Coins', 'Coins', 'yes'),
-    ('Boosters', 'Red / Chuck / Bomb', 'yes'),
-    ('Power-ups', 'Slingshot / Shuffle / Comet', 'yes'),
-    ('Unlimited Lives', 'Unlimited Lives', 'yes'),
-    ('Event Tokens', 'SPT / SPT x2', 'yes — feeds the Season Pass tier coupling (D16)'),
-    ('Dream Album Envelopes', '1-star Dly .. 6-star Dly', 'yes — routes through packLane_, inherits the D26 cutoff'),
-    ('Avatars', 'Avatar', 'column exists; no economy value in the model'),
-    ('Album Badges', '—', 'NO — no sim resource'),
-    ('Event Tickets', '—', "NO — tickets are this feature's own entry currency, outside the 19"),
-    ('Skins', '—', 'NO — deck lists as FUTURE'),
-    ('Frames', '—', 'NO — deck lists as FUTURE'),
-]:
-    put(r, 1, deck_name, 'data')
-    put(r, 2, sim_res, 'data')
-    ws.cell(r, 3, modelled).font = ARIAL(size=9, italic=True, color='FF666666')
-    r += 1
 
 # ------------------------------------------- PLAYER REACH SIMULATION (AH1, house grammar)
-# Anchored at AH1 with EXACTLY the layout every other collection _v2 sheet uses, so anyone who can
-# read HH_v2 or RM_1st_v2 can read this one. Note the last pair is '100_ms' / '100_reward' — no plus
-# sign — because that is what the other sheets write.
-RS_C = 34                                    # AH
+RS_C = 34
 ws.cell(1, RS_C, 'Player Reach Simulation (per event day) - SIMULATED').font = ARIAL(size=11, bold=True)
 ws.cell(2, RS_C, 'Percentile').font = ARIAL(size=10, bold=True)
 put(2, RS_C + 1, 0.5, 'in', '0.00')
 ws.cell(3, RS_C, 'Payer').font = ARIAL(size=10, bold=True)
 put(3, RS_C + 1, 'NONPAYER', 'in')
-ws.cell(4, RS_C, 'stage reached at that percentile of the run-outcome distribution; reward = what '
-                 'is banked there').font = ARIAL(size=9, italic=True, color='FF666666')
 rs_hdr = ['Day_of_event']
 for seg in SEGMENTS:
-    lbl = seg[:-1] if seg.endswith('+') else seg          # house writes '100_ms', not '100+_ms'
+    lbl = seg[:-1] if seg.endswith('+') else seg
     rs_hdr += [lbl + '_ms', lbl + '_reward']
 for j, t in enumerate(rs_hdr):
-    c = ws.cell(5, RS_C + j, t)
+    c = ws.cell(4, RS_C + j, t)
     c.font = ARIAL(size=10, bold=True); c.fill = fill(F_HDR); c.border = BOX
     c.alignment = Alignment(horizontal='center', wrap_text=True, vertical='center')
-
-RS_DAYS = 14
 dur = RUN['Event Duration (days)']
-for d in range(1, RS_DAYS + 1):
-    row = 5 + d
+for d in range(1, 15):
+    row = 4 + d
     put(row, RS_C, d, 'data')
     for i, seg in enumerate(SEGMENTS):
         put(row, RS_C + 1 + i * 2, '=IF(AND({dur}>0,$AH{r}>{dur}),"",{c}${pr})'.format(
@@ -409,21 +408,19 @@ for d in range(1, RS_DAYS + 1):
                 msc=CL(RS_C + 1 + i * 2), r=row, cc=CL(2 + i), cf=CUM_FIRST, cl=CUM_LAST), 'out')
 
 ws.column_dimensions['A'].width = 30.0
-ws.column_dimensions['B'].width = 22.0
-ws.column_dimensions['C'].width = 20.0
-ws.column_dimensions['D'].width = 20.0
-for c in range(5, 5 + len(REWARD_COLS) + 30):
+ws.column_dimensions['B'].width = 20.0
+ws.column_dimensions['C'].width = 18.0
+for c in range(4, 4 + len(REWARD_COLS) + 30):
     ws.column_dimensions[CL(c)].width = 12.0
 
-out = os.path.join(DISPLAY, 'MD_v1.xlsx')
+out = os.path.join(DISPLAY, 'MD_v2.xlsx')
 wb.save(out)
-print('written MD_v1.xlsx  (sheet "MD")')
-print('  RUN CONFIG            rows %d..%d' % (RUN_FIRST, RUN_FIRST + len(run_rows) - 1))
-print('  STAGE NODES           rows %d..%d  (%d nodes x %d reward cols)'
-      % (NODE_FIRST, NODE_LAST, TOTAL_STAGES, len(REWARD_COLS)))
-print('  PER-SEGMENT PROGRESS  rows %d..%d' % (PRG_FIRST, PRG_LAST))
-print('  RUN EXPECTATION       rows %d..%d   (percentile stage on row %d)'
-      % (EXP_FIRST, PCT_ROW, PCT_ROW))
-print('  CUMULATIVE REWARD     rows %d..%d' % (CUM_FIRST, CUM_LAST))
-print('  reach simulation at AH1; every reward cell ships 0')
-print('  duplicate the imported sheet as "MD_v2" before wiring the engine')
+print('written MD_v2.xlsx  (sheet "MD")')
+print('  RUN CONFIG        rows %d..%d   (runs/instance derived on row %d)' % (RUN_FIRST, RUNS_ROW, RUNS_ROW))
+print('  SEGMENT BEHAVIOUR rows %d..%d' % (SEG_FIRST, SEG_FIRST + len(SEGMENTS) - 1))
+print('  CONTINUE COSTS    rows %d..%d   (INPUT, above the SIM PART divider)' % (CONT_FIRST, CONT_LAST))
+print('  STAGES            rows %d..%d' % (NODE_FIRST, NODE_LAST))
+print('  PER-SEG PROGRESS  rows %d..%d' % (PRG_FIRST, PRG_LAST))
+print('  RUN EXPECTATION   rows %d..%d' % (EXP_FIRST, PCT_ROW))
+print('  CUMULATIVE REWARD rows %d..%d' % (CUM_FIRST, CUM_LAST))
+print('  REWARD POOL MAP removed (glossary, referenced by nothing)')
