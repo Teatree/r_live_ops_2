@@ -1250,6 +1250,177 @@ function logCol(name){
     gated.chestRows === 0 && gated.spent === 0, `rows ${gated.chestRows}, spent ${gated.spent}`);
 }
 
+// -------------------------------------- 7b. Mighty Doors / Tower of Fortune (2026-09-02)
+// ToF is the first source that SPENDS a resource and the first whose payout is gated on a decision
+// rather than on reach, so none of the existing gates cover it. Every check below asserts a RULE
+// against a mutation fixture; none reads a shipped number.
+{
+  const tofSnap = JSON.stringify(data);
+  const sheetName = data['ToF'] ? 'ToF' : 'MD';
+  const resetTof = () => {
+    _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {};
+    _tofIncomeCache = {}; _itemValsCache = null;
+  };
+  const cfg0 = tofConfig_();
+  check('ToF config reads the sheet', !!cfg0 && cfg0.stages.length > 0 && cfg0.costs.length > 0,
+    cfg0 ? `${cfg0.stages.length} stages, ${cfg0.costs.length} of ${cfg0.costRowsExpected} rungs, ` +
+           `segments ${Object.keys(cfg0.beh).join('/')}` : 'not read');
+  // A rung whose price is an uncached formula reads 0 and would be a FREE continue, bought forever.
+  check('ToF continue ladder is fully priced (no rung silently free)',
+    cfg0 && cfg0.costs.length === cfg0.costRowsExpected,
+    cfg0 ? `${cfg0.costs.length} priced of ${cfg0.costRowsExpected} rung rows` : '-');
+
+  const ctxT = Context.get();
+  const seg0 = Object.keys(cfg0.beh)[0];
+
+  // -- the walk is a probability distribution, and a deeper cash-out is strictly harder to reach --
+  {
+    let ok = true, detail = [];
+    Object.keys(cfg0.beh).forEach(sg => {
+      const run = tofRun_(sg, 'NONPAYER', ctxT.ds);
+      if (!run) return;
+      if (!(run.pBank >= -1e-12 && run.pBank <= 1 + 1e-12)) ok = false;
+      detail.push(`${sg}:${run.pBank.toFixed(3)}`);
+    });
+    check('ToF P(run pays) is a probability for every segment', ok, detail.join(' '));
+  }
+  {
+    // Same segment, same wallet, deeper cash-out stage -> strictly lower chance of banking.
+    const beh = cfg0.beh[seg0];
+    const shallow = tofRunOnce_(cfg0, { continueP: beh.continueP, cashOut: 3, runsPerDay: 1,
+                                        maxContinues: 0, balance: 500 }, 500, 'NONPAYER');
+    const deep = tofRunOnce_(cfg0, { continueP: beh.continueP, cashOut: 20, runsPerDay: 1,
+                                     maxContinues: 0, balance: 500 }, 500, 'NONPAYER');
+    check('ToF: a deeper cash-out stage is harder to reach',
+      shallow.pBank > deep.pBank,
+      `cash out at 3 -> ${shallow.pBank.toFixed(4)}, at 20 -> ${deep.pBank.toFixed(4)}`);
+  }
+  // -- affordability actually binds: a bigger wallet buys more continues --
+  {
+    const beh = cfg0.beh[seg0];
+    const probe = (bal) => tofRunOnce_(cfg0, { continueP: 1, cashOut: 20, runsPerDay: 1,
+                                               maxContinues: 0, balance: bal }, bal, 'NONPAYER');
+    const poor = probe(10), mid = probe(500), rich = probe(1e6);
+    check('ToF: a bigger wallet never lowers P(bank) or spend',
+      poor.pBank <= mid.pBank + 1e-12 && mid.pBank <= rich.pBank + 1e-12 &&
+      poor.spend <= mid.spend + 1e-9 && mid.spend <= rich.spend + 1e-9,
+      `P(bank) ${poor.pBank.toFixed(4)} / ${mid.pBank.toFixed(4)} / ${rich.pBank.toFixed(4)}`);
+    check('ToF: a wallet below the first rung buys NO continues',
+      probe(cfg0.costs[0] - 1).spend === 0,
+      `wallet ${cfg0.costs[0] - 1} vs rung 1 at ${cfg0.costs[0]}`);
+  }
+  // -- the ESCALATING ladder is really read, not just rung 1 --
+  {
+    const beh = cfg0.beh[seg0];
+    const rich = { continueP: 1, cashOut: 20, runsPerDay: 1, maxContinues: 0, balance: 1e6 };
+    const before = tofRunOnce_(cfg0, rich, 1e6, 'NONPAYER').spend;
+    const doubled = JSON.parse(JSON.stringify(cfg0));
+    doubled.costs = cfg0.costs.map(c => c * 2);
+    const after = tofRunOnce_(doubled, rich, 1e6, 'NONPAYER').spend;
+    // NOT exactly 2x, and that is the model working: a higher price also lowers A(balance/price),
+    // so the doubled ladder buys marginally fewer continues. Asserting an exact double would be
+    // asserting that affordability does nothing. Just under 2x is the signature of both effects --
+    // the whole ladder priced, with a small drag from the wallet.
+    check('ToF: doubling every rung nearly doubles spend, held back by affordability',
+      before > 0 && after > before * 1.9 && after < before * 2,
+      `${before.toFixed(2)} -> ${after.toFixed(2)} (x${(after / before).toFixed(4)}, ` +
+      `under 2 because the wallet buys fewer continues at the higher price)`);
+    // Only rung 1 doubled -> spend rises, but by strictly less than double.
+    const one = JSON.parse(JSON.stringify(cfg0));
+    one.costs = cfg0.costs.slice(); one.costs[0] = cfg0.costs[0] * 2;
+    const afterOne = tofRunOnce_(one, rich, 1e6, 'NONPAYER').spend;
+    check('ToF: doubling only rung 1 raises spend by less than double',
+      afterOne > before && afterOne < before * 2,
+      `${before.toFixed(2)} -> ${afterOne.toFixed(2)}`);
+  }
+  // -- the ladder LENGTH is the continue cap, and Max Continues per Run lowers it --
+  {
+    const rich = (mx) => ({ continueP: 1, cashOut: 60, runsPerDay: 1, maxContinues: mx, balance: 1e9 });
+    const capped = tofRunOnce_(cfg0, rich(1), 1e9, 'NONPAYER');
+    check('ToF: Max Continues per Run caps the spend at that many rungs',
+      capped.spend <= cfg0.costs[0] + 1e-9,
+      `spend ${capped.spend.toFixed(2)} vs rung 1 at ${cfg0.costs[0]}`);
+    const uncapped = tofRunOnce_(cfg0, rich(0), 1e9, 'NONPAYER');
+    const ladderMax = cfg0.costs.reduce((a, b) => a + b, 0);
+    check('ToF: with no cap the spend still stops at the end of the ladder',
+      uncapped.spend <= ladderMax + 1e-9,
+      `spend ${uncapped.spend.toFixed(2)} vs full ladder ${ladderMax}`);
+  }
+  // -- the payer top-up exists, and is exactly one --
+  {
+    const beh = { continueP: 1, cashOut: 20, runsPerDay: 1, maxContinues: 0, balance: 0 };
+    const poor = cfg0.costs[0] - 1;                       // cannot afford even rung 1 unaided
+    const np = tofRunOnce_(cfg0, beh, poor, 'NONPAYER');
+    const pay = tofRunOnce_(cfg0, beh, poor, 'PAYER');
+    check('ToF: a payer gets exactly one top-up a non-payer does not',
+      np.spend === 0 && pay.spend > 0 && pay.spend <= cfg0.costs[0] + 1e-9,
+      `nonpayer ${np.spend.toFixed(2)}, payer ${pay.spend.toFixed(2)} (one rung = ${cfg0.costs[0]})`);
+  }
+  // -- tickets drive runs, and no tickets means no runs --
+  {
+    resetTof();
+    const before = tofRunBudget_(seg0, 'NONPAYER', ctxT, 0);
+    const packDlyHdrs = ['ToF_Ticket'];
+    Object.keys(data).forEach(name => {
+      const sh = data[name];
+      if (!sh || !sh.values) return;
+      const cols = {};
+      sh.values.forEach(row => (row || []).forEach((cell, c) => {
+        if (packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
+      }));
+      sh.values.forEach(row => Object.keys(cols).forEach(c => {
+        if (row && typeof row[c] === 'number') row[c] = 0;
+      }));
+    });
+    resetTof();
+    const after = tofRunBudget_(seg0, 'NONPAYER', Context.get(), 0);
+    check('ToF: zero authored tickets -> zero runs (tickets are the only gate)',
+      before && before.runs > 0 && after && after.runs === 0,
+      `${before ? before.runs.toFixed(2) : '-'} runs -> ${after ? after.runs.toFixed(2) : '-'}`);
+    data = JSON.parse(tofSnap); resetTof();
+  }
+  // -- the ToF row reconciles with the per-run economics --
+  {
+    resetTof();
+    const ctx2 = Context.get();
+    const iT = CATEGORY_ORDER.indexOf('ToF');
+    let worst = 0, at = '';
+    ['0-9', '20-39', '100+'].forEach(sg => ['NONPAYER', 'PAYER'].forEach(p => {
+      const run = tofRun_(sg, p, ctx2.ds);
+      const b = tofRunBudget_(sg, p, ctx2, num(run.bank['ToF_Ticket']));
+      const row = ECOGAINS_SIM(p, sg)[iT];
+      RESOURCES.forEach((res, j) => {
+        const expect = num(run.bank[res]) * b.runs - (res === 'HC' ? run.spend * b.runs : 0);
+        const gap = Math.abs(num(row[j]) - expect);
+        if (gap > worst) { worst = gap; at = `${sg}/${p}/${res}`; }
+      });
+    }));
+    check('ToF row == banked reward x runs, with continues subtracted from HC',
+      worst < 1e-9, `worst gap ${worst.toExponential(2)}${at ? ' at ' + at : ''}`);
+  }
+  // -- tickets are NOT envelopes: the collection-season cutoff must not touch them --
+  {
+    resetTof();
+    const tix = (sg) => {
+      let t = 0;
+      CATEGORY_ORDER.forEach(c => {
+        if (c === 'ToF') return;
+        t += num(resultRow_(c, sg, 'NONPAYER', Context.get())['ToF_Ticket']);
+      });
+      return t;
+    };
+    const on = tix('20-39');
+    const was = SEASON_CUTOFF; SEASON_CUTOFF = false; resetTof();
+    const off = tix('20-39');
+    SEASON_CUTOFF = was; resetTof();
+    check('ToF: the envelope season cutoff does not change ticket income',
+      on > 0 && Math.abs(on - off) < 1e-9,
+      `cutoff on ${on.toFixed(4)}, off ${off.toFixed(4)}`);
+  }
+  data = JSON.parse(tofSnap); resetTof();
+  check('ToF fixtures restored', JSON.stringify(data) === tofSnap);
+}
+
 // ---------------------------------------------------------------- 8. input validation
 {
   data = JSON.parse(RAW);
