@@ -1,4 +1,4 @@
-# Builds MD_v1.xlsx — the 'MD' config sheet for Mighty Doors (Tower of Fortune), the push-your-luck
+# Builds ToF_v1.xlsx — the 'ToF' config sheet for Mighty Doors / Tower of Fortune, the push-your-luck
 # event from design_pdfs/DRBL-Mighty Doors (DB Tower of Fortune)-010926-212845.pdf.
 # See source_docs/mighty-doors.md for the mechanics this encodes.
 #
@@ -84,7 +84,7 @@ BOX = Border(left=thin, right=thin, top=thin, bottom=thin)
 
 wb = openpyxl.Workbook()
 ws = wb.active
-ws.title = 'MD'
+ws.title = 'ToF'      # renamed from 'MD' 2026-09-02: ToF is the preferred name
 ws.sheet_view.showGridLines = False
 
 
@@ -140,21 +140,27 @@ bar(r, 'RUN CONFIG', 4); r += 1
 hdr(r, ['Parameter', 'Value', 'What it means']); r += 1
 RUN_FIRST = r
 RUN = {}
+# Five parameters were removed 2026-09-02 because nothing read them and nothing could:
+#   Total Stages          the ladder length IS the number of STAGES rows; a second number could
+#                         only disagree with it
+#   Tickets per Run       always 1 (deck p9); the engine assumes 1 when it is absent
+#   Empty Outcomes        the Empty Slots column is 0 throughout and no reader consults the flag
+#   Ticket Recharge       tickets are EARNED, not recharged (user decision) -- there is no recharge
+#   Runs per Player       was derived from the recharge; runs now come from the ticket budget
+# Cash-Out Variant STAYS: it is a real design switch in the deck (A p9/p19, B p23) and the engine
+# reads it. Default A -- bank at any successful node.
 run_rows = [
-    ('Total Stages', 60, 'in', 'How many nodes a full run has.'),
     ('Choices per Stage (default)', 4, 'in', 'How many doors are shown at a node. Min 2, max 4.'),
     ('Failure Outcomes per Stage', 1, 'in', 'Base number of Pigs. The STAGES table raises this on later tiers.'),
     ('Safe Stage Every N Stages', 5, 'in', 'Every Nth node carries no Pig at all.'),
     ('Major Milestone Stage', 30, 'in', 'A safe node with a large bundle.'),
     ('Aspirational Milestone Stage', 60, 'in', 'The final node. Reaching it auto claims everything.'),
     ('Reward Tier Size (stages)', 10, 'in', 'Only used to label the Tier column.'),
-    ('Tickets per Run', 1, 'in', 'Tickets spent to start one run.'),
-    ('Ticket Recharge (hours)', LAD['recharge_hours'], 'in',
-     'Hours for ONE ticket to come back. 12 means two free runs a day.'),
-    ('Starting Tickets', LAD['start_tickets'], 'in', 'Tickets the player already holds when the event opens.'),
-    ('Empty Outcomes Enabled', 'FALSE', 'in', 'If TRUE, some doors pay nothing without ending the run.'),
+    ('Starting Tickets', LAD['start_tickets'], 'in',
+     'Tickets the player already holds when the event opens. Everything after this is EARNED.'),
     ('Cash-Out Variant', 'A', 'in', 'A: bank at any node. B: bank only on safe nodes.'),
-    ('Event Duration (days)', 3, 'in', 'How long one instance runs.'),
+    ('Event Duration (days)', 3, 'in', 'Length of ONE instance. The event is always-on today: '
+                                       'cal_new row 22 is a single merged 33-day lane.'),
 ]
 for name, val, kind, meaning in run_rows:
     ws.cell(r, 1, name).font = ARIAL(size=10)
@@ -162,23 +168,24 @@ for name, val, kind, meaning in run_rows:
     ws.cell(r, 3, meaning).font = ARIAL(size=9, italic=True, color='FF666666')
     RUN[name] = '$B$%d' % r
     r += 1
-# Runs per player is now DERIVED from the recharge rate instead of being a hand typed unknown.
-ws.cell(r, 1, 'Runs per Player per Instance').font = ARIAL(size=10, bold=True)
-put(r, 2, '=IF({rec}<=0,{st},{st}+({dur}*24)/{rec})'.format(
-    rec=RUN['Ticket Recharge (hours)'], st=RUN['Starting Tickets'],
-    dur=RUN['Event Duration (days)']), 'out', '0.0')
-ws.cell(r, 3, 'DERIVED: starting tickets plus one per recharge period over the event. '
-              'The whole faucet scales linearly with this.').font = ARIAL(size=9, italic=True,
-                                                                          color='FF666666')
-RUN['Runs per Player per Instance'] = '$B$%d' % r
+# 'Runs per Player per Instance' was removed with the recharge it derived from. Runs are no longer
+# a config number at all: the engine walks the calendar day by day, banks whatever ToF_Ticket the
+# other sources paid that day, and spends up to 'Runs per Active Day'. Read the answer off
+# ECOGAINS_TOF(payer,"RUN") below rather than typing one here.
 RUNS_ROW = r
-r += 2
+r += 1
 
 # ---------------------------------------------------------------- SEGMENT BEHAVIOUR
-SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+']
-bar(r, 'SEGMENT BEHAVIOUR', 6); r += 1
+# MAX is not a real engagement segment: it is the ceiling case -- a player with effectively
+# unlimited tickets and coins who never voluntarily stops. It exists to price the deep ladder, which
+# no real segment reaches (the deepest measured cash-out is stage 20, and 80% of the ladder's value
+# sits on stages 30 and 60). Cash-Out Stage 0 means "never cash out", which the engine already reads
+# as "run to the last stage".
+SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+', 'MAX']
+bar(r, 'SEGMENT BEHAVIOUR', 7); r += 1
 hdr(r, ['Segment', 'Continue Take-Up', 'Cash-Out Stage', 'Runs per Active Day',
-        'Max Continues per Run', 'What this row says about this player type']); r += 1
+        'Max Continues per Run', 'Coin Balance override',
+        'What this row says about this player type']); r += 1
 SEG_FIRST = r
 BEH_NOTE = {
     '0-9': 'Rarely pays to revive, banks early at the first safe node.',
@@ -186,14 +193,22 @@ BEH_NOTE = {
     '20-39': 'Revives one time in five, comfortable going past the halfway safe node.',
     '40-99': 'Often revives, pushes deep because the coins are affordable.',
     '100+': 'Revives more often than not, so the Pig rarely stops the run.',
+    'MAX': 'CEILING CASE, not a real player: always revives, never banks early, and holds enough '
+           'coins that price never stops them. Shows what the deep ladder is worth to someone who '
+           'actually reaches it.',
 }
+# Runs per Active Day is a CAP, not the driver. The engine spends whatever tickets the calendar
+# paid, up to this many runs a day; 2 matches the old 12-hour recharge cadence.
+RUNS_PER_DAY = {'0-9': 2, '10-19': 2, '20-39': 2, '40-99': 2, '100+': 2, 'MAX': 99}
+MAX_BEH = {'take': 1.0, 'stop': 0, 'balance': 100000}
 for seg in SEGMENTS:
     put(r, 1, seg, 'data')
-    put(r, 2, LAD['take'][seg], 'in', '0%')
-    put(r, 3, LAD['stop'][seg], 'in')
-    put(r, 4, '=IF({rec}<=0,0,24/{rec})'.format(rec=RUN['Ticket Recharge (hours)']), 'out', '0.0')
+    put(r, 2, MAX_BEH['take'] if seg == 'MAX' else LAD['take'][seg], 'in', '0%')
+    put(r, 3, MAX_BEH['stop'] if seg == 'MAX' else LAD['stop'][seg], 'in')
+    put(r, 4, RUNS_PER_DAY[seg], 'in', '0')
     put(r, 5, 0, 'in')
-    ws.cell(r, 6, BEH_NOTE[seg]).font = ARIAL(size=9, italic=True, color='FF666666')
+    put(r, 6, MAX_BEH['balance'] if seg == 'MAX' else '', 'in', '#,##0')
+    ws.cell(r, 7, BEH_NOTE[seg]).font = ARIAL(size=9, italic=True, color='FF666666')
     r += 1
 SEG_ROW = {seg: SEG_FIRST + i for i, seg in enumerate(SEGMENTS)}
 # Column meanings, written once under the block so nobody has to guess.
@@ -202,8 +217,15 @@ for txt in [
     'It is not a retention number. At 100% the Pig never stops them and every run reaches the end.',
     'Cash-Out Stage: the node where this player voluntarily stops and banks what they have. '
     'They only get paid if they actually REACH it, because a Pig before then loses everything.',
-    'Runs per Active Day: DERIVED from Ticket Recharge, so it is the same for every segment.',
-    'Max Continues per Run: 0 means unlimited, which is the current decision.',
+    'Runs per Active Day: a CAP, not the driver. Tickets are EARNED, so the engine walks the '
+    'calendar day by day, banks whatever ToF_Ticket the other sources paid, and spends up to this '
+    'many runs. Unspent tickets carry forward with no cap.',
+    'Max Continues per Run: 0 means "as many as the CONTINUE COST LADDER has rungs" - the ladder '
+    'length is the real cap, because a rung with no price cannot be sold. A number here lowers it.',
+    'Coin Balance override: normally BLANK, and the sim reads the four hc_balance percentiles '
+    '(p25/p50/p75/p90) for this segment straight from data_econ, walking the run at each and '
+    'averaging. A number here replaces all four for this segment - which is how MAX gets a wallet '
+    'no real player has.',
 ]:
     ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
     r += 1
@@ -220,13 +242,54 @@ for txt in [
 ]:
     ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
     r += 1
+# The first four rungs are ANCHORED to real wallet percentiles from data_econ, so each one is the
+# rung a named slice of the population can still just afford. Pooled across all ten segment/payer
+# rows: p25 ~ 50 coins, p50 ~ 99, p75 ~ 258, p90 ~ 716.
+#     rung 1 cum   25  - under every segment's p25, so the FIRST continue is affordable to everyone
+#     rung 2 cum  100  - the median player
+#     rung 3 cum  260  - p75
+#     rung 4 cum  720  - p90
+# Past that the population has run out, so growth is a plain multiplier and the rungs exist for the
+# MAX case. The CAP is expressed as a rung INDEX, not a price: change the multiplier and the ceiling
+# re-derives itself instead of needing a new number invented for it.
+CONT_ANCHORED = [25, 75, 160, 460]      # percentile-anchored, authored
+CONT_MULT     = 2.5                     # growth per rung past the anchored four
+CONT_CAP_RUNG = 7                       # growth STOPS at this rung; later rungs repeat its price
+CONT_RUNGS    = 10
+for txt in [
+    'The first four rungs are priced against real wallets (data_econ hc_balance): rung 1 sits under '
+    'every segment p25 so the first continue always feels affordable, and rungs 2-4 sit at the p50, '
+    'p75 and p90 cumulative. Rung 5 onward is where the population has run out.',
+    'Growth multiplier and "growth stops after rung" are INPUTS. The cap is a rung INDEX rather '
+    'than a price, so changing the multiplier moves the ceiling with it and no new cap has to be '
+    'invented. Rungs past the cap repeat the capped price - a revive never gets more expensive '
+    'than the cap, it just stays there.',
+]:
+    ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
+    r += 1
+ws.cell(r, 1, 'Growth multiplier (rung 5+)').font = ARIAL(size=10)
+put(r, 2, CONT_MULT, 'in', '0.0"x"'); MULT_REF = '$B$%d' % r; r += 1
+ws.cell(r, 1, 'Growth stops after rung #').font = ARIAL(size=10)
+put(r, 2, CONT_CAP_RUNG, 'in'); CAP_REF = '$B$%d' % r; r += 1
+r += 1
 hdr(r, ['Continue # in this run', 'Cost (Coins)', 'Cumulative if they revive this many times']); r += 1
 CONT_FIRST = r
-CONT_COSTS = [50, 75, 110, 165, 250, 375, 560, 840, 1260, 1890]      # roughly x1.5 each time
-for i, cost in enumerate(CONT_COSTS, start=1):
+for i in range(1, CONT_RUNGS + 1):
     put(r, 1, i, 'data')
-    put(r, 2, cost, 'in')
-    put(r, 3, '=SUM($B${a}:$B{r})'.format(a=CONT_FIRST, r=r), 'out')
+    if i <= len(CONT_ANCHORED):
+        put(r, 2, CONT_ANCHORED[i - 1], 'in')
+    else:
+        # Grow from the LAST ANCHORED rung by an exponent that stops climbing at the cap. Chaining
+        # off the row above instead (=IF(rung>cap, <capped row>, prev*mult)) makes the capped rung's
+        # own formula name its own cell, which Sheets reports as a circular reference even though
+        # the branch is never taken. This form references only fixed cells above it, and both the
+        # multiplier AND the cap rung stay live inputs.
+        #   price_i = anchor_last x mult ^ clamp(i - n_anchored, 0, cap - n_anchored)
+        anchor_row = CONT_FIRST + len(CONT_ANCHORED) - 1
+        n = len(CONT_ANCHORED)
+        put(r, 2, '=ROUND($B${ar}*{mult}^MAX(0,MIN($A{row}-{n},{cap}-{n})),0)'.format(
+            ar=anchor_row, mult=MULT_REF, row=r, n=n, cap=CAP_REF), 'out', '#,##0')
+    put(r, 3, '=SUM($B${a}:$B{r})'.format(a=CONT_FIRST, r=r), 'out', '#,##0')
     r += 1
 CONT_LAST = r - 1
 r += 1
@@ -352,7 +415,7 @@ exp_rows = [
         c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, nf=NODE_FIRST, nl=NODE_LAST, sr=SEG_ROW[s]), '0.000'),
     ('Coins spent on continues per run', lambda i, s: '=IFERROR(INDEX($C${cf}:$C${cl},'
         'MIN({n},MAX(1,ROUND({c}{er},0)))),0)*{c}{er}/MAX({c}{er},1)'.format(
-        cf=CONT_FIRST, cl=CONT_LAST, n=len(CONT_COSTS), c=CL(2 + i), er=EXP_FIRST + 5), '0.0'),
+        cf=CONT_FIRST, cl=CONT_LAST, n=CONT_RUNGS, c=CL(2 + i), er=EXP_FIRST + 5), '0.0'),
     ('Stage reached at percentile', lambda i, s: '=MIN({t},COUNTIF({c}{a}:{c}{b},"<"&$AI$2)+1)'.format(
         t=TOTAL_STAGES, c=SC(i, 3), a=PRG_FIRST, b=PRG_LAST), '0'),
 ]
@@ -413,10 +476,10 @@ ws.column_dimensions['C'].width = 18.0
 for c in range(4, 4 + len(REWARD_COLS) + 30):
     ws.column_dimensions[CL(c)].width = 12.0
 
-out = os.path.join(DISPLAY, 'MD_v2.xlsx')
+out = os.path.join(DISPLAY, 'ToF_v1.xlsx')
 wb.save(out)
-print('written MD_v2.xlsx  (sheet "MD")')
-print('  RUN CONFIG        rows %d..%d   (runs/instance derived on row %d)' % (RUN_FIRST, RUNS_ROW, RUNS_ROW))
+print('written ToF_v1.xlsx  (sheet "ToF")')
+print('  RUN CONFIG        rows %d..%d' % (RUN_FIRST, RUNS_ROW))
 print('  SEGMENT BEHAVIOUR rows %d..%d' % (SEG_FIRST, SEG_FIRST + len(SEGMENTS) - 1))
 print('  CONTINUE COSTS    rows %d..%d   (INPUT, above the SIM PART divider)' % (CONT_FIRST, CONT_LAST))
 print('  STAGES            rows %d..%d' % (NODE_FIRST, NODE_LAST))

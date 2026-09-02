@@ -1113,6 +1113,18 @@ function mdBlock_(v, label){
   }
   return -1;
 }
+// The HEADER row of a block, found by the label its first column carries. Blocks carry a variable
+// number of explanatory note rows between the bar and the header -- STAGES has three, CONTINUE COST
+// has two notes plus two input rows -- so any fixed offset from the bar reads a note as the header
+// and the whole block comes back empty. That is how the regenerated sheet first read as "no stage
+// ladder at all": bar+1 landed on prose.
+function mdHeaderRow_(v, barRow, firstColLabel){
+  for (var r = barRow + 1; r < v.length && r < barRow + 25; r++){
+    var a = String((v[r] || [])[0] == null ? '' : v[r][0]).trim();
+    if (a.indexOf(firstColLabel) === 0) return r;
+  }
+  return -1;
+}
 // label -> value from a two-column parameter block (RUN CONFIG).
 function mdParam_(v, r0, label){
   for (var r = r0 + 1; r < v.length; r++){
@@ -1144,7 +1156,9 @@ function tofConfig_(){
   // ---- stage ladder ----
   var sb = mdBlock_(v, 'STAGES');
   if (sb < 0) return (_tofCfgCache = false);
-  var hdr = sb + 1, cols = {}, c;
+  var hdr = mdHeaderRow_(v, sb, 'Stage');
+  if (hdr < 0) return (_tofCfgCache = false);
+  var cols = {}, c;
   for (c = 0; c < (v[hdr] || []).length; c++){
     var h = String(v[hdr][c] == null ? '' : v[hdr][c]).trim();
     if (h) cols[h] = c;
@@ -1167,13 +1181,26 @@ function tofConfig_(){
   cfg.stages = stages;
 
   // ---- continue cost ladder (the rung prices ARE the cap: no price, no continue) ----
+  // Find the ladder's HEADER row by its label rather than assuming a fixed offset from the bar: the
+  // block carries a variable number of note rows and now two input rows (growth multiplier, growth
+  // cap rung) between the two. An offset would have silently read the notes as rungs.
   var cc = mdBlock_(v, 'CONTINUE COST');
   cfg.costs = [];
+  cfg.costRowsExpected = 0;
   if (cc >= 0){
-    for (var r2 = cc + 2; r2 < v.length; r2++){
-      var cost = num(v[r2] && v[r2][1]);
-      if (!(num(v[r2] && v[r2][0]) > 0) || !(cost > 0)) break;
-      cfg.costs.push(cost);
+    var ch = mdHeaderRow_(v, cc, 'Continue #');
+    if (ch >= 0){
+      for (var r2 = ch + 1; r2 < v.length; r2++){
+        if (!(num(v[r2] && v[r2][0]) > 0)) break;        // ladder ends at the first non-rung row
+        cfg.costRowsExpected++;
+        var cost = num(v[r2][1]);
+        // A rung whose price is a FORMULA with no cached value reads 0 offline (Sheets-native
+        // formulas do not survive an openpyxl round trip). Stop rather than treat it as free: a
+        // 0-cost continue would be bought by everyone, forever. The count above lets the harness
+        // report the truncation instead of it passing unnoticed.
+        if (!(cost > 0)) break;
+        cfg.costs.push(cost);
+      }
     }
   }
 
@@ -1181,20 +1208,30 @@ function tofConfig_(){
   var sbh = mdBlock_(v, 'SEGMENT BEHAVIOUR');
   cfg.beh = {};
   if (sbh >= 0){
-    var bh = sbh + 1, bc = {};
+    var bh = mdHeaderRow_(v, sbh, 'Segment'), bc = {};
+    if (bh < 0) bh = sbh + 1;
     for (c = 0; c < (v[bh] || []).length; c++){
       var b = String(v[bh][c] == null ? '' : v[bh][c]).trim();
       if (b) bc[b] = c;
     }
+    // 'Continue p' was the hand-built sheet's header; the builder writes 'Continue Take-Up'. Accept
+    // either, or MAX's take-up reads 0 and the ceiling case silently never continues.
+    var contC = (bc['Continue Take-Up'] != null) ? bc['Continue Take-Up'] : bc['Continue p'];
+    var balC  = null;
+    for (var bn in bc) if (String(bn).indexOf('Coin Balance') === 0) balC = bc[bn];
     for (var r3 = bh + 1; r3 < v.length; r3++){
       var segName = String((v[r3] || [])[0] == null ? '' : v[r3][0]).trim();
       if (segName === '') break;
+      // The explanatory note rows under the block also carry text in column A with no blank row
+      // between, so "stop at the first empty cell" swallowed all five of them as segments named
+      // after their own prose. A segment row is one whose take-up cell holds a NUMBER.
+      if (contC == null || typeof v[r3][contC] !== 'number') continue;
       cfg.beh[segName] = {
-        continueP:   num(v[r3][bc['Continue p']]),
+        continueP:   num(v[r3][contC]),
         cashOut:     num(v[r3][bc['Cash-Out Stage']]),
         runsPerDay:  num(v[r3][bc['Runs per Active Day']]),
         maxContinues: (bc['Max Continues per Run'] != null) ? num(v[r3][bc['Max Continues per Run']]) : 0,
-        balance:     (bc['Coin Balance'] != null) ? num(v[r3][bc['Coin Balance']]) : 0
+        balance:     (balC != null) ? num(v[r3][balC]) : 0
       };
     }
   }
@@ -1289,8 +1326,11 @@ function tofRun_(seg, payer, ds){
   if (!cfg) return null;
   var beh = cfg.beh[seg];
   if (!beh || !(beh.continueP >= 0)) return null;
-  var bals = tofBalances_(seg, payer);
-  if (!bals.length) bals = [beh.balance > 0 ? beh.balance : 0];
+  // An authored 'Coin Balance override' REPLACES the measured percentiles for that segment -- that
+  // is the whole point of it, and it is how MAX gets a wallet no real player has. Blank (0) means
+  // use data_econ, which is the normal case for the five real segments.
+  var bals = (beh.balance > 0) ? [beh.balance] : tofBalances_(seg, payer);
+  if (!bals.length) bals = [0];
   var out = { bank: {}, spend: 0, pBank: 0, byBalance: [] };
   RESOURCES.forEach(function(r){ out.bank[r] = 0; });
   bals.forEach(function(b){
@@ -1447,6 +1487,14 @@ function ECOGAINS_TOF(payer, block){
     segs.forEach(function(sg){
       var run = tofRun_(sg, p, ctx.ds);
       if (!run){ out.push([sg,0,0,0,0,0,0]); return; }
+      // MAX is a ceiling case, not an engagement segment: data_seg_beh has no row for it, so there
+      // are no activity rates to price reach with and no ticket income to bank. Its PER-RUN numbers
+      // are the point of it -- what the deep ladder is worth and what it costs to get there -- so
+      // the window columns are blank rather than a fabricated 0, which would read as "MAX earns
+      // nothing" instead of "this question does not apply to MAX".
+      var beh = ctx.ds.beh(sg, p);
+      var hasRates = num(beh.weekday_active_rate) > 0 || num(beh.weekend_active_rate) > 0;
+      if (!hasRates){ out.push([sg, '', run.pBank, run.spend, '', '', '']); return; }
       var b = tofRunBudget_(sg, p, ctx, num(run.bank[TOF_TICKET])) || {runs:0,ticketsEarned:0,ticketsLeft:0};
       out.push([sg, b.runs, run.pBank, run.spend, run.spend * b.runs,
                 b.ticketsEarned, b.ticketsLeft]);
