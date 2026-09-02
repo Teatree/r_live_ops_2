@@ -573,15 +573,20 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
                        .map(function(p){ return Math.max(1, Math.round(num(p))); })
                        .filter(function(p){ return p > 0; }) : [];
     if (!pos.length) return null;                      // no rank telemetry -> leave it to packLane_
-    var v = sheetVals_(lb.v2), cols = rewCols_(v, lb.hdr, lb.c0, lb.c1), ladder = {};
-    for (var r = lb.r0; r <= lb.r1; r++){
-      var pn = Math.round(num(v[r] && v[r][0]));
-      if (!(pn > 0)) pn = r - lb.r0 + 1;
-      ladder[pn] = rewRow_(v, r, cols);
+    var v = sheetVals_(lb.v2);
+    // The SAME ladder + rank CDF lbE_ prices E from, so the card sim's discrete draw and the gains
+    // model's expectation reconcile by construction (see lbRankDist_).
+    var rdk = lbRankDist_(lb.v2, lb, inst), ladder = rdk.ladder;
+    var rungs;
+    if (LB_RANK_MODEL === 'cdf' && rdk.dist){
+      rungs = rdk.dist.map(function(d){
+        return { label: 'rank ' + d.rank, p: d.p, packs: packsOf(ladder[d.rank] || {}) };
+      });
+    } else {
+      rungs = pos.map(function(pp){
+        return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(ladder[pp] || {}) };
+      });
     }
-    var rungs = pos.map(function(pp){
-      return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(ladder[pp] || {}) };
-    });
     var part = packParticipation_(cat, inst);
     var res = mk(part, true, rungs);    // EXCLUSIVE: one finishing rank per instance
 
@@ -686,9 +691,14 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       var use = ppos.length ? ppos
                             : (function(){ var a = []; for (var q = 1; q <= n; q++) a.push(q); return a; })();
       var suffix = ppos.length ? '' : ' (flat rank avg, no position data)';
-      var g = use.map(function(pp){
-        return { label: tag + 'rank ' + pp + suffix, p: 1 / use.length, packs: packsOf(byPos[pp] || {}) };
-      }).filter(function(x){ return x.packs; });
+      var bdist = (LB_RANK_MODEL === 'cdf' && ppos.length) ? rankDist_(pi, n) : null;   // matches packBlockE_
+      var g = bdist
+        ? bdist.map(function(d){
+            return { label: tag + 'rank ' + d.rank, p: d.p, packs: packsOf(byPos[d.rank] || {}) };
+          }).filter(function(x){ return x.packs; })
+        : use.map(function(pp){
+            return { label: tag + 'rank ' + pp + suffix, p: 1 / use.length, packs: packsOf(byPos[pp] || {}) };
+          }).filter(function(x){ return x.packs; });
       // Each BLOCK is its own exclusive draw: a Team Event participant places once on the team
       // leaderboard AND once on the contribution ladder, so both groups fire.
       if (g.length) groups.push({ exclusive: true, rungs: g });
@@ -751,7 +761,8 @@ function packProvFor_(cat, seg, payer, ctx){
                          .map(function(p){ return Math.round(num(p)); })
                          .filter(function(p){ return p > 0; }) : [];
     po.blocks.forEach(function(blk, bi){
-      packBlockE_(po.sheet, blk, ppos, prov, po.blocks.length > 1 ? 'block ' + (bi + 1) + ':' : '');
+      packBlockE_(po.sheet, blk, ppos, prov, po.blocks.length > 1 ? 'block ' + (bi + 1) + ':' : '',
+                  pinst);
     });
   }
   return prov;
@@ -786,7 +797,7 @@ var PACK_ONLY_SPECS = {
 // (same treatment as lbE_). WITHOUT rank telemetry -> a FLAT ladder average (pot / rank count):
 // the crudest pricing in the model, because it assumes every rank is equally likely.
 // Team Event has no data_event_inst rows, so it always takes the flat path — FLAGGED.
-function packBlockE_(sheetName, blk, positions, prov, blkName){
+function packBlockE_(sheetName, blk, positions, prov, blkName, inst){
   var v = sheetVals_(sheetName), cols = rewCols_(v, blk.hdr, blk.c0, blk.c1);
   var rows = [], byPos = {};
   for (var r = blk.r0; r <= blk.r1; r++){
@@ -796,6 +807,21 @@ function packBlockE_(sheetName, blk, positions, prov, blkName){
   }
   var E = zeroRow_(), res;
   var tag = blkName ? blkName + ' ' : '';
+  // Same rank CDF the LB_R_SPECS sources use — Flock Flurry has position telemetry and is a rank
+  // ladder like any other. Team Event has no data_event_inst rows at all, so it keeps the flat
+  // rank average below (still the crudest pricing in the model).
+  var bd = (LB_RANK_MODEL === 'cdf' && inst) ? rankDist_(inst, rows.length) : null;
+  if (bd){
+    bd.forEach(function(d){
+      var rew = byPos[d.rank];
+      if (!rew || !(d.p > 0)) return;
+      for (var r2 in rew){
+        E[r2] = num(E[r2]) + rew[r2] * d.p;
+        provAdd_(prov, r2, tag + 'rank ' + d.rank, rew[r2] * d.p);
+      }
+    });
+    return E;
+  }
   if (positions && positions.length){
     positions.forEach(function(p){
       var rew = byPos[p] || {};
@@ -827,7 +853,7 @@ function packOnlyRow_(cat, seg, payer, ctx){
                      .filter(function(p){ return p > 0; }) : [];
   var E = zeroRow_();
   spec.blocks.forEach(function(blk){
-    var e = packBlockE_(spec.sheet, blk, pos);
+    var e = packBlockE_(spec.sheet, blk, pos, null, '', inst);
     PACK_RES.forEach(function(r){ E[r] = num(E[r]) + num(e[r]); });
   });
   return packLane_(spec.cal, seg, payer, ctx, E, inst, cat);
@@ -925,16 +951,138 @@ function provAdd_(prov, res, label, amt){
   (prov[res] = prov[res] || []).push({ label: label, weight: amt });
 }
 
-function lbE_(sheetName, spec, positions, inst, prov){
-  var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
-  var ladder = {};
+// ============================== RANK DISTRIBUTION (2026-09-02) ==============================
+// A leaderboard used to be priced at the MEAN payout over exactly three integer ranks —
+// position_p25/p50/p75, weight 1/3 each. That is not a distribution, it is three atoms, and on a
+// top-heavy ladder it fails in both directions at once:
+//   * HARD ZERO where no quantile lands in the paying band. Flash Race pays a pack at rank 1 only;
+//     `20-39` has p25/p50/p75 = 2/3/4, so the model said that player wins none of 15 races in 33
+//     days — not "rarely", never. Same for Red/Chuck/Bomb/Level Race at `0-9` (ranks 5/10/14 vs a
+//     ladder that pays 1-3), and Bomb at `10-19`.
+//   * OVER-GRANT where one does. `40-99` Flash Race drew rank 1 with p = 1/3 on EVERY instance
+//     (~5 outright wins a season), and integer quantiles collide at the top: `100+` Red draws
+//     [1,1,2], so rank 1 carried weight 2/3.
+// Both are the same defect, so both are fixed by giving the rank axis a real CDF: piecewise-LINEAR
+// IN RANK through (0,0), (p25,.25), (p50,.5), (p75,.75), (N,1), then P(rank=k) = F(k) - F(k-1).
+//
+// Why piecewise-linear and not a fitted lognormal/beta: the anchors are all the evidence there is,
+// and a parametric fit VIOLATES them. `100+` Red has p25 = p50 = 1, i.e. at least half of that
+// segment's finishes are 1st; a lognormal least-squares fit through those points returns P(1) =
+// 0.33, contradicting a fact the data states outright. The linear CDF honours every anchor exactly
+// and assumes nothing else. It is also the conservative choice at the top, which is the direction
+// that matters here: `40-99` Flash Race rank 1 goes 0.333 -> 0.25, `100+` Red rank 1 goes 0.667 ->
+// 0.50. The zeros become small positives; the over-grants come down.
+//
+// KNOWN BIAS, flagged: real rank distributions are unimodal, so on a segment whose p25 is deep
+// (`0-9`, p25 = 5) the true density at rank 1 is below the [1, p25] average and this model reads a
+// little high there — 0.25/p25 = 0.05 per instance against a true value that is probably lower. It
+// is bounded by construction (a quarter of the mass, spread over p25 ranks) and it replaces an
+// exact 0, so the absolute error is small either way. If it reads high, that is the knob.
+//
+// N (bracket size) barely matters: it only sets where the 25% ABOVE p75 sits, which is past the end
+// of every paying ladder and contributes 0 to E. That is deliberate — it defuses a live data
+// conflict rather than depending on it. The `Race` sheet declares LBSize 10 for Red/Chuck/Bomb, but
+// data_event_inst has p75 = 16-17 for those events at `0-9`, so the sheet is stale (Level Challenge
+// declares 20 and Flash Race 7, both consistent with their p75). FLAGGED — worth a re-export.
+//
+// Set LB_RANK_MODEL = 'quantiles' to restore the old three-atom sampler; nothing else changes.
+var LB_RANK_MODEL = 'cdf';                       // 'cdf' (2026-09-02) | 'quantiles' (pre-D25)
+
+// Config-panel label scoped to ONE ladder block: the nearest match ABOVE the block's header row.
+// Race carries five `LBSize` rows, one per event, and a whole-sheet scan (readSPLabel_) collapses
+// all five onto Red's.
+function blockLabel_(sheetName, hdrRow, label){
+  var v = sheetVals_(sheetName), want = String(label).trim().toLowerCase();
+  for (var r = Math.min(hdrRow, v.length - 1); r >= 0; r--){
+    var row = v[r] || [];
+    for (var c = 0; c < row.length; c++)
+      if (String(row[c]).trim().toLowerCase() === want) return (row[c + 1] == null ? '' : row[c + 1]);
+  }
+  return null;
+}
+function lbSize_(sheetName, hdrRow){
+  var labels = ['LBSize', 'leagueGroupSize'];    // Race / Ki; TaD declares neither
+  for (var i = 0; i < labels.length; i++){
+    var raw = blockLabel_(sheetName, hdrRow, labels[i]), x = parseFloat(raw);
+    if (raw !== null && raw !== '' && isFinite(x) && x > 0) return Math.round(x);
+  }
+  return 0;                                      // -> caller falls back to the ladder's length
+}
+
+// The measured rank quantiles as CDF anchors. Integer ranks TIE at the top (`100+` Red reads
+// [1,1,2]); a discrete quantile p_q is the smallest rank with F(rank) >= q, so a tie means the mass
+// is already banked there and the HIGHEST q wins. A quantile that is absent drops with its own q
+// rather than shifting the others onto the wrong probability.
+function rankAnchors_(inst){
+  if (!inst) return [];
+  var raw = [[num(inst.position_p25), 0.25], [num(inst.position_p50), 0.50],
+             [num(inst.position_p75), 0.75]], out = [];
+  for (var i = 0; i < raw.length; i++){
+    if (!(raw[i][0] > 0)) continue;
+    var r = Math.max(1, Math.round(raw[i][0])), last = out[out.length - 1];
+    if (last && last.r === r) last.q = Math.max(last.q, raw[i][1]);
+    else out.push({ r: r, q: raw[i][1] });
+  }
+  return out;
+}
+
+// [{rank, p}] over ranks 1..N, or null with no rank telemetry.
+function rankDist_(inst, nMax){
+  var a = rankAnchors_(inst);
+  if (!a.length) return null;
+  var N = Math.max(num(nMax) || 0, a[a.length - 1].r + 1);   // N > p75, or the tail has nowhere to go
+  var pts = [{ r: 0, q: 0 }].concat(a);
+  if (pts[pts.length - 1].q < 1) pts.push({ r: N, q: 1 });
+  function F(x){
+    if (x <= 0) return 0;
+    if (x >= N) return 1;
+    for (var i = 1; i < pts.length; i++){
+      if (x <= pts[i].r){
+        var lo = pts[i - 1], hi = pts[i];
+        return (hi.r === lo.r) ? hi.q : lo.q + (hi.q - lo.q) * (x - lo.r) / (hi.r - lo.r);
+      }
+    }
+    return 1;
+  }
+  var out = [], prev = 0;
+  for (var k = 1; k <= N; k++){ var f = F(k); out.push({ rank: k, p: f - prev }); prev = f; }
+  return out;
+}
+
+// The rank ladder of one leaderboard block, keyed by finishing position.
+function lbLadder_(sheetName, spec){
+  var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1), ladder = {};
   for (var r = spec.r0; r <= spec.r1; r++){
     var pos = Math.round(num(v[r] && v[r][0]));
     if (!(pos > 0)) pos = r - spec.r0 + 1;
     ladder[pos] = rewRow_(v, r, cols);
   }
+  return ladder;
+}
+// Ladder + rank CDF for one block. SHARED by lbE_ (the gains model) and packRungs_ (the card sim)
+// so the two cannot describe different games: E = SUM_k P(k) x ladder[k] is exactly what the card
+// sim's exclusive draw pays in expectation.
+function lbRankDist_(sheetName, spec, inst){
+  var ladder = lbLadder_(sheetName, spec), maxRank = 0;
+  for (var k in ladder) if (+k > maxRank) maxRank = +k;
+  return { ladder: ladder,
+           dist: rankDist_(inst, Math.max(lbSize_(sheetName, spec.hdr), maxRank)) };
+}
+
+function lbE_(sheetName, spec, positions, inst, prov){
+  var v = sheetVals_(sheetName);
+  var rd = lbRankDist_(sheetName, spec, inst), ladder = rd.ladder;
   var E = zeroRow_();
-  if (positions.length){
+  if (LB_RANK_MODEL === 'cdf' && rd.dist){
+    rd.dist.forEach(function(d){
+      var rew = ladder[d.rank];
+      if (!rew || !(d.p > 0)) return;
+      for (var res in rew){
+        E[res] = num(E[res]) + rew[res] * d.p;
+        provAdd_(prov, res, 'rank ' + d.rank, rew[res] * d.p);
+      }
+    });
+  } else if (positions.length){
     positions.forEach(function(p){
       var rew = ladder[p] || {};
       for (var res in rew){
