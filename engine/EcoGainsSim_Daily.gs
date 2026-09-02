@@ -85,7 +85,8 @@ var DAILY_CAL_LABEL = {
   // where nothing happened". A missing map entry is silent: nothing errors, the window total is
   // still right, only the placement is wrong.
   'Season Pass (Free)':'Season Pass', 'Season Pass (Paid)':'Season Pass',
-  'Team Event':'Team Event', 'Team Race':'Team Race', 'Flock Flurry':'Flock Flurry'   // D19
+  'Team Event':'Team Event', 'Team Race':'Team Race', 'Flock Flurry':'Flock Flurry',   // D19
+  'ToF':'ToF'                       // always-on: one merged 33-day instance on cal_new row 22
 };
 
 /** @customfunction */
@@ -511,7 +512,7 @@ function daysToGrid_(days){
 // yields a blank Δ while 0 would yield a false 0.
 function netGrid_(days){
   return days.map(function(o){
-    return RESOURCES.map(function(r){ return isPackRes_(r) ? '' : num(o[r]); });
+    return RESOURCES.map(function(r){ return isGainsOnlyRes_(r) ? '' : num(o[r]); });
   });
 }
 function normalize_(w){

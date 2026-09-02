@@ -748,9 +748,14 @@ console.log('\n================ NS DAY-TYPE SPLIT GATES (D23) ================')
 // Data-aware by design: tiers/ratios are recomputed through the engine's own functions, never
 // hardcoded (40-99 NONPAYER sits only ~1.65 pts above a tier edge — a re-pull could move it).
 console.log('\n================ SPT GATES ================');
-gate('spill width == 19 resources (13 + 6 pack tiers, D19)',
-     baseline[0].length === RESOURCES.length && RESOURCES.length === 19,
-     'got ' + baseline[0].length);
+// Was `RESOURCES.length === 19`, which froze the resource count and went red the moment
+// ToF_Ticket was appended as #20 (2026-09-02) - a deliberate, correct change. What matters here is
+// that the spill is exactly as wide as the resource list; the stronger check - that those columns
+// match the DISPLAY SHEET's headers name for name - lives in _mock_cards.js, because this dump has
+// no EcoGainsSim sheet to compare against (the ECO workbook is on the 13-resource lineage).
+gate('spill width == RESOURCES.length',
+     baseline[0].length === RESOURCES.length,
+     baseline[0].length + ' columns vs ' + RESOURCES.length + ' resources');
 
 // SPT-1: SPT flows through the leaderboard machinery — Kite SPT == measured x R_SPT x T, with
 // R_SPT != 1 from the real Ki_v2 SPT ladder cut (workbook 10: pot 2960 -> 1890). Canary: a

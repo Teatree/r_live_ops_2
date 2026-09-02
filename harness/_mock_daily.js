@@ -188,13 +188,16 @@ function synthEconDaily() {
       const curnet = ECOGAINS_DAILY(payer, seg, 'ALL', 'CURNET');
       const newnet = ECOGAINS_DAILY(payer, seg, 'ALL', 'NEWNET');
       const dif = ECOGAINS_DAILY(payer, seg, 'ALL', 'DIFF');
-      // D19/8: the six PACK columns are deliberately BLANK ('') in every NET block — packs are
-      // gains-only, so a net pack position does not exist. The fixture above feeds all 19
-      // resources precisely so this stays asserted rather than assumed.
+      // D19/8: the GAINS-ONLY columns are deliberately BLANK ('') in every NET block — the six
+      // pack tiers have no spend model at all, and ToF_Ticket's spend is internal to the ToF run
+      // sim (one per run, consumed immediately), so neither has a net position. Widened from
+      // isPackRes_ to isGainsOnlyRes_ 2026-09-02: the old form asserted the ticket column carried a
+      // NUMBER, so appending the resource reddened eight gates that were all describing the pack
+      // rule correctly. The fixture feeds every resource precisely so this stays asserted.
       let eS = 0, eC = 0, eN = 0, packLeak = 0, packBlank = 0;
       for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) {
         const gain = 10 + 0.1 * (d + 1) + j, sp = 8 + 0.05 * (d + 1);
-        if (isPackRes_(RESOURCES[j])) {
+        if (isGainsOnlyRes_(RESOURCES[j])) {
           packBlank++;
           if (spend[d][j] !== '' || curnet[d][j] !== '' || newnet[d][j] !== '') packLeak++;
           continue;
@@ -206,8 +209,12 @@ function synthEconDaily() {
       check(`NET SPEND == fixture (${seg} ${payer})`, eS < 1e-9, 'max err ' + eS.toExponential(2));
       check(`NET CURNET == gain - spend (${seg} ${payer})`, eC < 1e-9, 'max err ' + eC.toExponential(2));
       check(`NET NEWNET - CURNET == DIFF (${seg} ${payer})`, eN < 1e-9, 'max err ' + eN.toExponential(2));
-      check(`NET pack columns blank, never 0 (${seg} ${payer})`, packLeak === 0 && packBlank === 33 * 6,
-        `${packLeak} numeric of ${packBlank} pack cells`);
+      // 33 * however many gains-only resources there are - was a frozen `33 * 6`, which counted
+      // the pack tiers and nothing else, so appending ToF_Ticket made the expected total wrong.
+      const nGainsOnly = RESOURCES.filter(isGainsOnlyRes_).length;
+      check(`NET gains-only columns blank, never 0 (${seg} ${payer})`,
+        packLeak === 0 && packBlank === 33 * nGainsOnly,
+        `${packLeak} numeric of ${packBlank} cells (${nGainsOnly} gains-only resources x 33 days)`);
     }
   }
   // blank-unless-ALL: spend is game-wide, single-source views must stay blank

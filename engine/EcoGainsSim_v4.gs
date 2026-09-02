@@ -111,11 +111,23 @@ var CAL_CUR = 'cal_curr', CAL_NEW = 'cal_new';
 // (bottom-up, cal_new). Consequence: the DIFF column for packs equals the simulated value.
 var RESOURCES = ['HC','Slingshot','Shuffle','Comet','Red','Chuck','Bomb',
                  'UL Bomb','UL Chuck','UL Red','Unlimited Lives','SPT','SPTx2',
-                 '1-star Pack','2-star Pack','3-star Pack','4-star Pack','5-star Pack','6-star Pack'];
+                 '1-star Pack','2-star Pack','3-star Pack','4-star Pack','5-star Pack','6-star Pack',
+                 'ToF_Ticket'];
 
 // The pack slice of RESOURCES, in tier order. Everything pack-specific keys off this.
 var PACK_RES = ['1-star Pack','2-star Pack','3-star Pack','4-star Pack','5-star Pack','6-star Pack'];
 function isPackRes_(r){ return PACK_RES.indexOf(r) !== -1; }
+
+// Mighty Doors / Tower of Fortune entry currency (resource 20, appended 2026-09-02). Like the six
+// pack tiers it has NO measured anchor - data_gains emits no ToF_Ticket rows - so every ticket
+// number is priced bottom-up on cal_new by the same pack lane.
+var TOF_TICKET = 'ToF_Ticket';
+// Resources with a gain model but no SPEND telemetry, so their NET cell is blank rather than a
+// number. Packs have no spend at all; tickets ARE spent (one per run) but the spend is internal to
+// the ToF sim -- players consume them immediately, so a net cell could only ever restate 0. Blank
+// says "no net position exists here", which is the honest reading; the sheet's net-delta formulas
+// IFERROR it to blank, whereas a literal 0 would read as a real, measured zero.
+function isGainsOnlyRes_(r){ return isPackRes_(r) || r === TOF_TICKET; }
 
 // Sheet row order. THIS LIST IS THE SPILL, POSITION BY POSITION: ECOGAINS_SIM returns one row per
 // entry, in order, and the sheet's column-B labels are static text that is never checked against it.
@@ -130,6 +142,11 @@ var CATEGORY_ORDER = [
   'Flock Flurry','Hatchling Hideaway','Jigsaw','Kite Festival','Level Race','Other','Photoshoot',
   'Red Challenge','River Rush','Saga','Season Pass (Free)','Season Pass (Paid)','Target Day',
   'Team Event','Team Race','Flash Race','FlowerCoop','Rainbow Maker','IAPs',
+  // 'ToF' sits between IAPs and Col - Sets because that is where the EcoGainsSim sheet puts its
+  // label (row 34). Until it was added here the spill was 28 rows against 29 labels and the last
+  // three were all wrong: ToF showed Col - Sets' numbers, Col - Sets showed Col - Albums', and
+  // Col - Albums was blank. Nothing errored - exactly the 2026-08-21 failure described above.
+  'ToF',
   'Col - Sets','Col - Albums'
 ];
 
@@ -172,7 +189,11 @@ var RES_MAP = {'Coins':'HC','HC Reward':'HC','Red':'Red','Chuck':'Chuck','Bomb':
                'Unlimited Chuck':'UL Chuck','Unlimited Bomb':'UL Bomb',
                'SPT':'SPT','SPT x2':'SPTx2',   // config sheets write 'SPT x2' with a space
                '1-star Dly':'1-star Pack','2-star Dly':'2-star Pack','3-star Dly':'3-star Pack',
-               '4-star Dly':'4-star Pack','5-star Dly':'5-star Pack','6-star Dly':'6-star Pack'};
+               '4-star Dly':'4-star Pack','5-star Dly':'5-star Pack','6-star Dly':'6-star Pack',
+               // ToF tickets are authored under their own name (no 'Dly' suffix) on every config
+               // sheet. Without this entry rewCols_ skips the column and every ticket a designer
+               // types reads 0 - silently, and indistinguishably from "none authored yet".
+               'ToF_Ticket':'ToF_Ticket'};
 
 // category -> calendar row label, for ECOGAINS_CAL_STATS (keep in sync with the per-source sim
 // wiring above and with DAILY_CAL_LABEL in EcoGainsSim_Daily.gs). Categories not listed have no
@@ -185,7 +206,8 @@ var CAL_LABEL = {
   'Jigsaw':'Jigsaw Puzzle', 'Photoshoot':'Photoshoot', 'Rainbow Maker':'Rainbow Maker',
   'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky',
   'Season Pass (Free)':'Season Pass',   // season-long lane; T from cadence x reach, D pinned 1
-  'Flock Flurry':'Flock Flurry'   // carried in the sim, but scheduled — stats show its cadence
+  'Flock Flurry':'Flock Flurry',   // carried in the sim, but scheduled — stats show its cadence
+  'ToF':'ToF'                      // one merged 33-day instance: the event is always-on
 };
 
 // ============================== CUSTOM FUNCTIONS =============================================

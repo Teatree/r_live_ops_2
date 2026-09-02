@@ -195,6 +195,58 @@ const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\
     !/EcoPackGains|PlayerBehavior/.test(stripComments(cardSrc)));
 }
 
+// ------------------------------------------- 0b. the spill vs the display sheet (2026-09-02)
+// The engine writes CATEGORY_ORDER rows x RESOURCES columns into a block whose row labels and
+// column headers are STATIC TEXT that nothing validates. Add a resource or a source on one side
+// only and every row/column after it silently shifts onto its neighbour: no error, no blank, just
+// wrong numbers under right labels. It has now happened twice — 2026-08-21 with three added
+// category rows, and 2026-09-02 when ToF_Ticket and the ToF source were authored in the workbook
+// before the engine knew about them (ToF showed Col - Sets' numbers, Col - Sets showed
+// Col - Albums', Col - Albums went blank).
+//
+// This lives HERE rather than in _mock_run.js because it needs the display sheet, and the ECO dump
+// _mock_run reads does not carry one — it skips its alignment check entirely. The collections dump
+// does, and it is the workbook of record for this work.
+{
+  const egv = (data['EcoGainsSim'] || {}).values || [];
+  let hdrRow = -1, resC = -1, labC = -1;
+  for (let r = 0; r < egv.length && hdrRow < 0; r++) {
+    const row = egv[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      if (String(row[c]).trim() === 'HC') { hdrRow = r; resC = c; break; }
+    }
+    if (hdrRow >= 0)
+      for (let c = 0; c < resC; c++)
+        if (String(row[c]).trim() === 'Source') labC = c;
+  }
+  const sheetRes = [];
+  for (let c = resC; hdrRow >= 0 && c < egv[hdrRow].length; c++) {
+    const h = String(egv[hdrRow][c]).trim();
+    if (h === '') break;
+    sheetRes.push(h);
+  }
+  const firstBad = sheetRes.findIndex((h, i) => h !== RESOURCES[i]);
+  check('EcoGainsSim header block == RESOURCES, name for name',
+    hdrRow >= 0 && sheetRes.length === RESOURCES.length && firstBad === -1,
+    hdrRow < 0 ? 'no header row found'
+      : `${sheetRes.length} sheet vs ${RESOURCES.length} engine` +
+        (firstBad === -1 ? '' : ` — first mismatch at ${firstBad}: sheet "${sheetRes[firstBad]}"` +
+                                ` vs engine "${RESOURCES[firstBad]}"`));
+
+  const labels = [];
+  for (let r = hdrRow + 1; hdrRow >= 0 && labC >= 0 && r < egv.length; r++) {
+    const v = String((egv[r] || [])[labC] || '').trim();
+    if (v === '') break;
+    labels.push(v);
+  }
+  const badCat = labels.findIndex((l, i) => l !== CATEGORY_ORDER[i]);
+  check('EcoGainsSim source labels == CATEGORY_ORDER, row for row',
+    labels.length === CATEGORY_ORDER.length && badCat === -1,
+    `${labels.length} sheet vs ${CATEGORY_ORDER.length} engine` +
+    (badCat === -1 ? '' : ` — first mismatch at row ${hdrRow + 2 + badCat}: sheet "${labels[badCat]}"` +
+                          ` vs engine "${CATEGORY_ORDER[badCat]}"`));
+}
+
 // ---------------------------------------------------------------- 1. PackConfig reader
 let cfg;
 {
