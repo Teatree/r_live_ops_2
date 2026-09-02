@@ -461,20 +461,107 @@ function rewardR_(cat, seg, payer, ds){
   return R;
 }
 
-// expected ladder payout per resource at the measured rank quantiles (leaderboards).
+// ============================== RANK DISTRIBUTION (2026-09-02) ==============================
+// Ported from engine/EcoGainsSim_v4.gs — this is a NON-pack change, so it belongs in both copies.
+// See that file for the full rationale. In short: a leaderboard used to be priced at the mean
+// payout over exactly three integer ranks (position_p25/p50/p75, weight 1/3 each), which is not a
+// distribution. On a top-heavy ladder that produced a HARD ZERO wherever no quantile landed in the
+// paying band, and an OVER-GRANT wherever one did (integer quantiles collide at the top: `100+`
+// Red reads [1,1,2], so rank 1 carried weight 2/3). Both are the same defect.
+//
+// The rank axis is now a piecewise-LINEAR CDF through (0,0), (p25,.25), (p50,.5), (p75,.75), (N,1),
+// with P(rank=k) = F(k) - F(k-1). A parametric fit was rejected because it violates the anchors:
+// `100+` Red has p25 = p50 = 1, so at least half that segment's finishes are 1st, yet a lognormal
+// least-squares through those points returns P(1) = 0.33.
+//
+// Here the consequence is confined to R = E_v2/E_base, and it UN-HIDES config edits the carry rule
+// was swallowing: with E_base = E_v2 = 0 at `0-9`, TaD_v2's halved LB coin ladder read R = 1.
+//
+// N (bracket size) barely matters — it only places the 25% above p75, which is past the end of
+// every paying ladder. FLAGGED: `Race` declares LBSize 10 for Red/Chuck/Bomb while data_event_inst
+// has p75 = 16-17 at `0-9`, so that panel is stale (Level Challenge 20 and Flash Race 7 agree with
+// their p75). Set LB_RANK_MODEL = 'quantiles' to restore the old three-atom sampler.
+var LB_RANK_MODEL = 'cdf';                       // 'cdf' (2026-09-02) | 'quantiles' (pre-D25)
+
+// Config-panel label scoped to ONE ladder block: nearest match ABOVE the block's header row. Race
+// carries five `LBSize` rows, one per event, and a whole-sheet scan collapses all five onto Red's.
+function blockLabel_(sheetName, hdrRow, label){
+  var v = sheetVals_(sheetName), want = String(label).trim().toLowerCase();
+  for (var r = Math.min(hdrRow, v.length - 1); r >= 0; r--){
+    var row = v[r] || [];
+    for (var c = 0; c < row.length; c++)
+      if (String(row[c]).trim().toLowerCase() === want) return (row[c + 1] == null ? '' : row[c + 1]);
+  }
+  return null;
+}
+function lbSize_(sheetName, hdrRow){
+  var labels = ['LBSize', 'leagueGroupSize'];    // Race / Ki; TaD declares neither
+  for (var i = 0; i < labels.length; i++){
+    var raw = blockLabel_(sheetName, hdrRow, labels[i]), x = parseFloat(raw);
+    if (raw !== null && raw !== '' && isFinite(x) && x > 0) return Math.round(x);
+  }
+  return 0;                                      // -> caller falls back to the ladder's length
+}
+// Integer ranks TIE at the top; a discrete quantile p_q is the smallest rank with F(rank) >= q, so
+// a tie means the mass is already banked there and the HIGHEST q wins. An absent quantile drops
+// with its own q rather than shifting the others onto the wrong probability.
+function rankAnchors_(inst){
+  if (!inst) return [];
+  var raw = [[num(inst.position_p25), 0.25], [num(inst.position_p50), 0.50],
+             [num(inst.position_p75), 0.75]], out = [];
+  for (var i = 0; i < raw.length; i++){
+    if (!(raw[i][0] > 0)) continue;
+    var r = Math.max(1, Math.round(raw[i][0])), last = out[out.length - 1];
+    if (last && last.r === r) last.q = Math.max(last.q, raw[i][1]);
+    else out.push({ r: r, q: raw[i][1] });
+  }
+  return out;
+}
+function rankDist_(inst, nMax){
+  var a = rankAnchors_(inst);
+  if (!a.length) return null;
+  var N = Math.max(num(nMax) || 0, a[a.length - 1].r + 1);   // N > p75, or the tail has nowhere to go
+  var pts = [{ r: 0, q: 0 }].concat(a);
+  if (pts[pts.length - 1].q < 1) pts.push({ r: N, q: 1 });
+  function F(x){
+    if (x <= 0) return 0;
+    if (x >= N) return 1;
+    for (var i = 1; i < pts.length; i++){
+      if (x <= pts[i].r){
+        var lo = pts[i - 1], hi = pts[i];
+        return (hi.r === lo.r) ? hi.q : lo.q + (hi.q - lo.q) * (x - lo.r) / (hi.r - lo.r);
+      }
+    }
+    return 1;
+  }
+  var out = [], prev = 0;
+  for (var k = 1; k <= N; k++){ var f = F(k); out.push({ rank: k, p: f - prev }); prev = f; }
+  return out;
+}
+
+// expected ladder payout per resource over the measured rank DISTRIBUTION (leaderboards).
 // Ladder rows are position-ordered; a missing/0 pos cell falls back to the ordinal (Ki_v2's
 // formula-numbered rows). Positions past the ladder pay nothing. No positions -> pot total
 // (both sides get the same treatment, so the ratio degrades to the pot ratio).
 function lbE_(sheetName, spec, positions, inst){
   var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
-  var ladder = {};
+  var ladder = {}, maxRank = 0;
   for (var r = spec.r0; r <= spec.r1; r++){
     var pos = Math.round(num(v[r] && v[r][0]));
     if (!(pos > 0)) pos = r - spec.r0 + 1;
     ladder[pos] = rewRow_(v, r, cols);
+    if (pos > maxRank) maxRank = pos;
   }
   var E = zeroRow_();
-  if (positions.length){
+  var dist = (LB_RANK_MODEL === 'cdf')
+             ? rankDist_(inst, Math.max(lbSize_(sheetName, spec.hdr), maxRank)) : null;
+  if (dist){
+    dist.forEach(function(d){
+      var rew = ladder[d.rank];
+      if (!rew || !(d.p > 0)) return;
+      for (var res0 in rew) E[res0] = num(E[res0]) + rew[res0] * d.p;
+    });
+  } else if (positions.length){
     positions.forEach(function(p){
       var rew = ladder[p] || {};
       for (var res in rew) E[res] = num(E[res]) + rew[res] / positions.length;
