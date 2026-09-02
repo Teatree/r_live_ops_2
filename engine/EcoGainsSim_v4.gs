@@ -1465,14 +1465,18 @@ function simToF(seg, payer, ctx, cat){
 // segment, unreadable and a second source of truth for rules that already exist here. So MD stays
 // what every other config sheet is: authored inputs, with the SIM blocks spilled by the engine.
 //
-//   =ECOGAINS_TOF(payer, "RUN")        one row per segment: runs, P(bank), spend, tickets
-//   =ECOGAINS_TOF(payer, "REWARD")     banked reward per run, one row per resource
-//   =ECOGAINS_TOF(payer, "GAINSPEND")  per stage: cumulative gain (raw and expected) vs spend
+//   =ECOGAINS_TOF(payer, "RUN",       sim_refresh!$A$1)   runs, P(bank), spend, tickets per segment
+//   =ECOGAINS_TOF(payer, "REWARD",    sim_refresh!$A$1)   banked reward per run, per resource
+//   =ECOGAINS_TOF(payer, "GAINSPEND", sim_refresh!$A$1)   per stage: gain (raw and expected) vs spend
+//
+// The trailing argument is the refresh NONCE every ECOGAINS_* formula carries. Google only re-runs
+// a custom function when its ARGUMENTS change, so without it an edit to the ToF ladder would leave
+// a stale spill on the sheet. It is read by nothing.
 //
 // The segment columns are whatever SEGMENT BEHAVIOUR authors, so adding the MAX player there adds
 // a column here with no code change.
 /** @customfunction */
-function ECOGAINS_TOF(payer, block){
+function ECOGAINS_TOF(payer, block, nonce){
   var p = String(payer || 'NONPAYER').trim();
   var blk = String(block || 'RUN').trim().toUpperCase();
   var cfg = tofConfig_();
@@ -3115,7 +3119,10 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   // NET inputs: data_econ_daily feeds ECOGAINS_DAILY's NET blocks (live custom function);
   // data_econ only feeds the menu-run Sim per Segment fill — watching it is harmless, but an edit
   // there still needs menu > Fill Sim per Segment to re-run.
-  'data_econ','data_econ_daily'];
+  'data_econ','data_econ_daily',
+  // ToF reads its own config sheet, the coin-price table and the wallet percentiles; an edit to
+  // any of them has to re-run the spill like any other config edit.
+  'ToF','MD','item_vals'];
 
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){

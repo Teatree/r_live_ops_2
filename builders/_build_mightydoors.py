@@ -346,129 +346,69 @@ ws.conditional_formatting.add(
 r = NODE_LAST + 2
 
 # ================================================================ SIM PART
-bar(r, 'SIM PART', 12); r += 1
 
-# ---------------------------------------------------------------- PER-SEGMENT PROGRESSION
-SEG_SUB = ['Survive (w/ cont.)', 'Reach p', 'P(end here)', 'Cum P(ended)']
-SEG_C0 = 2
-bar(r, 'PER-SEGMENT PROGRESSION', 1 + len(SEGMENTS) * len(SEG_SUB)); r += 1
+# ---------------------------------------------------------------- SIM PART (engine spills)
+# Everything below is SPILLED BY THE ENGINE, not computed in formulas.
+#
+# It used to be four formula blocks -- PER-SEGMENT PROGRESSION, RUN EXPECTATION, CUMULATIVE REWARD
+# and PLAYER REACH SIMULATION -- carrying a survival recursion in ~2,000 cells. They were removed
+# 2026-09-02 because they had become a SECOND, DISAGREEING model: they blend survive-and-revive into
+# one number, which cannot price a continue ladder whose rungs escalate (it never knows which rung
+# you are on), cannot see the player's wallet, and cannot express the payer top-up. The engine walks
+# (stage, continues used, top-ups used) at four wallet percentiles and averages. Two models on one
+# sheet is the bug we keep re-finding, so there is now one.
+bar(r, 'SIM PART  —  spilled by ECOGAINS_TOF, do not type here', 12); r += 1
 for txt in [
-    'Survive (w/ cont.): chance this player gets past this node once you allow for them paying to '
-    'revive. Higher than the raw odds, because a revive turns a Pig into a guaranteed reward.',
-    'Reach p: chance they ever arrive at this node at all, having survived every node before it '
-    'and not banked early.',
-    'P(end here): chance their run finishes at this node, either because they banked or because a '
-    'Pig got them and they refused to pay.',
-    'Cum P(ended): running total of the column to its left, so it climbs to 1.0 by the last node. '
-    'The reach simulation reads this to find the typical stopping point.',
+    'Everything below is written by the engine. The yellow cells above are the only inputs.',
+    'Payer picks which flag the three blocks are computed for. The trailing sim_refresh!$A$1 in each '
+    'formula is the refresh nonce: Google only re-runs a custom function when its ARGUMENTS change, '
+    'so without it an edit to the ladder above would leave a stale spill sitting here.',
 ]:
     ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
     r += 1
-hdr(r, ['Stage'])
-for i, seg in enumerate(SEGMENTS):
-    for j, lbl in enumerate(SEG_SUB):
-        cell = ws.cell(r, SEG_C0 + i * len(SEG_SUB) + j, seg + ' ' + lbl)
-        cell.font = ARIAL(size=9, bold=True); cell.fill = fill(F_HDR); cell.border = BOX
-        cell.alignment = Alignment(horizontal='center', wrap_text=True, vertical='center')
-r += 1
-PRG_FIRST = r
-for st in range(1, TOTAL_STAGES + 1):
-    row = PRG_FIRST + st - 1
-    nrow = NODE_FIRST + st - 1
-    put(row, 1, '=$A{n}'.format(n=nrow), 'data')
-    for i, seg in enumerate(SEGMENTS):
-        c0 = SEG_C0 + i * len(SEG_SUB)
-        C = lambda k: CL(c0 + k)
-        take, stop = '$B$%d' % SEG_ROW[seg], '$C$%d' % SEG_ROW[seg]
-        put(row, c0 + 0, '=$H{n}+(1-$H{n})*{t}'.format(n=nrow, t=take), 'out', '0.0%')
-        if st == 1:
-            put(row, c0 + 1, 1, 'out', '0.000%')
-        else:
-            p = row - 1
-            put(row, c0 + 1, '={c1}{p}*{c0}{p}*IF(AND({s}>0,$A{p}>={s}),0,1)'.format(
-                c1=C(1), c0=C(0), p=p, s=stop), 'out', '0.000%')
-        put(row, c0 + 2, ('={c1}{r}*(IF(AND({s}>0,$A{r}>={s}),{c0}{r},0)+(1-$H{n})*(1-{t}))').format(
-            c1=C(1), c0=C(0), r=row, n=nrow, s=stop, t=take), 'out', '0.000%')
-        put(row, c0 + 3, '=SUM({c2}${f}:{c2}{r})'.format(c2=C(2), f=PRG_FIRST, r=row), 'out', '0.000%')
-PRG_LAST = PRG_FIRST + TOTAL_STAGES - 1
-r = PRG_LAST + 2
+ws.cell(r, 1, 'Payer').font = ARIAL(size=10, bold=True)
+put(r, 2, 'NONPAYER', 'in')
+PAYER_REF = '$B$%d' % r
+ws.cell(r, 3, 'NONPAYER or PAYER.').font = ARIAL(size=9, italic=True, color='FF666666')
+r += 2
 
-# ---------------------------------------------------------------- RUN EXPECTATION
-bar(r, 'RUN EXPECTATION BY PLAYER TYPE (derived)', 1 + len(SEGMENTS)); r += 1
-ws.cell(r, 1, 'Rewards banked in a run are LOST if a Pig ends it and the player will not pay, so '
-              'reaching a node is not the same as being paid for it.').font = ARIAL(
-    size=9, italic=True, color='FF666666'); r += 1
-hdr(r, ['Metric'] + SEGMENTS); r += 1
-EXP_FIRST = r
-SC = lambda i, k: CL(SEG_C0 + i * len(SEG_SUB) + k)
-exp_rows = [
-    ('P(reach Major Milestone)', lambda i, s: '=IFERROR(INDEX({c}{a}:{c}{b},MATCH({m},$A{a}:$A{b},0)),0)'.format(
-        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, m=RUN['Major Milestone Stage']), '0.000%'),
-    ('P(reach Final Stage)', lambda i, s: '=IFERROR(INDEX({c}{a}:{c}{b},MATCH({m},$A{a}:$A{b},0)),0)'.format(
-        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, m=RUN['Aspirational Milestone Stage']), '0.00000%'),
-    ('P(run pays NOTHING)', lambda i, s: '=SUMPRODUCT({c}{a}:{c}{b},(1-$H${nf}:$H${nl}),(1-$B${sr}))'.format(
-        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, nf=NODE_FIRST, nl=NODE_LAST, sr=SEG_ROW[s]), '0.0%'),
-    ('P(run pays ANYTHING)', lambda i, s: '=1-{c}{r}'.format(c=CL(2 + i), r=EXP_FIRST + 2), '0.0%'),
-    ('Expected stage reached', lambda i, s: '=SUM({c}{a}:{c}{b})'.format(
-        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST), '0.00'),
-    ('Expected continues per run', lambda i, s: '=SUMPRODUCT({c}{a}:{c}{b},(1-$H${nf}:$H${nl}),$B${sr})'.format(
-        c=SC(i, 1), a=PRG_FIRST, b=PRG_LAST, nf=NODE_FIRST, nl=NODE_LAST, sr=SEG_ROW[s]), '0.000'),
-    ('Coins spent on continues per run', lambda i, s: '=IFERROR(INDEX($C${cf}:$C${cl},'
-        'MIN({n},MAX(1,ROUND({c}{er},0)))),0)*{c}{er}/MAX({c}{er},1)'.format(
-        cf=CONT_FIRST, cl=CONT_LAST, n=CONT_RUNGS, c=CL(2 + i), er=EXP_FIRST + 5), '0.0'),
-    ('Stage reached at percentile', lambda i, s: '=MIN({t},COUNTIF({c}{a}:{c}{b},"<"&$AI$2)+1)'.format(
-        t=TOTAL_STAGES, c=SC(i, 3), a=PRG_FIRST, b=PRG_LAST), '0'),
-]
-for name, fn, numfmt in exp_rows:
-    ws.cell(r, 1, name).font = ARIAL(size=10, bold=True)
-    for i, seg in enumerate(SEGMENTS):
-        put(r, 2 + i, fn(i, seg), 'out', numfmt)
-    r += 1
-PCT_ROW = r - 1
-r += 1
+# A spill OWNS the rows under its anchor, so the next block has to start past them or Sheets
+# reports #REF! and writes nothing. Reserve exactly what the engine returns, plus a gap.
+def spill(title, block, notes, rows):
+    global r
+    bar(r, title, 8); r += 1
+    for t in notes:
+        ws.cell(r, 1, t).font = ARIAL(size=9, italic=True, color='FF666666')
+        r += 1
+    ws.cell(r, 1, '=ECOGAINS_TOF({p}, "{b}", sim_refresh!$A$1)'.format(p=PAYER_REF, b=block)).font =         ARIAL(size=10)
+    first = r
+    r += rows + 2
+    return first
 
-# ---------------------------------------------------------------- CUMULATIVE REWARD
-bar(r, 'CUMULATIVE REWARD AT THE REACHED STAGE (derived)', 1 + len(SEGMENTS)); r += 1
-ws.cell(r, 1, 'Everything this player type has banked by the node they stop at, counting every '
-              'node up to it.').font = ARIAL(size=9, italic=True, color='FF666666'); r += 1
-hdr(r, ['Resource'] + SEGMENTS); r += 1
-CUM_FIRST = r
-for k, res in enumerate(REWARD_COLS):
-    ws.cell(r, 1, res).font = ARIAL(size=10)
-    col = CL(NODE_C0 + k)
-    for i, seg in enumerate(SEGMENTS):
-        m = '{c}${pr}'.format(c=CL(2 + i), pr=PCT_ROW)
-        put(r, 2 + i, '=SUMPRODUCT(($A${a}:$A${b}<={m})*$I${a}:$I${b}*{c}${a}:{c}${b})'.format(
-            a=NODE_FIRST, b=NODE_LAST, m=m, c=col), 'out', '0.00')
-    r += 1
-CUM_LAST = r - 1
+RUN_SPILL = spill('RUN ECONOMICS', 'RUN', [
+    'One row per segment: runs taken in the 33-day window, the chance a run pays anything at all, '
+    'the coins spent on continues per run and across the window, and the ticket flow.',
+    'Runs are NOT a config number. The engine banks whatever ToF_Ticket the rest of the calendar '
+    'paid that day and spends it, up to Runs per Active Day, carrying leftovers forward.',
+    'MAX spills BLANK in the window columns: data_seg_beh has no MAX row, so there are no activity '
+    'rates to price reach with. Its per-run columns are the point of it.',
+], 1 + len(SEGMENTS))
+REW_SPILL = spill('BANKED REWARD PER RUN', 'REWARD', [
+    'What one run actually banks, per resource, already multiplied by the chance of banking it. '
+    'A run that meets a Pig and stops pays NOTHING, so these are well below the ladder face value.',
+], 1 + len(REWARD_COLS) + 4)   # engine spills one row per RESOURCE
+GS_SPILL = spill('GAIN VS SPEND', 'GAINSPEND', [
+    'Per stage and per segment: gain (raw) is what the ladder holds if you get there; gain (exp) '
+    'prices in the chance of getting there AND banking it; spend is the expected coins paid for '
+    'continues along the way; net is exp minus spend.',
+    'Net is in COINS, not a percentage. The ratio version reached +53,190% at stage 60 and no chart '
+    'survives that -- the crossover point is the thing this block exists to show.',
+    'Rows past a segment cash-out stage are BLANK, not zero: that player stops before them, so a '
+    'flat negative net across stages nobody plays would read as a loss that never happens.',
+    'Values come from item_vals, so SPT and boosters count -- coins alone are a small part of what '
+    'this event pays.',
+], 1 + (NODE_LAST - NODE_FIRST + 1))
 
-# ------------------------------------------- PLAYER REACH SIMULATION (AH1, house grammar)
-RS_C = 34
-ws.cell(1, RS_C, 'Player Reach Simulation (per event day) - SIMULATED').font = ARIAL(size=11, bold=True)
-ws.cell(2, RS_C, 'Percentile').font = ARIAL(size=10, bold=True)
-put(2, RS_C + 1, 0.5, 'in', '0.00')
-ws.cell(3, RS_C, 'Payer').font = ARIAL(size=10, bold=True)
-put(3, RS_C + 1, 'NONPAYER', 'in')
-rs_hdr = ['Day_of_event']
-for seg in SEGMENTS:
-    lbl = seg[:-1] if seg.endswith('+') else seg
-    rs_hdr += [lbl + '_ms', lbl + '_reward']
-for j, t in enumerate(rs_hdr):
-    c = ws.cell(4, RS_C + j, t)
-    c.font = ARIAL(size=10, bold=True); c.fill = fill(F_HDR); c.border = BOX
-    c.alignment = Alignment(horizontal='center', wrap_text=True, vertical='center')
-dur = RUN['Event Duration (days)']
-for d in range(1, 15):
-    row = 4 + d
-    put(row, RS_C, d, 'data')
-    for i, seg in enumerate(SEGMENTS):
-        put(row, RS_C + 1 + i * 2, '=IF(AND({dur}>0,$AH{r}>{dur}),"",{c}${pr})'.format(
-            dur=dur, r=row, c=CL(2 + i), pr=PCT_ROW), 'out')
-        put(row, RS_C + 2 + i * 2,
-            ('=IF({msc}{r}="","","{{"&TEXTJOIN(", ",TRUE,IF({cc}${cf}:{cc}${cl}>0,'
-             '$A${cf}:$A${cl}&": "&{cc}${cf}:{cc}${cl},""))&"}}")').format(
-                msc=CL(RS_C + 1 + i * 2), r=row, cc=CL(2 + i), cf=CUM_FIRST, cl=CUM_LAST), 'out')
 
 ws.column_dimensions['A'].width = 30.0
 ws.column_dimensions['B'].width = 20.0
@@ -483,7 +423,6 @@ print('  RUN CONFIG        rows %d..%d' % (RUN_FIRST, RUNS_ROW))
 print('  SEGMENT BEHAVIOUR rows %d..%d' % (SEG_FIRST, SEG_FIRST + len(SEGMENTS) - 1))
 print('  CONTINUE COSTS    rows %d..%d   (INPUT, above the SIM PART divider)' % (CONT_FIRST, CONT_LAST))
 print('  STAGES            rows %d..%d' % (NODE_FIRST, NODE_LAST))
-print('  PER-SEG PROGRESS  rows %d..%d' % (PRG_FIRST, PRG_LAST))
-print('  RUN EXPECTATION   rows %d..%d' % (EXP_FIRST, PCT_ROW))
-print('  CUMULATIVE REWARD rows %d..%d' % (CUM_FIRST, CUM_LAST))
-print('  REWARD POOL MAP removed (glossary, referenced by nothing)')
+print('  SIM PART          RUN row %d, REWARD row %d, GAIN VS SPEND row %d  (engine spills)'
+      % (RUN_SPILL, REW_SPILL, GS_SPILL))
+print('  the four formula sim blocks are GONE - one model, in the engine')
