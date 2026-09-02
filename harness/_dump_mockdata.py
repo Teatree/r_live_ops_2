@@ -85,6 +85,15 @@ SHEETS = [
     # Card collection (D19, 2026-08-03). TE feeds the Team Event pack overlay (PACK_ONLY_SPECS);
     # the rest feed CardOpenings.gs / _mock_cards.js. EcoPackGains and PlayerBehavior are GONE.
     'TE', 'PackConfig', 'AlbumConfig', 'CardPoolConfig', 'Col_Cards_Daily',
+    # D24 stochastic card sheets. They used to reach the dump ONLY through PENDING_IMPORT,
+    # so emptying that map (once the workbook shipped them for real) silently removed them
+    # and _mock_cloud died on `data['Col_Cards_Totals'].values` before a single gate ran.
+    # A sheet the workbook ships belongs in SHEETS; PENDING_IMPORT is only for one not
+    # imported yet.
+    'Col_Cards_Cloud', 'Col_Cards_Totals',
+    # Mighty Doors / Tower of Fortune (ToF): the authored config the run simulator reads,
+    # and the coin-equivalent price table its gain side is valued with.
+    'MD', 'item_vals',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The
@@ -104,8 +113,11 @@ SHEETS = [
 # Col_Cards_Cloud / Col_Cards_Totals are the D24 stochastic sheets: freshly built and not yet
 # imported into any workbook, so the overlay is the ONLY way the harness sees the layout the
 # engine writes into. Drop each entry once the sheet is imported.
-PENDING_IMPORT = {'Col_Cards_Cloud':  'Col_Cards_Cloud_v1.xlsx',
-                  'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
+# Both entries dropped 2026-09-02: the workbook of record now SHIPS Col_Cards_Cloud and
+# Col_Cards_Totals (imported as of workbook (4)), so leaving them here made the overlay replace the
+# real sheets - and any formulas added to them - with a builder artefact. Empty is the steady state;
+# add an entry only while a freshly built display sheet has not been imported yet.
+PENDING_IMPORT = {}
 
 
 def dump_sheet(ws):

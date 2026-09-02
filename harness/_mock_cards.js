@@ -245,9 +245,40 @@ let cfg;
   check('PackConfig: every pity row names a defined pack tier',
     pityTypos.length === 0,
     pityTypos.length ? 'unmatched: ' + pityTypos.join(', ') : Object.keys(sheetPity).length + ' rows');
+  // ROTTED 2026-09-02 and fixed by asserting the RULE. This gate was named for the ordering but
+  // actually asserted `cost[0] === 1000 && cost[2] === 250` — the prices of a workbook two exports
+  // ago. The current STAR CHEST block reads 300/100/50, which is perfectly sorted, so the gate
+  // failed on a sheet that is entirely correct. Costs are authored and will change again; the
+  // ordering is the invariant the chest sweep depends on (tryBuyChests walks the list and takes the
+  // first affordable one, so an unsorted list buys a cheap chest while a better one is affordable).
+  const sortedDesc = (list) => list.every((c, i) => i === 0 || list[i - 1].cost >= c.cost);
   check('PackConfig: chests sorted most-expensive-first',
-    cfg.chests.length === 3 && cfg.chests[0].cost === 1000 && cfg.chests[2].cost === 250,
+    cfg.chests.length >= 2 && sortedDesc(cfg.chests),
     cfg.chests.map(c => `${c.tier}@${c.cost}->${c.rewardPack}`).join(', '));
+  // ...and the reader must SORT, not merely inherit the sheet's order. Reverse the chest rows in
+  // place, re-read, and the list must come back descending again. Without this the gate above is
+  // vacuous the moment someone authors the block in ascending order.
+  {
+    const pv = data['PackConfig'].values;
+    let first = -1;
+    for (let r = 0; r < pv.length; r++)
+      if (String((pv[r] || [])[0]).trim().indexOf('STAR CHEST') === 0) { first = r; break; }
+    const body = [];                       // data rows: header row is first+1, chests follow
+    for (let r = first + 2; r < pv.length; r++) {
+      if (String((pv[r] || [])[0]).trim() === '') break;
+      if (typeof pv[r][1] === 'number' && pv[r][1] > 0) body.push(r);
+    }
+    const snap = JSON.stringify(data);
+    const rows = body.map(r => pv[r].slice());
+    for (let i = 0; i < body.length; i++) pv[body[i]] = rows[body.length - 1 - i];
+    _sheetValsCache = {};
+    const re = loadPackConfig_();
+    check('PackConfig: the chest reader SORTS (reversed sheet still reads descending)',
+      body.length >= 2 && re.chests.length === cfg.chests.length && sortedDesc(re.chests),
+      're-read: ' + re.chests.map(c => `${c.tier}@${c.cost}`).join(', '));
+    data = JSON.parse(snap); _sheetValsCache = {};
+    check('PackConfig: chest-order fixture restored', JSON.stringify(data) === snap);
+  }
   check('PackConfig: chest purchasing panel read',
     cfg.buyMinStars === 250 && cfg.buyStartDay === 14 && cfg.buyEndProb === 0.95,
     `min ${cfg.buyMinStars} start ${cfg.buyStartDay} p ${cfg.buyEndProb}`);
