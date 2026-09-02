@@ -1,6 +1,6 @@
 # Mighty Doors (Tower of Fortune) — Mechanics
 
-**Type:** push-your-luck gamble ladder (stage-by-stage survival + voluntary cash-out) | **Sim category:** `Mighty Doors` (NOT YET ADDED to `CATEGORY_ORDER`) | **Status:** DESIGN ONLY — no config sheet, no calendar lane, no `data_gains` rows, not simulated | **Config sheets:** none yet (proposed `MD` / `MD_v2`) | **Design doc:** `design_pdfs/DRBL-Mighty Doors (DB Tower of Fortune)-010926-212845.pdf` (27p, added 2026-09-01)
+**Type:** push-your-luck gamble ladder (stage-by-stage survival + voluntary cash-out) | **Sim category:** `ToF` (WIRED 2026-09-02, D28 — `CATEGORY_ORDER` index 26, `cal_new` row 22, config sheet `ToF`) (was: NOT YET ADDED to `CATEGORY_ORDER`) | **Status:** DESIGN ONLY — no config sheet, no calendar lane, no `data_gains` rows, not simulated | **Config sheets:** none yet (proposed `MD` / `MD_v2`) | **Design doc:** `design_pdfs/DRBL-Mighty Doors (DB Tower of Fortune)-010926-212845.pdf` (27p, added 2026-09-01)
 
 > **Read this first.** Every other source in this folder documents something that already ran and left
 > measured rows in `data_gains`. Mighty Doors has never shipped. Everything below is CONFIRMED from
@@ -70,7 +70,7 @@ tiers Event Tokens/Unlimited Lives, late tiers cosmetics.
 
 ## Reward pool
 
-CONFIRMED list (p7), mapped to the sim's 19 resources:
+CONFIRMED list (p7), mapped to the sim's 20 resources:
 
 | Deck reward | Sim resource | Note |
 |---|---|---|
@@ -236,7 +236,7 @@ J_v2, Ph_v2 and both RM sheets carry.
 7. **Cash-Out variant contradiction** between p19 ("should the variant remain configurable?" → "No")
    and pp.23/27 (A/B test, stays configurable). Unresolved in the deck itself.
 8. **Album Badges and Event Tickets have no sim resource.** Tickets in particular are a real economy
-   object here (they gate participation) but sit outside the 19-resource universe. Decide whether to
+   object here (they gate participation). Event Tickets became `ToF_Ticket`, resource 20, on 2026-09-02 (D28); Album Badges still sit outside the resource universe. Decide whether to
    model ticket flow at all or treat runs-per-player as the primitive.
 9. **Auto Cash-Out conversion rates** are unspecified and explicitly assigned to the Economy team —
    including the constraint that pity thresholds must not be bypassable, which implies a link to the

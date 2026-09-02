@@ -15,7 +15,7 @@ engine/pre_collection/  the PRE-COLLECTIONS variant of the engine (v4 + Daily + 
               13 resources, no card packs) — kept in sync with engine/ for everything EXCEPT the
               D19/D21 pack features; harnesses do NOT scan this folder. **The workbook of record
               (16) is the 13-resource workbook, so THIS is the copy that belongs in its Apps Script
-              project** (a 19-resource engine spills 19 columns into 13-wide blocks). Verified in
+              project** (a 20-resource engine spills 20 columns into 13-wide blocks). Verified in
               sync 2026-08-17: identical function inventory bar the 7 pack functions, and
               bit-identical output on all 2306 non-pack cells + all 257,400 non-pack daily values.
               Divergence found and closed that day: `DAILY_LASTDAY`/`DAILY_CAL_LABEL` were missing
@@ -88,6 +88,8 @@ python analysis/_extract_sinks.py        # HC sinks by action+context, continue 
 node analysis/_price_proposals.js        # prices the v3 proposals: patches config sheets in _mockdata.json, re-runs the engine over the A/B window, converts to coins per active player-day -> analysis/out/proposal_pricing.json (also NS model-vs-measured reach)
 python analysis/_build_proposals_report.py  # -> reports/LiveOps_v3_economy_playbook.html (+ artifact body)
 python builders/_build_cardcloud.py # -> display/Col_Cards_Cloud_v1.xlsx + Col_Cards_Totals_v1.xlsx (D24)
+python builders/_build_mightydoors.py # -> display/ToF_v1.xlsx, the Mighty Doors / Tower of Fortune config sheet (D28).
+                                 # Authored inputs only: the SIM blocks are ECOGAINS_TOF spills, not formulas
 python builders/_build_hc_v4.py  # rebuild a display xlsx into display/ (same pattern for the other _build_*.py)
 ```
 
@@ -170,7 +172,7 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 
 ## Conventions (strict — from HAND_OFF.md §9 and the style doc)
 
-- **HC = coins only.** The 19-resource column order is fixed (SPT/SPTx2 appended as cols 12–13 in D16; the six `1-star Pack`…`6-star Pack` tiers as cols 14–19 in D19); column changes are append-only. Builders derive every block position from `len(RES)` — never hardcode a column letter (that is what rotted `_restore_formulas.py`).
+- **HC = coins only.** The 20-resource column order is fixed (SPT/SPTx2 appended as cols 12–13 in D16; the six `1-star Pack`…`6-star Pack` tiers as cols 14–19 in D19; `ToF_Ticket` as col 20 in D28); column changes are append-only. Builders derive every block position from `len(RES)` — never hardcode a column letter (that is what rotted `_restore_formulas.py`).
 - Zero formula errors is a release gate. Real data only in cells labelled "(data)"; loudly flag every assumption.
 - Formulas reference data sheets — never bake static values into sheets or code. If a value is computable from inputs, compute it.
 - **SQL:** compose via the incremental Python generator pattern (labelled string blocks → validate → write file); separate `.sql` files, never edit SQL in place; read all referenced project files before writing SQL. Athena gotchas: cast `processdate` to INT for partition pruning; `client_events` currency amounts have a 0–9999 cap that silently zeroes large grants (derive HC from `player_daily.hc_gain`); no `COUNT(DISTINCT)` inside a window; `ARBITRARY()` is non-deterministic; Night Sky is logged as *Dream Heist*; `event_tokens` is a MAP on the level-summary view.
