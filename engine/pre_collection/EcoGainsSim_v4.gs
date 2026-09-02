@@ -481,7 +481,7 @@ function rewardR_(cat, seg, payer, ds){
 // every paying ladder. FLAGGED: `Race` declares LBSize 10 for Red/Chuck/Bomb while data_event_inst
 // has p75 = 16-17 at `0-9`, so that panel is stale (Level Challenge 20 and Flash Race 7 agree with
 // their p75). Set LB_RANK_MODEL = 'quantiles' to restore the old three-atom sampler.
-var LB_RANK_MODEL = 'cdf';                       // 'cdf' (2026-09-02) | 'quantiles' (pre-D25)
+var LB_RANK_MODEL = 'cdf';                       // 'cdf' (2026-09-02) | 'quantiles' (pre-D27)
 
 // Config-panel label scoped to ONE ladder block: nearest match ABOVE the block's header row. Race
 // carries five `LBSize` rows, one per event, and a whole-sheet scan collapses all five onto Red's.
@@ -682,6 +682,20 @@ function rewRow_(v, r, cols){
 var NS_STREAK_N = 1.25;   // effective-streak factor from the standalone NS Excel study: a player
                           // tends to land ~a second streak of similar size; absorbs streak resets.
 var NS_V2_SHEET = 'NS_v2';   // redesign config; missing sheet / missing segment row -> 'NS' (R = 1)
+
+// ---- WEEKDAY / WEEKEND Night Sky (D23, 2026-08-27) -----------------------------------------
+// The redesign runs TWO Night Skies: 'NS_v2' is the WEEKEND ladder and 'NS_v2_weekday' the
+// weekday one. A day-type is not a calendar row (cal_new carries ONE 'Night Sky' row filled on
+// all 33 days), so the two ladders fold into ONE expected-per-active-day value weighted by the
+// expected active days of each day type:
+//   E_v2[res] = (E_wd[res] x Σweekday p_day + E_we[res] x Σweekend p_day) / (both sums)
+// with isWeekend_ (Fri/Sat/Sun -> 15 of 33 days) doing the splitting. Being a weighted average of
+// two per-active-day rates it is the same kind of number nsEDay_ always returned, so R, the
+// base-0 bottom-up addition and every downstream total keep their meaning. Missing weekday sheet
+// / no block for the segment -> the blend collapses to E_v2 and the model is the D22 one.
+// See engine/EcoGainsSim_v4.gs for the full note; this copy carries no pack lane.
+var NS_V2_WEEKDAY_SHEET = 'NS_v2_weekday';
+var NS_DAYTYPE_SPLIT = true;   // false -> 'NS_v2' every day (the D22 behaviour)
 // Night Sky master switch. Kept through the D22 re-anchor as an on/off for the whole NS lane:
 //   true  (shipped) -> NS is simulated as measured x R x T in the 33-day, daily and SPS views,
 //                      and the PBP sim claims NS milestones off the side-appropriate ladder.
@@ -694,7 +708,7 @@ function simNightSky(seg, payer, ctx){
   if (!ctx.calNewOk) return meas;
   var nw = ctx.calNew['Night Sky'] || [];
   if (!nw.length) return zeroRow_();                     // removed from the new calendar
-  var E = nsE_(seg, payer, ds);
+  var E = nsE_(seg, payer, ds, ctx);   // eV2 = the weekday/weekend day-type blend (D23)
   if (!E) return meas;                                   // no ladder / no streak data -> carry
   var b = ds.beh(seg, payer);
   var T = timingRatio_(ctx.calCur['Night Sky'] || [], nw, seg, payer, ds);
@@ -712,14 +726,64 @@ function simNightSky(seg, payer, ctx){
 // Expected per-DAY payout of the NS ladder, both sides, under one survival curve.
 // Returns {eBase, eV2} or null when the segment has no streak distribution or no base ladder
 // (either way there is nothing to anchor on -> callers carry measured).
-function nsE_(seg, payer, ds){
+function nsE_(seg, payer, ds, ctx){
   var st = ds.nsStreak(seg, payer);
   var S = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
                           [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
   if (!S) return null;
   var base = readNSLadder_(seg, 'NS');
   if (!base.length) return null;
-  return { eBase: nsEDay_(base, S), eV2: nsEDay_(readNSLadder_(seg, NS_V2_SHEET), S) };
+  var we = nsEDay_(readNSLadder_(seg, NS_V2_SHEET), S);        // 'NS_v2' = the WEEKEND ladder
+  var wdLad = nsWeekdayLadder_(seg);                           // null -> no weekday variant
+  var wd = wdLad ? nsEDay_(wdLad, S) : we;
+  var sh = nsDayTypeSplit_(seg, payer, ds, ctx);
+  var eV2 = zeroRow_();
+  RESOURCES.forEach(function(r){ eV2[r] = num(wd[r]) * sh.wd + num(we[r]) * sh.we; });
+  return { eBase: nsEDay_(base, S), eV2: eV2, eV2Weekday: wd, eV2Weekend: we,
+           split: sh, hasWeekdayVariant: !!wdLad };
+}
+
+// The weekday redesign ladder for one segment, or null when there is no weekday variant.
+// Deliberately NOT readNSLadder_: that helper falls back to 'NS', which would make an absent
+// weekday sheet mean "weekdays keep the LIVE ladder" instead of "there is one redesign ladder".
+function nsWeekdayLadder_(seg){
+  if (!NS_DAYTYPE_SPLIT) return null;
+  var l = nsLadderOn_(NS_V2_WEEKDAY_SHEET, seg);
+  return l.length ? l : null;
+}
+
+// Share of the window's expected ACTIVE Night Sky days falling on weekdays vs weekend ({wd, we},
+// summing to 1), over the cal_new Night Sky slots. No calendar / no rate data -> the day COUNT
+// split of the 33-day block.
+function nsDayTypeSplit_(seg, payer, ds, ctx){
+  var b = ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }
+  try { ctx = ctx || Context.get(); } catch(e){ ctx = null; }
+  var insts = (ctx && ctx.calNewOk && ctx.calNew['Night Sky']) || null;
+  var wd = 0, we = 0;
+  if (insts && insts.length){
+    insts.forEach(function(inst){
+      ((inst && inst.days) || []).forEach(function(d){
+        if (isWeekend_(d)) we += pWe; else wd += pWd;
+      });
+    });
+  } else {
+    for (var d = 1; d <= 33; d++){ if (isWeekend_(d)) we += pWe; else wd += pWd; }
+  }
+  var tot = wd + we;
+  if (!(tot > 0)) return { wd: 1, we: 0, weekdayDays: 0, weekendDays: 0 };
+  return { wd: wd / tot, we: we / tot, weekdayDays: wd, weekendDays: we };
+}
+
+// The redesign ladder that applies on ONE cal_new day (weekend -> 'NS_v2', weekday ->
+// 'NS_v2_weekday' when that sheet has a block for the segment). Used by the PBP ledger.
+function nsLadderForDay_(seg, day){
+  if (!isWeekend_(day)){
+    var wd = nsWeekdayLadder_(seg);
+    if (wd) return wd;
+  }
+  return readNSLadder_(seg, NS_V2_SHEET);
 }
 function nsEDay_(ladder, S){
   var E = zeroRow_();
@@ -1299,7 +1363,7 @@ function onOpen(){
 
 // ---- auto-refresh (AUTO_REFRESH switch) ----
 // Every sheet the engine reads; a user edit on any of them re-touches the sim formulas.
-var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','NS','NS_v2','Race','Race_v2',
+var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','NS','NS_v2','NS_v2_weekday','Race','Race_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
   'F','F_v2','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',

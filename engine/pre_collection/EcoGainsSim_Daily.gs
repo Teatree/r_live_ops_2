@@ -151,6 +151,17 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
       return days;
     }
   }
+  // Night Sky NEW side: the redesign runs a WEEKEND ladder ('NS_v2') and a WEEKDAY one
+  // ('NS_v2_weekday'), so a resource's window total is not spread over the 33 days in one
+  // proportion — it is split between the two day types first, per resource, and only then spread
+  // within each type prop p_day. Shares come from the same day-type blend the window sim priced
+  // the total with (E_wd x Σweekday p_day vs E_we x Σweekend p_day), so the 33 days still sum to
+  // exactly the 33-day NS row for every resource, including packs and the carried resources whose
+  // E is 0 on both sides (those fall back to the plain p_day split, i.e. the pre-D23 behaviour).
+  if (isNew && cat === 'Daily Night Sky Prize' && typeof nsE_ === 'function'){
+    var nsRows = nsDayTypeRows_(W, seg, payer, ctx);
+    if (nsRows) return nsRows;
+  }
   var label = DAILY_CAL_LABEL[cat];
   var insts = label ? ((isNew ? ctx.calNew : ctx.calCur)[label] || []) : [];
   var b = ds.beh(seg, payer);
@@ -162,6 +173,50 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
     if (!weights[d]) continue;
     RESOURCES.forEach(function(r){ days[d][r] += num(W[r]) * weights[d]; });
   }
+  return days;
+}
+
+// Night Sky per-day rows under the D23 weekday/weekend split. Returns a 33-entry day array whose
+// per-resource sums are EXACTLY the window row W, or null when there is nothing to split by (no
+// NS ladder/streak data, no weekday variant, no cal_new NS days) so the caller keeps the generic
+// placement. Per resource: the weekend share of the total is
+//     E_we[res] x Σweekend p_day / ( E_wd[res] x Σweekday p_day + E_we[res] x Σweekend p_day )
+// which is the same weighting nsE_ used to build the window total; a resource with E = 0 on both
+// sides (carried, or paid outside the ladder) has no ladder opinion and falls back to the day
+// split itself, which reproduces the plain p_day spread.
+function nsDayTypeRows_(W, seg, payer, ctx){
+  var ds = ctx.ds;
+  var E = nsE_(seg, payer, ds, ctx);
+  if (!E || !E.hasWeekdayVariant) return null;
+  var insts = (ctx.calNewOk && ctx.calNew['Night Sky']) || [];
+  if (!insts.length) return null;
+  var b = ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }
+  var wdDays = [], weDays = [], wdW = [], weW = [], sumWd = 0, sumWe = 0;
+  insts.forEach(function(inst){
+    ((inst && inst.days) || []).forEach(function(d){
+      if (d < 1 || d > DAILY_DAYS) return;
+      if (isWeekend_(d)){ weDays.push(d); weW.push(pWe); sumWe += pWe; }
+      else              { wdDays.push(d); wdW.push(pWd); sumWd += pWd; }
+    });
+  });
+  if (!wdDays.length || !weDays.length) return null;   // one day type only -> nothing to split
+  var days = emptyDays_();
+  RESOURCES.forEach(function(r){
+    var tot = num(W[r]);
+    if (!tot) return;
+    var mWd = num(E.eV2Weekday[r]) * sumWd, mWe = num(E.eV2Weekend[r]) * sumWe;
+    var shWe = (mWd + mWe > 1e-12) ? mWe / (mWd + mWe) : sumWe / (sumWd + sumWe);
+    place(weDays, weW, sumWe, tot * shWe);
+    place(wdDays, wdW, sumWd, tot * (1 - shWe));
+    function place(dl, wl, sum, amt){
+      if (!dl.length || !amt) return;
+      dl.forEach(function(d, j){
+        days[d - 1][r] += amt * (sum > 0 ? wl[j] / sum : 1 / dl.length);
+      });
+    }
+  });
   return days;
 }
 

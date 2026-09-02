@@ -561,12 +561,19 @@ console.log('\n================ NS ANCHOR GATES ================');
         const E = nsE_(SEG, 'NONPAYER', c5.ds);
         const inst = c5.ds.eventInst('Night Sky', SEG, 'NONPAYER');
         const part = (inst && num(inst.participation_rate) > 0) ? num(inst.participation_rate) : 1;
-        const reach = reachSum_(c5.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
-        return { sim: nsResOf(SEG, '3-star Pack'), want: num(E.eV2['3-star Pack']) * part * reach, part };
+        // D26: the reach sum runs over the IN-SEASON instances only — an instance wholly past the
+        // envelope cutoff pays no packs, and Night Sky is the source that feels it most (4 of its
+        // 33 one-day instances fall outside). Recomputing the expectation with seasonInsts_ keeps
+        // this a test of the PRICING RULE rather than of a particular calendar's length.
+        const nsInsts = seasonInsts_(c5.calNew['Night Sky'] || [], 'Night Sky');
+        const reach = reachSum_(nsInsts, num(b.weekday_active_rate), num(b.weekend_active_rate));
+        return { sim: nsResOf(SEG, '3-star Pack'), want: num(E.eV2['3-star Pack']) * part * reach,
+                 part, nIn: nsInsts.length, nAll: (c5.calNew['Night Sky'] || []).length };
       });
-      gate('NS packs priced through packLane_ (E_v2 x participation x Σreach)',
+      gate('NS packs priced through packLane_ (E_v2 x participation x Σreach, in-season instances)',
            got.want > 0 && Math.abs(got.sim - got.want) < 1e-6,
-           `sim ${fmt(got.sim)} vs ${fmt(got.want)} (participation ${fmt(got.part)})`);
+           `sim ${fmt(got.sim)} vs ${fmt(got.want)} (participation ${fmt(got.part)}, ` +
+           `${got.nIn}/${got.nAll} instances in season)`);
     }
 
     // missing NS_v2 entirely -> fall back to NS -> R = 1 -> sim == measured x T
@@ -590,6 +597,118 @@ console.log('\n================ NS ANCHOR GATES ================');
     eval(engineSrc); resetSheetCache();
   }
 }
+
+// ---------- NS weekday/weekend split gates (D23) ----------------------------------------------
+// The redesign runs TWO Night Skies: 'NS_v2' is the WEEKEND ladder, 'NS_v2_weekday' the weekday
+// one, and the engine folds them into one expected-per-active-day value weighted by the expected
+// active days of each day type. Workbooks predating the split have no weekday sheet, so every
+// gate here INJECTS one (snapshot -> mutate -> assert -> restore) instead of depending on the
+// dump shipping it: that way the gates hold on any workbook, and the no-sheet case is itself an
+// assertion rather than an accident.
+console.log('\n================ NS DAY-TYPE SPLIT GATES (D23) ================');
+{
+  const SEG = '40-99';
+  const nsRow = (seg) => ECOGAINS_SIM('NONPAYER', seg)[NS_I];
+  const nsHC = (seg) => nsRow(seg)[0];
+  const savedWd = data['NS_v2_weekday'] ? JSON.parse(JSON.stringify(data['NS_v2_weekday'])) : null;
+  const restore = () => {
+    if (savedWd) data['NS_v2_weekday'] = savedWd; else delete data['NS_v2_weekday'];
+    eval(engineSrc); resetSheetCache();
+  };
+  const withWeekdaySheet = (build, fn) => {
+    data['NS_v2_weekday'] = build();
+    eval(engineSrc); resetSheetCache();
+    const out = fn();
+    restore();
+    return out;
+  };
+  // Weekend share recomputed HERE, from the engine's isWeekend_ rule and data_seg_beh, so the
+  // gate never just re-reads the number the engine wrote.
+  const shareOf = (seg) => {
+    const c = Context.get(), b = c.ds.beh(seg, 'NONPAYER');
+    let pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+    if (!(pWd > 0) && !(pWe > 0)) { pWd = 1; pWe = 1; }
+    let wd = 0, we = 0, wdD = [], weD = [];
+    (c.calNew['Night Sky'] || []).forEach(inst => (inst.days || []).forEach(d => {
+      if (isWeekend_(d)) { we += pWe; weD.push(d); } else { wd += pWd; wdD.push(d); }
+    }));
+    return { we: wd + we > 0 ? we / (wd + we) : 0, wdDays: wdD, weDays: weD };
+  };
+
+  const baseRow = nsRow(SEG).slice();
+  const sh = shareOf(SEG);
+
+  gate('cal_new Night Sky days split into both day types (isWeekend_ = Fri/Sat/Sun)',
+       sh.wdDays.length > 0 && sh.weDays.length > 0 &&
+       sh.weDays.every(d => [2, 3, 4].indexOf((d - 1) % 7) !== -1) &&
+       sh.wdDays.every(d => [2, 3, 4].indexOf((d - 1) % 7) === -1),
+       `${sh.wdDays.length} weekday + ${sh.weDays.length} weekend days, weekend share of active days ${(sh.we * 100).toFixed(1)}%`);
+
+  // (a) no weekday sheet -> no variant -> the blend collapses to NS_v2 and the D22 model is
+  //     reproduced EXACTLY. This is the gate that keeps the split from touching older workbooks.
+  {
+    if (data['NS_v2_weekday']) { delete data['NS_v2_weekday']; eval(engineSrc); resetSheetCache(); }
+    const c = Context.get(), E = nsE_(SEG, 'NONPAYER', c.ds, c);
+    const same = E && RESOURCES.every(r => Math.abs(num(E.eV2[r]) - num(E.eV2Weekend[r])) < 1e-12);
+    gate("no 'NS_v2_weekday' sheet -> blend collapses to NS_v2 (pre-D23 behaviour reproduced)",
+         !!E && !E.hasWeekdayVariant && same);
+    restore();
+  }
+
+  // (b) weekday ladder == weekend ladder -> the split must be INVISIBLE. Same property the D22
+  //     re-anchor exists for: the model cannot invent a change nobody configured.
+  {
+    const row = withWeekdaySheet(() => JSON.parse(JSON.stringify(data['NS_v2'])), () => nsRow(SEG));
+    let worst = 0;
+    RESOURCES.forEach((r, i) => { worst = Math.max(worst, Math.abs(row[i] - baseRow[i])); });
+    gate('NS_v2_weekday == NS_v2 -> NS row unchanged (a split into two identical ladders is a no-op)',
+         worst < 1e-9, `worst |delta| ${worst.toExponential(2)}`);
+  }
+
+  // (c) the weight itself: zero every HC reward on the WEEKDAY ladder and the NS row must fall to
+  //     exactly the weekend share of itself — "the weekend event only runs on weekend days".
+  {
+    const zeroHC = () => {
+      const cl = JSON.parse(JSON.stringify(data['NS_v2']));
+      for (let r = 0; r < cl.values.length; r++) {
+        const hdrRow = cl.values[r] || [];
+        const hc = hdrRow.indexOf('HC Reward');
+        if (hc === -1) continue;
+        for (let k = r + 1; k < cl.values.length && String((cl.values[k] || [])[0]).trim() !== ''; k++)
+          cl.values[k][hc] = 0;
+      }
+      return cl;
+    };
+    const got = withWeekdaySheet(zeroHC, () => {
+      const c = Context.get(), E = nsE_(SEG, 'NONPAYER', c.ds, c);
+      return { hc: nsHC(SEG), eV2: num(E.eV2['HC']), eWe: num(E.eV2Weekend['HC']),
+               eWd: num(E.eV2Weekday['HC']), we: E.split.we, variant: E.hasWeekdayVariant };
+    });
+    gate('weekday HC zeroed -> E_v2[HC] == E_weekend[HC] x weekend share of active days',
+         got.variant && got.eWd < 1e-12 && got.eWe > 0 &&
+         Math.abs(got.eV2 - got.eWe * got.we) < 1e-12,
+         `E_v2 ${fmt(got.eV2)} vs ${fmt(got.eWe * got.we)} (weekend share ${(got.we * 100).toFixed(1)}%)`);
+    gate('weekday HC zeroed -> the NS row falls to exactly that share of itself',
+         baseRow[0] > 0 && Math.abs(got.hc - baseRow[0] * sh.we) < 1e-6,
+         `${fmt(baseRow[0])} -> ${fmt(got.hc)} (expected ${fmt(baseRow[0] * sh.we)})`);
+
+    // (d) master switch: the same injected weekday sheet must be IGNORED with the split off.
+    const engineSplitOff = engineSrc.replace(/var NS_DAYTYPE_SPLIT = (?:true|false)/,
+                                             'var NS_DAYTYPE_SPLIT = false');
+    gate('NS_DAYTYPE_SPLIT variants are distinct (the flip actually rewrites the source)',
+         engineSplitOff !== engineSrc);
+    data['NS_v2_weekday'] = zeroHC();
+    eval(engineSplitOff); resetSheetCache();
+    const offHC = nsHC(SEG);
+    restore();
+    gate('NS_DAYTYPE_SPLIT = false -> the weekday sheet is ignored, NS_v2 prices every day',
+         Math.abs(offHC - baseRow[0]) < 1e-6, `${fmt(offHC)} vs baseline ${fmt(baseRow[0])}`);
+  }
+
+  gate('NS day-type mutations restored (baseline reproduces)',
+       Math.abs(nsHC(SEG) - baseRow[0]) < 1e-9, `${fmt(nsHC(SEG))} vs ${fmt(baseRow[0])}`);
+}
+
 
 // 1. LB reward edit: double every TaD_v2 ladder Coins cell -> Target Day HC exactly x2
 {

@@ -38,7 +38,12 @@
 // base sheet -> _v2 sheet. Every config sheet with a _v2 twin (static fallback; see header).
 var V2DIFF_PAIRS = [
   ['c_saga','c_saga_v2'], ['c_day','c_day_v2'], ['RR','RR_v2'], ['J','J_v2'],
-  ['HH','HH_v2'], ['BB','BB_v2'], ['Ki','Ki_v2'], ['NS','NS_v2'], ['Ph','Ph_v2'],
+  ['HH','HH_v2'], ['BB','BB_v2'], ['Ki','Ki_v2'], ['NS','NS_v2'],
+  // D23: the redesign runs two Night Skies. 'NS_v2' is the WEEKEND ladder and 'NS_v2_weekday' the
+  // weekday one, so BOTH are diffed against the same live 'NS' base — that is what makes it
+  // visible at a glance that the weekday sheet is (or is no longer) a copy of the live config.
+  ['NS','NS_v2_weekday'],
+  ['Ph','Ph_v2'],
   ['F','F_v2'], ['Race','Race_v2'], ['TaD','TaD_v2'],
   ['SP','SP_v2'], ['SP_lb','SP_lb_v2'],  // season pass track + challenge (D16)
   ['RM_1st','RM_1st_v2'], ['RM_2nd','RM_2nd_v2']   // RM anchored pairs (2026-08-18)
