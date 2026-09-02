@@ -801,9 +801,10 @@ function packBlockE_(sheetName, blk, positions, prov, blkName, inst){
   var v = sheetVals_(sheetName), cols = rewCols_(v, blk.hdr, blk.c0, blk.c1);
   var rows = [], byPos = {};
   for (var r = blk.r0; r <= blk.r1; r++){
-    var rew = rewRow_(v, r, cols);
-    rows.push(rew);
-    byPos[r - blk.r0 + 1] = rew;      // ladders are position-ordered ('1st','2nd',... or 1,2,3)
+    if (!v[r] || !rowHasContent_(v[r], blk.c0, blk.c1)) continue;   // see lbLadder_: a missing row
+    var rew = rewRow_(v, r, cols);                                  // is not a rank, and inventing
+    rows.push(rew);                                                 // one dilutes the flat average
+    byPos[rows.length] = rew;         // ladders are position-ordered ('1st','2nd',... or 1,2,3)
   }
   var E = zeroRow_(), res;
   var tag = blkName ? blkName + ' ' : '';
@@ -1050,14 +1051,34 @@ function rankDist_(inst, nMax){
 }
 
 // The rank ladder of one leaderboard block, keyed by finishing position.
+// A row that DOES NOT EXIST is not a rung. LB_R_SPECS declares Flash Race as rows 81..90 but the
+// `Race` sheet ends at 87 and the ladder is 7 places (LBSize 7, numberOfPositions 7), so the
+// ordinal fallback below — which is there for Ki_v2's formula-numbered position cells — was
+// inventing ranks 8, 9 and 10 out of three missing rows. Harmless while a leaderboard was priced at
+// three quantile atoms (all of them <= 7, so the phantoms were never looked up); once the rank axis
+// became a distribution they took 12.5% of the mass and paid nothing for it, quietly understating
+// every Flash Race resource that pays below rank 4. Caught by the flat-ladder invariance gate in
+// _mock_cards.js section 2b.
 function lbLadder_(sheetName, spec){
   var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1), ladder = {};
   for (var r = spec.r0; r <= spec.r1; r++){
-    var pos = Math.round(num(v[r] && v[r][0]));
-    if (!(pos > 0)) pos = r - spec.r0 + 1;
+    var row = v[r];
+    if (!row) continue;                                  // spec over-reads the end of the sheet
+    var pos = Math.round(num(row[0]));
+    if (!(pos > 0)){
+      if (!rowHasContent_(row, spec.c0, spec.c1)) continue;   // blank filler row, not a rung
+      pos = r - spec.r0 + 1;                             // Ki_v2: position cell is an uncached formula
+    }
     ladder[pos] = rewRow_(v, r, cols);
   }
   return ladder;
+}
+// Any non-blank cell across the block's reward span. Blank ('' / null / missing) only — a rung that
+// legitimately pays nothing is all ZEROS, which is content.
+function rowHasContent_(row, c0, c1){
+  for (var c = c0; c <= c1; c++)
+    if (String(row[c] == null ? '' : row[c]).trim() !== '') return true;
+  return false;
 }
 // Ladder + rank CDF for one block. SHARED by lbE_ (the gains model) and packRungs_ (the card sim)
 // so the two cannot describe different games: E = SUM_k P(k) x ladder[k] is exactly what the card

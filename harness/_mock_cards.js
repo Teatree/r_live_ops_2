@@ -295,6 +295,164 @@ let cfg;
   check('zero-flow fixture restored', JSON.stringify(data) === zeroSnap);
 }
 
+// ------------------------------------------- 2b. leaderboard rank distribution (2026-09-02)
+// The bug this section exists to stop coming back: a leaderboard used to be priced at three
+// quantile ATOMS (position_p25/p50/p75, weight 1/3), so a ladder paying only the top ranks scored
+// an EXACT ZERO for every segment whose p25 fell outside the paying band. Flash Race pays a pack at
+// rank 1 only and `20-39` reads 2/3/4, so the model said that player wins none of 15 races in 33
+// days. Every gate below asserts a RULE against a mutation fixture — none reads a shipped number.
+{
+  const modelWas = LB_RANK_MODEL;
+  const cardsSnap = JSON.stringify(data);
+
+  // -- the distribution itself ---------------------------------------------------------------
+  const mkInst = (a, b, c) => ({ position_p25: a, position_p50: b, position_p75: c });
+  const cum = (d, upto) => d.filter(x => x.rank <= upto).reduce((s, x) => s + x.p, 0);
+
+  const d1 = rankDist_(mkInst(5, 10, 14), 20);
+  check('rankDist_ is a probability distribution (sums to 1, no negative mass)',
+    d1 && Math.abs(cum(d1, 1e9) - 1) < 1e-9 && d1.every(x => x.p >= -1e-12),
+    'Σp = ' + cum(d1, 1e9).toFixed(12) + ' over ' + d1.length + ' ranks');
+  check('rankDist_ honours every measured anchor exactly',
+    Math.abs(cum(d1, 5) - 0.25) < 1e-9 && Math.abs(cum(d1, 10) - 0.50) < 1e-9 &&
+    Math.abs(cum(d1, 14) - 0.75) < 1e-9,
+    'F(5)=' + cum(d1, 5).toFixed(4) + ' F(10)=' + cum(d1, 10).toFixed(4) +
+    ' F(14)=' + cum(d1, 14).toFixed(4));
+  check('rankDist_ CDF is monotone', d1.every((x, i) => cum(d1, i + 1) >= cum(d1, i) - 1e-12));
+  // `100+` Red reads [1,1,2]. A discrete p_q is the SMALLEST rank with F(rank) >= q, so a tie means
+  // the mass is already banked there and the highest q wins: P(1) must be .50, not .25 and not the
+  // old sampler's 2/3.
+  const d2 = rankDist_(mkInst(1, 1, 2), 10);
+  check('rankDist_ tie rule: repeated quantile ranks take the HIGHEST q',
+    Math.abs(d2[0].p - 0.50) < 1e-9, 'P(rank 1) = ' + d2[0].p.toFixed(4));
+  // A quantile that is absent must drop WITH its own q, not slide the others onto wrong ones.
+  const d3 = rankDist_(mkInst(0, 4, 8), 20);
+  check('rankDist_ drops an absent quantile with its own probability',
+    Math.abs(cum(d3, 4) - 0.50) < 1e-9 && Math.abs(cum(d3, 8) - 0.75) < 1e-9,
+    'F(4)=' + cum(d3, 4).toFixed(4) + ' F(8)=' + cum(d3, 8).toFixed(4));
+  // N must exceed p75 or the 25% above it has nowhere to sit and leaks back into paying ranks.
+  const d4 = rankDist_(mkInst(6, 11, 17), 10);       // nMax deliberately BELOW p75 (stale LBSize)
+  check('rankDist_ survives a bracket size smaller than p75 (stale LBSize panel)',
+    d4 && Math.abs(cum(d4, 1e9) - 1) < 1e-9 && Math.abs(cum(d4, 17) - 0.75) < 1e-9,
+    'N = ' + d4.length + ', Σp = ' + cum(d4, 1e9).toFixed(9));
+
+  // -- block-scoped config read --------------------------------------------------------------
+  // Race carries five `LBSize` rows, one per event. readSPLabel_ scans the whole sheet and returns
+  // the FIRST, collapsing all five onto Red's; blockLabel_ must take the nearest one ABOVE the
+  // block. Written as a mutation so it cannot freeze whatever the panels happen to say today.
+  {
+    const rv = data['Race_v2'].values;
+    const stamp = {};
+    [[4, 8, 111], [22, 26, 222], [40, 44, 333], [58, 62, 444], [76, 80, 555]]
+      .forEach(([panelRow, hdrRow, val]) => {
+        for (let c = 0; c < (rv[panelRow] || []).length; c++)
+          if (String(rv[panelRow][c]).trim().toLowerCase() === 'lbsize') { rv[panelRow][c + 1] = val; break; }
+        stamp[hdrRow] = val;
+      });
+    _sheetValsCache = {};
+    const got = Object.keys(stamp).map(h => lbSize_('Race_v2', +h));
+    check('blockLabel_ resolves LBSize per BLOCK, not per sheet',
+      got.join(',') === Object.keys(stamp).map(h => stamp[h]).join(','),
+      'read ' + got.join(',') + ' — expected ' + Object.keys(stamp).map(h => stamp[h]).join(','));
+    data = JSON.parse(cardsSnap); _sheetValsCache = {};
+  }
+
+  // -- the headline rule: a top-only ladder must pay SOMETHING to a mid segment ---------------
+  // Fixture: strip every authored pack, then put ONE 1-star pack on Flash Race rank 1 alone.
+  // `20-39` reads p25/p50/p75 = 2/3/4, so no quantile touches rank 1.
+  {
+    const rv = data['Race_v2'].values;
+    let dlyCol = -1;
+    for (let c = 0; c < (rv[80] || []).length; c++)
+      if (String(rv[80][c]).trim() === '1-star Dly') dlyCol = c;
+    const packDlyHdrs = PACK_RES.map(r => r.replace(' Pack', ' Dly'));
+    Object.keys(data).forEach(name => {                 // clear the whole workbook's pack ladders
+      const sh = data[name];
+      if (!sh || !sh.values) return;
+      const cols = {};
+      sh.values.forEach(row => (row || []).forEach((cell, c) => {
+        if (packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
+      }));
+      sh.values.forEach(row => Object.keys(cols).forEach(c => {
+        if (row && typeof row[c] === 'number') row[c] = 0;
+      }));
+    });
+    rv[81][dlyCol] = 1;                                 // rank 1 only
+    const packsFor = (seg, payer) => {
+      _sheetValsCache = {};
+      const ctx = Context.get(), inst = ctx.ds.eventInst('Flash Race', seg, payer);
+      const e = rewardE_('Flash Race', seg, payer, ctx.ds);
+      const row = packLane_('Flash Race', seg, payer, ctx, e && e.eV2, inst, 'Flash Race');
+      return PACK_RES.reduce((a, r) => a + num(row[r]), 0);
+    };
+    check('fixture sane: Flash Race 20-39 never finishes at rank 1 in the quantiles',
+      dlyCol >= 0 && [25, 50, 75].every(q => {
+        const i = Context.get().ds.eventInst('Flash Race', '20-39', 'NONPAYER');
+        return num(i['position_p' + q]) !== 1;
+      }));
+    LB_RANK_MODEL = 'quantiles';
+    const oldPacks = packsFor('20-39', 'NONPAYER');
+    LB_RANK_MODEL = 'cdf';
+    const newPacks = packsFor('20-39', 'NONPAYER');
+    check('THE BUG: three-atom sampler pays a top-only ladder EXACTLY ZERO here',
+      oldPacks === 0, 'quantiles model -> ' + oldPacks);
+    check('rank CDF pays a top-only ladder a positive, bounded amount',
+      newPacks > 0 && newPacks < 1, 'cdf model -> ' + newPacks.toFixed(4) + ' packs/season');
+    // ...and it must come DOWN where a quantile sat on rank 1 (p25 = 1 pins P(1) at .25, the
+    // conservative end of the feasible [0.25, 0.5); the old sampler used .333).
+    LB_RANK_MODEL = 'quantiles';
+    const oldTop = packsFor('40-99', 'NONPAYER');
+    LB_RANK_MODEL = 'cdf';
+    const newTop = packsFor('40-99', 'NONPAYER');
+    check('rank CDF REDUCES the top-segment over-grant (p25 = 1 -> P(1) = .25, not 1/3)',
+      oldTop > 0 && newTop > 0 && newTop < oldTop &&
+      Math.abs(newTop / oldTop - 0.75) < 1e-6,
+      oldTop.toFixed(4) + ' -> ' + newTop.toFixed(4) + ' (x' + (newTop / oldTop).toFixed(4) + ')');
+
+    // A ladder paying the SAME thing on every rank must be invariant to how the mass is spread —
+    // the one case where both models have to agree, and a sharp check that Σp = 1 end to end.
+    for (let r = 81; r <= 87; r++) rv[r][dlyCol] = 1;
+    LB_RANK_MODEL = 'quantiles';
+    const flatOld = packsFor('40-99', 'NONPAYER');
+    LB_RANK_MODEL = 'cdf';
+    const flatNew = packsFor('40-99', 'NONPAYER');
+    check('a FLAT ladder is invariant to the rank model (all mass inside the ladder)',
+      Math.abs(flatOld - flatNew) < 1e-9, flatOld.toFixed(6) + ' vs ' + flatNew.toFixed(6));
+
+    data = JSON.parse(cardsSnap); _sheetValsCache = {};
+  }
+
+  // -- gains model and card sim must describe the SAME game ----------------------------------
+  // packLane_ is an expectation; packRungs_ is the discrete draw behind it. If they drift, the
+  // card sim's season totals stop reconciling with the EcoGainsSim cell.
+  {
+    _sheetValsCache = {};
+    const ctx = Context.get();
+    let worst = 0, worstAt = '';
+    ['Red Challenge', 'Flash Race', 'Target Day', 'Kite Festival'].forEach(cat => {
+      ['0-9', '20-39', '100+'].forEach(seg => {
+        const spec = LB_R_SPECS[cat];
+        const inst = ctx.ds.eventInst(spec.inst, seg, 'NONPAYER');
+        const e = rewardE_(cat, seg, 'NONPAYER', ctx.ds);
+        const rr = packRungs_(cat, seg, 'NONPAYER', ctx, 0);
+        PACK_RES.forEach(t => {
+          const fromE = num(e && e.eV2[t]);
+          let fromRungs = 0;
+          if (rr) rr.groups.forEach(g => g.rungs.forEach(x => { fromRungs += x.p * num(x.packs[t]); }));
+          const gap = Math.abs(fromE - fromRungs);
+          if (gap > worst) { worst = gap; worstAt = cat + '/' + seg + '/' + t; }
+        });
+      });
+    });
+    check('packRungs_ rung expectation == lbE_ E_v2, per tier (card sim reconciles with gains)',
+      worst < 1e-9, 'worst gap ' + worst.toExponential(2) + (worstAt ? ' at ' + worstAt : ''));
+  }
+
+  LB_RANK_MODEL = modelWas;
+  data = JSON.parse(cardsSnap); _sheetValsCache = {};
+  check('rank-distribution fixtures restored', JSON.stringify(data) === cardsSnap);
+}
+
 // ---------------------------------------------------------------- 3. end-to-end with a ladder
 // Author a pack ladder the way the user will: put packs on the Jigsaw _v2 milestones and on the
 // Flash Race _v2 rank ladder, then run the whole sim.

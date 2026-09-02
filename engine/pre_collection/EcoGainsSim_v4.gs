@@ -543,12 +543,30 @@ function rankDist_(inst, nMax){
 // Ladder rows are position-ordered; a missing/0 pos cell falls back to the ordinal (Ki_v2's
 // formula-numbered rows). Positions past the ladder pay nothing. No positions -> pot total
 // (both sides get the same treatment, so the ratio degrades to the pot ratio).
+// Any non-blank cell across the block's reward span. Blank ('' / null / missing) only — a rung that
+// legitimately pays nothing is all ZEROS, which is content.
+function rowHasContent_(row, c0, c1){
+  for (var c = c0; c <= c1; c++)
+    if (String(row[c] == null ? '' : row[c]).trim() !== '') return true;
+  return false;
+}
+
 function lbE_(sheetName, spec, positions, inst){
   var v = sheetVals_(sheetName), cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
+  // A row that DOES NOT EXIST is not a rung. LB_R_SPECS declares Flash Race as rows 81..90 but the
+  // `Race` sheet ends at 87 and the ladder is 7 places, so the ordinal fallback (there for Ki_v2's
+  // formula-numbered position cells) invented ranks 8-10 from three missing rows. Harmless while
+  // the ladder was priced at three quantile atoms, all of them <= 7; under a rank DISTRIBUTION the
+  // phantoms took 12.5% of the mass and paid nothing for it.
   var ladder = {}, maxRank = 0;
   for (var r = spec.r0; r <= spec.r1; r++){
-    var pos = Math.round(num(v[r] && v[r][0]));
-    if (!(pos > 0)) pos = r - spec.r0 + 1;
+    var row = v[r];
+    if (!row) continue;
+    var pos = Math.round(num(row[0]));
+    if (!(pos > 0)){
+      if (!rowHasContent_(row, spec.c0, spec.c1)) continue;
+      pos = r - spec.r0 + 1;
+    }
     ladder[pos] = rewRow_(v, r, cols);
     if (pos > maxRank) maxRank = pos;
   }
