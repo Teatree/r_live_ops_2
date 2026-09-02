@@ -69,8 +69,8 @@ All scripts anchor their paths to their own file location, so run them from anyw
 
 ```
 python harness/_dump_mockdata.py # regenerate harness/_mockdata.json from the highest-numbered NEW_LIVEOPS_CALENDAR_ECO workbook (run after every re-export)
-python harness/_dump_mockdata.py --workbook "workbooks/COLLECTIONS_UNDER_NEW_CALENDAR (3).xlsx" \
-       --out harness/_mockdata_collections.json   # the CARD lineage - the card sim lives only in these workbooks
+python harness/_dump_mockdata.py --workbook "workbooks/COLLECTIONS_UNDER_NEW_CALENDAR (LATEST_2nd_SEP_b).xlsx" \
+       --out harness/_mockdata_collections.json   # the CARD + ToF lineage - the card sim and Mighty Doors live only in these workbooks
 node harness/_mock_run.js        # end-to-end EcoGainsSim_v4.gs over _mockdata.json (mock SpreadsheetApp): all segments, per-source results + release-gate checks
 node harness/_mock_daily.js      # same for EcoGainsSim_Daily.gs
 node harness/_mock_pbp.js        # same for EcoGainsSim_PBP.gs (~20 checks incl. determinism + calibration)
