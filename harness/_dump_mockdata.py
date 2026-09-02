@@ -93,7 +93,9 @@ SHEETS = [
     'Col_Cards_Cloud', 'Col_Cards_Totals',
     # Mighty Doors / Tower of Fortune (ToF): the authored config the run simulator reads,
     # and the coin-equivalent price table its gain side is valued with.
-    'MD', 'item_vals',
+    # 'ToF' is the sheet's final name; 'MD' is what it was called while it was being built.
+    # Both listed so the dump works either side of the rename.
+    'ToF', 'MD', 'item_vals',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The

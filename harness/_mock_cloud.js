@@ -229,12 +229,28 @@ function GATES() {
 
   // ---------------------------------------------------------------- 8. determinism
   {
-    reset(); setInputs(8, 4242); SimulateCardCloud();
+    // SimulateCardCloud stops early when its projection (elapsed + elapsed/permutations_done)
+    // crosses CLOUD_TIME_BUDGET_MS -- correct in Apps Script, where the alternative is dying
+    // mid-write at the 6-minute kill. But it makes the RESULT depend on wall-clock, so this gate
+    // could fail for a reason that has nothing to do with determinism: one run stops after N
+    // permutations and the next after N+1, purely because the machine was busier. Observed once
+    // under batch load on 2026-09-02, then 5 clean runs after and 3 clean runs before the change
+    // being tested -- i.e. flaky, not a real regression, which is the worst kind of gate.
+    // Pin the budget for the comparison so this asserts the SIM and nothing else, and assert
+    // separately that no run was truncated (a truncated pair could agree vacuously).
+    const budgetWas = CLOUD_TIME_BUDGET_MS;
+    CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER;
+    logs.length = 0;
+    reset(); CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER; setInputs(8, 4242); SimulateCardCloud();
     const a = JSON.stringify(data['Col_Cards_Cloud'].values);
-    reset(); setInputs(8, 4242); SimulateCardCloud();
+    reset(); CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER; setInputs(8, 4242); SimulateCardCloud();
     const b = JSON.stringify(data['Col_Cards_Cloud'].values);
-    reset(); setInputs(8, 99); SimulateCardCloud();
+    const truncated = logs.some(l => String(l).indexOf('TIME BUDGET') >= 0);
+    reset(); CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER; setInputs(8, 99); SimulateCardCloud();
     const c = JSON.stringify(data['Col_Cards_Cloud'].values);
+    CLOUD_TIME_BUDGET_MS = budgetWas;
+    check('determinism comparison ran both permutation sweeps in full', !truncated,
+      truncated ? 'a run hit the time budget — the comparison would be vacuous' : 'no truncation');
     check('same seed -> identical sheet', a === b);
     check('a different seed changes the result', a !== c);
   }

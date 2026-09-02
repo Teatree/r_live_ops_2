@@ -403,6 +403,66 @@ function sagaItemRatios_(){
 function simDailyGift(seg, payer, ctx){
   var out = measuredRow_('Daily Gift', seg, payer, ctx.ds);
   out['HC'] = num(out['HC']) * dailyGiftRatio_(ctx.ds.beh(seg, payer));
+  return overlayPacks_(out, dailyGiftBottomUp_(seg, payer, ctx));
+}
+
+// The daily gift's BOTTOM-UP lane (2026-09-02). Every resource with no measured anchor -- the six
+// pack tiers and ToF_Ticket -- has to be priced off the ladder rather than scaled from data_gains,
+// which emits no rows for any of them. Without this a ticket typed onto the daily gift produces
+// nothing at all, and the daily gift is one of the sources meant to pay them.
+//
+//   E_cycle[res] = SUM_{n=1..7} reward_n[res] x S(n-1)      one 7-day gift cycle
+//   window[res]  = E_cycle[res] x (SUM_d p_day) / 7         cycles the player actually completes
+//
+// S is the same login-streak survival dailyGiftRatio_ prices HC with, so a reward on gift day 6 is
+// discounted by how rarely this segment reaches a 6-day streak -- the reason the deep gift days are
+// worth much less than their face value. Priced off c_day_v2, like every other _v2 ladder: a value
+// typed on the BASE sheet describes the current design and never reaches the redesign's numbers.
+// FLAGGED: the cycle count assumes streaks restart cleanly every 7 active days; the ladder itself
+// is segment-blind (one 'all segs' variant), so only S varies by segment.
+function dailyGiftBottomUp_(seg, payer, ctx){
+  var out = {};
+  BOTTOMUP_RES.forEach(function(r){ out[r] = 0; });
+  var v = sheetVals_('c_day_v2');
+  if (!v.length) return out;
+  var beh = ctx.ds.beh(seg, payer);
+  var S = survival_([[num(beh.login_streak_p50),.5],[num(beh.login_streak_p75),.75],
+                     [num(beh.login_streak_p90),.9]]);
+  if (!S) return out;
+  // The sheet stacks several 'Day | Coins | ... | ToF_Ticket' variant blocks; find each header and
+  // read the seven rows under it. Blocks are alternatives, so they are AVERAGED, not summed.
+  var blocks = [];
+  for (var r = 0; r < v.length; r++){
+    var row = v[r] || [];
+    for (var c = 0; c < row.length; c++){
+      if (String(row[c]).trim() !== 'Day') continue;
+      var cols = {};
+      for (var c2 = c; c2 < row.length; c2++){
+        var res = RES_MAP[String(row[c2] || '').trim()];
+        if (res && cols[res] == null) cols[res] = c2;
+      }
+      var any = false;
+      BOTTOMUP_RES.forEach(function(rr){ if (cols[rr] != null) any = true; });
+      if (any) blocks.push({ hdr: r, cols: cols });
+      break;
+    }
+  }
+  if (!blocks.length) return out;
+  var pDaySum = 0;
+  for (var d = 1; d <= DAILY_DAYS; d++) pDaySum += isWeekend_(d) ? num(beh.weekend_active_rate)
+                                                                 : num(beh.weekday_active_rate);
+  var cycles = pDaySum / 7;
+  blocks.forEach(function(b){
+    for (var n = 1; n <= 7; n++){
+      var rr = v[b.hdr + n];
+      if (!rr) break;
+      var w = S(n - 1);
+      BOTTOMUP_RES.forEach(function(res){
+        if (b.cols[res] == null) return;
+        out[res] += num(rr[b.cols[res]]) * w * cycles / blocks.length;
+      });
+    }
+  });
   return out;
 }
 function dailyGiftRatio_(beh){
@@ -582,15 +642,26 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
   var out = {};
   BOTTOMUP_RES.forEach(function(r){ out[r] = 0; });
   if (!eV2 || !ctx.calNewOk) return out;
-  // D26: instances wholly outside the collection season pay no envelopes, so they leave the reach
-  // sum and the window total drops. Straddlers stay, at their FULL unclipped reach.
-  var nw = seasonInsts_(ctx.calNew[calLabel] || [], calLabel);
-  if (!nw.length) return out;
+  var all = ctx.calNew[calLabel] || [];
+  if (!all.length) return out;
+  // D26: instances wholly outside the COLLECTION season pay no envelopes, so they leave the reach
+  // sum and the pack total drops. Straddlers stay, at their FULL unclipped reach.
+  //
+  // The ticket is NOT an envelope. ToF is its own always-on event with no relationship to the album
+  // season, so a ticket on a source's ladder keeps paying after the album closes -- it gets the
+  // UNFILTERED reach. Caught by the D26 gate, which asserts the cutoff moves pack columns and
+  // nothing else: writing the whole bottom-up set off one season-filtered reach made ToF_Ticket
+  // move with it, drifting a non-pack total by 1.32.
+  var nw = seasonInsts_(all, calLabel);
   var beh = ctx.ds.beh(seg, payer);
-  var reach = reachSum_(nw, num(beh.weekday_active_rate), num(beh.weekend_active_rate));
-  if (!(reach > 0)) return out;
+  var pWd = num(beh.weekday_active_rate), pWe = num(beh.weekend_active_rate);
+  var reachPack = nw.length ? reachSum_(nw, pWd, pWe) : 0;
+  var reachAll  = reachSum_(all, pWd, pWe);
+  if (!(reachAll > 0)) return out;
   var part = packParticipation_(cat, inst);
-  BOTTOMUP_RES.forEach(function(r){ out[r] = num(eV2[r]) * part * reach; });
+  BOTTOMUP_RES.forEach(function(r){
+    out[r] = num(eV2[r]) * part * (isPackRes_(r) ? reachPack : reachAll);
+  });
   return out;
 }
 
@@ -1017,7 +1088,16 @@ function packOnlyRow_(cat, seg, payer, ctx){
 // ToF's own ticket payout feeds back into the balance on the day it is earned; the walk is forward
 // in time so that terminates.
 var TOF_CAT        = 'ToF';
-var TOF_SHEET      = 'MD';
+// 'ToF' is the sheet's final name; 'MD' is what it was called while it was being built. Both are
+// accepted so the engine keeps working either side of the rename in the live workbook.
+var TOF_SHEET_NAMES = ['ToF', 'MD'];
+function tofSheetVals_(){
+  for (var i = 0; i < TOF_SHEET_NAMES.length; i++){
+    var v = sheetVals_(TOF_SHEET_NAMES[i]);
+    if (v && v.length) return v;
+  }
+  return [];
+}
 var TOF_AFFORD_H   = 1;      // headroom at half willingness (user-approved 2026-09-02; was 4)
 var TOF_BAL_PCTS   = ['hc_balance_p25','hc_balance_p50','hc_balance_p75','hc_balance_p90'];
 var TOF_PAYER_TOPUPS = 1;    // one purchased continue per run, PAYER only
@@ -1048,7 +1128,7 @@ function mdParam_(v, r0, label){
 var _tofCfgCache = null;
 function tofConfig_(){
   if (_tofCfgCache !== null) return _tofCfgCache;
-  var v = sheetVals_(TOF_SHEET);
+  var v = tofSheetVals_();
   if (!v.length) return (_tofCfgCache = false);
 
   var rc = mdBlock_(v, 'RUN CONFIG');
