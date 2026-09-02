@@ -1250,6 +1250,37 @@ function logCol(name){
     gated.chestRows === 0 && gated.spent === 0, `rows ${gated.chestRows}, spent ${gated.spent}`);
 }
 
+// ---------------------------- 7a2. the pack log's ToF_Ticket_gains column (2026-09-02)
+// Asserts the column reaches the SHEET, not just the returned array: the failure being gated is
+// "I ran it and column K is still empty", which is a WRITE-WIDTH bug (the clear/write range is
+// LOG_COLS.length wide) and is invisible to any check that reads the core's return value.
+{
+  const v = data['Col_Cards_Daily'].values;
+  const col = LOG_COLS.indexOf('ToF_Ticket_gains');
+  check('pack log declares a ToF_Ticket_gains column', col >= 0,
+    'LOG_COLS: ' + LOG_COLS.join(' | '));
+  if (col >= 0) {
+    SimulatePackOpenings();
+    let rows = 0, prev = -1, allNum = true, ordered = true, last = 0;
+    for (let r = OUT_START_ROW - 1; r < v.length; r++) {
+      const row = v[r] || [];
+      if (row[0] === '' || row[0] == null) continue;
+      rows++;
+      const x = row[col];
+      if (typeof x !== 'number') allNum = false;
+      else { if (x < prev - 1e-12) ordered = false; prev = x; last = x; }
+    }
+    check('every pack-log row carries a numeric cumulative ticket total',
+      rows > 0 && allNum, rows + ' rows written, column ' + colLetter_(col + 1));
+    // Cumulative, so it can never go DOWN as the log walks forward through the days.
+    check('the ticket total never decreases down the log', ordered,
+      'final ' + last.toFixed(3));
+    // ...and it is a real series, not a column of zeros: the fixture pays tickets.
+    check('the ticket column is actually fed by the calendar', last > 0,
+      'season total ' + last.toFixed(3));
+  }
+}
+
 // -------------------------------------- 7b. Mighty Doors / Tower of Fortune (2026-09-02)
 // ToF is the first source that SPENDS a resource and the first whose payout is gated on a decision
 // rather than on reach, so none of the existing gates cover it. Every check below asserts a RULE

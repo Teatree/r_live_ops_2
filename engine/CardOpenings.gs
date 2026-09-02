@@ -1150,7 +1150,13 @@ function SimulatePackOpenings() {
 
   writeAlbumGrids_(simOut, catalog, collection, albumIdx, CARDS_PER_SET, ALBUM_NAMES.length);
 
+  // The column count and the last header are in the toast so "is the pasted code current?" is
+  // answerable from one run. All .gs files share one namespace and LOG_COLS is a `var`, so a second
+  // (older) copy of this file in the project silently overrides it by load order - the sim then
+  // writes the OLD number of columns and nothing anywhere says so. If this reads 10 / "Note" while
+  // the repo says 11 / "ToF_Ticket_gains", the project is running someone else's LOG_COLS.
   SpreadsheetApp.getActive().toast(
+    'log ' + outCols + ' cols, last "' + LOG_COLS[LOG_COLS.length - 1] + '" | ' +
     'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + '), ' +
     seg + ' ' + payer + ', ' + ALBUM_NAMES[albumIdx] + ' (catalog ' + totalUnique +
     ', balance ' + balance + ', seed ' + seed + ') | set rewards ' +
