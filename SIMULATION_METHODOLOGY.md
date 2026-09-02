@@ -629,7 +629,7 @@ events".
 flowchart TD
   M["measured — 📊 data_gains"] --> CORE["timedCore_ (D = 1)"]
   T["T = Σ reach_new / Σ reach_cur — 🗓️ calendars × 📊 data_seg_beh rates"] --> CORE
-  RANK["ranks = round(position_p25/50/75) — 📊 data_event_inst"] --> E["E = mean over ranks of ladder_payout(rank) — ⚙️ Ki/TaD base and _v2 (rewardR_ → lbE_)"]
+  RANK["rank CDF through (p25,.25),(p50,.5),(p75,.75) — 📊 data_event_inst"] --> E["E = Σ_k P(rank=k) × ladder_payout(k) — ⚙️ Ki/TaD base and _v2 (rewardR_ → lbE_)"]
   KITE["Kite only: + Σ S(scoreReq)·reward, S = survival(final_balance) — 📊 data_event_inst / ⚙️ Ki"] --> E
   E --> R["R[res] = E_v2/E_base (base 0 → carry)"]
   R --> CORE
@@ -644,15 +644,22 @@ flowchart TD
    Target Day's 3×7d → 15×1d gives T ≈ 1.8 (15 one-day boards = 15 rank chances); Kite's 3×7d → 5×3d
    gives T ≈ 1.3.
 4. **[R](#r-reward-ratio)** (`rewardR_` → `lbE_`): read `inst = ds.eventInst(name, seg, payer)` ← 📊
-   `data_event_inst`. Ranks = `round(position_p25/50/75)`, each `max(1, ·)`. Build the ladder from ⚙️
-   `Ki`/`TaD` (rows keyed by their position cell, ordinal fallback). `E = mean over the ranks of
-   ladder_payout(rank)`, computed for base and `_v2`. **Kite additionally** adds
+   `data_event_inst`. Build a **rank distribution** (`rankDist_`, D25): a piecewise-linear CDF through
+   `(0,0), (p25,.25), (p50,.5), (p75,.75), (N,1)` with `P(rank=k) = F(k) − F(k−1)`, ties merging on the
+   highest q. N is the bracket size (`LBSize` / `leagueGroupSize` on the config panel above the block,
+   via `blockLabel_`), else the ladder's length. Build the ladder from ⚙️ `Ki`/`TaD` (rows keyed by
+   their position cell, ordinal fallback — but a row that does not EXIST is not a rung, D25a).
+   `E = Σ_k P(rank=k) × ladder_payout(k)`, computed for base and `_v2`. Until 2026-09-02 this was the
+   mean over the three quantile ranks alone, which paid a top-heavy ladder an exact 0 whenever none of
+   them landed in the paying band, and over-weighted rank 1 whenever two of them collided there. **Kite additionally** adds
    `Σ_ms S(scoreReq_ms) × reward_ms` with [S](#s-survival-function) over `final_balance_p25/50/75` —
    so milestone-reward edits on `Ki_v2` flow. `R[res] = E_v2[res] / E_base[res]` (base 0 → carry).
 5. `SIMULATED[res] = measured[res] × R[res] × 1 × T`.
 
-**Zero semantics.** Low segments legitimately earn 0 HC (they never place top-3) — check booster
-columns before declaring a row dead. **If TaD milestones ever pay rewards,** it must move to the
+**Zero semantics.** Low segments earn very little HC (they rarely place top-3) — check booster
+columns before declaring a row dead. Since D25 a deep-finishing segment gets a SMALL POSITIVE rather
+than an exact 0: the rank CDF always assigns rank 1 some mass. An exact 0 now means the ladder pays
+nothing at all, or `cal_new` has no instances. **If TaD milestones ever pay rewards,** it must move to the
 milestone family with a cumulative-SCORE-by-day curve (the generic token curve saturates day 1 and
 would double-count — the original "Target Day is broken" bug).
 
@@ -700,7 +707,9 @@ the composite terms expand to:
   below the board pay 0.
 - **rank_p25/50/75** — the segment's typical finishing ranks as
   [percentiles](https://en.wikipedia.org/wiki/Percentile) (📊 `data_event_inst`): a quarter of players
-  finish at or above rank_p25, half at or above rank_p50, and so on.
+  finish at or above rank_p25, half at or above rank_p50, and so on. These are the ANCHORS of the rank
+  [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function), not the only ranks priced —
+  every rank on the board carries some probability (D25).
 - **[S (survival function)](https://en.wikipedia.org/wiki/Survival_function)** — "what share of
   players reaches score x?" = 1 − the
   [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function) ("what share stays below x?").
@@ -725,9 +734,12 @@ run in each calendar I compute the chance the player shows up at least once (fro
 weekday/weekend activity rates), sum those chances per calendar, and divide new by current —
 that is [T](#t-cadence-and-reach), the only place the calendar enters. Then the prize tables:
 telemetry gives the segment's three typical finishing ranks (`position_p25/50/75`, 📊
-`data_event_inst`); I look up what the old ladder (⚙️ `Ki`/`TaD`) pays at exactly those three
-ranks, average them, do the same on the `_v2` ladder, and divide — that is [R](#r-reward-ratio),
-per resource. Kite has one extra piece, its score milestones: for those I use the
+`data_event_inst`), and I stretch a curve through them to get the chance of finishing in EVERY
+position on the board — a quarter of finishes at or above the first rank, half at or above the
+second, and so on. I then take what the old ladder (⚙️ `Ki`/`TaD`) pays at each position, weighted
+by how often the player lands there, do the same on the `_v2` ladder, and divide — that is
+[R](#r-reward-ratio), per resource. (Before 2026-09-02 I priced ONLY those three ranks and averaged
+them, which said a player whose typical finishes are 2nd, 3rd and 4th can never come 1st.) Kite has one extra piece, its score milestones: for those I use the
 [survival function](#s-survival-function) over players' real final kite scores
 (`final_balance_p25/50/75`) — S(scoreReq) = the share of players whose banked score reaches the
 threshold — and add S × reward to both sides' expected payout. (That is the only survival use in
@@ -774,7 +786,7 @@ calendars.
 flowchart TD
   M["measured — 📊 data_gains"] --> CORE["timedCore_ (D = 1)"]
   T["T = Σ reach_new / Σ reach_cur — 🗓️ calendars × 📊 data_seg_beh"] --> CORE
-  RANK["ranks = round(position_p25/50/75) — 📊 data_event_inst"] --> R["R = E_v2/E_base, E = mean ladder_payout(rank) — ⚙️ Race / Race_v2"]
+  RANK["rank CDF through (p25,.25),(p50,.5),(p75,.75) — 📊 data_event_inst"] --> R["R = E_v2/E_base, E = Σ_k P(rank=k) × ladder_payout(k) — ⚙️ Race / Race_v2"]
   R --> CORE
   CORE --> OUT["SIMULATED[res] = measured[res] × R[res] × 1 × T"]
 ```
@@ -814,10 +826,11 @@ the composite terms expand to (identical to [§6.4](#64-score-based-leaderboards
 - **[R](#r-reward-ratio)\[res]** — the prize-table change: the
   [expected](https://en.wikipedia.org/wiki/Expected_value) payout at this segment's typical finishing
   ranks, new table ÷ old table. 1 while `Race_v2` is untouched.
-- **[E](#e-and-e_day) / ladder(rank) / rank_p25/50/75** — as in §6.4: the
-  [average](https://en.wikipedia.org/wiki/Arithmetic_mean) of the table's payouts at the three
-  [percentile](https://en.wikipedia.org/wiki/Percentile) finishing ranks (a rank past the paid board
-  contributes 0 — which is why low segments legitimately show 0 coins).
+- **[E](#e-and-e_day) / ladder(rank) / rank_p25/50/75** — as in §6.4: the table's payout at each
+  finishing rank, weighted by the chance of landing there under the rank
+  [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function) anchored on the three
+  [percentile](https://en.wikipedia.org/wiki/Percentile) ranks (a rank past the paid board
+  contributes 0 — which is why low segments show very little coin).
 - **[D](#d-duration-multiplier)** — pinned to 1: extra time doesn't reorder a leaderboard much.
 - **[T](#t-cadence-and-reach) / [reach](#reach-and-p_day) / [p_day](#reach-and-p_day)** — as in §6.4:
   the summed chance of showing up to each scheduled run, new calendar ÷ current, where each run's
