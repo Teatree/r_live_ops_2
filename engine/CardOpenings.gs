@@ -85,11 +85,20 @@ var ALBUM_NAMES_POOL = ['Main', 'Super', 'Ultra', 'Mythic', 'Legendary'];
 // anything deriving indices from the live header reads a stale layout. openPack builds its row from
 // this list and harness/_mock_cards.js reads its indices from it — one definition, no drift.
 // 'Source_Detail' added 2026-08-18: the ladder row a pack came from (rank / milestone / NS round).
-// 'ToF_Ticket_gains' added 2026-09-02 (the name Garry had already typed on the live sheet): the Mighty Doors entry currency this player has been paid
-// by EVERY other source, summed from day 1 to the row's day. It is a RUNNING TOTAL of tickets
-// RECEIVED, not a balance - the ToF sim spends them on runs and this column never subtracts.
-// Nothing about the card sim reads it; it rides along on the log because the pack log is the only
-// per-day, per-player ledger the workbook has.
+// 'ToF_Ticket_gains' added 2026-09-02 (the name Garry had already typed on the live sheet): the
+// Mighty Doors entry currency this player has been paid by EVERY other source, counted from day 1
+// to the row's day. It is a RUNNING TOTAL of tickets RECEIVED, not a balance - the ToF sim spends
+// them on runs and this column never subtracts.
+//
+// WHOLE TICKETS (2026-09-03). It first shipped as the raw expectation and read 0.437, 1.087,
+// 1.412 - fractions of an entry ticket, on a sheet whose entire purpose is ONE player's actual
+// season. Nobody is handed 0.437 of a ticket. The gains engine is right to work in expectations
+// (it prices a whole segment), but this log is a ledger, so the expectation is resolved into
+// discrete grants exactly the way pack counts already are: carry the fractional remainder forward
+// day by day, pay a ticket each time it crosses 1, and settle the trailing fraction with one
+// seeded Bernoulli at the end. The season total is unbiased - averaged over seeds it equals the
+// expectation - and any single run shows integers. The undiscretised number still exists on the
+// ToF sheet's RUN block ('Tickets earned'), which is where a per-segment average belongs.
 var LOG_COLS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
                 'Stars Balance', 'Note', 'ToF_Ticket_gains'];
 // Album/set grids live to the RIGHT of the pack log. The scan starts at the FIRST column past the
@@ -1000,10 +1009,22 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
 
   // === Stage 2: walk every day; open packs, sweep chests, snapshot running totals ============
   var output = [], daily = [], packIdx = 0;
-  var tofIncome = pre.tofTickets || [], tofCum = 0;
+  // Whole-ticket ledger. `tofCarry` is the unpaid fractional remainder; every time it crosses 1 the
+  // player is handed a ticket. Its OWN random stream, derived from the seed like the others, so
+  // turning this on cannot reshuffle a single card draw or pack grant - the same seed produces the
+  // same season it did before, plus this column.
+  var tofIncome = pre.tofTickets || [], tofCarry = 0, tofCum = 0;
+  var tofRand = mulberry32((seed | 0) ^ 0x5bf03635);
+  var tofLastDay = 0;
+  for (var td = DAILY_DAYS; td >= 1; td--) if (num(tofIncome[td - 1]) > 0){ tofLastDay = td; break; }
   for (var day = 1; day <= SEASON_DAYS; day++){
     var rowsBefore = output.length;
-    tofCum += num(tofIncome[day - 1]);
+    tofCarry += num(tofIncome[day - 1]);
+    while (tofCarry >= 1){ tofCarry -= 1; tofCum += 1; }
+    // The last day that pays anything settles what is left, so the season total is unbiased rather
+    // than always rounded down: a segment earning 0.9 tickets a season would otherwise ALWAYS show
+    // 0, which is a different claim from "usually none, sometimes one".
+    if (day === tofLastDay && tofCarry > 1e-12 && tofRand() < tofCarry){ tofCum += 1; tofCarry = 0; }
 
     while (packIdx < packOpens.length && packOpens[packIdx].day === day){
       var open = packOpens[packIdx];
@@ -1022,10 +1043,10 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
                    '', '', '', balance, '']);
     }
 
-    // Stamp the day's ticket running total onto every row the day produced - pack opens, the chest
-    // opens tryBuyChests pushed from inside openPack's loop, and the "(did not play)" filler alike.
-    // Done here rather than in openPack because openPack does not know the day's cumulative total
-    // and is called from two places; this way no row can be missed and none can get a stale value.
+    // Stamp the day's ticket count onto every row the day produced - pack opens, the chest opens
+    // tryBuyChests pushed from inside openPack's loop, and the "(did not play)" filler alike. Done
+    // here rather than in openPack because openPack does not know the day's running total and is
+    // called from two places; this way no row can be missed and none can get a stale value.
     for (var tr = rowsBefore; tr < output.length; tr++) output[tr][LOG_COLS.length - 1] = tofCum;
 
     // totalNew, not collectionSize: unique cards ACQUIRED across the season, which keeps rising

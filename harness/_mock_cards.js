@@ -1272,6 +1272,18 @@ function logCol(name){
     }
     check('every pack-log row carries a numeric cumulative ticket total',
       rows > 0 && allNum, rows + ' rows written, column ' + colLetter_(col + 1));
+    // WHOLE tickets: this sheet is one player's ledger, and nobody is handed 0.437 of an entry
+    // ticket. The engine's own per-segment number stays fractional; the discretisation is what
+    // this log adds, so it is what this gate defends.
+    let allInt = true;
+    for (let r = OUT_START_ROW - 1; r < v.length; r++) {
+      const row = v[r] || [];
+      if (row[0] === '' || row[0] == null) continue;
+      const x = row[col];
+      if (typeof x === 'number' && Math.abs(x - Math.round(x)) > 1e-9) allInt = false;
+    }
+    check('the ticket count is whole tickets, never a fraction', allInt,
+      'final ' + last);
     // Cumulative, so it can never go DOWN as the log walks forward through the days.
     check('the ticket total never decreases down the log', ordered,
       'final ' + last.toFixed(3));
