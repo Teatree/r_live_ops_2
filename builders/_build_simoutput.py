@@ -56,7 +56,7 @@ REWARD_ROWS = ['Set Reward Coins', 'Set Rewards (all resources)',
 TOTALS_HDRS = ['Day', 'Star Balance', 'Unique Cards', '% Complete', 'Sets Done', 'Album Tier',
                'Packs Opened']
 LOG_HDRS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
-            'Stars Balance', 'Note', 'ToF Tickets (cum)']
+            'Stars Balance', 'Note', 'ToF_Ticket_gains']
 
 # Album/set grids sit immediately RIGHT of the pack log, derived from the log width rather than
 # hardcoded: the log gained an 'Earned From' column on 2026-08-18 and a fixed column J would have

@@ -1270,6 +1270,45 @@ function logCol(name){
     cfg0 && cfg0.costs.length === cfg0.costRowsExpected,
     cfg0 ? `${cfg0.costs.length} priced of ${cfg0.costRowsExpected} rung rows` : '-');
 
+  // A block bar is a TITLE someone types, and titles get tidied. The live workbook renamed the bar
+  // to 'CONTINUE COSTs' (2026-09-02) and the old word-boundary match rejected the plural: the
+  // ladder read empty, so nobody ever continued, every segment's spend went to 0 and P(run pays)
+  // collapsed - with nothing anywhere saying why. Assert the RULE (label matching tolerates case
+  // and a trailing plural), with a mutation fixture, on every bar the reader looks for.
+  ['CONTINUE COST', 'STAGES', 'SEGMENT BEHAVIOUR', 'RUN CONFIG'].forEach(label => {
+    const v = data[sheetName].values;
+    const row = v.findIndex(r => String((r || [])[0] || '').trim() === label);
+    if (row < 0) { check(`ToF: bar "${label}" is present to rename`, false, 'bar not found'); return; }
+    // Only pluralise a label that is not already plural: 'STAGESs' is not a rename anyone makes,
+    // and demanding the reader swallow a doubled plural would be widening the match for nothing.
+    const plural = /s$/i.test(label) ? [] : [label + 's', label.toLowerCase() + 's'];
+    plural.concat([label.charAt(0) + label.slice(1).toLowerCase()])
+      .forEach(variant => {
+        v[row][0] = variant;
+        resetTof();
+        const c = tofConfig_();
+        check(`ToF: block bar "${variant}" still resolves to ${label}`,
+          !!c && c.stages.length === cfg0.stages.length && c.costs.length === cfg0.costs.length &&
+          Object.keys(c.beh).length === Object.keys(cfg0.beh).length,
+          c ? `${c.stages.length} stages, ${c.costs.length} rungs, ${Object.keys(c.beh).length} segments`
+            : 'config unreadable');
+      });
+    v[row][0] = label;
+    resetTof();
+  });
+  // ...and the fixture really can break it, or the gate above proves nothing.
+  {
+    const v = data[sheetName].values;
+    const row = v.findIndex(r => String((r || [])[0] || '').trim() === 'CONTINUE COST');
+    v[row][0] = 'CONTINUE PRICES';
+    resetTof();
+    const c = tofConfig_();
+    check('ToF: an actually-different bar name DOES break the ladder (fixture is live)',
+      !!c && c.costs.length === 0, c ? `${c.costs.length} rungs` : 'config unreadable');
+    v[row][0] = 'CONTINUE COST';
+    resetTof();
+  }
+
   const ctxT = Context.get();
   const seg0 = Object.keys(cfg0.beh)[0];
 

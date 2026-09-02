@@ -1104,14 +1104,27 @@ var TOF_PAYER_TOPUPS = 1;    // one purchased continue per run, PAYER only
 
 // Row index of an MD block, found by its column-A bar label (prefix match at a word boundary, the
 // same resolution loadPackConfig_ uses) so inserting a row above it cannot break the reader.
+//
+// Matching is CASE-INSENSITIVE and ignores a trailing plural, because a bar is a title someone
+// types and titles get tidied. The live workbook renamed 'CONTINUE COST' to 'CONTINUE COSTs'
+// (2026-09-02) and the word-boundary rule rejected it -- the 's' is alphanumeric, so it read as a
+// different block. The continue ladder then came back EMPTY, which is not an error state anywhere
+// in the model: no rungs means no continue is ever offered, so every segment's spend went to 0 and
+// P(run pays) collapsed, with nothing on the sheet saying why. One renamed word, silently.
 function mdBlock_(v, label){
+  var want = mdNormLabel_(label);
   for (var r = 0; r < v.length; r++){
-    var a = String((v[r] || [])[0] == null ? '' : v[r][0]).trim();
-    if (a === label) return r;
-    if (a.indexOf(label) === 0 && (a.length === label.length || /[^A-Za-z0-9]/.test(a.charAt(label.length))))
+    var a = mdNormLabel_((v[r] || [])[0]);
+    if (a === want) return r;
+    if (a.indexOf(want) === 0 && (a.length === want.length || /[^a-z0-9]/.test(a.charAt(want.length))))
       return r;
   }
   return -1;
+}
+// lower-cased, trimmed, trailing plural dropped ('CONTINUE COSTs' -> 'continue cost').
+function mdNormLabel_(x){
+  var s = String(x == null ? '' : x).trim().toLowerCase();
+  return /[a-z]s$/.test(s) ? s.slice(0, -1) : s;
 }
 // The HEADER row of a block, found by the label its first column carries. Blocks carry a variable
 // number of explanatory note rows between the bar and the header -- STAGES has three, CONTINUE COST
@@ -1203,6 +1216,15 @@ function tofConfig_(){
       }
     }
   }
+
+  // A ToF sheet with no readable continue ladder is a real configuration, but it is almost never
+  // the intended one: it silently means nobody ever continues, so spend is 0 everywhere and P(run
+  // pays) is the bare survival product. Say so in the log rather than letting the zeros speak.
+  if (!cfg.costs.length)
+    try { Logger.log('ToF: no CONTINUE COST rungs were read - no continue will ever be bought, ' +
+                     'so every segment reports 0 coins spent. Check the block bar and the ' +
+                     '"Continue #" header, and that rung prices are values rather than ' +
+                     'uncached formulas.'); } catch(e){}
 
   // ---- per-segment behaviour ----
   var sbh = mdBlock_(v, 'SEGMENT BEHAVIOUR');

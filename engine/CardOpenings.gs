@@ -85,13 +85,13 @@ var ALBUM_NAMES_POOL = ['Main', 'Super', 'Ultra', 'Mythic', 'Legendary'];
 // anything deriving indices from the live header reads a stale layout. openPack builds its row from
 // this list and harness/_mock_cards.js reads its indices from it — one definition, no drift.
 // 'Source_Detail' added 2026-08-18: the ladder row a pack came from (rank / milestone / NS round).
-// 'ToF Tickets (cum)' added 2026-09-02: the Mighty Doors entry currency this player has been paid
+// 'ToF_Ticket_gains' added 2026-09-02 (the name Garry had already typed on the live sheet): the Mighty Doors entry currency this player has been paid
 // by EVERY other source, summed from day 1 to the row's day. It is a RUNNING TOTAL of tickets
 // RECEIVED, not a balance - the ToF sim spends them on runs and this column never subtracts.
 // Nothing about the card sim reads it; it rides along on the log because the pack log is the only
 // per-day, per-player ledger the workbook has.
 var LOG_COLS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
-                'Stars Balance', 'Note', 'ToF Tickets (cum)'];
+                'Stars Balance', 'Note', 'ToF_Ticket_gains'];
 // Album/set grids live to the RIGHT of the pack log. The scan starts at the FIRST column past the
 // log and runs wide, rather than assuming an exact offset: the builder leaves one spacer column
 // (grids at L) but a hand-arranged sheet may butt them straight against the log (grids at K), and a
