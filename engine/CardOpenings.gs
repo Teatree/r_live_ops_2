@@ -85,8 +85,13 @@ var ALBUM_NAMES_POOL = ['Main', 'Super', 'Ultra', 'Mythic', 'Legendary'];
 // anything deriving indices from the live header reads a stale layout. openPack builds its row from
 // this list and harness/_mock_cards.js reads its indices from it — one definition, no drift.
 // 'Source_Detail' added 2026-08-18: the ladder row a pack came from (rank / milestone / NS round).
+// 'ToF Tickets (cum)' added 2026-09-02: the Mighty Doors entry currency this player has been paid
+// by EVERY other source, summed from day 1 to the row's day. It is a RUNNING TOTAL of tickets
+// RECEIVED, not a balance - the ToF sim spends them on runs and this column never subtracts.
+// Nothing about the card sim reads it; it rides along on the log because the pack log is the only
+// per-day, per-player ledger the workbook has.
 var LOG_COLS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
-                'Stars Balance', 'Note'];
+                'Stars Balance', 'Note', 'ToF Tickets (cum)'];
 // Album/set grids live to the RIGHT of the pack log. The scan starts at the FIRST column past the
 // log and runs wide, rather than assuming an exact offset: the builder leaves one spacer column
 // (grids at L) but a hand-arranged sheet may butt them straight against the log (grids at K), and a
@@ -546,6 +551,12 @@ function cardSeasonPre_(seg, payer, ctx){
     ctx:     ctx,
     plan:    packGrantPlan_(seg, payer, ctx),
     spPacks: spPackTiers_(seg, payer, ctx),
+    // Per-day ToF_Ticket income from every source EXCEPT ToF itself (tofTicketIncome_ excludes it
+    // to avoid re-entering its own budget walk), already weighted by this segment's activity rates
+    // - so it is what this player is expected to be paid, not the ladder's face value. Guarded by
+    // typeof: a workbook whose Apps Script project predates the ToF engine still runs the card sim,
+    // it just logs zeros.
+    tofTickets: (typeof tofTicketIncome_ === 'function') ? tofTicketIncome_(seg, payer, ctx) : null,
     pWd:   num(b.weekday_active_rate),    pWe:  num(b.weekend_active_rate),
     mins:  num(b.minutes_per_active_day), sess: num(b.sessions_per_active_day),
     lvlsP: num(b.levels_played_per_active_day),
@@ -989,8 +1000,10 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
 
   // === Stage 2: walk every day; open packs, sweep chests, snapshot running totals ============
   var output = [], daily = [], packIdx = 0;
+  var tofIncome = pre.tofTickets || [], tofCum = 0;
   for (var day = 1; day <= SEASON_DAYS; day++){
     var rowsBefore = output.length;
+    tofCum += num(tofIncome[day - 1]);
 
     while (packIdx < packOpens.length && packOpens[packIdx].day === day){
       var open = packOpens[packIdx];
@@ -1008,6 +1021,12 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
                    played ? sessionNote_() : '', ALBUM_NAMES[albumIdx],
                    '', '', '', balance, '']);
     }
+
+    // Stamp the day's ticket running total onto every row the day produced - pack opens, the chest
+    // opens tryBuyChests pushed from inside openPack's loop, and the "(did not play)" filler alike.
+    // Done here rather than in openPack because openPack does not know the day's cumulative total
+    // and is called from two places; this way no row can be missed and none can get a stale value.
+    for (var tr = rowsBefore; tr < output.length; tr++) output[tr][LOG_COLS.length - 1] = tofCum;
 
     // totalNew, not collectionSize: unique cards ACQUIRED across the season, which keeps rising
     // through an album advance instead of resetting to 0. albumPct passes 100% the same way, so
