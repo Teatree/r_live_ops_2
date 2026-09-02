@@ -128,6 +128,12 @@ var TOF_TICKET = 'ToF_Ticket';
 // says "no net position exists here", which is the honest reading; the sheet's net-delta formulas
 // IFERROR it to blank, whereas a literal 0 would read as a real, measured zero.
 function isGainsOnlyRes_(r){ return isPackRes_(r) || r === TOF_TICKET; }
+// Resources the pack lane prices BOTTOM-UP. data_gains emits no rows for any of them, so the
+// measured anchor is identically 0 and `measured x R x D x T` can never produce one -- the ratio R
+// is meaningless when both sides are 0, and the carry rule then (correctly) carries the zero. The
+// ticket joins the six pack tiers here for exactly that reason: a ToF_Ticket typed onto a _v2
+// ladder has to reach the sim the same way a pack does, or it silently does nothing.
+var BOTTOMUP_RES = PACK_RES.concat([TOF_TICKET]);
 
 // Sheet row order. THIS LIST IS THE SPILL, POSITION BY POSITION: ECOGAINS_SIM returns one row per
 // entry, in order, and the sheet's column-B labels are static text that is never checked against it.
@@ -156,6 +162,7 @@ var SEG_TO_GAINS = {'0-9':'B. 1-9','10-19':'C. 10-19','20-39':'D. 20-39','40-99'
 
 // category -> its own named simulator (D15). Unlisted => carried (= measured).
 var SOURCES = {
+  'ToF'                   : simToF,        // Mighty Doors / Tower of Fortune (2026-09-02)
   'Core'                  : simCore,
   'Saga'                  : simSaga,
   'Daily Gift'            : simDailyGift,
@@ -573,7 +580,7 @@ function seasonDay_(d){
 
 function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
   var out = {};
-  PACK_RES.forEach(function(r){ out[r] = 0; });
+  BOTTOMUP_RES.forEach(function(r){ out[r] = 0; });
   if (!eV2 || !ctx.calNewOk) return out;
   // D26: instances wholly outside the collection season pay no envelopes, so they leave the reach
   // sum and the window total drops. Straddlers stay, at their FULL unclipped reach.
@@ -583,7 +590,7 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
   var reach = reachSum_(nw, num(beh.weekday_active_rate), num(beh.weekend_active_rate));
   if (!(reach > 0)) return out;
   var part = packParticipation_(cat, inst);
-  PACK_RES.forEach(function(r){ out[r] = num(eV2[r]) * part * reach; });
+  BOTTOMUP_RES.forEach(function(r){ out[r] = num(eV2[r]) * part * reach; });
   return out;
 }
 
@@ -852,7 +859,7 @@ function packProvFor_(cat, seg, payer, ctx){
 // Writes the six pack columns of `packs` over `row`, leaving every other resource untouched.
 function overlayPacks_(row, packs){
   if (!packs) return row;
-  PACK_RES.forEach(function(r){ row[r] = num(packs[r]); });
+  BOTTOMUP_RES.forEach(function(r){ row[r] = num(packs[r]); });
   return row;
 }
 function copyRow_(row){ var o = {}; RESOURCES.forEach(function(r){ o[r] = num(row[r]); }); return o; }
@@ -936,9 +943,400 @@ function packOnlyRow_(cat, seg, payer, ctx){
   var E = zeroRow_();
   spec.blocks.forEach(function(blk){
     var e = packBlockE_(spec.sheet, blk, pos, null, '', inst);
-    PACK_RES.forEach(function(r){ E[r] = num(E[r]) + num(e[r]); });
+    BOTTOMUP_RES.forEach(function(r){ E[r] = num(E[r]) + num(e[r]); });
   });
   return packLane_(spec.cal, seg, payer, ctx, E, inst, cat);
+}
+
+// ============================== MIGHTY DOORS / TOWER OF FORTUNE (ToF) ========================
+// A push-your-luck ladder. The player spends ONE ToF_Ticket to start a run; each stage offers
+// `Choices` doors of which `Pig Slots` end the run. Surviving banks the stage's reward into a
+// temporary pot; **dying loses the whole pot** (source_docs/mighty-doors.md:20, deck p7). After any
+// successful stage the player may Cash Out and keep everything (Variant A, p9/p19; Variant B is
+// safe-stages-only, p23). Meeting a pig, they may pay COINS to continue and retry that stage.
+//
+// This is the first source in the model that SPENDS a resource, and the first whose payout is
+// gated on a decision rather than on reach. It needs a real state machine, so unlike every other
+// source it is not `measured x R x D x T` -- there is no measured anchor (data_gains has no ToF
+// rows) and no anchor is possible for an event that has never run. It is priced bottom-up:
+//
+//   SIMULATED[res] = E[banked reward per run][res]  x  runs over the window
+//
+// ---- the run: a forward walk over (stage, continues used) ----------------------------------
+// State is (s, k): about to attempt stage s, having already bought k continues this run. k has to
+// be in the state because the continue PRICE escalates with it (50 -> 1890 on the current ladder)
+// and because affordability depends on what is left of the wallet.
+//
+//   attempt stage s:  survive H(s)            -> (s+1, k),  or BANK if s is the cash-out stage
+//                     die   (1-H(s)) -> continue p_c(k) -> (s, k+1)   [retry the SAME stage]
+//                                    -> stop   (1-p_c)   -> run over, pot LOST
+//
+// Retrying the same stage is the honest reading of "continue": you paid to undo the pig, not to
+// skip ahead. The old sheet blended survive-and-revive into one number, which cannot price an
+// escalating ladder because it never knows which rung you are on.
+//
+// ---- p_c: willingness x affordability -------------------------------------------------------
+// `Continue p` on the MD sheet is the segment's baseline willingness AFTER meeting a pig. Real
+// wallets are small -- data_econ hc_balance_p50 runs 74..223 coins against a ladder that starts at
+// 50 -- so willingness alone would let a 0-9 player buy the 1,890 rung as readily as the 50 one.
+//
+//   p_c(k) = ContinueP_seg x A( balance_k / cost_{k+1} )
+//   A(r)   = 0                      when r < 1     (cannot afford it: a hard floor)
+//          = (r - 1) / (r - 1 + h)  otherwise      (h = headroom at half willingness)
+//
+// h is TOF_AFFORD_H below. At h = 1 a player holding twice the price continues at half their
+// baseline willingness. A(r) rises to 1 as the wallet outgrows the price, so a whale is governed by
+// willingness alone and a broke player by the wallet alone, which is the behaviour we want at both
+// ends. FLAGGED: A is an assumption, not a measurement -- no telemetry exists for an event that has
+// never run. It is a single knob and the harness prints it on every run.
+//
+// The walk is repeated at each hc_balance percentile (p25/p50/p75/p90 from data_econ) and averaged,
+// the same way collections average a milestone ladder over the progress percentiles. Using p50
+// alone would erase the tail that actually reaches the deep rungs: at h = 1 the median player in
+// every segment can afford rung 1-2, while p90 reaches rung 4-5.
+//
+// PAYERS GET ONE TOP-UP (user decision 2026-09-02): exactly once per run, a payer who cannot afford
+// the next continue buys coins and takes it anyway at full willingness. Without it the model says
+// payers continue LESS than non-payers, because measured payer balances are LOWER in every segment
+// (they spend what they buy: 100+ PAYER p50 = 74 vs NONPAYER 107). The top-up is a third state
+// dimension, which is why the walk carries `t`.
+//
+// ---- runs: the ticket budget ----------------------------------------------------------------
+// Tickets are EARNED, not recharged (deck p9: Daily Login, event rewards, shop offers; no storage
+// cap). So the number of runs is not a config number -- it is whatever the rest of the calendar
+// pays out. Each day the player banks the ToF_Ticket their other sources granted that day, and
+// spends what they have, up to `Runs per Active Day`:
+//
+//   balance += tickets earned that day (every source except ToF itself, per-day, on cal_new)
+//   runs(d)  = p_day x min(RunsPerActiveDay, balance / TicketsPerRun)
+//   balance -= runs(d) x TicketsPerRun  +  runs(d) x E[tickets ToF itself pays back per run]
+//
+// Carrying the balance forward is what makes a ticket typed into a WEEK 1 daily gift show up as a
+// run in week 1, and one typed into a week-4 event show up only at the end. Expected (fractional)
+// runs rather than drawn ones, matching the deterministic-attendance convention the pack lane uses.
+// ToF's own ticket payout feeds back into the balance on the day it is earned; the walk is forward
+// in time so that terminates.
+var TOF_CAT        = 'ToF';
+var TOF_SHEET      = 'MD';
+var TOF_AFFORD_H   = 1;      // headroom at half willingness (user-approved 2026-09-02; was 4)
+var TOF_BAL_PCTS   = ['hc_balance_p25','hc_balance_p50','hc_balance_p75','hc_balance_p90'];
+var TOF_PAYER_TOPUPS = 1;    // one purchased continue per run, PAYER only
+
+// Row index of an MD block, found by its column-A bar label (prefix match at a word boundary, the
+// same resolution loadPackConfig_ uses) so inserting a row above it cannot break the reader.
+function mdBlock_(v, label){
+  for (var r = 0; r < v.length; r++){
+    var a = String((v[r] || [])[0] == null ? '' : v[r][0]).trim();
+    if (a === label) return r;
+    if (a.indexOf(label) === 0 && (a.length === label.length || /[^A-Za-z0-9]/.test(a.charAt(label.length))))
+      return r;
+  }
+  return -1;
+}
+// label -> value from a two-column parameter block (RUN CONFIG).
+function mdParam_(v, r0, label){
+  for (var r = r0 + 1; r < v.length; r++){
+    var a = String((v[r] || [])[0] == null ? '' : v[r][0]).trim();
+    if (a === '') break;
+    if (a === label) return v[r][1];
+  }
+  return null;
+}
+
+// The whole MD config, read once per execution. Returns null when the sheet is absent or has no
+// stage ladder, which is how a workbook without Mighty Doors keeps working: ToF then carries.
+var _tofCfgCache = null;
+function tofConfig_(){
+  if (_tofCfgCache !== null) return _tofCfgCache;
+  var v = sheetVals_(TOF_SHEET);
+  if (!v.length) return (_tofCfgCache = false);
+
+  var rc = mdBlock_(v, 'RUN CONFIG');
+  var cfg = { ticketsPerRun: 1, cashOutVariant: 'A', variantBSafeOnly: false };
+  if (rc >= 0){
+    var tp = num(mdParam_(v, rc, 'Tickets per Run'));
+    if (tp > 0) cfg.ticketsPerRun = tp;
+    var cv = String(mdParam_(v, rc, 'Cash-Out Variant') || 'A').trim().toUpperCase();
+    cfg.cashOutVariant = (cv === 'B') ? 'B' : 'A';
+    cfg.variantBSafeOnly = (cfg.cashOutVariant === 'B');
+  }
+
+  // ---- stage ladder ----
+  var sb = mdBlock_(v, 'STAGES');
+  if (sb < 0) return (_tofCfgCache = false);
+  var hdr = sb + 1, cols = {}, c;
+  for (c = 0; c < (v[hdr] || []).length; c++){
+    var h = String(v[hdr][c] == null ? '' : v[hdr][c]).trim();
+    if (h) cols[h] = c;
+  }
+  var rewCols = {};
+  for (var hh in cols){ var res = RES_MAP[hh]; if (res && rewCols[res] == null) rewCols[res] = cols[hh]; }
+  var stages = [];
+  for (var r = hdr + 1; r < v.length; r++){
+    var sn = num(v[r] && v[r][cols['Stage']]);
+    if (!(sn > 0)) break;
+    var rew = {};
+    for (var res2 in rewCols){ var amt = num(v[r][rewCols[res2]]); if (amt) rew[res2] = amt; }
+    stages.push({ n: sn,
+                  type: String(v[r][cols['Type']] || '').trim(),
+                  H:    num(v[r][cols['Survive p']]),
+                  I:    (cols['P(reward | survived)'] != null) ? num(v[r][cols['P(reward | survived)']]) : 1,
+                  rew:  rew });
+  }
+  if (!stages.length) return (_tofCfgCache = false);
+  cfg.stages = stages;
+
+  // ---- continue cost ladder (the rung prices ARE the cap: no price, no continue) ----
+  var cc = mdBlock_(v, 'CONTINUE COST');
+  cfg.costs = [];
+  if (cc >= 0){
+    for (var r2 = cc + 2; r2 < v.length; r2++){
+      var cost = num(v[r2] && v[r2][1]);
+      if (!(num(v[r2] && v[r2][0]) > 0) || !(cost > 0)) break;
+      cfg.costs.push(cost);
+    }
+  }
+
+  // ---- per-segment behaviour ----
+  var sbh = mdBlock_(v, 'SEGMENT BEHAVIOUR');
+  cfg.beh = {};
+  if (sbh >= 0){
+    var bh = sbh + 1, bc = {};
+    for (c = 0; c < (v[bh] || []).length; c++){
+      var b = String(v[bh][c] == null ? '' : v[bh][c]).trim();
+      if (b) bc[b] = c;
+    }
+    for (var r3 = bh + 1; r3 < v.length; r3++){
+      var segName = String((v[r3] || [])[0] == null ? '' : v[r3][0]).trim();
+      if (segName === '') break;
+      cfg.beh[segName] = {
+        continueP:   num(v[r3][bc['Continue p']]),
+        cashOut:     num(v[r3][bc['Cash-Out Stage']]),
+        runsPerDay:  num(v[r3][bc['Runs per Active Day']]),
+        maxContinues: (bc['Max Continues per Run'] != null) ? num(v[r3][bc['Max Continues per Run']]) : 0,
+        balance:     (bc['Coin Balance'] != null) ? num(v[r3][bc['Coin Balance']]) : 0
+      };
+    }
+  }
+  return (_tofCfgCache = cfg);
+}
+
+// Affordability factor. r = wallet / price of the next continue.
+function tofAfford_(r){
+  if (!(r >= 1)) return 0;                       // cannot pay for it at all
+  var h = num(TOF_AFFORD_H) > 0 ? num(TOF_AFFORD_H) : 1;
+  return (r - 1) / (r - 1 + h);
+}
+
+// ONE run, walked forward over (stage, continues, top-up used), at ONE starting wallet.
+// Returns { bank: {res: expected banked amount}, spend: coins, pBank: probability the run pays }.
+function tofRunOnce_(cfg, beh, balance0, payer){
+  var stages = cfg.stages, costs = cfg.costs;
+  var nStages = stages.length;
+  var cashOutN = (beh.cashOut > 0) ? beh.cashOut : stages[nStages - 1].n;
+  // The ladder length is the cap: once the authored rungs run out no continue is offered and the
+  // run ends. `Max Continues per Run` can lower it; 0/blank means "whatever the ladder allows".
+  var kMax = costs.length;
+  if (beh.maxContinues > 0) kMax = Math.min(kMax, beh.maxContinues);
+  var topMax = (String(payer).toUpperCase() === 'PAYER') ? TOF_PAYER_TOPUPS : 0;
+
+  // P[k][t] = probability of being about to attempt the CURRENT stage with k continues bought and
+  // t top-ups used. Walking stage by stage keeps this to a (kMax+1) x (topMax+1) grid.
+  var P = [], k, t;
+  for (k = 0; k <= kMax; k++){ P.push([]); for (t = 0; t <= topMax; t++) P[k].push(0); }
+  P[0][0] = 1;
+  var spend = 0, pBank = 0;
+
+  for (var si = 0; si < nStages; si++){
+    var st = stages[si];
+    if (st.n > cashOutN) break;
+    var H = st.H;
+    // Resolve deaths at this stage first: a continue retries the SAME stage, so this is an inner
+    // loop over k until the ladder is exhausted (each retry can itself end in a pig).
+    var alive = [];
+    for (k = 0; k <= kMax; k++){ alive.push([]); for (t = 0; t <= topMax; t++) alive[k].push(0); }
+    for (k = 0; k <= kMax; k++) for (t = 0; t <= topMax; t++){
+      var p0 = P[k][t];
+      if (!(p0 > 0)) continue;
+      var kk = k, tt = t, mass = p0;
+      // survive right away
+      alive[kk][tt] += mass * H;
+      var dead = mass * (1 - H);
+      while (dead > 1e-15 && kk < kMax){
+        var price = costs[kk];                     // cost of continue #(kk+1)
+        var wallet = balance0 - tofCumCost_(costs, kk);
+        var a = tofAfford_(price > 0 ? wallet / price : 0);
+        var usedTop = false;
+        if (a <= 0 && tt < topMax){ a = 1; usedTop = true; }   // payer buys coins, once
+        var pc = beh.continueP * a;
+        if (!(pc > 0)) break;
+        var bought = dead * pc;
+        spend += bought * price;
+        kk += 1; if (usedTop) tt += 1;
+        alive[kk][tt] += bought * H;               // retry the stage and survive it
+        dead = bought * (1 - H);                   // ...or meet another pig
+      }
+      // whatever is still `dead` walked away: pot lost, contributes nothing
+    }
+    if (st.n === cashOutN){
+      for (k = 0; k <= kMax; k++) for (t = 0; t <= topMax; t++) pBank += alive[k][t];
+      P = alive;
+      break;
+    }
+    P = alive;
+  }
+
+  // Banked reward = the whole ladder up to the cash-out stage, paid only if the run banked.
+  var bank = {};
+  RESOURCES.forEach(function(r){ bank[r] = 0; });
+  for (var i2 = 0; i2 < nStages; i2++){
+    var s2 = stages[i2];
+    if (s2.n > cashOutN) break;
+    for (var res in s2.rew) if (bank[res] != null) bank[res] += s2.rew[res] * s2.I * pBank;
+  }
+  return { bank: bank, spend: spend, pBank: pBank };
+}
+function tofCumCost_(costs, k){
+  var s = 0;
+  for (var i = 0; i < k && i < costs.length; i++) s += costs[i];
+  return s;
+}
+
+// One run averaged over the wallet percentiles in data_econ. Returns the same shape as
+// tofRunOnce_, plus the per-percentile detail the harness and the MD sheet report.
+function tofRun_(seg, payer, ds){
+  var cfg = tofConfig_();
+  if (!cfg) return null;
+  var beh = cfg.beh[seg];
+  if (!beh || !(beh.continueP >= 0)) return null;
+  var bals = tofBalances_(seg, payer);
+  if (!bals.length) bals = [beh.balance > 0 ? beh.balance : 0];
+  var out = { bank: {}, spend: 0, pBank: 0, byBalance: [] };
+  RESOURCES.forEach(function(r){ out.bank[r] = 0; });
+  bals.forEach(function(b){
+    var one = tofRunOnce_(cfg, beh, b, payer);
+    RESOURCES.forEach(function(r){ out.bank[r] += num(one.bank[r]) / bals.length; });
+    out.spend += one.spend / bals.length;
+    out.pBank += one.pBank / bals.length;
+    out.byBalance.push({ balance: b, pBank: one.pBank, spend: one.spend });
+  });
+  return out;
+}
+
+// Wallet percentiles for one (segment, payer), read straight off data_econ rather than threaded
+// through DataStore: build()'s signature is positional and every harness calls fromRanges() with
+// exactly seven ranges, so widening it would break them all for one column family.
+var _tofBalCache = {};
+function tofBalances_(seg, payer){
+  var key = seg + '|' + payer;
+  if (_tofBalCache[key] !== undefined) return _tofBalCache[key];
+  var v = sheetVals_('data_econ'), out = [];
+  if (v.length){
+    var h = headerIndex_(v[0]);
+    if (h['segment'] != null && h['payer_flag'] != null){
+      for (var i = 1; i < v.length; i++){
+        var r = v[i];
+        if (String(r[h['segment']]).trim() !== seg) continue;
+        if (String(r[h['payer_flag']]).trim() !== payer) continue;
+        var cur = String(h['currency'] != null ? r[h['currency']] : 'HC').trim().toUpperCase();
+        if (cur !== 'HC' && cur !== 'COINS') continue;
+        TOF_BAL_PCTS.forEach(function(p){
+          if (h[p] == null) return;
+          var x = num(r[h[p]]);
+          if (x > 0) out.push(x);
+        });
+        if (out.length) break;
+      }
+    }
+  }
+  return (_tofBalCache[key] = out);
+}
+
+// Per-day ToF_Ticket income from EVERY OTHER source on cal_new. Excludes ToF itself, both because
+// its own payout is fed back inside the day walk and because dailySeries_('ToF') would re-enter
+// this function -- the one genuine recursion risk in the wiring.
+var _tofIncomeCache = {};
+function tofTicketIncome_(seg, payer, ctx){
+  var key = seg + '|' + payer;
+  if (_tofIncomeCache[key]) return _tofIncomeCache[key];
+  var days = [], d;
+  for (d = 0; d < DAILY_DAYS; d++) days.push(0);
+  CATEGORY_ORDER.forEach(function(cat){
+    if (cat === TOF_CAT) return;
+    var series = dailySeries_(cat, seg, payer, ctx, true);
+    for (var i = 0; i < DAILY_DAYS; i++) days[i] += num(series[i][TOF_TICKET]);
+  });
+  return (_tofIncomeCache[key] = days);
+}
+
+// Runs over the window: walk the days, bank the tickets earned, spend what the player is willing
+// and able to spend. Returns { runs, perDay[], ticketsEarned, ticketsLeft }.
+function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun){
+  var cfg = tofConfig_();
+  if (!cfg) return null;
+  var beh = cfg.beh[seg];
+  if (!beh) return null;
+  var insts = (ctx.calNewOk && ctx.calNew[TOF_CAT]) || [];
+  if (!insts.length) return { runs: 0, perDay: [], ticketsEarned: 0, ticketsLeft: 0, noLane: true };
+  var live = {};
+  insts.forEach(function(inst){
+    ((inst && inst.days) || []).forEach(function(dd){ if (dd >= 1 && dd <= DAILY_DAYS) live[dd] = 1; });
+  });
+  var b = ctx.ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)) return { runs: 0, perDay: [], ticketsEarned: 0, ticketsLeft: 0 };
+  var income = tofTicketIncome_(seg, payer, ctx);
+  var perRun = (cfg.ticketsPerRun > 0) ? cfg.ticketsPerRun : 1;
+  var cap = (beh.runsPerDay > 0) ? beh.runsPerDay : Infinity;
+  var bal = 0, runs = 0, earned = 0, perDay = [];
+  for (var day = 1; day <= DAILY_DAYS; day++){
+    bal += income[day - 1];
+    earned += income[day - 1];
+    var r = 0;
+    if (live[day]){
+      var pDay = isWeekend_(day) ? pWe : pWd;
+      r = pDay * Math.min(cap, bal / perRun);
+      bal -= r * perRun;
+      bal += r * num(ticketsBackPerRun);       // ToF pays tickets back into its own pool
+      earned += r * num(ticketsBackPerRun);
+      runs += r;
+    }
+    perDay.push(r);
+  }
+  return { runs: runs, perDay: perDay, ticketsEarned: earned, ticketsLeft: bal };
+}
+
+// The ToF row. Bottom-up: expected banked reward per run x runs the ticket budget allows.
+// Coins SPENT on continues are reported on the row's own HC as a NEGATIVE, because for this source
+// the spend is not game-wide -- it is the price of the reward sitting next to it, and a ToF row
+// that showed only the payout would read as free money.
+// RE-ENTRANCY. ToF's run count depends on ticket income, which is a per-day walk over every OTHER
+// source; Season Pass is one of those, and simSeasonPass calls sptTotals_, which sums the SPT
+// faucet across ALL categories -- ToF included, because ToF banks SPT. So asking for the ToF row
+// asks for the ToF row, and the stack overflows. The cycle is real, not a wiring slip: ToF both
+// consumes the calendar's output and contributes to it.
+//
+// Broken by making the INNER call return zeros: while ToF's own inputs are being computed, ToF
+// contributes no SPT to the Season Pass tier that prices them. That very slightly understates the
+// tier used to value ToF's tickets -- second order, since ToF is one source among 28 and the tier
+// ladder is coarse -- and it is the only resolution that terminates without a second full pass.
+// FLAGGED here rather than buried: if ToF ever becomes a large SPT faucet, revisit.
+var _tofInFlight = false;
+function simToF(seg, payer, ctx, cat){
+  if (_tofInFlight) return zeroRow_();
+  var cfg = tofConfig_();
+  if (!cfg) return null;                                   // no MD sheet -> carry (measured 0)
+  var run = tofRun_(seg, payer, ctx.ds);
+  if (!run) return null;
+  var budget;
+  _tofInFlight = true;
+  try { budget = tofRunBudget_(seg, payer, ctx, num(run.bank[TOF_TICKET])); }
+  finally { _tofInFlight = false; }
+  if (!budget || !(budget.runs > 0)) return zeroRow_();     // no lane / no tickets -> nothing
+  var out = zeroRow_();
+  RESOURCES.forEach(function(r){ out[r] = num(run.bank[r]) * budget.runs; });
+  out['HC'] = num(out['HC']) - run.spend * budget.runs;     // continues are a coin SINK
+  return out;
 }
 
 // ============================== REWARD-CONFIG RATIO R (added 2026-07-06) =====================
@@ -1253,12 +1651,26 @@ function collE_(sheetName, spec, reqs, S, prov){
   return E;
 }
 
+// Reward columns of one block. The c0..c1 span is authored per spec and deliberately narrow: the
+// _v2 sheets carry HELPER columns (EventReach axes, requirement scratch) to the right of the reward
+// block, and a scan to the end of the row would price them as resources.
+//
+// It also has to SELF-EXTEND, because every c1 in LB_R_SPECS / COLL_R_SPECS / PACK_ONLY_SPECS was
+// authored against a 19-resource world. Appending ToF_Ticket as #20 put it exactly one column past
+// c1 on all ten blocks, so the engine read every ladder as if the column were not there -- a ticket
+// typed by a designer produced nothing at all, silently and identically to "none authored". Rather
+// than bump ten hardcoded constants (and again for resource #21), keep consuming columns past c1
+// for as long as the header keeps naming a RESOURCE. A helper column never does, so the walk stops
+// at the block edge on its own.
 function rewCols_(v, hdrRow, c0, c1){
-  var cols = {};
-  for (var c = c0; c <= c1; c++){
-    var res = RES_MAP[String((v[hdrRow] || [])[c] || '').trim()];
+  var cols = {}, row = v[hdrRow] || [];
+  function take(c){
+    var res = RES_MAP[String(row[c] || '').trim()];
     if (res && cols[res] == null) cols[res] = c;
+    return !!res;
   }
+  for (var c = c0; c <= c1; c++) take(c);
+  for (var c2 = c1 + 1; c2 < row.length; c2++) if (!take(c2)) break;
   return cols;
 }
 function rewRow_(v, r, cols){
