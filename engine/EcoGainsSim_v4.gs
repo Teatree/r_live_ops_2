@@ -1339,6 +1339,134 @@ function simToF(seg, payer, ctx, cat){
   return out;
 }
 
+// ---- the MD sheet's read-out -----------------------------------------------------------------
+// The run is a walk over (stage, continues, top-ups) at four wallet percentiles. That is not
+// something to re-implement in spreadsheet formulas -- it would be a 60 x 11 x 2 x 4 grid per
+// segment, unreadable and a second source of truth for rules that already exist here. So MD stays
+// what every other config sheet is: authored inputs, with the SIM blocks spilled by the engine.
+//
+//   =ECOGAINS_TOF(payer, "RUN")        one row per segment: runs, P(bank), spend, tickets
+//   =ECOGAINS_TOF(payer, "REWARD")     banked reward per run, one row per resource
+//   =ECOGAINS_TOF(payer, "GAINSPEND")  per stage: cumulative gain (raw and expected) vs spend
+//
+// The segment columns are whatever SEGMENT BEHAVIOUR authors, so adding the MAX player there adds
+// a column here with no code change.
+/** @customfunction */
+function ECOGAINS_TOF(payer, block){
+  var p = String(payer || 'NONPAYER').trim();
+  var blk = String(block || 'RUN').trim().toUpperCase();
+  var cfg = tofConfig_();
+  if (!cfg) return [['MD sheet not found or has no STAGES block']];
+  var ctx = Context.get(), segs = [];
+  for (var sname in cfg.beh) segs.push(sname);
+  if (!segs.length) return [['SEGMENT BEHAVIOUR is empty']];
+
+  if (blk === 'RUN'){
+    var out = [['Segment','Runs in window','P(run pays)','Coins spent per run','Coins spent in window',
+                'Tickets earned','Tickets unspent']];
+    segs.forEach(function(sg){
+      var run = tofRun_(sg, p, ctx.ds);
+      if (!run){ out.push([sg,0,0,0,0,0,0]); return; }
+      var b = tofRunBudget_(sg, p, ctx, num(run.bank[TOF_TICKET])) || {runs:0,ticketsEarned:0,ticketsLeft:0};
+      out.push([sg, b.runs, run.pBank, run.spend, run.spend * b.runs,
+                b.ticketsEarned, b.ticketsLeft]);
+    });
+    return out;
+  }
+  if (blk === 'REWARD'){
+    var rows = [['Resource'].concat(segs)];
+    RESOURCES.forEach(function(res){
+      var line = [res];
+      segs.forEach(function(sg){
+        var run = tofRun_(sg, p, ctx.ds);
+        line.push(run ? num(run.bank[res]) : 0);
+      });
+      rows.push(line);
+    });
+    return rows;
+  }
+  if (blk === 'GAINSPEND'){
+    // Per stage, per segment: what the ladder holds if you get there (RAW), what it is worth once
+    // the chance of getting there and banking it is priced in (EXP), and what reaching it cost in
+    // continues. RAW is the design view; EXP is the economy view; the gap between them IS the
+    // house edge. Diff is absolute coins, not a ratio -- a ratio against a small spend runs to
+    // five figures and no chart survives it.
+    var head = ['Stage','Type'];
+    segs.forEach(function(sg){ head.push(sg + ' gain (raw)', sg + ' gain (exp)', sg + ' spend', sg + ' net (exp - spend)'); });
+    var grid = [head], stages = cfg.stages;
+    var pre = segs.map(function(sg){ return tofStageCurve_(sg, p, ctx); });
+    for (var i = 0; i < stages.length; i++){
+      var line = [stages[i].n, stages[i].type];
+      for (var k = 0; k < segs.length; k++){
+        var c = pre[k];
+        var raw = c ? c.raw[i] : 0, ex = c ? c.exp[i] : 0, sp = c ? c.spend[i] : 0;
+        line.push(raw, ex, sp, (ex === '' || sp === '') ? '' : ex - sp);
+      }
+      grid.push(line);
+    }
+    return grid;
+  }
+  return [['Unknown block: ' + blk + ' (use RUN / REWARD / GAINSPEND)']];
+}
+
+// Cumulative curves along the ladder for one (segment, payer), in coin-equivalent value.
+//   raw[i]   value of stages 1..i, unconditional -- "what the ladder holds if you get here"
+//   exp[i]   raw[i] x P(reach stage i AND go on to bank) -- what a run is actually worth there
+//   spend[i] expected coins spent on continues getting to stage i
+// Rewards are valued through item_vals, so SPT and boosters count rather than coins alone: on the
+// current ladder coins are 385 of 1591 units, so a coins-only view would miss three quarters of
+// what the event pays.
+function tofStageCurve_(seg, payer, ctx){
+  var cfg = tofConfig_();
+  if (!cfg) return null;
+  var beh = cfg.beh[seg];
+  if (!beh) return null;
+  var stages = cfg.stages, vals = itemVals_();
+  var cashOutN = (beh.cashOut > 0) ? beh.cashOut : stages[stages.length - 1].n;
+  var raw = [], exp = [], spend = [], cum = 0;
+  // One walk per stage is O(n^2) but n is 60 and the sheet asks for this once per segment.
+  for (var i = 0; i < stages.length; i++){
+    var st = stages[i], v = 0;
+    for (var res in st.rew) v += st.rew[res] * st.I * num(vals[res]);
+    cum += v;
+    raw.push(cum);
+    // Past this segment's cash-out stage the run does not exist: they stop before it. Carrying the
+    // last spend forward would draw a flat negative net across 40 stages nobody plays, which reads
+    // as "the deep ladder loses you money" when in fact it is never reached. '' so the chart stops.
+    if (st.n > cashOutN){ exp.push(''); spend.push(''); continue; }
+    var probe = { continueP: beh.continueP, cashOut: st.n, runsPerDay: beh.runsPerDay,
+                  maxContinues: beh.maxContinues, balance: beh.balance };
+    var bals = tofBalances_(seg, payer);
+    if (!bals.length) bals = [beh.balance > 0 ? beh.balance : 0];
+    var pB = 0, sp = 0;
+    bals.forEach(function(b){
+      var one = tofRunOnce_(cfg, probe, b, payer);
+      pB += one.pBank / bals.length;
+      sp += one.spend / bals.length;
+    });
+    exp.push(cum * pB);
+    spend.push(sp);
+  }
+  return { raw: raw, exp: exp, spend: spend };
+}
+
+// Coin-equivalent price per resource, from the item_vals sheet (row 2 = names, row 3 = coins).
+// A resource missing from that table is worth 0 -- true of the packs, COOP Token and Avatar today.
+var _itemValsCache = null;
+function itemVals_(){
+  if (_itemValsCache) return _itemValsCache;
+  var v = sheetVals_('item_vals'), out = {};
+  if (v.length >= 3){
+    for (var c = 0; c < v[1].length; c++){
+      var name = String(v[1][c] == null ? '' : v[1][c]).trim();
+      if (!name) continue;
+      var res = RES_MAP[name] || name;
+      out[res] = num(v[2][c]);
+    }
+  }
+  return (_itemValsCache = out);
+}
+
 // ============================== REWARD-CONFIG RATIO R (added 2026-07-06) =====================
 // Reward AND requirement edits on the _v2 config sheets now move the sim: R[res] = E_v2 / E_base,
 // where E = the ladder's expected payout for this (segment, payer) under the MEASURED player
