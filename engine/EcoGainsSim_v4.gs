@@ -1559,6 +1559,60 @@ function simToF(seg, payer, ctx, cat){
 //
 // The segment columns are whatever SEGMENT BEHAVIOUR authors, so adding the MAX player there adds
 // a column here with no code change.
+// The ladder a run WOULD hold at its cash-out stage, unconditionally: every stage reward summed
+// with no survival probability applied. This is the number a designer reads off the STAGES block,
+// and it is the honest companion to the expected value beside it -- the whole reason the reward
+// block was misread as impossible. Stage 1 pays 10 Unlimited Lives and cannot be missed, so this
+// column contains that 10; the expected column does not, because the deck End Run outcome loses the
+// pot (design doc p7, CONFIRMED). expected = ladder x P(run banks), exactly.
+function tofLadderRow_(cfg, cashOutN){
+  var row = {}, vals = itemVals_(), coins = 0;
+  RESOURCES.forEach(function(r){ row[r] = 0; });
+  for (var i = 0; i < cfg.stages.length; i++){
+    var st = cfg.stages[i];
+    if (st.n > cashOutN) break;
+    for (var res in st.rew){
+      if (row[res] == null) continue;
+      var amt = st.rew[res] * st.I;
+      row[res] += amt;
+      coins += amt * num(vals[res]);
+    }
+  }
+  return { row: row, coins: coins };
+}
+
+// The cash-out stage actually modelled for a segment: the authored one, or the end of the ladder if
+// it is blank. NOT a policy -- see the note on tofRunOnce_: the run banks at this stage and nowhere
+// else, so a deeper stage is strictly harder to reach and pays strictly less in expectation.
+function tofCashOutN_(cfg, seg){
+  var beh = cfg.beh[seg];
+  if (!beh) return 0;
+  return (beh.cashOut > 0) ? beh.cashOut : cfg.stages[cfg.stages.length - 1].n;
+}
+
+// Say out loud what the model does NOT do, once per read, rather than leaving it to be rediscovered
+// from odd numbers. Two things bite here:
+//  - Cash-Out Variant is an authored input that nothing reads. Variant A (the sheet default) means
+//    cash out after every successful stage; the model always cashes out at the segment Cash-Out
+//    Stage and only there. User decision 2026-09-03 (D37): keep the hard target, report it.
+//  - a deep Cash-Out Stage therefore DESTROYS value. At the shipped ladder 100+ banks 1 run in
+//    7,900 and MAX 1 in 2.7 million, so their reward-per-run columns are ~0 by construction.
+function tofPolicyLog_(cfg, segs, payer, ctx){
+  try {
+    var deep = [];
+    segs.forEach(function(sg){
+      var run = tofRun_(sg, payer, ctx.ds);
+      if (run && run.pBank < 0.01)
+        deep.push(sg + ' (stage ' + tofCashOutN_(cfg, sg) + ', P(bank) ' + run.pBank.toExponential(2) + ')');
+    });
+    Logger.log('ToF policy: the run banks ONLY at the segment Cash-Out Stage. The authored ' +
+               'Cash-Out Variant (' + cfg.cashOutVariant + ') is NOT modelled - Variant A would ' +
+               'allow cashing out after every successful stage, which this model never does.' +
+               (deep.length ? ' Segments whose cash-out stage is deep enough to make reward per run ' +
+                              'effectively zero: ' + deep.join(', ') + '.' : ''));
+  } catch(e){}
+}
+
 /** @customfunction */
 function ECOGAINS_TOF(payer, block, nonce){
   var p = String(payer || 'NONPAYER').trim();
@@ -1570,11 +1624,18 @@ function ECOGAINS_TOF(payer, block, nonce){
   if (!segs.length) return [['SEGMENT BEHAVIOUR is empty']];
 
   if (blk === 'RUN'){
-    var out = [['Segment','Runs in window','P(run pays)','Coins spent per run','Coins spent in window',
-                'Tickets earned','Tickets unspent']];
+    // 'P(run banks)', not 'P(run pays)': a run that meets a Pig and stops pays nothing at all, so
+    // this is the probability the whole pot survives to the cash-out stage. The last three columns
+    // exist because that probability was invisible next to the reward block and the numbers there
+    // read as impossible - see tofLadderRow_. (D37, 2026-09-03.)
+    tofPolicyLog_(cfg, segs, p, ctx);
+    var out = [['Segment','Runs in window','P(run banks)','Coins spent per run','Coins spent in window',
+                'Tickets earned','Tickets unspent',
+                'Cash-out stage','Ladder value if banked (coins-eq)','Expected value banked (coins-eq)']];
     segs.forEach(function(sg){
       var run = tofRun_(sg, p, ctx.ds);
-      if (!run){ out.push([sg,0,0,0,0,0,0]); return; }
+      var lad = tofLadderRow_(cfg, tofCashOutN_(cfg, sg));
+      if (!run){ out.push([sg,0,0,0,0,0,0, tofCashOutN_(cfg, sg), lad.coins, 0]); return; }
       // MAX is a ceiling case, not an engagement segment: data_seg_beh has no row for it, so there
       // are no activity rates to price reach with and no ticket income to bank. Its PER-RUN numbers
       // are the point of it -- what the deep ladder is worth and what it costs to get there -- so
@@ -1582,20 +1643,32 @@ function ECOGAINS_TOF(payer, block, nonce){
       // nothing" instead of "this question does not apply to MAX".
       var beh = ctx.ds.beh(sg, p);
       var hasRates = num(beh.weekday_active_rate) > 0 || num(beh.weekend_active_rate) > 0;
-      if (!hasRates){ out.push([sg, '', run.pBank, run.spend, '', '', '']); return; }
+      var tail = [tofCashOutN_(cfg, sg), lad.coins, lad.coins * run.pBank];
+      if (!hasRates){ out.push([sg, '', run.pBank, run.spend, '', '', ''].concat(tail)); return; }
       var b = tofRunBudget_(sg, p, ctx, num(run.bank[TOF_TICKET])) || {runs:0,ticketsEarned:0,ticketsLeft:0};
       out.push([sg, b.runs, run.pBank, run.spend, run.spend * b.runs,
-                b.ticketsEarned, b.ticketsLeft]);
+                b.ticketsEarned, b.ticketsLeft].concat(tail));
     });
     return out;
   }
   if (blk === 'REWARD'){
-    var rows = [['Resource'].concat(segs)];
+    // TWO columns per segment, because one was being read as the other. 'if banked' is the ladder
+    // face value up to the cash-out stage - what the STAGES block promises, stage 1 included.
+    // 'expected' is that x P(run banks), which is what the EcoGainsSim ToF row is built from
+    // (x runs in window). The identity expected = if banked x P(run banks) is gated.
+    var hdr = ['Resource'], pRow = ['P(run banks)'];
+    var pre = segs.map(function(sg){
+      return { run: tofRun_(sg, p, ctx.ds), lad: tofLadderRow_(cfg, tofCashOutN_(cfg, sg)) };
+    });
+    segs.forEach(function(sg, i){
+      hdr.push(sg + ' if banked', sg + ' expected');
+      pRow.push(pre[i].run ? pre[i].run.pBank : 0, '');
+    });
+    var rows = [hdr, pRow];
     RESOURCES.forEach(function(res){
       var line = [res];
-      segs.forEach(function(sg){
-        var run = tofRun_(sg, p, ctx.ds);
-        line.push(run ? num(run.bank[res]) : 0);
+      pre.forEach(function(x){
+        line.push(num(x.lad.row[res]), x.run ? num(x.run.bank[res]) : 0);
       });
       rows.push(line);
     });

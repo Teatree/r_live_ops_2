@@ -1386,18 +1386,132 @@ function logCol(name){
   {
     ['NONPAYER', 'PAYER'].forEach(pp => {
       const runBlk = ECOGAINS_TOF(pp, 'RUN', 1);
+      // BY HEADER NAME, not by index. This read r[5] until 2026-09-03, when three columns were
+      // appended to the RUN block and 5 would have kept resolving - to a different number. A gate
+      // that hardcodes a column offset is one rename away from asserting something else entirely.
+      const rc = {};
+      runBlk[0].forEach((h, i) => { rc[String(h)] = i; });
+      const cTick = rc['Tickets earned'];
+      check('ToF RUN block still has a "Tickets earned" column', cTick != null,
+        'headers: ' + runBlk[0].join(' | '));
       let worstT = 0, atT = '';
       runBlk.slice(1).forEach(r => {
         const sg = String(r[0]);
-        if (typeof r[5] !== 'number') return;            // MAX: no behaviour telemetry, blank window
+        if (typeof r[cTick] !== 'number') return;        // MAX: no behaviour telemetry, blank window
         let sum = 0;
         CATEGORY_ORDER.forEach(c => { sum += num(resultRow_(c, sg, pp, ctxT2)['ToF_Ticket']); });
-        const gap = Math.abs(num(r[5]) - sum);
+        const gap = Math.abs(num(r[cTick]) - sum);
         if (gap > worstT) { worstT = gap; atT = sg + '/' + pp; }
       });
       check('ToF sheet "Tickets earned" == the grid ToF_Ticket sum (' + pp + ')',
         worstT < 1e-9, 'worst gap ' + worstT.toExponential(2) + (atT ? ' at ' + atT : ''));
     });
+  }
+
+  // (D37, 2026-09-03) THE REPORTING SPLIT. 'Reward per run' was read as guaranteed income and the
+  // numbers looked impossible: stage 1 pays 10 Unlimited Lives and cannot be missed, yet the block
+  // said 3.11 for 0-9 and 0.00003 for MAX. Both are right - the deck loses the whole pot on an
+  // un-continued Pig (p7), so nothing is income until the cash-out stage - but one column cannot
+  // carry both meanings. The block now spills 'if banked' (ladder face value) beside 'expected'
+  // (x P(run banks)), and the RUN block carries the probability and the cash-out stage that drive
+  // the gap. The MODEL is unchanged, deliberately (user decision): these gates pin that.
+  {
+    const cfgR = tofConfig_();
+    ['NONPAYER', 'PAYER'].forEach(pp => {
+      const rew = ECOGAINS_TOF(pp, 'REWARD', 1);
+      const run = ECOGAINS_TOF(pp, 'RUN', 1);
+      const rh = {}; run[0].forEach((h, i) => { rh[String(h)] = i; });
+      const hdr = rew[0], pRow = rew[1];
+      check('ToF REWARD spills an "if banked" and an "expected" column per segment (' + pp + ')',
+        hdr.length === 1 + 2 * (run.length - 1) &&
+        hdr.slice(1).every(h => / (if banked|expected)$/.test(String(h))),
+        hdr.join(' | '));
+      check('ToF REWARD carries a P(run banks) row (' + pp + ')',
+        String(pRow[0]) === 'P(run banks)');
+
+      // THE IDENTITY: expected = if banked x P(run banks), every resource, every segment. This is
+      // what makes the two columns readable together instead of a second, disagreeing model.
+      let worstI = 0, atI = '';
+      for (let c = 1; c < hdr.length; c += 2){
+        const pB = num(pRow[c]);
+        rew.slice(2).forEach(line => {
+          const gap = Math.abs(num(line[c]) * pB - num(line[c + 1]));
+          if (gap > worstI){ worstI = gap; atI = String(line[0]) + ' / ' + String(hdr[c]); }
+        });
+      }
+      check('ToF REWARD: expected == if banked x P(run banks) (' + pp + ')',
+        worstI < 1e-9, 'worst ' + worstI.toExponential(2) + (atI ? ' at ' + atI : ''));
+
+      // the RUN block coin-equivalent pair must obey the same identity, and its cash-out stage must
+      // be the AUTHORED one - not a constant that drifts from SEGMENT BEHAVIOUR
+      let okCo = true, coDet = [];
+      run.slice(1).forEach(r => {
+        const sg = String(r[0]);
+        const want = (cfgR.beh[sg].cashOut > 0) ? cfgR.beh[sg].cashOut
+                                                : cfgR.stages[cfgR.stages.length - 1].n;
+        if (num(r[rh['Cash-out stage']]) !== want){
+          okCo = false; coDet.push(sg + ' stage ' + r[rh['Cash-out stage']] + ' vs ' + want);
+        }
+        const gap = Math.abs(num(r[rh['Ladder value if banked (coins-eq)']]) * num(r[rh['P(run banks)']]) -
+                             num(r[rh['Expected value banked (coins-eq)']]));
+        if (gap > 1e-9){ okCo = false; coDet.push(sg + ' coin identity ' + gap.toExponential(2)); }
+      });
+      check('ToF RUN: cash-out stage is the authored one and the coin pair obeys the identity (' + pp + ')',
+        okCo, coDet.join(', ') || 'all segments');
+
+      // and the grid row is STILL built from the expected column x runs - the reporting change must
+      // not have moved a single number in EcoGainsSim
+      let worstG = 0, atG = '';
+      run.slice(1).forEach(r => {
+        const sg = String(r[0]);
+        if (typeof r[rh['Runs in window']] !== 'number') return;      // MAX
+        const rr = tofRun_(sg, pp, ctxT2.ds);
+        const gridRow = resultRow_('ToF', sg, pp, ctxT2);
+        const gap = Math.abs(num(rr.bank['Unlimited Lives']) * num(r[rh['Runs in window']]) -
+                             num(gridRow['Unlimited Lives']));
+        if (gap > worstG){ worstG = gap; atG = sg; }
+      });
+      check('ToF grid row == expected banked x runs, unchanged by the reporting split (' + pp + ')',
+        worstG < 1e-9, 'worst ' + worstG.toExponential(2) + (atG ? ' at ' + atG : ''));
+    });
+
+    // MUTATION FIXTURE: the 'if banked' column has to be the LADDER, so editing a stage reward must
+    // move it - and by exactly the edit. Without this the column could be any plausible constant.
+    {
+      const sheetR = data['ToF'] ? 'ToF' : 'MD';
+      const vR = data[sheetR].values;
+      const sb = mdBlock_(vR, 'STAGES'), hr = mdHeaderRow_(vR, sb, 'Stage');
+      let ulCol = -1;
+      (vR[hr] || []).forEach((h, i) => { if (String(h).trim() === 'Unlimited Lives') ulCol = i; });
+      check('ToF STAGES has an Unlimited Lives column to mutate', ulCol >= 0);
+      if (ulCol >= 0){
+        const bust = () => { _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {};
+                             _tofIncomeCache = {}; };
+        const before = ECOGAINS_TOF('NONPAYER', 'REWARD', 1);
+        const bh = before[0];
+        const ulRow = before.slice(2).find(l => String(l[0]) === 'Unlimited Lives');
+        const c0 = 1;                                    // first segment 'if banked'
+        const was = num(ulRow[c0]), wasExp = num(ulRow[c0 + 1]);
+        const cell = vR[hr + 1][ulCol];                  // stage 1 - Safe (Start), cannot be missed
+        vR[hr + 1][ulCol] = num(cell) + 7;
+        bust();
+        const after = ECOGAINS_TOF('NONPAYER', 'REWARD', 1);
+        const ulRow2 = after.slice(2).find(l => String(l[0]) === 'Unlimited Lives');
+        check('ToF: +7 Unlimited Lives on stage 1 raises "if banked" by exactly 7',
+          Math.abs(num(ulRow2[c0]) - (was + 7)) < 1e-9,
+          was.toFixed(3) + ' -> ' + num(ulRow2[c0]).toFixed(3) + ' (' + String(bh[c0]) + ')');
+        // ...and the expected column moves by 7 x P(bank), not by 7
+        const pB = num(after[1][c0]);
+        check('ToF: the expected column moves by 7 x P(run banks), not by 7',
+          Math.abs((num(ulRow2[c0 + 1]) - wasExp) - 7 * pB) < 1e-9,
+          'delta ' + (num(ulRow2[c0 + 1]) - wasExp).toFixed(4) + ' vs 7 x ' + pB.toFixed(5));
+        vR[hr + 1][ulCol] = cell;
+        bust();
+        const back = ECOGAINS_TOF('NONPAYER', 'REWARD', 1);
+        const ulRow3 = back.slice(2).find(l => String(l[0]) === 'Unlimited Lives');
+        check('ToF stage fixture restored', Math.abs(num(ulRow3[c0]) - was) < 1e-9);
+      }
+    }
   }
 
   // (D35) The refresh list has to include every sheet the engine spills a custom function onto, or a
