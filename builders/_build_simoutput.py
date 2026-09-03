@@ -50,8 +50,14 @@ TALLY_ROWS = [
 # payouts used to exist only as note text, so the feature's contribution could not be read as a
 # number. Keep REWARD_ROWS/REWARD_C0 in step with REWARD_TALLY_ROW/REWARD_TALLY_COL in the engine.
 REWARD_C0 = 4                                    # == REWARD_TALLY_COL in engine/CardOpenings.gs
+# Two ToF rows appended 2026-09-03 (D33): the ticket count THIS season drew, and the expectation
+# EcoGainsSim carries. Tickets arrive in lumps of 2-6 on rungs that fire or do not, and shared
+# attendance correlates those lumps, so one season is a wide draw - 40-99 PAYER means 26.7 with p10
+# 14 and p90 40 - and a p90 run read as the two models disagreeing. Side by side it reads as what it
+# is. Six rows still clear the pack log's bar at row 55.
 REWARD_ROWS = ['Set Reward Coins', 'Set Rewards (all resources)',
-               'Album Reward Coins', 'Album Rewards (all resources)']
+               'Album Reward Coins', 'Album Rewards (all resources)',
+               'ToF Tickets banked (this run)', 'ToF Tickets expected (mean)']
 
 TOTALS_HDRS = ['Day', 'Star Balance', 'Unique Cards', '% Complete', 'Sets Done', 'Album Tier',
                'Packs Opened']
@@ -155,6 +161,10 @@ for i, label in enumerate(TALLY_ROWS):
     vc.fill = fill(F_OUT)
     vc.border = BORDER
     vc.alignment = Alignment(horizontal='center')
+ws.cell(TALLY_R0 + REWARD_ROWS.index('ToF Tickets expected (mean)'), REWARD_C0 + 2,
+        'the row above is ONE draw; this is the population mean EcoGainsSim carries. Tickets come '
+        'in lumps of 2-6 on rungs that fire or do not, so a season can land at half or double the '
+        'mean - Col_Cards_Cloud carries the p10-p90 band').font = ARIAL(size=9, color='FF808080')
 ws.cell(TALLY_R0 + TALLY_ROWS.index('Expected Packs (fractional)'), 3,
         'unrounded simulated pack flow — the gap vs Total Packs Opened is the discrete-grant '
         'rounding (seeded Bernoulli on each trailing fraction)').font = ARIAL(size=9, color='FF808080')

@@ -569,6 +569,18 @@ function cardSeasonPre_(seg, payer, ctx){
     // (D31), and counting them here as well would pay their tickets twice.
     tofTickets: (typeof tofTicketIncome_ === 'function')
                   ? tofTicketIncome_(seg, payer, ctx, planCats_(packGrantPlan_(seg, payer, ctx))) : null,
+    // The EXPECTATION the gains model carries for this player, so the sheet can print it beside the
+    // count this one season actually drew (D33, 2026-09-03). Tickets arrive in lumps of 2-6 on rungs
+    // that fire or do not, and shared attendance (D32) correlates those lumps, so the per-season
+    // spread is wide: at 40-99 PAYER the mean is 26.7 with p10 14 and p90 40. Printing only the
+    // draw made a p90 run read as the two models disagreeing, which is exactly what happened.
+    // Same number ECOGAINS_SIM sums into its ToF_Ticket column.
+    tofExpected: (function(){
+      if (typeof resultRow_ !== 'function') return 0;
+      var t = 0;
+      CATEGORY_ORDER.forEach(function(c){ t += num(resultRow_(c, seg, payer, ctx)['ToF_Ticket']); });
+      return t;
+    })(),
     pWd:   num(b.weekday_active_rate),    pWe:  num(b.weekend_active_rate),
     mins:  num(b.minutes_per_active_day), sess: num(b.sessions_per_active_day),
     lvlsP: num(b.levels_played_per_active_day),
@@ -1136,7 +1148,8 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     setsCompletedTotal: setsCompletedTotal, albumIdx: albumIdx,
     dayAlbumCompleted: dayAlbumCompleted, expectedTotal: expectedTotal,
     setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
-    collection: collection, collectionSize: collectionSize
+    collection: collection, collectionSize: collectionSize,
+    tofTickets: tofCum, tofExpected: num(pre.tofExpected)
   };
 }
 
@@ -1204,11 +1217,17 @@ function SimulatePackOpenings() {
   // sheet. Written as its OWN block beside the tally rather than appended to it: the tally column
   // starts at row 42 and the pack log's bar sits at row 55, so four more rows would collide.
   // Coins get their own cell because that is the currency every other lane is measured in.
-  simOut.getRange(REWARD_TALLY_ROW, REWARD_TALLY_COL + 1, 4, 1).setValues([
+  // SIX rows since D33: the last two are the ToF ticket count this season drew and the expectation
+  // EcoGainsSim carries. One season is one sample from a wide distribution, so the drawn number on
+  // its own invited reading a p90 run as a disagreement between the two models. They sit side by
+  // side now. Still clear of the pack log's bar at row 55.
+  simOut.getRange(REWARD_TALLY_ROW, REWARD_TALLY_COL + 1, 6, 1).setValues([
     [num(setRewardGains['Coins'])],
     [formatRewards_(setRewardGains)],
     [num(albumRewardGains['Coins'])],
-    [formatRewards_(albumRewardGains)]
+    [formatRewards_(albumRewardGains)],
+    [num(res.tofTickets)],
+    [Math.round(num(res.tofExpected) * 100) / 100]
   ]);
 
   // --- write pack log ------------------------------------------------------------------------
@@ -1243,6 +1262,7 @@ function SimulatePackOpenings() {
   SpreadsheetApp.getActive().toast(
     'log ' + outCols + ' cols, last "' + LOG_COLS[LOG_COLS.length - 1] + '" | ' +
     'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + '), ' +
+    num(res.tofTickets) + ' ToF tickets (expected ' + num(res.tofExpected).toFixed(1) + '), ' +
     seg + ' ' + payer + ', ' + ALBUM_NAMES[albumIdx] + ' (catalog ' + totalUnique +
     ', balance ' + balance + ', seed ' + seed + ') | set rewards ' +
     formatRewards_(setRewardGains) + ' | album rewards ' + formatRewards_(albumRewardGains),

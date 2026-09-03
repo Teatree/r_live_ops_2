@@ -1354,6 +1354,30 @@ function logCol(name){
   else
     check('no tickets authored on this dump -> nothing to reconcile', mean === 0, 'engine 0');
 
+  // (D33) The sheet must print the EXPECTATION beside the draw, and both must be the real numbers:
+  // the drawn count is what the log ends on, the expectation is what ECOGAINS_SIM sums. A single
+  // season is a wide draw (40-99 PAYER: mean 26.7, p10 14, p90 40), and without the expectation on
+  // the sheet a p90 run reads as the two models disagreeing.
+  {
+    data['Col_Cards_Daily'].values[1][1] = segT;
+    data['Col_Cards_Daily'].values[1][3] = payT;
+    SimulatePackOpenings();
+    const tv = data['Col_Cards_Daily'].values;
+    const banked = tv[REWARD_TALLY_ROW + 4 - 1][REWARD_TALLY_COL];      // 0-based col E
+    const expect = tv[REWARD_TALLY_ROW + 5 - 1][REWARD_TALLY_COL];
+    let lastCol = 0;
+    for (let r = OUT_START_ROW - 1; r < tv.length; r++) {
+      const row = tv[r] || [];
+      if (row[0] === '' || row[0] == null) continue;
+      if (typeof row[colT] === 'number') lastCol = row[colT];
+    }
+    check('the tally prints the ticket count this run banked', banked === lastCol,
+      'tally ' + banked + ', log ends at ' + lastCol);
+    check('the tally prints the gains-model expectation beside it',
+      Math.abs(num(expect) - engT) < 0.02,
+      'tally ' + expect + ' vs engine ' + engT.toFixed(2));
+  }
+
   // Nothing may be counted twice: the smooth stream must EXCLUDE every category the plan draws.
   const planT = packGrantPlan_(segT, payT, ctxT2);
   const cats = planCats_(planT);
