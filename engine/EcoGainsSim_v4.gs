@@ -301,7 +301,7 @@ function measuredRow_(cat, seg, payer, ds){
   // it at all, so the measured anchor is zero and the whole simulated lane lands in the DIFF. Also
   // keeps it out of the measured SPT total, so the Season Pass tier does not credit a season that
   // never happened.
-  if (!NS_ANCHORED && NS_SIMULATE && cat === 'Daily Night Sky Prize') return zeroRow_();
+  if (!nsAnchored_() && NS_SIMULATE && cat === 'Daily Night Sky Prize') return zeroRow_();
   // Rainbow Maker (D29): the measured side is SYNTHESISED from cal_curr + the base ladder, because
   // data_gains has no RM rows to anchor on. Intercepted at this one choke point so the 33-day DIFF,
   // the daily CURRENT block, Sim per Segment and the measured SPT total all agree.
@@ -2067,10 +2067,25 @@ var NS_SIMULATE = true;
 //                           priced bottom-up on cal_new (E_v2 x expected active days). The DIFF is
 //                           then the WHOLE lane, which is what "there was no Night Sky in the old
 //                           calendar, there is one in the new" actually means.
-// Shipped false: this workbook adds Night Sky on top rather than re-configuring an existing one.
-// Note this restores the pre-D22 pricing, and with it the standing caveat that the bottom-up NS
-// model was never validated against actuals (it looked ~5x hot the last time anyone checked).
-var NS_ANCHORED = false;
+// 'auto' (D30, 2026-09-03) — THE CALENDAR DECIDES, and it is now the shipped default.
+// "Is Night Sky new?" is a fact written on cal_curr, not a preference: if the old calendar runs the
+// event, the row is a CHANGE and has to be anchored; if it does not, the row is an ADD. A hardcoded
+// flag answers that question once, for one workbook, and is then wrong for the next one - which is
+// exactly what happened. COLLECTIONS_UNDER_NEW_CALENDAR (4) runs Night Sky on all 33 days of BOTH
+// calendars with an NS_v2 ladder identical to NS, so the honest answer is "nothing changed, diff
+// 0". With the flag pinned false the anchor was forced to zero and the whole bottom-up lane
+// reported as an uplift: +38.5 HC at 0-9 PAYER, +287.5 at 20-39, against measured 24.8 and 149.0.
+// That number was not a Night Sky finding, it was the flag.
+// It also exposed the standing caveat in the worst possible place: bottom-up reads 93% above the
+// measured lane at 20-39, so "the redesign adds HC" was really "the unvalidated model runs hot".
+// true / false still force it, for a workbook where the calendar cannot answer.
+// Same rule as RM_ANCHORED's cal_curr test, deliberately: one concept, two sources.
+var NS_ANCHORED = 'auto';
+function nsAnchored_(ctx){
+  if (NS_ANCHORED !== 'auto') return !!NS_ANCHORED;
+  try { ctx = ctx || Context.get(); } catch(e){ return false; }
+  return !!(ctx && ctx.calCurOk && (ctx.calCur['Night Sky'] || []).length);
+}
 function simNightSky(seg, payer, ctx){
   var ds = ctx.ds, meas = measuredRow_('Daily Night Sky Prize', seg, payer, ds);
   if (!NS_SIMULATE) return meas;                         // flag off -> carried (see switch above)
@@ -2084,7 +2099,7 @@ function simNightSky(seg, payer, ctx){
   var days = reachSum_(nw, num(b.weekday_active_rate),   // 33x1d -> Σ p_day = expected active days
                        num(b.weekend_active_rate));
   var out = {};
-  if (!NS_ANCHORED){
+  if (!nsAnchored_(ctx)){
     // NEW SOURCE: nothing to scale, so every resource is the bottom-up value. measuredRow_ forces
     // the anchor to 0 for this lane (see below), so the DIFF is the whole thing.
     RESOURCES.forEach(function(r){ out[r] = num(E.eV2[r]) * days; });

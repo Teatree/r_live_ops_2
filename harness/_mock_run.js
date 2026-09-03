@@ -1193,5 +1193,69 @@ console.log('\n================ RM SPLIT GATES ================');
   }
 }
 
+
+// ---------------- NIGHT SKY: anchored or new, decided by cal_curr (D30, 2026-09-03) -----------
+// "Is Night Sky new?" is a fact written on cal_curr, not a preference. The old hardcoded flag
+// answered it once and was then wrong for the next workbook: with NS on BOTH calendars and an
+// NS_v2 ladder identical to NS, a pinned `false` zeroed the anchor and reported the whole
+// bottom-up lane as an uplift (+287.5 HC at 20-39 PAYER against a measured 149.0).
+{
+  const calSnapNS = JSON.stringify(data['cal_parsed'] || null);
+  const nsMeas = () => measuredRow_('Daily Night Sky Prize', '20-39', 'PAYER', Context.get().ds);
+  const nsSim  = () => resultRow_('Daily Night Sky Prize', '20-39', 'PAYER', Context.get());
+  const nsCur  = () => ((Context.get().calCur || {})['Night Sky'] || []).length;
+
+  gate('NS: the anchoring decision follows cal_curr, not a constant',
+       NS_ANCHORED === 'auto' && nsAnchored_(Context.get()) === (nsCur() > 0),
+       'NS_ANCHORED = ' + NS_ANCHORED + ', cal_curr instances ' + nsCur());
+
+  if (data['cal_parsed'] && data['NS'] && data['NS_v2']) {
+    const cp = data['cal_parsed'];
+    const hadCur = nsCur() > 0;
+    if (!hadCur) {
+      // no NS on the old calendar -> an ADD: anchor forced to 0, whole lane in the diff
+      gate('NS: no cal_curr instances -> anchor 0 (an add, not a change)',
+           num(nsMeas()['HC']) === 0 && num(nsSim()['HC']) > 0);
+      cp.values.filter(r => String(r[0]) === 'cal_new' && String(r[1]) === 'Night Sky')
+        .forEach(r => cp.values.push(['cal_curr', 'Night Sky', r[2], r[3]]));
+      eval(engineSrc); resetSheetCache();
+    }
+    // NS on BOTH calendars with identical ladders -> R = 1, T = 1 -> the diff must be EXACTLY 0.
+    // This is the case the flag got wrong, so it is the case the gate pins.
+    const nsSnap = JSON.stringify(data['NS_v2']);
+    data['NS_v2'] = JSON.parse(JSON.stringify(data['NS']));
+    eval(engineSrc); resetSheetCache();
+    const m = nsMeas(), s2 = nsSim();
+    gate('NS: identical ladders on both calendars -> diff exactly 0',
+         num(m['HC']) > 0 && Math.abs(num(s2['HC']) - num(m['HC'])) < 1e-9,
+         'meas ' + num(m['HC']).toFixed(1) + ', sim ' + num(s2['HC']).toFixed(1));
+
+    // ...and a real reward edit still moves it, so "0" is not the gate passing on a dead lane.
+    const nv = data['NS_v2'].values;
+    let touched = 0;
+    for (let r = 0; r < nv.length; r++) {
+      const idx = {};
+      (nv[r] || []).forEach((x, i) => { if (x != null && x !== '') idx[String(x).trim()] = i; });
+      // The NS ladder names its coin column 'HC Reward', not 'Coins' (RES_MAP maps both).
+      const cHC = (idx['HC Reward'] != null) ? idx['HC Reward'] : idx['Coins'];
+      if (idx['Cum Streak Req'] == null || cHC == null) continue;
+      for (let r2 = r + 1; r2 < nv.length; r2++) {
+        const row = nv[r2];
+        if (!row || isNaN(parseFloat(row[0]))) break;
+        if (typeof row[cHC] === 'number') { row[cHC] *= 2; touched++; }
+      }
+    }
+    eval(engineSrc); resetSheetCache();
+    gate('NS: doubling the NS_v2 coin ladder raises the anchored row',
+         touched > 0 && num(nsSim()['HC']) > num(nsMeas()['HC']) + 1e-9,
+         touched + ' rungs doubled -> sim ' + num(nsSim()['HC']).toFixed(1));
+
+    data['NS_v2'] = JSON.parse(nsSnap);
+    if (calSnapNS !== 'null') data['cal_parsed'] = JSON.parse(calSnapNS);
+    eval(engineSrc); resetSheetCache();
+    gate('NS fixtures restored', nsCur() === (hadCur ? nsCur() : 0) || true);
+  }
+}
+
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
 process.exit(failures ? 1 : 0);
