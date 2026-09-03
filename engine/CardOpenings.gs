@@ -565,12 +565,22 @@ function cardSeasonPre_(seg, payer, ctx){
     // - so it is what this player is expected to be paid, not the ladder's face value. Guarded by
     // typeof: a workbook whose Apps Script project predates the ToF engine still runs the card sim,
     // it just logs zeros.
-    tofTickets: (typeof tofTicketIncome_ === 'function') ? tofTicketIncome_(seg, payer, ctx) : null,
+    // EXCLUDES every category the pack grant plan covers: those are drawn per rung inside the core
+    // (D31), and counting them here as well would pay their tickets twice.
+    tofTickets: (typeof tofTicketIncome_ === 'function')
+                  ? tofTicketIncome_(seg, payer, ctx, planCats_(packGrantPlan_(seg, payer, ctx))) : null,
     pWd:   num(b.weekday_active_rate),    pWe:  num(b.weekend_active_rate),
     mins:  num(b.minutes_per_active_day), sess: num(b.sessions_per_active_day),
     lvlsP: num(b.levels_played_per_active_day),
     lvlsC: num(b.levels_completed_per_active_day)
   };
+}
+
+/** The set of categories a grant plan covers, so their ticket income is not counted twice. */
+function planCats_(plan){
+  var seen = {};
+  (plan || []).forEach(function(pl){ if (pl && pl.cat) seen[pl.cat] = true; });
+  return seen;
 }
 
 /** One player's 33-day season. Pure: no sheet reads, no sheet writes, no Math.random - the seed
@@ -929,9 +939,15 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // and then which rung(s) did they hit. Expectation per (source, tier) is unchanged, so window
   // totals still reconcile with the gains model (see packRungs_).
   var packOpens = [], expectedTotal = 0;
+  // Tickets granted to THIS player by the instance rungs that actually fired (D31). Sources with no
+  // instance structure - the daily gift, the Season Pass track - are not in the plan and keep the
+  // expectation path below.
+  var tofRung = [];
+  for (var tq = 0; tq < SEASON_DAYS; tq++) tofRung.push(0);
   var plan = pre.plan;              // per-permutation: computed once by cardSeasonPre_
 
   plan.forEach(function(pl){
+    if (pl.noPacks) return;      // kept only for its TICKETS (D31) - it opens no envelope
     pl.groups.forEach(function(g){
       g.rungs.forEach(function(rg){
         for (var t in rg.packs)
@@ -955,7 +971,13 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     }
     return pl.days[pl.days.length - 1];
   }
-  function emitRung(cat, rung, day){
+  function emitRung(pl, rung, day){
+    var cat = pl.cat;
+    // D31: the SAME rung event that grants an envelope grants its ToF_Tickets. Whole numbers,
+    // because a rung either fired for this player or it did not - the ladder pays what it says.
+    if (num(rung.tickets) > 0 && day >= 1 && day <= SEASON_DAYS)
+      tofRung[day - 1] = num(tofRung[day - 1]) + num(rung.tickets);
+    if (pl.noPacks) return;        // past the album season: tickets yes, envelopes no (D26 + D31)
     for (var t in rung.packs){
       var n = num(rung.packs[t]);
       var whole = Math.floor(n);
@@ -976,11 +998,11 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
           acc += g.rungs[i].p;
           if (x <= acc){ chosen = g.rungs[i]; break; }
         }
-        if (chosen) emitRung(pl.cat, chosen, pickDay(pl, chosen));
+        if (chosen) emitRung(pl, chosen, pickDay(pl, chosen));
       } else {
         // a milestone ladder: each rung is reached (or not) on its own survival probability
         g.rungs.forEach(function(rg){
-          if (grantRand() < rg.p) emitRung(pl.cat, rg, pickDay(pl, rg));
+          if (grantRand() < rg.p) emitRung(pl, rg, pickDay(pl, rg));
         });
       }
     });
@@ -1013,13 +1035,20 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // player is handed a ticket. Its OWN random stream, derived from the seed like the others, so
   // turning this on cannot reshuffle a single card draw or pack grant - the same seed produces the
   // same season it did before, plus this column.
+  // Two ticket streams, deliberately. The instance-shaped sources are DRAWN per rung above, so a
+  // player who reaches Jigsaw milestone #2 banks the 2 tickets that rung pays - the whole number,
+  // not a slice of the population average. Everything else (daily gift, Season Pass track) has no
+  // per-instance structure to draw, so it keeps the smooth expectation and is discretised by the
+  // carry below. Adding them would double-count, which is why pre.tofTickets EXCLUDES every
+  // category the plan covers.
   var tofIncome = pre.tofTickets || [], tofCarry = 0, tofCum = 0;
   var tofRand = mulberry32((seed | 0) ^ 0x5bf03635);
   var tofLastDay = 0;
   for (var td = DAILY_DAYS; td >= 1; td--) if (num(tofIncome[td - 1]) > 0){ tofLastDay = td; break; }
   for (var day = 1; day <= SEASON_DAYS; day++){
     var rowsBefore = output.length;
-    tofCarry += num(tofIncome[day - 1]);
+    tofCum += num(tofRung[day - 1]);                 // drawn rungs: already whole tickets
+    tofCarry += num(tofIncome[day - 1]);            // the rest: expectation, carried to whole ones
     while (tofCarry >= 1){ tofCarry -= 1; tofCum += 1; }
     // The last day that pays anything settles what is left, so the season total is unbiased rather
     // than always rounded down: a segment earning 0.9 tickets a season would otherwise ALWAYS show

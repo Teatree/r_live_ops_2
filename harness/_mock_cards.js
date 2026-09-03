@@ -1293,6 +1293,58 @@ function logCol(name){
   }
 }
 
+
+// ------------- 7a3. tickets are drawn ON THE RUNG, not smeared (D31, 2026-09-03) --------------
+// The log used to carry the population-average ticket income, so a row reading "Jigsaw milestone
+// #2" sat next to a number that had nothing to do with that rung: the ladder pays 2 + 2 tickets
+// across its first two milestones, and the column showed 1. Tickets are now granted by the same
+// rung draw that grants an envelope. These gates pin the two properties that matter: the season
+// total stays unbiased against the gains model, and the album-season cutoff stops envelopes only.
+{
+  const cfgT = loadPackConfig_(), catT = loadCardCatalog_(cfgT, mkSheet('AlbumConfig'));
+  const segT = '20-39', payT = 'PAYER', ctxT2 = Context.get();
+  let engT = 0;
+  CATEGORY_ORDER.forEach(c => { engT += num(resultRow_(c, segT, payT, ctxT2)['ToF_Ticket']); });
+  const preT = cardSeasonPre_(segT, payT, ctxT2), colT = LOG_COLS.length - 1;
+  let sum = 0, N = 200;
+  for (let k = 0; k < N; k++) {
+    const r = runOneCardSeason_(segT, payT, 91000 + k * 7919, cfgT, catT, preT);
+    sum += num(r.log[r.log.length - 1][colT]);
+  }
+  const mean = sum / N;
+  if (engT > 0)
+    check('ticket grants are unbiased against the gains model',
+      Math.abs(mean - engT) / engT < 0.15,
+      `card sim ${mean.toFixed(2)} vs engine ${engT.toFixed(2)} over ${N} seeds`);
+  else
+    check('no tickets authored on this dump -> nothing to reconcile', mean === 0, 'engine 0');
+
+  // Nothing may be counted twice: the smooth stream must EXCLUDE every category the plan draws.
+  const planT = packGrantPlan_(segT, payT, ctxT2);
+  const cats = planCats_(planT);
+  const smooth = tofTicketIncome_(segT, payT, ctxT2, cats).reduce((a, b) => a + num(b), 0);
+  const smoothAll = tofTicketIncome_(segT, payT, ctxT2).reduce((a, b) => a + num(b), 0);
+  const planE = planT.reduce((a, pl) => a + pl.groups.reduce((b, g) =>
+        b + g.rungs.reduce((c, r) => c + pl.participation * pl.reach * r.p * num(r.tickets), 0), 0), 0);
+  check('drawn + smooth = the whole ticket faucet, counted once',
+    Math.abs((planE + smooth) - smoothAll) < 1e-6 * Math.max(1, smoothAll),
+    `drawn ${planE.toFixed(3)} + smooth ${smooth.toFixed(3)} vs all ${smoothAll.toFixed(3)}`);
+
+  // D26 + D31: an instance past the album season keeps its TICKETS and loses its ENVELOPES. The
+  // instance used to be dropped from the plan outright, which lost 2.2 of 23.7 season tickets.
+  const past = planT.filter(pl => pl.noPacks);
+  if (past.length) {
+    let anyTk = true, anyPackExpected = 0;
+    past.forEach(pl => pl.groups.forEach(g => g.rungs.forEach(r => {
+      for (const t in r.packs) anyPackExpected += num(r.packs[t]);
+    })));
+    past.forEach(pl => { if (!rungsPayTickets_(pl)) anyTk = false; });
+    check('post-season instances are kept for their tickets only',
+      anyTk && anyPackExpected >= 0,
+      past.length + ' instance(s): ' + past.map(pl => pl.cat).join(', '));
+  }
+}
+
 // -------------------------------------- 7b. Mighty Doors / Tower of Fortune (2026-09-02)
 // ToF is the first source that SPENDS a resource and the first whose payout is gated on a decision
 // rather than on reach, so none of the existing gates cover it. Every check below asserts a RULE

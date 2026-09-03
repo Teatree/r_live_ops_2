@@ -458,7 +458,13 @@ function packGrantPlan_(seg, payer, ctx){
       // D26: an instance wholly past the collection season grants no envelopes. The ordinal `i` is
       // still the UNFILTERED one, because Rainbow Maker keys RM_1st/RM_2nd off instance order —
       // filtering before the ordinal would silently re-point the split at the wrong config sheet.
-      if (!SEASON_EXEMPT_LANES[label] && !instInSeason_(inst)) return;
+      // ...but the ToF TICKET is not an envelope (packLane_ pays it on the UNFILTERED reach: ToF is
+      // its own always-on event with no relationship to the album season). Dropping the instance
+      // outright therefore silently lost its tickets too - Jigsaw's d31 instance and the four
+      // post-cutoff Night Sky days, 2.2 of 23.7 season tickets at 20-39 PAYER. Keep the instance and
+      // mark it: the card sim opens no envelopes from it, and still banks its tickets.
+      var noPacks = !SEASON_EXEMPT_LANES[label] && !instInSeason_(inst);
+      if (noPacks && !rungsPayTickets_(rr)) return;      // nothing left to grant -> drop it
       var reach = reachOne_(inst, pWd, pWe);       // NOT clipped: a straddler pays in full
       if (!(reach > 0)) return;
       var days = ((inst && inst.days) || []).filter(function(d){ return d >= 1 && d <= DAILY_DAYS; });
@@ -481,11 +487,21 @@ function packGrantPlan_(seg, payer, ctx){
       // dropping rungs) is what keeps "cut in the middle still pays the full reward" true; repeated
       // days are harmless, the card sim indexes days/dayW in lockstep.
       plan.push({ cat: cat, days: days.map(function(d){ return seasonDay_(d); }),
-                  dayW: normalize_(w), reach: reach,
+                  dayW: normalize_(w), reach: reach, noPacks: noPacks,
                   participation: rr.participation, groups: rr.groups });
     });
   });
   return plan;
+}
+
+// Does any rung of this instance pay a ToF_Ticket? An out-of-season instance is kept ONLY when the
+// answer is yes; otherwise it has nothing left to grant and dropping it keeps the plan small.
+function rungsPayTickets_(rr){
+  var any = false;
+  ((rr && rr.groups) || []).forEach(function(g){
+    (g.rungs || []).forEach(function(x){ if (num(x.tickets) > 0) any = true; });
+  });
+  return any;
 }
 
 // ---- small helpers ----

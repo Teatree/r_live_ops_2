@@ -706,6 +706,11 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     PACK_RES.forEach(function(r){ if (num(rew[r]) > 0){ o = o || {}; o[r] = num(rew[r]); } });
     return o;
   }
+  // ToF_Ticket on the same rung (D31, 2026-09-03). The ticket is not an envelope, so it never goes
+  // into `packs` - the card sim would try to OPEN it. It rides alongside as its own number, drawn
+  // on the same rung event: a player who reaches Jigsaw milestone #2 is handed the 2 tickets that
+  // rung pays, not a slice of the population average.
+  function tkOf(rew){ return num(rew[TOF_TICKET]); }
   function mk(part, exclusive, rungs){
     // maxReq is taken over the WHOLE ladder, before the pack filter. Taking it after would rescale
     // the axis to whichever rungs happen to pay packs: a Rainbow Maker rung at req 5,310 out of a
@@ -716,7 +721,10 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     rungs.forEach(function(x){
       x.progress = (maxReq > 0 && num(x.req) > 0) ? Math.min(1, num(x.req) / maxReq) : 1;
     });
-    rungs = rungs.filter(function(x){ return x.packs && x.p > 0; });
+    // A rung that pays ONLY tickets is still a rung. Keeping it does not change any rung's own
+    // probability (the exclusive walk accumulates each rung's own p), so pack expectations are
+    // untouched - it only means the ticket-paying rows now exist to be drawn.
+    rungs = rungs.filter(function(x){ return (x.packs || x.tickets > 0) && x.p > 0; });
     if (!rungs.length) return null;
     // progress is the rung's place on the requirement axis, 0..1: a cumulative ladder is climbed IN
     // ORDER, so Rainbow Maker rung 1 (160 matchables against a median of ~83,000) is cleared almost
@@ -739,11 +747,13 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     var rungs;
     if (LB_RANK_MODEL === 'cdf' && rdk.dist){
       rungs = rdk.dist.map(function(d){
-        return { label: 'rank ' + d.rank, p: d.p, packs: packsOf(ladder[d.rank] || {}) };
+        var rw = ladder[d.rank] || {};
+        return { label: 'rank ' + d.rank, p: d.p, packs: packsOf(rw), tickets: tkOf(rw) };
       });
     } else {
       rungs = pos.map(function(pp){
-        return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(ladder[pp] || {}) };
+        var rw2 = ladder[pp] || {};
+        return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(rw2), tickets: tkOf(rw2) };
       });
     }
     var part = packParticipation_(cat, inst);
@@ -761,8 +771,9 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
         for (var mr = lb.ms.r0; mr <= lb.ms.r1; mr++){
           var mreq = num(v[mr] && v[mr][lb.ms.reqC]);
           if (!(mreq > 0)) continue;
+          var mrw = rewRow_(v, mr, mCols);
           msRungs.push({ label: 'score milestone (req ' + mreq + ')', p: Sk(mreq),
-                         req: mreq, packs: packsOf(rewRow_(v, mr, mCols)) });
+                         req: mreq, packs: packsOf(mrw), tickets: tkOf(mrw) });
         }
         msRungs = msRungs.filter(function(x){ return x.packs && x.p > 0; });
         if (msRungs.length){
@@ -791,12 +802,14 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       var req = vr[i];
       if (!(req > 0)) continue;
       lastReq = req;
+      var crw = rewRow_(cv, coll.r0 + i, ccols);
       crungs.push({ label: 'milestone #' + (i + 1) + ' (req ' + req + ')', p: S(req),
-                    req: req, packs: packsOf(rewRow_(cv, coll.r0 + i, ccols)) });
+                    req: req, packs: packsOf(crw), tickets: tkOf(crw) });
     }
     if (coll.completionRow != null && lastReq > 0)
       crungs.push({ label: 'completion bonus (req ' + lastReq + ')', p: S(lastReq),
-                    req: lastReq, packs: packsOf(rewRow_(cv, coll.completionRow, ccols)) });
+                    req: lastReq, packs: packsOf(rewRow_(cv, coll.completionRow, ccols)),
+                    tickets: tkOf(rewRow_(cv, coll.completionRow, ccols)) });
     var cpart = packParticipation_(cat, ci);
     return mk(cpart, false, crungs);   // cumulative ladder: rungs fire independently
   }
@@ -816,7 +829,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     var nrungs = nsLadderForDay_(seg, nsDay).map(function(ms, k){
       return { label: 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')' +
                       (isWeekend_(nsDay) ? ' [weekend]' : ' [weekday]'), p: Sn(ms.req),
-               req: ms.req, packs: packsOf(ms.rew) };
+               req: ms.req, packs: packsOf(ms.rew), tickets: tkOf(ms.rew) };
     });
     var ni = ds.eventInst('Night Sky', seg, payer);
     var npart = packParticipation_(cat, ni);
@@ -838,7 +851,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     if (!Sr) return null;
     var rrungs = cfg.ladder.map(function(ms, k){
       return { label: 'milestone #' + (k + 1) + ' (req accum ' + ms.req + ')', p: Sr(ms.req),
-               req: ms.req, packs: packsOf(ms.rew) };
+               req: ms.req, packs: packsOf(ms.rew), tickets: tkOf(ms.rew) };
     });
     return mk(1, false, rrungs);                       // RM has no participation telemetry
   }
@@ -861,11 +874,13 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       var bdist = (LB_RANK_MODEL === 'cdf' && ppos.length) ? rankDist_(pi, n) : null;   // matches packBlockE_
       var g = bdist
         ? bdist.map(function(d){
-            return { label: tag + 'rank ' + d.rank, p: d.p, packs: packsOf(byPos[d.rank] || {}) };
-          }).filter(function(x){ return x.packs; })
+            var bw = byPos[d.rank] || {};
+            return { label: tag + 'rank ' + d.rank, p: d.p, packs: packsOf(bw), tickets: tkOf(bw) };
+          }).filter(function(x){ return x.packs || x.tickets > 0; })
         : use.map(function(pp){
-            return { label: tag + 'rank ' + pp + suffix, p: 1 / use.length, packs: packsOf(byPos[pp] || {}) };
-          }).filter(function(x){ return x.packs; });
+            var bw2 = byPos[pp] || {};
+            return { label: tag + 'rank ' + pp + suffix, p: 1 / use.length, packs: packsOf(bw2), tickets: tkOf(bw2) };
+          }).filter(function(x){ return x.packs || x.tickets > 0; });
       // Each BLOCK is its own exclusive draw: a Team Event participant places once on the team
       // leaderboard AND once on the contribution ladder, so both groups fire.
       if (g.length) groups.push({ exclusive: true, rungs: g });
@@ -1413,17 +1428,21 @@ function tofBalances_(seg, payer){
 // Per-day ToF_Ticket income from EVERY OTHER source on cal_new. Excludes ToF itself, both because
 // its own payout is fed back inside the day walk and because dailySeries_('ToF') would re-enter
 // this function -- the one genuine recursion risk in the wiring.
+// `skip` (D31): categories to leave OUT - the card sim draws those per rung and would otherwise
+// count them twice. The ENGINE never passes it, so the ToF run budget still sees the whole faucet.
 var _tofIncomeCache = {};
-function tofTicketIncome_(seg, payer, ctx){
+function tofTicketIncome_(seg, payer, ctx, skip){
   var key = seg + '|' + payer;
-  if (_tofIncomeCache[key]) return _tofIncomeCache[key];
+  if (!skip && _tofIncomeCache[key]) return _tofIncomeCache[key];
   var days = [], d;
   for (d = 0; d < DAILY_DAYS; d++) days.push(0);
   CATEGORY_ORDER.forEach(function(cat){
     if (cat === TOF_CAT) return;
+    if (skip && skip[cat]) return;
     var series = dailySeries_(cat, seg, payer, ctx, true);
     for (var i = 0; i < DAILY_DAYS; i++) days[i] += num(series[i][TOF_TICKET]);
   });
+  if (skip) return days;                    // partial sum - never cached under the plain key
   return (_tofIncomeCache[key] = days);
 }
 
