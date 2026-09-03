@@ -302,6 +302,22 @@ function measuredRow_(cat, seg, payer, ds){
   // keeps it out of the measured SPT total, so the Season Pass tier does not credit a season that
   // never happened.
   if (!NS_ANCHORED && NS_SIMULATE && cat === 'Daily Night Sky Prize') return zeroRow_();
+  // Rainbow Maker (D29): the measured side is SYNTHESISED from cal_curr + the base ladder, because
+  // data_gains has no RM rows to anchor on. Intercepted at this one choke point so the 33-day DIFF,
+  // the daily CURRENT block, Sim per Segment and the measured SPT total all agree.
+  if (cat === 'Rainbow Maker' && seg !== 'A. 0' && seg !== 'A.0'){
+    var rmReal = false;
+    RESOURCES.forEach(function(r){ if (num(row[r]) > 0) rmReal = true; });
+    if (!(rmReal && RM_REAL_DATA_WINS)){
+      var rmSyn = rmSynth_(seg, payer, Context.get());
+      if (rmSyn){
+        if (rmReal) try { Logger.log('Rainbow Maker: data_gains HAS rows for ' + seg + '/' + payer +
+              ' but RM_REAL_DATA_WINS is false, so the synthetic cal_curr anchor is used instead. ' +
+              'Flip that flag to price the anchor off the export.'); } catch(e){}
+        return rmSyn;
+      }
+    }
+  }
   if (cat === 'Core' && seg !== 'A. 0' && seg !== 'A.0' && !(num(row['SPT']) > 0)){
     var syn = coreSptSynth_(seg, payer, ds);
     if (syn){
@@ -2197,8 +2213,16 @@ function rmSortedInsts_(cal){
     .sort(function(x, y){ return x.start - y.start; });
 }
 // instance ordinal (0-based, start-sorted) -> {sheet, ladder, cfgDur}; fallback chain to 'RM'.
-function rmConfigFor_(i){
+// useBase (2026-09-03): read the BASE ladder and never the _v2 one. That is what prices the
+// cal_curr side of the difference sim - the anchor has to describe the config the OLD calendar
+// ran, or a reward edit would change both sides equally and cancel to nothing.
+function rmConfigFor_(i, useBase){
   var name = RM_INSTANCE_SHEETS[Math.max(0, Math.min(i, RM_INSTANCE_SHEETS.length - 1))] || 'RM';
+  if (useBase){
+    var bl = readRMLadder_(name);
+    if (!bl.length){ name = 'RM'; bl = readRMLadder_('RM'); }
+    return { sheet: name, ladder: bl, cfgDur: readRMDuration_(name) || 4 };
+  }
   // Prefer the _v2 ladder when one exists (2026-08-18). Every other source in the model is authored
   // on its _v2 sheet, and Rainbow Maker was the one exception: being bottom-up it read the BASE
   // ladder directly, so packs typed into RM_1st_v2 / RM_2nd_v2 were never read and RM paid nothing
@@ -2228,14 +2252,18 @@ function simRainbowMaker(seg, payer, ctx){
 // them; the daily view places each instance's OWN row on its days (so RM_2nd-only resources
 // like SPTx2 never leak onto RM_1st instance days). Returns null when there is no matchables
 // distribution or no readable ladder anywhere (callers carry measured, as before the split).
-function rmInstanceRows_(seg, payer, ctx){
+// opts (2026-09-03): {cal, useBase} - which calendar's instances to price, and whether to read
+// the BASE ladder instead of the _v2 one. Defaults are cal_new + _v2, i.e. exactly the simulated
+// side this function has always produced, so every existing caller is unchanged.
+function rmInstanceRows_(seg, payer, ctx, opts){
   var ds = ctx.ds, pct = ds.rmPct(seg, payer);
   if (!pct) return null;
+  var cal = (opts && opts.cal) || ctx.calNew, useBase = !!(opts && opts.useBase);
   var b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   var any = false;
-  var parts = rmSortedInsts_(ctx.calNew).map(function(inst, i){
-    var cfg = rmConfigFor_(i), row = zeroRow_();
+  var parts = rmSortedInsts_(cal).map(function(inst, i){
+    var cfg = rmConfigFor_(i, useBase), row = zeroRow_();
     if (cfg.ladder.length){
       any = true;
       var scale = Math.min(1, inst.dur / cfg.cfgDur);
@@ -2252,6 +2280,60 @@ function rmInstanceRows_(seg, payer, ctx){
     return { inst: inst, row: row };
   });
   return any ? parts : null;
+}
+
+// ---- RAINBOW MAKER: the DIFFERENCE SIM (D29, 2026-09-03) -----------------------------------
+// Until now RM was priced bottom-up on cal_new and compared against a data_gains anchor that does
+// not exist (the export carries soft-launch traces at best, and none at all in the current
+// workbook). The row therefore always read as an ADD: sim minus zero, whatever the old calendar
+// did. "Both calendars run Rainbow Maker, what does changing the rewards or the cadence do" was
+// not a question the model could answer at all.
+//
+// It is answered the way Core SPT and Season Pass (Paid) already answer it: SYNTHESISE the
+// measured side rather than inventing an anchor out of telemetry that was never exported.
+//
+//   measured[res] = SUM over cal_CURR instances of  SUM_k S_dur(ReqAccum_k) x reward_k[res] x reach
+//                   priced on the BASE ladder (RM_1st / RM_2nd)
+//   simulated[res] = the same walk over cal_NEW, priced on the _v2 ladder      (unchanged)
+//
+// So the DIFF is (new calendar, new rewards) - (old calendar, old rewards), and BOTH halves come
+// out of the same bottom-up machinery. That is the point: the machinery's level error is the
+// standing unvalidated thing about Rainbow Maker, and putting it on both sides makes it largely
+// cancel, exactly as anchoring does for Night Sky. A reward edit on RM_*_v2 moves the sim side
+// only; a cadence edit on either calendar moves the instances that side prices.
+//
+// User decisions (2026-09-03):
+//   * anchor reads the BASE ladder, so reward AND cadence edits both show in the diff;
+//   * cal_curr instances take the SAME positional RM_INSTANCE_SHEETS split as cal_new (#1-#3 the
+//     1st-half sheet, #4+ the 2nd-half), start-sorted - wrong in the same way on both sides, so
+//     it cancels;
+//   * real data_gains rows do NOT silently take over: the changeover is a FLAG, below.
+//   * the anchor DOES enter the measured SPT total (it reaches sptTotals_ through measuredRow_,
+//     which is the one choke point), so the measured and simulated Season Pass tiers price the
+//     same faucet. RM pays ~322 SPT a season in the current sim, so leaving it out would have
+//     shown a Season Pass gain that was really an artefact of the anchor missing.
+//
+// NO cal_curr INSTANCES -> null -> the row stays exactly what it is today: an add, with the whole
+// lane in the diff. That is the correct reading of a calendar that does not run the event, and it
+// is why turning this on changes nothing about the current workbook.
+var RM_ANCHORED = true;          // false -> pre-D29: measured comes from data_gains alone
+// When data_gains eventually carries real Rainbow Maker rows, do they replace the synthetic
+// anchor? Shipped FALSE on the user's call: the changeover is a decision, not a side effect of a
+// re-pull. While it is false and real rows exist, measuredRow_ LOGS that they are being ignored -
+// a silent preference for synthetic data over measured data is exactly the thing that goes
+// unnoticed for months.
+var RM_REAL_DATA_WINS = false;
+
+function rmSynth_(seg, payer, ctx){
+  if (!RM_ANCHORED || !ctx || !ctx.calCurOk) return null;
+  if (!rmSortedInsts_(ctx.calCur).length) return null;      // old calendar does not run RM -> add
+  var parts = rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCur, useBase: true });
+  if (!parts) return null;                                  // no matchables / no base ladder
+  var out = zeroRow_();
+  parts.forEach(function(p){
+    RESOURCES.forEach(function(r){ out[r] = num(out[r]) + num(p.row[r]); });
+  });
+  return out;
 }
 
 // ============================== SEASON PASS (D16 — SPT tier coupling) ========================

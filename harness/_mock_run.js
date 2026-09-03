@@ -1089,5 +1089,109 @@ console.log('\n================ RM SPLIT GATES ================');
          CATEGORY_ORDER.every((c, i) => RESOURCES.every((r, j) => Math.abs(again[i][j] - baseline[i][j]) < 1e-12)));
   }
 }
+
+// ---------------- RAINBOW MAKER: the difference sim (D29, 2026-09-03) -------------------------
+// RM used to be priced bottom-up on cal_new against a data_gains anchor that does not exist, so the
+// row could only ever read as an ADD. The measured side is now SYNTHESISED from cal_curr + the BASE
+// ladder. Every gate below asserts the RULE against a mutation fixture and restores the fixture
+// afterwards; none reads a shipped number.
+{
+  const rmIdx = idx('Rainbow Maker');
+  const iHC = RESOURCES.indexOf('HC');
+  const calSnap = JSON.stringify(data['cal_parsed'] || null);
+  const rmSnap  = JSON.stringify(data['RM_1st'] || null);
+  const measRM = () => measuredRow_('Rainbow Maker', '20-39', 'PAYER', Context.get().ds);
+  const simRM  = () => ECOGAINS_SIM('PAYER', '20-39')[rmIdx];
+  // NB: these evals stay INLINE. Wrapping them in a helper puts the engine's var/function
+  // declarations in that helper's scope, so the module-level Context stays memoized and every
+  // fixture below silently reads the un-mutated calendar (which is how this gate first "passed"
+  // with a zero anchor).
+
+  // (1) No RM on cal_curr -> no anchor. The old calendar did not run the event, so the whole lane
+  // IS the diff; inventing an anchor there would report a change that never happened.
+  const curHasRM = ((Context.get().calCur || {})['Rainbow Maker'] || []).length > 0;
+  if (!curHasRM)
+    gate('RM: no cal_curr instances -> measured stays 0 (an add, not a change)',
+         RESOURCES.every(r => num(measRM()[r]) === 0));
+
+  if (data['cal_parsed'] && data['RM_1st']) {
+    // (2) Put RM on cal_curr and the row becomes a CHANGE: the anchor is non-zero and the diff is
+    // no longer the whole simulated lane.
+    const cp = data['cal_parsed'];
+    const newRows = cp.values.filter(r => String(r[0]) === 'cal_new' && String(r[1]) === 'Rainbow Maker');
+    newRows.forEach(r => cp.values.push(['cal_curr', 'Rainbow Maker', r[2], r[3]]));
+    eval(engineSrc); resetSheetCache();
+    const m1 = measRM(), s1 = simRM();
+    gate('RM: cal_curr instances synthesise a measured anchor',
+         num(m1['HC']) > 0 && num(m1['SPT']) > 0,
+         'HC ' + num(m1['HC']).toFixed(1) + ', SPT ' + num(m1['SPT']).toFixed(1));
+    gate('RM: the diff is now a change, not the whole lane',
+         Math.abs(s1[iHC] - num(m1['HC'])) < Math.abs(s1[iHC]) - 1e-9,
+         'sim ' + s1[iHC].toFixed(1) + ' vs diff ' + (s1[iHC] - num(m1['HC'])).toFixed(1));
+
+    // (3) The anchor reads the BASE ladder, so a reward edit there moves the MEASURED side and
+    // leaves the simulated side alone. If it read the _v2 ladder both sides would move together
+    // and a reward change would cancel to nothing - the whole point of the user's decision.
+    // The rule under test is "the anchor reads the BASE ladder while the sim reads _v2", so the
+    // fixture has to HAVE a _v2 ladder. wb15 ships none, and without one rmConfigFor_ falls back to
+    // the base sheet on BOTH sides - a reward edit then moves both and cancels, which is correct
+    // behaviour for that workbook and tells us nothing about the rule. Clone one in.
+    const hadV2 = data['RM_1st_v2'] !== undefined;
+    if (!hadV2) data['RM_1st_v2'] = JSON.parse(rmSnap);
+    eval(engineSrc); resetSheetCache();
+    const s0 = ECOGAINS_SIM('PAYER', '20-39')[rmIdx][iHC];
+    const rmv = data['RM_1st'].values;
+    let hdr = -1, cHC = null;
+    for (let r = 0; r < rmv.length; r++) {
+      const ix = {};
+      (rmv[r] || []).forEach((x, i) => { if (x != null && x !== '') ix[String(x).trim()] = i; });
+      if (ix['Req Accum'] != null) { hdr = r; cHC = ix['Coins']; break; }
+    }
+    if (hdr >= 0 && cHC != null) {
+      for (let r = hdr + 1; r < rmv.length; r++) {
+        const row = rmv[r];
+        if (!row || isNaN(parseFloat(row[0]))) break;
+        if (typeof row[cHC] === 'number') row[cHC] *= 0.5;
+      }
+      eval(engineSrc); resetSheetCache();
+      const m2 = measRM(), s2 = simRM();
+      // Not asserted as EXACTLY half: some rungs carry their coin value as an uncached formula,
+      // which reads as a non-number offline and is left alone by the fixture. The RULE is the
+      // separation - the base ladder moves the anchor and nothing else.
+      gate('RM: halving the BASE ladder lowers the anchor and leaves the sim untouched',
+           num(m2['HC']) < num(m1['HC']) - 1e-9 && Math.abs(s2[iHC] - s0) < 1e-9,
+           'anchor ' + num(m1['HC']).toFixed(1) + ' -> ' + num(m2['HC']).toFixed(1) +
+           ', sim ' + s0.toFixed(1) + ' -> ' + s2[iHC].toFixed(1));
+      data['RM_1st'] = JSON.parse(rmSnap);
+      if (!hadV2) delete data['RM_1st_v2'];
+      eval(engineSrc); resetSheetCache();
+    }
+
+    // (4) Cadence: dropping cal_curr instances lowers the anchor, so the same new calendar reads
+    // as a bigger uplift. This is the half the old model could not express at all.
+    const m3 = measRM();
+    for (let i = cp.values.length - 1, k = 0; i >= 0 && k < 2; i--) {
+      const r = cp.values[i];
+      if (String(r[0]) === 'cal_curr' && String(r[1]) === 'Rainbow Maker') { cp.values.splice(i, 1); k++; }
+    }
+    eval(engineSrc); resetSheetCache();
+    const m4 = measRM();
+    gate('RM: fewer cal_curr instances -> smaller anchor (cadence edits flow)',
+         num(m4['HC']) < num(m3['HC']) - 1e-9,
+         num(m3['HC']).toFixed(1) + ' -> ' + num(m4['HC']).toFixed(1) + ' on 3 of 5 instances');
+
+    // (5) RM_ANCHORED = false restores the pre-D29 model exactly.
+    eval(engineSrc.replace('var RM_ANCHORED = true;', 'var RM_ANCHORED = false;'));
+    resetSheetCache();
+    gate('RM_ANCHORED = false -> back to the data_gains anchor (pre-D29)',
+         RESOURCES.every(r => num(measRM()[r]) === 0));
+
+    if (calSnap !== 'null') data['cal_parsed'] = JSON.parse(calSnap);
+    eval(engineSrc); resetSheetCache();
+    gate('RM anchor fixtures restored (baseline reproduces)',
+         curHasRM || RESOURCES.every(r => num(measRM()[r]) === 0));
+  }
+}
+
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
 process.exit(failures ? 1 : 0);
