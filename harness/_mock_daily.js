@@ -115,10 +115,23 @@ check('NS weekday > weekend allocation', ns[0][HC] > ns[2][HC], `wed ${ns[0][HC]
 const rrNew = ECOGAINS_DAILY('NONPAYER', '100+', 'River Rush', 'NEW');
 const rrDif = ECOGAINS_DAILY('NONPAYER', '100+', 'River Rush', 'DIFF');
 const rrCur = ECOGAINS_DAILY('NONPAYER', '100+', 'River Rush', 'CURRENT');
-check('River Rush NEW = 0 all days', rrNew.every(row => row.every(x => x === 0)));
+// D34: River Rush is absent from BOTH calendars in this dump, so it is CARRIED, not removed - the
+// diff is 0 and the NEW side equals the CURRENT one. The old assertions ("NEW = 0", "DIFF =
+// -CURRENT") described the removal branch, which only applies when cal_curr actually ran the event;
+// they are asserted per branch now so whichever one this workbook is in, the rule is checked.
 const rrMeasHC = num(measuredRow_('River Rush', '100+', 'NONPAYER', Context.get().ds)['HC']);
+const rrOnCur = ((Context.get().calCur['River Rush']) || []).length > 0;
+const rrOnNew = ((Context.get().calNew['River Rush']) || []).length > 0;
 check('River Rush CURRENT flat = measured/33', Math.abs(rrCur[0][HC] - rrMeasHC / 33) < 1e-9 && Math.abs(rrCur[32][HC] - rrMeasHC / 33) < 1e-9);
-check('River Rush DIFF = -CURRENT', rrDif.every((row, d) => Math.abs(row[HC] + rrCur[d][HC]) < 1e-9));
+if (rrOnCur && !rrOnNew){
+  check('River Rush removed from cal_new -> NEW = 0 all days', rrNew.every(row => row.every(x => x === 0)));
+  check('River Rush removed -> DIFF = -CURRENT', rrDif.every((row, d) => Math.abs(row[HC] + rrCur[d][HC]) < 1e-9));
+} else {
+  check('River Rush absent from both calendars -> NEW = CURRENT (carried)',
+    rrNew.every((row, d) => Math.abs(row[HC] - rrCur[d][HC]) < 1e-9),
+    `cal_curr ${rrOnCur ? 'has' : 'has no'} RR, cal_new ${rrOnNew ? 'has' : 'has no'} RR`);
+  check('River Rush carried -> DIFF = 0 all days', rrDif.every(row => row.every(x => Math.abs(x) < 1e-9)));
+}
 
 const rm = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'NEW');
 const rmDays = rm.map((row, d) => row[HC] > 1e-12 ? d + 1 : 0).filter(Boolean);

@@ -806,8 +806,13 @@ const SP_SEG = '10-19';        // headroom on both sides (Tm 23 -> Ts 18) — se
   }
   const c2b = Context.get();
   const t = sptTotals_(SP_SEG, 'NONPAYER', c2b);
-  gate('SPT totals: simulated < measured (RR removal + Ki_v2 cut + T factors)',
-       t.meas > 100 && t.sim < t.meas - 50, `meas ${t.meas.toFixed(2)} sim ${t.sim.toFixed(2)}`);
+  // The `- 50` margin here was a shipped-state number, not a rule: it happened to hold while River
+  // Rush was being reported as REMOVED and contributing -measured SPT to the gap. D34 made a source
+  // absent from BOTH calendars carry instead, the gap narrowed to ~40, and this gate failed for a
+  // fix that was correct. The RULE is the direction - the Ki_v2 cut and the T factors push the
+  // simulated SPT faucet below the measured one - so that is what it asserts now.
+  gate('SPT totals: simulated below measured (Ki_v2 cut + T factors)',
+       t.meas > 100 && t.sim < t.meas - 1e-9, `meas ${t.meas.toFixed(2)} sim ${t.sim.toFixed(2)}`);
   const base = readSPTrack_('SP'), v2t = readSPTrack_(spV2Sheet_('SP'));
   const dB = readSPSeasonDays_('SP') || 33;
   const dV = (spV2Sheet_('SP') !== 'SP' && readSPSeasonDays_(spV2Sheet_('SP'))) || dB;
@@ -1254,6 +1259,44 @@ console.log('\n================ RM SPLIT GATES ================');
     if (calSnapNS !== 'null') data['cal_parsed'] = JSON.parse(calSnapNS);
     eval(engineSrc); resetSheetCache();
     gate('NS fixtures restored', nsCur() === (hadCur ? nsCur() : 0) || true);
+  }
+}
+
+
+// ---------------- absent from BOTH calendars -> CARRY, not "removed" (D34, 2026-09-03) --------
+// "Removed from the new calendar" only means something against an old calendar that ran the event.
+// With both lanes empty the source is simply absent from the comparison, and zeroing the row
+// reported the whole measured lane as a LOSS. River Rush was the live case: data_gains still carries
+// its historical rows, neither calendar schedules it, and the grid showed -measured on every
+// resource as though the redesign had cut it.
+{
+  const rrIdx = idx('River Rush');
+  const ctxRR = Context.get();
+  const curRR = (ctxRR.calCur['River Rush'] || []).length;
+  const newRR = (ctxRR.calNew['River Rush'] || []).length;
+  const measRR = measuredRow_('River Rush', '100+', 'NONPAYER', ctxRR.ds);
+  const simRR = ECOGAINS_SIM('NONPAYER', '100+')[rrIdx];
+  if (!curRR && !newRR) {
+    gate('River Rush: absent from both calendars -> carried, diff 0',
+         RESOURCES.every((r, j) => Math.abs(simRR[j] - num(measRR[r])) < 1e-9),
+         `measured HC ${num(measRR['HC']).toFixed(2)}, sim HC ${simRR[RESOURCES.indexOf('HC')].toFixed(2)}`);
+  }
+
+  // The fixture has to prove the OTHER half of the rule too, or "carry" would be indistinguishable
+  // from "the removal branch is dead": put the lane on cal_curr ONLY and the row must go to 0.
+  if (data['cal_parsed'] && !curRR && num(measRR['HC']) > 0) {
+    const snapRR = JSON.stringify(data['cal_parsed']);
+    data['cal_parsed'].values.push(['cal_curr', 'River Rush', 10, 4]);
+    eval(engineSrc); resetSheetCache();
+    const gone = ECOGAINS_SIM('NONPAYER', '100+')[rrIdx];
+    gate('River Rush: on cal_curr but not cal_new -> genuinely removed, row 0',
+         RESOURCES.every((_, j) => Math.abs(gone[j]) < 1e-9),
+         `HC ${gone[RESOURCES.indexOf('HC')].toFixed(2)}`);
+    data['cal_parsed'] = JSON.parse(snapRR);
+    eval(engineSrc); resetSheetCache();
+    const back = ECOGAINS_SIM('NONPAYER', '100+')[rrIdx];
+    gate('River Rush fixture restored (carry reproduces)',
+         RESOURCES.every((r, j) => Math.abs(back[j] - num(measRR[r])) < 1e-9));
   }
 }
 

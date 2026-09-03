@@ -337,7 +337,15 @@ function measuredRow_(cat, seg, payer, ds){
 // (incl. Night Sky, Rainbow Maker and the Season Pass tier coupling — D16) carries its measured value.
 function appendixRow_(cat, payer, ctx){
   var ds = ctx.ds, meas = measuredRow_(cat, 'A. 0', payer, ds);
-  if (cat === 'River Rush') return zeroRow_();
+  // River Rush: zero ONLY when it is genuinely removed, i.e. the old calendar ran it and the new one
+  // does not. D34 - with neither calendar running it the event is absent from the comparison, so the
+  // appendix carries like every other row rather than reporting the lane as a loss. (This line used
+  // to zero unconditionally: "RR removal is universal", true while cal_curr still scheduled it.)
+  if (cat === 'River Rush'){
+    var rrCur = (ctx.calCurOk && (ctx.calCur['River Rush'] || []).length) || 0;
+    var rrNew = (ctx.calNewOk && (ctx.calNew['River Rush'] || []).length) || 0;
+    if (rrCur && !rrNew) return zeroRow_();
+  }
   if (cat === 'Core'){
     var Rspt = coreSptR_(ctx);                            // config-only SPT ratio (segment-uniform)
     if (Rspt === 1) return meas;
@@ -541,6 +549,14 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   var meas = measuredRow_(cat, seg, payer, ctx.ds);
   if (!ctx.calCurOk || !ctx.calNewOk) return meas;
   var cur = ctx.calCur[calLabel] || [], nw = ctx.calNew[calLabel] || [];
+  // NEITHER calendar runs it (D34, 2026-09-03) -> CARRY, do not zero. "Removed from the new
+  // calendar" is only meaningful against an old calendar that ran it; when both are empty the event
+  // is simply absent from this comparison, and zeroing the row reported the whole measured lane as a
+  // LOSS. River Rush is the case: data_gains still carries its historical rows, cal_curr does not
+  // schedule it and neither does cal_new, and the grid was showing -measured on every resource as
+  // though the redesign had cut it. Same principle as RM_ANCHORED / NS_ANCHORED 'auto': the
+  // calendars decide, and a source neither of them runs is not a change.
+  if (!nw.length && !cur.length) return meas;
   if (!nw.length) return zeroRow_();                     // removed from the new calendar (packs too)
   if (!cur.length) return meas;
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
@@ -1132,6 +1148,10 @@ function tofSheetVals_(){
 var TOF_AFFORD_H   = 1;      // headroom at half willingness (user-approved 2026-09-02; was 4)
 var TOF_BAL_PCTS   = ['hc_balance_p25','hc_balance_p50','hc_balance_p75','hc_balance_p90'];
 var TOF_PAYER_TOPUPS = 1;    // one purchased continue per run, PAYER only
+// false (D34, shipped): the ToF row is a GAINS row like every other row in the grid, and the
+// continue spend is reported on the ToF sheet's RUN block instead. true nets the spend into the
+// row's own HC, which is what it did until 2026-09-03.
+var TOF_SPEND_IN_ROW = false;
 
 // Row index of an MD block, found by its column-A bar label (prefix match at a word boundary, the
 // same resolution loadPackConfig_ uses) so inserting a row above it cannot break the reader.
@@ -1484,9 +1504,15 @@ function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun){
 }
 
 // The ToF row. Bottom-up: expected banked reward per run x runs the ticket budget allows.
-// Coins SPENT on continues are reported on the row's own HC as a NEGATIVE, because for this source
-// the spend is not game-wide -- it is the price of the reward sitting next to it, and a ToF row
-// that showed only the payout would read as free money.
+// GAINS ONLY (D34, 2026-09-03, user decision). The row used to subtract the coins spent on
+// continues from its own HC, on the reasoning that for this source the spend IS the price of the
+// reward beside it. But EcoGainsSim is a GAINS model: every other row is a faucet, the NET blocks
+// on the daily sheet are where spend lives, and one row quietly carrying a sink made the ToF HC
+// column a different KIND of number from every other HC cell in the grid - not comparable down the
+// column, and negative for segments that spend more than they bank.
+// The spend has not been lost: ECOGAINS_TOF's RUN block still reports 'Coins spent per run' and
+// 'Coins spent in window' per segment, which is where it belongs while the model is gains-only.
+// TOF_SPEND_IN_ROW = true restores the old behaviour if the row ever needs to be a net position.
 // RE-ENTRANCY. ToF's run count depends on ticket income, which is a per-day walk over every OTHER
 // source; Season Pass is one of those, and simSeasonPass calls sptTotals_, which sums the SPT
 // faucet across ALL categories -- ToF included, because ToF banks SPT. So asking for the ToF row
@@ -1512,7 +1538,8 @@ function simToF(seg, payer, ctx, cat){
   if (!budget || !(budget.runs > 0)) return zeroRow_();     // no lane / no tickets -> nothing
   var out = zeroRow_();
   RESOURCES.forEach(function(r){ out[r] = num(run.bank[r]) * budget.runs; });
-  out['HC'] = num(out['HC']) - run.spend * budget.runs;     // continues are a coin SINK
+  // D34: gains only. The continue spend is reported on the ToF sheet, not netted into this row.
+  if (TOF_SPEND_IN_ROW) out['HC'] = num(out['HC']) - run.spend * budget.runs;
   return out;
 }
 

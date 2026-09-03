@@ -1583,12 +1583,17 @@ function logCol(name){
       const b = tofRunBudget_(sg, p, ctx2, num(run.bank['ToF_Ticket']));
       const row = ECOGAINS_SIM(p, sg)[iT];
       RESOURCES.forEach((res, j) => {
-        const expect = num(run.bank[res]) * b.runs - (res === 'HC' ? run.spend * b.runs : 0);
+        // D34: the row is GAINS ONLY - the continue spend is reported on the ToF sheet, never netted
+        // into this row's HC. TOF_SPEND_IN_ROW flips it back, so the gate follows the flag rather
+        // than hardcoding either answer.
+        const sink = (typeof TOF_SPEND_IN_ROW !== 'undefined' && TOF_SPEND_IN_ROW && res === 'HC')
+                       ? run.spend * b.runs : 0;
+        const expect = num(run.bank[res]) * b.runs - sink;
         const gap = Math.abs(num(row[j]) - expect);
         if (gap > worst) { worst = gap; at = `${sg}/${p}/${res}`; }
       });
     }));
-    check('ToF row == banked reward x runs, with continues subtracted from HC',
+    check('ToF row == banked reward x runs (gains only, spend not netted in)',
       worst < 1e-9, `worst gap ${worst.toExponential(2)}${at ? ' at ' + at : ''}`);
   }
   // -- tickets are NOT envelopes: the collection-season cutoff must not touch them --

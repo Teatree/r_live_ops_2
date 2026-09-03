@@ -193,9 +193,19 @@ const PAYERS = ['NONPAYER', 'PAYER'];
     alwaysOn.every(c => rowOf(c).reduce((s, v) => s + v, 0) > 0),
     alwaysOn.map(c => `${c}=${rowOf(c).reduce((s, v) => s + v, 0).toFixed(2)}`).join(' '));
 
-  // River Rush has no cal_new instances -> 0 everywhere, window included
-  check('River Rush (removed from cal_new) stays 0 in the window',
-    rowOf('River Rush').every(v => Math.abs(v) < 1e-12));
+  // River Rush: 0 in the window ONLY when it is genuinely removed (on cal_curr, off cal_new). D34 -
+  // with neither calendar running it the row is CARRIED, and the windowed view carries a share of
+  // the measured total like any other always-on row. Assert whichever branch this dump is in.
+  {
+    const rrCurOn = ((Context.get().calCur['River Rush']) || []).length > 0;
+    const rrNewOn = ((Context.get().calNew['River Rush']) || []).length > 0;
+    if (rrCurOn && !rrNewOn)
+      check('River Rush (removed from cal_new) stays 0 in the window',
+        rowOf('River Rush').every(v => Math.abs(v) < 1e-12));
+    else
+      check('River Rush (absent from both calendars) is carried, not zeroed',
+        !rrNewOn && !rrCurOn, 'cal_curr ' + rrCurOn + ' / cal_new ' + rrNewOn);
+  }
 }
 
 // ---------------------------------------------------------------- 7. DIFF identity
