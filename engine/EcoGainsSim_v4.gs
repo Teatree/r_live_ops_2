@@ -3324,7 +3324,17 @@ function onEdit(e){
 //     snapshot follows the new layout before relying on it.
 // cal_new: ECOGAINS_CAL_COUNTS (CalStats.gs). 'EcoGainsSim_HC_7d': the windowed view
 // (EcoGainsSim_7Day.gs) — listed pre-emptively; refreshSims_ skips names that don't exist.
-var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'EcoGainsSim_HC_7d', 'cal_new'];
+// 'ToF' / 'MD' added 2026-09-03 (D35). The nonce BUMP re-runs any formula that references the
+// nonce cell, so a ToF spill written by the builder was refreshing fine - but this list is what the
+// MIGRATION and the MANIFEST HEAL walk, and the ToF sheet was on neither. A ToF formula typed by
+// hand (or written before the nonce convention) therefore never had the nonce appended, which means
+// it never re-ran again: Google only re-runs a custom function when its ARGUMENTS change. The block
+// then sits on whatever it computed the first time while every other sheet moves, which reads as
+// "Tickets earned does not update with EcoGains" - the two models agree exactly when both are live
+// (checked segment by segment: 15.273 / 23.723 / 26.661 / 19.054 against the grid's ToF_Ticket sum).
+// Listing it also means a deliberately deleted ToF anchor comes back on the next refresh, same as
+// every other sim anchor.
+var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'EcoGainsSim_HC_7d', 'cal_new', 'ToF', 'MD'];
 var SIM_NONCE_SHEET = 'sim_refresh';
 var SIM_NONCE_REF = SIM_NONCE_SHEET + '!$A$1';
 

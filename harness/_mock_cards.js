@@ -1378,6 +1378,38 @@ function logCol(name){
       'tally ' + expect + ' vs engine ' + engT.toFixed(2));
   }
 
+  // (D35) CONSERVATION: the ToF sheet's 'Tickets earned' is the same faucet the grid's ToF_Ticket
+  // column sums. They are computed by different code paths - a day-walk that banks and spends inside
+  // tofRunBudget_, versus a per-source window total - so an identity between them is worth pinning:
+  // it is what makes "the ToF sheet disagrees with EcoGainsSim" a REFRESH question rather than a
+  // modelling one. Every segment and payer, not a spot check.
+  {
+    ['NONPAYER', 'PAYER'].forEach(pp => {
+      const runBlk = ECOGAINS_TOF(pp, 'RUN', 1);
+      let worstT = 0, atT = '';
+      runBlk.slice(1).forEach(r => {
+        const sg = String(r[0]);
+        if (typeof r[5] !== 'number') return;            // MAX: no behaviour telemetry, blank window
+        let sum = 0;
+        CATEGORY_ORDER.forEach(c => { sum += num(resultRow_(c, sg, pp, ctxT2)['ToF_Ticket']); });
+        const gap = Math.abs(num(r[5]) - sum);
+        if (gap > worstT) { worstT = gap; atT = sg + '/' + pp; }
+      });
+      check('ToF sheet "Tickets earned" == the grid ToF_Ticket sum (' + pp + ')',
+        worstT < 1e-9, 'worst gap ' + worstT.toExponential(2) + (atT ? ' at ' + atT : ''));
+    });
+  }
+
+  // (D35) The refresh list has to include every sheet the engine spills a custom function onto, or a
+  // formula there can never be MIGRATED to carry the nonce - and a formula without the nonce never
+  // re-runs at all. ToF was missing, which is how its block could sit stale while the grid moved.
+  {
+    const spillSheets = ['ToF', 'MD'];
+    const missing = spillSheets.filter(n => REFRESH_SHEETS.indexOf(n) < 0);
+    check('every ECOGAINS_TOF host sheet is in REFRESH_SHEETS', missing.length === 0,
+      missing.length ? 'missing: ' + missing.join(', ') : REFRESH_SHEETS.join(' | '));
+  }
+
   // Nothing may be counted twice: the smooth stream must EXCLUDE every category the plan draws.
   const planT = packGrantPlan_(segT, payT, ctxT2);
   const cats = planCats_(planT);
