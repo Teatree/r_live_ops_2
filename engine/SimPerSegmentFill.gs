@@ -36,16 +36,73 @@ var SPS_SEGMENTS = ['0-9','10-19','20-39','40-99','100+'];
 var SPS_NET_C0 = 21;                                   // NET block first column (U)
 var SPS_ECON_SHEET = 'data_econ';                      // seg | payer_flag | currency -> per-EARNER gain/spend
 
+// THE FOUR GROUP COLUMNS. This list and CATEGORY_ORDER must PARTITION each other, and until
+// 2026-09-03 they did not: the engine grew 'Season Pass (Paid)', 'ToF', 'Col - Sets' and
+// 'Col - Albums' and none of them was added here, so groupSums silently skipped all four. The rows
+// still filled and the totals still looked plausible - at 20-39 PAYER the sheet dropped 268 HC and
+// 436 Unlimited Lives, and the HC delta came out -7.01 where the engine says +61.09. The SIGN was
+// wrong, not just the size, and the NET block inherited it through the additive (M - G) term.
+// Same failure class as CATEGORY_ORDER vs the sheet's row labels: two lists that must agree, with
+// nothing checking that they do.
+//
+// 'Season Pass (Paid)' sits in PAID on the user's call (2026-09-03): that column reads as "what
+// only purchasers get". ToF and the two collection rows are ordinary calendar/feature payouts, so
+// they join META.
 var SPS_GROUPS = {
-  'PAID': ['IAPs'],
+  'PAID': ['IAPs','Season Pass (Paid)'],
   'ADS' : ['Ads'],
   'CORE': ['Core','Saga','Daily Gift','Daily Night Sky Prize'],
   'META': ['Bomb Challenge',"Bomb's Ballet",'Chuck Challenge','Flock Flurry','Hatchling Hideaway',
            'Jigsaw','Kite Festival','Level Race','Other','Photoshoot','Red Challenge','River Rush',
            'Season Pass (Free)','Target Day','Team Event','Team Race','Flash Race','FlowerCoop',
-           'Rainbow Maker']
+           'Rainbow Maker','ToF','Col - Sets','Col - Albums']
 };
 var SPS_GROUP_ORDER = ['PAID','ADS','CORE','META'];
+// Which group any category NOT named above falls into. A partition that has to be maintained by
+// hand will be wrong again the next time a source is added, and the failure is invisible: the sheet
+// keeps filling and only the totals are short. So the mapping is TOTAL by construction - an
+// unlisted category lands in this group and is LOGGED, rather than dropping out of the sums.
+var SPS_DEFAULT_GROUP = 'META';
+
+// category -> group, with every CATEGORY_ORDER entry guaranteed a home. Returns {map, unlisted}.
+function spsGroupOf_(){
+  var map = {}, unlisted = [];
+  SPS_GROUP_ORDER.forEach(function(g){
+    (SPS_GROUPS[g] || []).forEach(function(cat){ map[cat] = g; });
+  });
+  CATEGORY_ORDER.forEach(function(cat){
+    if (!map[cat]){ map[cat] = SPS_DEFAULT_GROUP; unlisted.push(cat); }
+  });
+  return { map: map, unlisted: unlisted };
+}
+
+// one engine pass for a (segment, payer): every category's simulated and measured row.
+function spsCatRows_(seg, payer, ctx){
+  var e = {};
+  CATEGORY_ORDER.forEach(function(cat){
+    e[cat] = { sim: resultRow_(cat, seg, payer, ctx),
+               cur: measuredRow_(cat, seg, payer, ctx.ds) };
+  });
+  return e;
+}
+
+// The four group columns for one resource. Top-level and pure so harness/_mock_run.js can gate the
+// SHIPPED summation instead of a copy of it: the bug this replaced was a partition that disagreed
+// with CATEGORY_ORDER, and a gate written against its own copy of the sum would not have caught it.
+function spsGroupSums_(ent, res, map){
+  var byG = {}, cur = [], sim = [];
+  SPS_GROUP_ORDER.forEach(function(g){ byG[g] = { c: 0, s: 0 }; });
+  CATEGORY_ORDER.forEach(function(cat){
+    var g = byG[map[cat]];
+    if (!g) return;                                    // group not shown on the sheet
+    g.c += num(ent[cat].cur[res]);
+    g.s += num(ent[cat].sim[res]);
+  });
+  SPS_GROUP_ORDER.forEach(function(g){
+    cur.push(round2_(byG[g].c)); sim.push(round2_(byG[g].s));
+  });
+  return { cur: cur, sim: sim };
+}
 
 function fillSimPerSegment(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -59,22 +116,18 @@ function fillSimPerSegment(){
   var rows = {};
   ['NONPAYER','PAYER'].forEach(function(payer){
     SPS_SEGMENTS.forEach(function(seg){
-      var e = {};
-      CATEGORY_ORDER.forEach(function(cat){
-        e[cat] = { sim: resultRow_(cat, seg, payer, ctx),
-                   cur: measuredRow_(cat, seg, payer, ctx.ds) };
-      });
-      rows[payer + '|' + seg] = e;
+      rows[payer + '|' + seg] = spsCatRows_(seg, payer, ctx);
     });
   });
+  // Summed off the TOTAL category->group map, so the four group columns always add up to exactly
+  // what ECOGAINS_SIM / ECOGAINS_DIFF report for the same (segment, payer, resource).
+  var grp = spsGroupOf_();
+  if (grp.unlisted.length)
+    Logger.log('Sim per Segment: ' + grp.unlisted.length + ' categor(ies) are in CATEGORY_ORDER but ' +
+               'not in SPS_GROUPS, so they were counted under ' + SPS_DEFAULT_GROUP + ': ' +
+               grp.unlisted.join(', ') + '. Add them to SPS_GROUPS to place them deliberately.');
   function groupSums(payer, seg, res){
-    var e = rows[payer + '|' + seg], cur = [], sim = [];
-    SPS_GROUP_ORDER.forEach(function(g){
-      var c = 0, s = 0;
-      SPS_GROUPS[g].forEach(function(cat){ c += num(e[cat].cur[res]); s += num(e[cat].sim[res]); });
-      cur.push(round2_(c)); sim.push(round2_(s));
-    });
-    return { cur: cur, sim: sim };
+    return spsGroupSums_(rows[payer + '|' + seg], res, grp.map);
   }
   // net per (res, seg, payer): per-earner gain/spend from data_econ + the engine's absolute gain
   // movement (M − G). ADDITIVE: the redesign shifts the modelled categories by (M − G) per earner;

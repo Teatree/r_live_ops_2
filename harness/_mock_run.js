@@ -1300,5 +1300,94 @@ console.log('\n================ RM SPLIT GATES ================');
   }
 }
 
+// -------- Sim per Segment: the four group columns must PARTITION CATEGORY_ORDER (2026-09-03) ----
+// The bug: SPS_GROUPS was written when there were 25 categories and never updated. The engine grew
+// 'Season Pass (Paid)', 'ToF', 'Col - Sets' and 'Col - Albums'; groupSums looped over the GROUPS, so
+// all four were skipped. Nothing errored - the rows filled, the totals looked plausible, and at
+// 20-39 PAYER the sheet showed HC -7.01 where the engine shows +61.09. Sign wrong, and the NET
+// block wrong with it through the additive (M - G) term.
+//
+// The rule is CONSERVATION: the four group columns must add up to exactly what ECOGAINS_SIM and
+// ECOGAINS_DIFF report for the same (segment, payer, resource). Gated against the shipped
+// spsGroupSums_ / spsCatRows_, not a copy of the summation.
+{
+  global.Logger = global.Logger || { log: () => {} };
+  eval(fs.readFileSync(ENGINE('SimPerSegmentFill.gs'), 'utf8'));
+
+  const grp0 = spsGroupOf_();
+  const listed = [];
+  SPS_GROUP_ORDER.forEach(g => (SPS_GROUPS[g] || []).forEach(c => listed.push(c)));
+  const phantom = listed.filter(c => CATEGORY_ORDER.indexOf(c) === -1);
+  gate('SPS: every name in SPS_GROUPS is a real CATEGORY_ORDER entry',
+       phantom.length === 0, phantom.length ? 'not a category: ' + phantom.join(', ') : 'none');
+  const dup = listed.filter((c, i) => listed.indexOf(c) !== i);
+  gate('SPS: no category sits in two groups (it would be double-counted)',
+       dup.length === 0, dup.length ? 'duplicated: ' + dup.join(', ') : 'none');
+  gate('SPS: every one of the ' + CATEGORY_ORDER.length + ' categories is placed deliberately',
+       grp0.unlisted.length === 0,
+       grp0.unlisted.length ? 'fell to the ' + SPS_DEFAULT_GROUP + ' default: ' +
+                              grp0.unlisted.join(', ') : 'none unlisted');
+
+  // CONSERVATION over all 10 (segment, payer) cells and every resource.
+  const ctxS = Context.get();
+  let worstG = 0, worstM = 0, worstAt = '';
+  ['NONPAYER', 'PAYER'].forEach(payer => SPS_SEGMENTS.forEach(seg => {
+    const ent = spsCatRows_(seg, payer, ctxS);
+    const sim = ECOGAINS_SIM(payer, seg), dif = ECOGAINS_DIFF(payer, seg);
+    RESOURCES.forEach((res, j) => {
+      const gs = spsGroupSums_(ent, res, grp0.map);
+      let G = 0, M = 0;
+      for (let i = 0; i < 4; i++){ G += gs.cur[i]; M += gs.sim[i]; }
+      let eG = 0, eM = 0;
+      CATEGORY_ORDER.forEach((_, i) => { eM += num(sim[i][j]); eG += num(sim[i][j]) - num(dif[i][j]); });
+      const dG = Math.abs(G - eG), dM = Math.abs(M - eM);
+      // the sheet rounds each group column to 2dp, so 4 columns can drift up to 0.02
+      if (dG > worstG || dM > worstM){ worstG = Math.max(worstG, dG); worstM = Math.max(worstM, dM);
+                                       worstAt = seg + ' ' + payer + ' ' + res; }
+    });
+  }));
+  gate('SPS: group columns sum to the engine total on all 10 cells x ' + RESOURCES.length + ' resources',
+       worstG < 0.021 && worstM < 0.021,
+       'worst gap cur ' + worstG.toFixed(4) + ' / sim ' + worstM.toFixed(4) + ' at ' + worstAt);
+
+  // COUNTER-GATE. Conservation now holds by construction (SPS_DEFAULT_GROUP catches strays), so
+  // prove the partition check itself still bites: drop a category from its group and the placement
+  // gate must flag it while conservation SURVIVES - that is the whole point of the default.
+  {
+    const snapG = JSON.parse(JSON.stringify(SPS_GROUPS));
+    const victim = 'Kite Festival';
+    SPS_GROUPS.META = SPS_GROUPS.META.filter(c => c !== victim);
+    const g1 = spsGroupOf_();
+    gate('SPS counter-gate: removing ' + victim + ' from its group is REPORTED',
+         g1.unlisted.length === 1 && g1.unlisted[0] === victim, 'unlisted: ' + g1.unlisted.join(', '));
+    const entK = spsCatRows_('20-39', 'PAYER', ctxS);
+    const gsK = spsGroupSums_(entK, 'HC', g1.map);
+    const simK = ECOGAINS_SIM('PAYER', '20-39');
+    const hcj = RESOURCES.indexOf('HC');
+    let eMK = 0; CATEGORY_ORDER.forEach((_, i) => { eMK += num(simK[i][hcj]); });
+    let MK = 0; for (let i = 0; i < 4; i++) MK += gsK.sim[i];
+    gate('SPS counter-gate: an unlisted category still lands in the total (nothing vanishes)',
+         Math.abs(MK - eMK) < 0.021, 'group total ' + MK.toFixed(2) + ' vs engine ' + eMK.toFixed(2));
+    // and the pre-fix behaviour - looping the GROUPS instead of the categories - must NOT conserve
+    let oldM = 0;
+    SPS_GROUP_ORDER.forEach(g => (SPS_GROUPS[g] || []).forEach(cat => {
+      oldM += num(simK[CATEGORY_ORDER.indexOf(cat)][hcj]);
+    }));
+    gate('SPS counter-gate: the pre-fix group-driven sum DOES lose the stray (gate would fail)',
+         Math.abs(oldM - eMK) > 0.021, 'group-driven ' + oldM.toFixed(2) + ' vs engine ' + eMK.toFixed(2));
+    SPS_GROUPS = snapG;
+    gate('SPS fixture restored', spsGroupOf_().unlisted.length === 0);
+  }
+
+  // shared namespace: SimPerSegmentFill.gs must not redeclare an engine global
+  const nm = (src) => { const o = new Set(), re = /^(?:function\s+([A-Za-z0-9_$]+)|var\s+([A-Za-z0-9_$]+)\s*=)/gm;
+                        let m; while ((m = re.exec(src))) o.add(m[1] || m[2]); return o; };
+  const spsN = nm(fs.readFileSync(ENGINE('SimPerSegmentFill.gs'), 'utf8'));
+  const engN = nm(engineSrc), dlyN = nm(fs.readFileSync(ENGINE('EcoGainsSim_Daily.gs'), 'utf8'));
+  const clashS = [...spsN].filter(n => engN.has(n) || dlyN.has(n));
+  gate('SPS: SimPerSegmentFill.gs declares no globals that collide with the engine files',
+       clashS.length === 0, clashS.length ? 'collides: ' + clashS.join(', ') : 'none');
+}
+
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
 process.exit(failures ? 1 : 0);
