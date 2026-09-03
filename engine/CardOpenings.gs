@@ -576,6 +576,23 @@ function cardSeasonPre_(seg, payer, ctx){
   };
 }
 
+/** The landing day, moved onto a day the player was actually in the game (D32). A multi-day
+ *  instance places a rung by its progress along the requirement axis, which can land on a day this
+ *  player did not open the app - the reward would then be logged beside '(did not play)'. Snap to
+ *  the NEAREST attended day of the same instance; if somehow none is attended the day is returned
+ *  unchanged (the caller only reaches here for an instance that WAS attended). */
+function attendedDay_(pl, day, playedOn){
+  var d = pl.attDays || pl.days || [];
+  if (playedOn[day]) return day;
+  var best = null, bestGap = Infinity;
+  for (var i = 0; i < d.length; i++){
+    if (!playedOn[d[i]]) continue;
+    var gap = Math.abs(d[i] - day);
+    if (gap < bestGap){ bestGap = gap; best = d[i]; }
+  }
+  return (best == null) ? day : best;
+}
+
 /** The set of categories a grant plan covers, so their ticket income is not counted twice. */
 function planCats_(plan){
   var seen = {};
@@ -904,14 +921,21 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // 2026-09-01; output is byte-identical (no side effects - Context and DataStore are memoized and
   // it draws no random numbers), and the stochastic run repeats this work N times per segment.
 
-  // ---- attendance + session detail for the empty-day rows -------------------------------------
-  // An empty row used to say only '(nothing)', which conflates two very different days: the player
-  // never opened the game, or they played a full session and no source happened to drop a pack.
-  // Attendance is drawn per day from the segment's weekday/weekend active rate, on its OWN seeded
-  // stream so it cannot perturb a card draw. REPORTING LAYER ONLY — the pack expectations already
-  // carry attendance inside reach(), so this draw explains the day, it does not gate any grant.
-  // Consistency: a day that granted a pack is shown as played regardless of the draw, since
-  // receiving a reward implies activity.
+  // ---- attendance: ONE draw per day, shared by every instance (D32, 2026-09-03) ---------------
+  // This used to be REPORTING ONLY: it chose between '(played, no pack dropped)' and '(did not
+  // play)', while each instance separately drew `participation x reach` to decide whether the
+  // player took part. `reach` for a 1-day instance IS that day's active rate, so the sim asked "is
+  // this player in the game on day 3?" once for Target Day, again for Flash Race, again for Night
+  // Sky - and could answer yes, no, no. A player is in the game that day or they are not.
+  // The live log showed it plainly: rank 1 in Target Day and 54 levels played on day 3, and no
+  // participation at all in the Jigsaw instance running the same day.
+  //
+  // So attendance is now the shared event it always was: drawn ONCE per day here, and every
+  // instance asks whether the player was around on any of ITS days. Nothing is approximated -
+  // reach IS 1 - PROD(1 - p_day) over independent daily attendance, so E[attended] = reach exactly
+  // and every window total is unchanged. What changes is that the draws are now consistent with
+  // each other, and with the session note printed beside them.
+  // Its own seeded stream still, so this cannot perturb a card draw.
   var pWd = pre.pWd, pWe = pre.pWe;
   var attRand = mulberry32((seed | 0) ^ 0x9e3779b9);
   var playedOn = [];
@@ -960,16 +984,19 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // progress falls (ladders are climbed in order), otherwise the day is sampled from the same
   // weights the daily gains view uses (last day for rank rewards, accrual share for collections).
   function pickDay(pl, rung){
+    var day;
     if (rung && rung.progress != null && pl.days.length > 1 && !DAILY_LASTDAY[pl.cat]){
       var idx = Math.ceil(rung.progress * pl.days.length) - 1;
-      return pl.days[Math.max(0, Math.min(pl.days.length - 1, idx))];
+      day = pl.days[Math.max(0, Math.min(pl.days.length - 1, idx))];
+    } else {
+      var x = grantRand(), acc = 0;
+      day = pl.days[pl.days.length - 1];
+      for (var i = 0; i < pl.days.length; i++){
+        acc += pl.dayW[i];
+        if (x <= acc){ day = pl.days[i]; break; }
+      }
     }
-    var x = grantRand(), acc = 0;
-    for (var i = 0; i < pl.days.length; i++){
-      acc += pl.dayW[i];
-      if (x <= acc) return pl.days[i];
-    }
-    return pl.days[pl.days.length - 1];
+    return attendedDay_(pl, day, playedOn);
   }
   function emitRung(pl, rung, day){
     var cat = pl.cat;
@@ -987,9 +1014,17 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     }
   }
 
+  // Was the player in the game during ANY day of this instance? Shared with every other instance
+  // that overlaps those days, which is the whole point (D32).
+  function attended(pl){
+    var d = pl.attDays || pl.days || [];
+    for (var i = 0; i < d.length; i++) if (playedOn[d[i]]) return true;
+    return false;
+  }
   plan.forEach(function(pl){
-    // one draw for "did this player take part in this instance at all"
-    if (!(grantRand() < pl.participation * pl.reach)) return;
+    // attendance is shared; only the OPT-IN is drawn per instance now
+    if (!attended(pl)) return;
+    if (!(grantRand() < pl.participation)) return;
     pl.groups.forEach(function(g){
       if (g.exclusive){
         // a rank ladder: the player finishes in exactly ONE place

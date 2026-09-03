@@ -486,7 +486,12 @@ function packGrantPlan_(seg, payer, ctx){
       // land past the collection season settles on its last day. Clamping the day LIST (rather than
       // dropping rungs) is what keeps "cut in the middle still pays the full reward" true; repeated
       // days are harmless, the card sim indexes days/dayW in lockstep.
+      // `days` is the envelope LANDING axis and is clamped by the season cutoff; `attDays` is the
+      // instance's real, unclamped days. The card sim needs the real ones to ask "was this player
+      // in the game while this instance was running" (D32) - testing a clamped day would ask about
+      // day 29 for an instance that ran on day 31.
       plan.push({ cat: cat, days: days.map(function(d){ return seasonDay_(d); }),
+                  attDays: days.slice(),
                   dayW: normalize_(w), reach: reach, noPacks: noPacks,
                   participation: rr.participation, groups: rr.groups });
     });

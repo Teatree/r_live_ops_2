@@ -1294,6 +1294,41 @@ function logCol(name){
 }
 
 
+
+// ------------- 7a4. attendance is ONE shared event per day (D32, 2026-09-03) ------------------
+// Each instance used to draw `participation x reach` on its own, and reach for a 1-day instance IS
+// that day's active rate - so the sim asked "is this player in the game on day 3?" separately for
+// every lane running that day and could answer yes, no, no. The live log showed rank 1 in Target
+// Day with 54 levels played on day 3 beside zero participation in the Jigsaw instance running the
+// same days. Attendance is drawn once per day now; only the opt-in is per instance.
+{
+  const cfgA = loadPackConfig_(), catA = loadCardCatalog_(cfgA, mkSheet('AlbumConfig'));
+  const segA = '20-39', payA = 'PAYER', ctxA = Context.get();
+  const preA = cardSeasonPre_(segA, payA, ctxA);
+
+  // (1) STRUCTURAL: a granted pack can never sit on a row the log calls '(did not play)'. This is
+  // the contradiction itself, and it is exact - no Monte-Carlo tolerance.
+  let onDeadDay = 0, seasons = 0;
+  for (let k = 0; k < 60; k++) {
+    const r = runOneCardSeason_(segA, payA, 55000 + k * 7919, cfgA, catA, preA);
+    seasons++;
+    const dead = {};
+    r.log.forEach(x => { if (String(x[2]) === '(did not play)') dead[x[0]] = 1; });
+    r.log.forEach(x => { if (x[1] && dead[x[0]]) onDeadDay++; });
+  }
+  check('no pack is ever granted on a "(did not play)" day', onDeadDay === 0,
+    seasons + ' seasons, ' + onDeadDay + ' contradictions');
+
+  // (2) The plan carries the instance's REAL days for the attendance test, not the season-clamped
+  // landing axis - otherwise a post-cutoff instance would be asked about day 29 while it ran on 31.
+  const planA = packGrantPlan_(segA, payA, ctxA);
+  const clamped = planA.filter(pl => pl.attDays && pl.days &&
+    pl.attDays.some((d, i) => d !== pl.days[i]));
+  check("attendance uses the instance unclamped days",
+    planA.every(pl => pl.attDays && pl.attDays.length === pl.days.length),
+    clamped.length + ' plan entr(ies) where the landing axis was clamped away from the real days');
+}
+
 // ------------- 7a3. tickets are drawn ON THE RUNG, not smeared (D31, 2026-09-03) --------------
 // The log used to carry the population-average ticket income, so a row reading "Jigsaw milestone
 // #2" sat next to a number that had nothing to do with that rung: the ladder pays 2 + 2 tickets
