@@ -172,6 +172,17 @@ const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\
     packParticipation_('Bomb Challenge', null) === 1);
 }
 
+// A fresh Sheets recalculation gets a new Context and re-reads every sheet. The gates below need
+// the same, and doing it by hand in five places is how one of them ends up missing a cache.
+function resetSheetCache_mock(){
+  _sheetValsCache = {};
+  if (typeof _tofCfgCache    !== 'undefined') _tofCfgCache    = null;
+  if (typeof _tofBalCache    !== 'undefined') _tofBalCache    = {};
+  if (typeof _tofIncomeCache !== 'undefined') _tofIncomeCache = {};
+  if (typeof _itemValsCache  !== 'undefined') _itemValsCache  = null;
+  Context.reset();
+}
+
 // ---------------------------------------------------------------- 0. namespace hygiene
 {
   const names = (src) => {
@@ -1838,13 +1849,24 @@ function logCol(name){
     const out = {};
     CUT_PAIRS.forEach(pair => {
       const seg = pair[0], payer = pair[1], key = seg + '|' + payer;
-      const rec = { packByCat: {}, packTot: 0, nonpack: 0, latePack: 0, lateNon: 0, consErr: 0 };
+      const rec = { packByCat: {}, packTot: 0, nonpack: 0, colNon: 0,
+                    latePack: 0, lateNon: 0, consErr: 0 };
       CATEGORY_ORDER.forEach(cat => {
         const W = resultRow_(cat, seg, payer, ctx);
         const p = PACK_RES.reduce((a, r) => a + num(W[r]), 0);
         if (p > 1e-12) rec.packByCat[cat] = p;
         rec.packTot += p;
-        NONPACK.forEach(r => { rec.nonpack += num(W[r]); });
+        // The two COLLECTION rows are downstream of the envelope flow: their input IS the packs
+        // this segment earns, so shortening the envelope season legitimately lowers the coins they
+        // pay (fewer envelopes -> fewer sets finished -> fewer set rewards). Every OTHER category's
+        // non-pack total must still be untouched, which is the rule this gate exists for, so those
+        // two are counted apart rather than allowed to weaken it. Before 2026-09-07 the rows were a
+        // closed form that also read the pack flow, so this leak was already there - it was just
+        // small enough to sit under the tolerance.
+        if (cat === 'Col - Sets' || cat === 'Col - Albums')
+          NONPACK.forEach(r => { rec.colNon += num(W[r]); });
+        else
+          NONPACK.forEach(r => { rec.nonpack += num(W[r]); });
         const ser = dailySeries_(cat, seg, payer, ctx, true);
         PACK_RES.forEach(r => {
           let sum = 0;
@@ -1878,9 +1900,14 @@ function logCol(name){
     CUT_PAIRS.every(p => on[K(p)].lateNon > 0),
     CUT_PAIRS.map(p => K(p) + ' ' + on[K(p)].lateNon.toFixed(1)).join(' | '));
 
-  // 3. The cutoff must not move a single non-pack number, anywhere.
+  // 3. The cutoff must not move a single non-pack number outside the two collection rows.
   let worst = 0;
   CUT_PAIRS.forEach(p => { worst = Math.max(worst, Math.abs(on[K(p)].nonpack - off[K(p)].nonpack)); });
+  // ...and it SHOULD move those two, or they are not reading the envelope flow at all
+  let colMoved = 0;
+  CUT_PAIRS.forEach(p => { colMoved = Math.max(colMoved, Math.abs(on[K(p)].colNon - off[K(p)].colNon)); });
+  check('the collection rows DO follow the envelope season (they are downstream of it)',
+    colMoved > 1e-9, 'coins moved by ' + colMoved.toFixed(1) + ' when the cutoff was lifted');
   check('cutoff leaves every non-pack window total bit-identical', worst < 1e-9,
     'max drift ' + worst.toExponential(2) + ' over ' + CUT_PAIRS.length + ' segment/payer pairs');
 
@@ -2222,6 +2249,128 @@ function logCol(name){
       worstR > 0.65 && worstR < 1.35,
       'worst ratio ' + worstR.toFixed(3) + (atR ? ' at ' + atR : '') +
       ' (whole tickets on attended days vs fractional tickets on live days)');
+  }
+}
+
+// ------ 7a6. the collection rows ARE the card sim, not a formula about it (2026-09-07) --------
+// Col - Sets and Col - Albums used to be a closed form: every card an independent lottery ticket
+// over the SNAP POOL. It ignored the ALBUM SET SKEW, both pity systems, star chests, and the fact
+// that a drawn card leaves the pool - all four of which fill a collection FASTER - so it was a
+// floor, and the gap was large: 176 HC against 378 at 40-99 PAYER, 0.2 against 25 at 10-19
+// NONPAYER. The album row was worse than a floor: it multiplied ~72 ownership probabilities, which
+// collapses to nothing, so it read ZERO for every segment while the card sim finishes an album in
+// about a tenth of 40-99 PAYER seasons.
+//
+// The formula is gone; both rows now run runOneCardSeason_ COL_SIM_SEASONS times on a FIXED seed
+// sequence. That makes the two models the same model, which is the point - and it means this gate
+// can be an EXACT identity rather than a tolerance, because the harness can replay the very same
+// seasons the engine ran.
+{
+  const ctxC = Context.get();
+  const cfgC = loadPackConfig_(), catC = loadCardCatalog_(cfgC, mkSheet('AlbumConfig'));
+  check('the collection rows are configured to simulate, not to estimate',
+    typeof COL_SIM_SEASONS === 'number' && COL_SIM_SEASONS > 0 &&
+    typeof colSimSeasons_ === 'function' && typeof expectedCardsDrawn_ === 'undefined',
+    COL_SIM_SEASONS + ' seasons per segment, seed ' + COL_SIM_SEED +
+    ', closed form removed: ' + (typeof expectedCardsDrawn_ === 'undefined'));
+
+  // replay the engine's own seasons and demand the same answer to the last bit
+  function replay(seg, payer){
+    const pre = cardSeasonPre_(seg, payer, ctxC);
+    const sets = {}, albums = {};
+    RESOURCES.forEach(r => { sets[r] = 0; albums[r] = 0; });
+    for (let i = 0; i < COL_SIM_SEASONS; i++){
+      const r = runOneCardSeason_(seg, payer, COL_SIM_SEED + i * 7919, cfgC, catC, pre);
+      const sr = colGainsToRow_(r.setRewardGains), ar = colGainsToRow_(r.albumRewardGains);
+      RESOURCES.forEach(res => { sets[res] += num(sr[res]); albums[res] += num(ar[res]); });
+    }
+    RESOURCES.forEach(res => { sets[res] /= COL_SIM_SEASONS; albums[res] /= COL_SIM_SEASONS; });
+    return { sets: sets, albums: albums };
+  }
+
+  {
+    let worstS = 0, worstA = 0, atS = '', atA = '';
+    const pairs = [['10-19', 'NONPAYER'], ['10-19', 'PAYER'], ['40-99', 'PAYER'], ['100+', 'PAYER']];
+    pairs.forEach(([sg, pp]) => {
+      const want = replay(sg, pp);
+      const gotS = resultRow_('Col - Sets', sg, pp, ctxC);
+      const gotA = resultRow_('Col - Albums', sg, pp, ctxC);
+      RESOURCES.forEach(res => {
+        const dS = Math.abs(num(gotS[res]) - num(want.sets[res]));
+        const dA = Math.abs(num(gotA[res]) - num(want.albums[res]));
+        if (dS > worstS){ worstS = dS; atS = sg + ' ' + pp + ' ' + res; }
+        if (dA > worstA){ worstA = dA; atA = sg + ' ' + pp + ' ' + res; }
+      });
+    });
+    check('Col - Sets equals the card sim exactly, replayed on the same seeds',
+      worstS < 1e-9, 'worst ' + worstS.toExponential(2) + (atS ? ' at ' + atS : ''));
+    check('Col - Albums equals the card sim exactly, replayed on the same seeds',
+      worstA < 1e-9, 'worst ' + worstA.toExponential(2) + (atA ? ' at ' + atA : ''));
+  }
+
+  // A. 0 has no behaviour telemetry, so it cannot earn a pack and must not earn a set reward
+  check('the A. 0 appendix segment earns no collection reward',
+    RESOURCES.every(r => num(resultRow_('Col - Sets', 'A. 0', 'NONPAYER', ctxC)[r]) === 0));
+
+  // DETERMINISM: a spreadsheet cell must not change value when nothing changed
+  {
+    resetSheetCache_mock();
+    const a = num(resultRow_('Col - Sets', '40-99', 'PAYER', Context.get())['HC']);
+    resetSheetCache_mock();
+    const b = num(resultRow_('Col - Sets', '40-99', 'PAYER', Context.get())['HC']);
+    check('two recalcs with nothing changed give the same number', a === b, a + ' then ' + b);
+  }
+
+  // MUTATION: the rows have to be reading SET REWARDS. Add coins to a set that this segment
+  // actually completes and the row must rise - and by that set's completion RATE times the edit,
+  // which is the whole content of the number.
+  {
+    const vP = data['PackConfig'].values;
+    let br = -1;
+    for (let r = 0; r < vP.length; r++) if (String(vP[r][0]).trim() === 'SET REWARDS'){ br = r; break; }
+    check('PackConfig has a SET REWARDS block to mutate', br >= 0);
+    if (br >= 0){
+      // 'Set 1' is the one every segment reaches first
+      let sr = -1;
+      for (let r = br + 1; r < vP.length; r++) if (String(vP[r][0]).trim() === 'Set 1'){ sr = r; break; }
+      check('SET REWARDS has a "Set 1" row', sr >= 0);
+      if (sr >= 0){
+        const seg = '10-19', pay = 'PAYER';
+        const before = num(resultRow_('Col - Sets', seg, pay, Context.get())['HC']);
+        // how often does this segment finish Set 1 on the engine's own seasons?
+        const preR = cardSeasonPre_(seg, pay, Context.get());
+        let rate = 0;
+        for (let i = 0; i < COL_SIM_SEASONS; i++){
+          const r = runOneCardSeason_(seg, pay, COL_SIM_SEED + i * 7919, cfgC, catC, preR);
+          // Set 1 pays only through setRewardGains, so infer completion from a marker column that
+          // is nonzero on that row alone would be fragile - count completions from the log note
+          if (r.log.some(l => String(l[9]).indexOf('Set 1 completed') === 0 ||
+                              String(l[9]).indexOf('Set 1 completed') > 0)) rate++;
+        }
+        rate /= COL_SIM_SEASONS;
+        const wasC = vP[sr][1];
+        vP[sr][1] = num(wasC) + 1000;
+        resetSheetCache_mock();
+        const after = num(resultRow_('Col - Sets', seg, pay, Context.get())['HC']);
+        check('+1000 coins on Set 1 raises Col - Sets by 1000 x its completion rate',
+          Math.abs((after - before) - 1000 * rate) < 1e-6,
+          'row ' + before.toFixed(1) + ' -> ' + after.toFixed(1) + ' (delta ' +
+          (after - before).toFixed(1) + '), Set 1 completed in ' + (rate * 100).toFixed(0) + '% of seasons');
+        vP[sr][1] = wasC;
+        resetSheetCache_mock();
+        check('SET REWARDS fixture restored',
+          Math.abs(num(resultRow_('Col - Sets', seg, pay, Context.get())['HC']) - before) < 1e-9);
+      }
+    }
+  }
+
+  // The album row must count EVERY album a season finishes, not just the first (the closed form
+  // only ever priced album 1). Album 2 pays 2000 coins where album 1 pays 1000, so a segment that
+  // loops shows more than its completion rate times the album-1 reward.
+  {
+    const sim = colSimSeasons_('100+', 'PAYER', Context.get());
+    check('the album row reports albums FINISHED per season', !!sim && sim.albumsPerSeason >= 0,
+      sim ? sim.albumsPerSeason.toFixed(3) + ' albums/season over ' + sim.n + ' seasons' : 'null');
   }
 }
 

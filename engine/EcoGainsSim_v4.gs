@@ -2713,173 +2713,126 @@ function spPackTiers_(seg, payer, ctx){
 // whole ALBUM, pays real currency out of the PackConfig SET REWARDS / ALBUM REWARDS blocks - the
 // collection feature's own contribution to the faucet, separate from the packs that feed it.
 //
-// Neither has a measured anchor (data_gains has no such category), so both are priced BOTTOM-UP,
-// the same rule the pack lane already follows. The chain is:
+// Neither has a measured anchor (data_gains has no such category), so both are simulated.
 //
-//   packs        SUM over every source of the six pack columns this segment earns  (= packLane_)
-//   cards        SUM_tier packs[tier] x cardsPerOpen[tier]                          (PackConfig)
-//   ownership    P(card c owned) = 1 - (1 - w_c)^cards,  w_c = its share of the SNAP POOL
-//   set k done   PRODUCT over the cards of set k of P(owned)
-//   album done   PRODUCT over EVERY card
-//   gains        SUM_k P(set k done) x setReward_k   /   P(album done) x albumReward_1
+// UNTIL 2026-09-07 they were a CLOSED FORM: treat every card drawn as an independent lottery ticket
+// over the SNAP POOL, multiply the per-card ownership probabilities to get P(set done), sum the set
+// rewards against it. That formula ignored four things the card sim does, and all four make a
+// collection fill FASTER:
+//   * the PackConfig ALBUM SET SKEW, which deliberately aims draws at unfinished sets
+//   * both pity mechanisms (force a rare card; force an unowned card after a dry streak)
+//   * star chests, which buy extra envelopes with duplicate stars
+//   * cards leave the pool when drawn - the formula put them back
+// Its own comment called it "a floor, not a midpoint", and the gap was not small: at 40-99 PAYER
+// 176 HC against the card sim's 378, and at 10-19 NONPAYER 0.2 against 25. The album row was worse
+// than a floor - it multiplied ~72 ownership probabilities, which collapses to almost nothing, so
+// it reported ZERO album rewards for every segment while the card sim finishes an album in 9.5% of
+// 40-99 PAYER seasons (a 1,000-coin lump, so a mean of 95 with a median and a p90 of 0).
 //
-// FLAGGED, and worth knowing before quoting these two rows:
-//   - Draws are treated as INDEPENDENT with replacement over the pool. The card sim draws without
-//     replacement inside a pack and depletes the pool as it goes, so this slightly UNDERSTATES how
-//     fast a collection fills. The pool is ~817 copies against 2-7 cards per pack, so the error is
-//     small, but it is one-directional.
-//   - It ignores the card sim's chapter weighting, both pity mechanisms and star-chest purchases,
-//     all of which pull completion EARLIER. These rows are therefore a floor, not a midpoint.
-//   - Album rewards use tier 1 only: the model has no notion of looping into a second album.
-// The card sim (menu > Simulate card pack openings) remains the exact, per-run answer; this is the
-// closed-form expectation so the gains model can carry the two rows live.
+// So the formula is gone. These two rows now RUN THE CARD SIM - the same runOneCardSeason_ the menu
+// uses - COL_SIM_SEASONS times per (segment, payer), and average what those seasons actually
+// collected. There is no second model left to drift, which is the whole point: this is the third
+// time a duplicated model has produced two disagreeing numbers on one workbook.
+//
+// COST, measured 2026-09-07: ~7ms per season in node, so 50 seasons is ~0.4s there and an estimated
+// 3-7s inside a Sheets custom function (5-20x slower). 200 seasons would breach the 30-second
+// custom-function limit at the slow end, which is why 50 is the ceiling rather than the ideal.
+//
+// PRECISION. Set completions are frequent, so that row is steady. ALBUM completions are a rare
+// 1,000-coin jackpot (9.5% of seasons at 40-99 PAYER), and 50 seasons puts roughly +/-40% of
+// relative error on that row. It is deterministic - a fixed seed, so the cell never changes when
+// nothing changed - but it is an estimate, and a config edit smaller than that band will not be
+// visible in the album row. FLAGGED for the user: the lever, if it ever matters, is reading the
+// menu-run cloud sim's numbers (it can afford 200+ players) instead of running seasons here.
+var COL_SIM_SEASONS = 50;
+// FIXED, deliberately. A spreadsheet cell must not change value when nothing changed, and two
+// calendars have to be compared on identical dice. Every segment reuses the same seed sequence, so
+// the differences BETWEEN segments carry less sampling noise than their absolute levels do.
+var COL_SIM_SEED    = 20260907;
+
+// The card sim's reward names -> engine resource names. setRewardGains / albumRewardGains are keyed
+// by the 21-column block's own labels ('Coins', 'SPT x2', '1-star Dly'), which RES_MAP translates.
+// 'COOP Token' and 'Avatar' are not engine resources and drop out here, exactly as they do
+// everywhere else.
+function colGainsToRow_(gains){
+  var out = zeroRow_();
+  if (!gains) return out;
+  for (var name in gains){
+    var res = RES_MAP[name];
+    if (res && out[res] != null) out[res] = num(out[res]) + num(gains[name]);
+  }
+  return out;
+}
+
+// COL_SIM_SEASONS seasons for one (segment, payer), averaged. Cached on ctx so the two rows share
+// one batch: 'Col - Sets' and 'Col - Albums' are both asked for inside the same spill, and running
+// the seasons twice would double the cost of every recalc for nothing.
+//
+// RE-ENTRANCY. cardSeasonPre_ walks every category (it needs each source's ticket income and the
+// pack grant plan), and this function IS one of those categories - so asking for Col - Sets asks
+// for Col - Sets. Broken the same way expectedCardsDrawn_ broke it: while the seasons are being
+// set up, these two rows contribute zero. That very slightly understates the ticket income used to
+// price ToF runs inside those seasons (collection rewards can carry tickets), which is second order
+// and the only resolution that terminates without a second full pass.
+function colSimSeasons_(seg, payer, ctx){
+  ctx._colSim = ctx._colSim || {};
+  var key = seg + '|' + payer;
+  if (ctx._colSim[key] !== undefined) return ctx._colSim[key];
+  if (ctx._colBusy) return null;                       // re-entry: contribute nothing to our input
+  // No card sim in the project (or an older workbook with no PackConfig worth reading) means there
+  // is no card collection to pay out. Zero, and say so - not a formula nobody asked for.
+  if (typeof runOneCardSeason_ !== 'function' || typeof loadPackConfig_ !== 'function'){
+    try { Logger.log('Col - Sets / Col - Albums: CardOpenings.gs is not in this project, so the ' +
+                     'two collection rows read 0. Paste it to simulate them.'); } catch(e){}
+    return (ctx._colSim[key] = null);
+  }
+  var out = null;
+  ctx._colBusy = true;
+  try {
+    var cfg = loadPackConfig_();
+    var album = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AlbumConfig');
+    if (!album) throw new Error("sheet 'AlbumConfig' not found");
+    var cat = loadCardCatalog_(cfg, album);
+    var pre = cardSeasonPre_(seg, payer, ctx);
+    var n = (COL_SIM_SEASONS > 0) ? Math.round(COL_SIM_SEASONS) : 1;
+    var sets = zeroRow_(), albums = zeroRow_(), albumsDone = 0;
+    for (var i = 0; i < n; i++){
+      var r = runOneCardSeason_(seg, payer, COL_SIM_SEED + i * 7919, cfg, cat, pre);
+      var sr = colGainsToRow_(r.setRewardGains), ar = colGainsToRow_(r.albumRewardGains);
+      RESOURCES.forEach(function(res){
+        sets[res]   = num(sets[res])   + num(sr[res]);
+        albums[res] = num(albums[res]) + num(ar[res]);
+      });
+      albumsDone += num(r.albumIdx);
+    }
+    RESOURCES.forEach(function(res){
+      sets[res]   = num(sets[res])   / n;
+      albums[res] = num(albums[res]) / n;
+    });
+    out = { sets: sets, albums: albums, n: n, albumsPerSeason: albumsDone / n };
+  } catch (e){
+    try { Logger.log('Col - Sets / Col - Albums could not be simulated (' + e.message +
+                     ') - both rows read 0.'); } catch(e2){}
+    out = null;
+  } finally { ctx._colBusy = false; }
+  return (ctx._colSim[key] = out);
+}
+
 function colRewardRow_(which, seg, payer, ctx){
   if (seg === 'A. 0' || seg === 'A.0') return zeroRow_();   // no behaviour telemetry -> no packs
-  var cards = expectedCardsDrawn_(seg, payer, ctx);
-  if (!(cards > 0)) return zeroRow_();
-  var pool = colPool_();
-  if (!pool || !pool.total) return zeroRow_();
-  var pOwn = {};
-  for (var key in pool.count)
-    pOwn[key] = 1 - Math.pow(1 - (pool.count[key] / pool.total), cards);
-
-  var out = zeroRow_();
-  if (which === 'sets'){
-    for (var sn in pool.bySet){
-      var keys = pool.bySet[sn], p = 1;
-      for (var i = 0; i < keys.length; i++) p *= num(pOwn[keys[i]]);
-      if (!(p > 0)) continue;
-      var rew = pool.setRewards['Set ' + sn];
-      if (rew) for (var r in rew) out[r] = num(out[r]) + num(rew[r]) * p;
-    }
-    return out;
-  }
-  var pa = 1;
-  for (var k2 in pOwn) pa *= num(pOwn[k2]);
-  var arew = pool.albumReward;
-  if (arew && pa > 0) for (var r2 in arew) out[r2] = num(out[r2]) + num(arew[r2]) * pa;
-  return out;
+  var sim = colSimSeasons_(seg, payer, ctx);
+  if (!sim) return zeroRow_();
+  return (which === 'sets') ? sim.sets : sim.albums;
 }
 function simColSets  (seg, payer, ctx){ return colRewardRow_('sets',   seg, payer, ctx); }
 function simColAlbums(seg, payer, ctx){ return colRewardRow_('albums', seg, payer, ctx); }
 
-// Total packs this (segment, payer) earns across EVERY source, converted to cards. Mirrors the
-// sptTotals_ pattern - summed off resultRow_ so it picks up every lane's pack overlay - with the
-// same re-entry guard, because the two collection rows are themselves inside CATEGORY_ORDER.
-function expectedCardsDrawn_(seg, payer, ctx){
-  ctx._colCards = ctx._colCards || {};
-  var key = seg + '|' + payer;
-  if (ctx._colCards[key] != null) return ctx._colCards[key];
-  if (ctx._colBusy) return 0;                       // re-entry: contribute nothing to our own input
-  var packs = zeroRow_();
-  ctx._colBusy = true;
-  try {
-    CATEGORY_ORDER.forEach(function(cat){
-      if (cat === 'Col - Sets' || cat === 'Col - Albums') return;
-      var row = resultRow_(cat, seg, payer, ctx);
-      PACK_RES.forEach(function(r){ packs[r] = num(packs[r]) + num(row[r]); });
-    });
-  } finally { ctx._colBusy = false; }
-  var per = colCardsPerOpen_(), cards = 0;
-  PACK_RES.forEach(function(r){ cards += num(packs[r]) * num(per[r]); });
-  return (ctx._colCards[key] = cards);
-}
+// expectedCardsDrawn_, colCardsPerOpen_ and colPool_ lived here until 2026-09-07. They existed only
+// to feed the closed-form collection estimate above, which has been replaced by running the card
+// sim itself, so all three are gone rather than left as a second reader of PackConfig and
+// AlbumConfig that nothing calls. COL_REWARD_COLS below is kept: it is the reward-block layout, and
+// it is still read by the season-pass and pack lanes.
 
-// 'N-star Pack' -> cards per open, from the PackConfig PACK DEFINITIONS block.
-function colCardsPerOpen_(){
-  var v = sheetVals_('PackConfig'), out = {}, start = -1;
-  for (var r = 0; r < v.length; r++)
-    if (String((v[r] || [])[0]).trim() === 'PACK DEFINITIONS'){ start = r; break; }
-  if (start < 0) return out;
-  for (var r2 = start + 1; r2 < v.length; r2++){
-    var lab = String((v[r2] || [])[0]).trim();
-    if (/^[A-Z][A-Z &]{4,}$/.test(lab)) break;                       // next block label
-    var m = lab.match(/^(\d+)[-\s]*star/i);
-    if (m && num(v[r2][1]) > 0) out[m[1] + '-star Pack'] = Math.round(num(v[r2][1]));
-  }
-  return out;
-}
-
-// The card pool as the gains model needs it: per-card copy counts, the cards of each set, and the
-// two reward tables. Rarity names are reconciled positionally, exactly as CardOpenings.gs does, so
-// AlbumConfig's '6-star' and PackConfig's 'Gold' remain the same tier here too.
-function colPool_(){
-  var pv = sheetVals_('PackConfig'), av = sheetVals_('AlbumConfig');
-  if (!pv.length || !av.length) return null;
-  function block(label){
-    var b = -1;
-    for (var r = 0; r < pv.length; r++)
-      if (String((pv[r] || [])[0]).trim() === label){ b = r; break; }
-    if (b < 0) return [];
-    var out = [];
-    for (var r2 = b + 1; r2 < pv.length; r2++){
-      var lab = String((pv[r2] || [])[0]).trim();
-      if (/^[A-Z][A-Z &]{4,}$/.test(lab)) break;
-      if (lab) out.push(pv[r2]);
-    }
-    return out;
-  }
-  var order = [], qty = {};
-  block('RARITY DEFINITIONS').forEach(function(row){
-    var n = String(row[0]).trim();
-    if (n && !isNaN(parseFloat(row[1]))) order.push(n);
-  });
-  if (!order.length) return null;
-  block('SNAP POOL').forEach(function(row){
-    var n = String(row[0]).trim();
-    if (order.indexOf(n) >= 0 && num(row[1]) > 0) qty[n] = num(row[1]);
-  });
-  function resolve(raw){
-    var t = String(raw == null ? '' : raw).trim();
-    if (order.indexOf(t) >= 0) return t;
-    var m = t.match(/^(\d+)\s*[-\s]?\s*(?:star|★|\*)?$/i);
-    if (m){ var i = Number(m[1]) - 1; if (i >= 0 && i < order.length) return order[i]; }
-    return null;
-  }
-  var byRarity = {}, cards = [];
-  for (var r3 = 2; r3 < av.length; r3++){
-    var row3 = av[r3];
-    if (!row3 || !/^CARD/i.test(String(row3[0]))) continue;
-    var rar = resolve(row3[4]);
-    if (!rar) continue;
-    var c = { key: String(row3[1]) + ' ' + rar, rarity: rar, setNum: Math.round(num(row3[2])) };
-    cards.push(c);
-    (byRarity[rar] = byRarity[rar] || []).push(c);
-  }
-  if (!cards.length) return null;
-  var count = {}, total = 0, bySet = {};
-  for (var rar2 in byRarity){
-    var q = num(qty[rar2]);
-    if (!(q > 0)) continue;                       // a rarity with no pool stock cannot be drawn
-    var list = byRarity[rar2], baseN = Math.floor(q / list.length), rem = q - baseN * list.length;
-    list.forEach(function(c2, i){
-      count[c2.key] = (i < rem) ? baseN + 1 : baseN;
-      total += count[c2.key];
-    });
-  }
-  cards.forEach(function(c3){
-    if (count[c3.key] == null) return;            // rarity had no stock -> unreachable, excluded
-    (bySet[c3.setNum] = bySet[c3.setNum] || []).push(c3.key);
-  });
-  // reward tables, mapped onto engine resource names via RES_MAP
-  function rewards(label){
-    var out = {};
-    block(label).forEach(function(row){
-      var id = String(row[0]).trim();
-      if (!id || isNaN(parseFloat(row[1]))) return;
-      var rew = {};
-      COL_REWARD_COLS.forEach(function(rc){
-        var res = RES_MAP[rc.name];
-        if (res && num(row[rc.col]) > 0) rew[res] = num(rew[res]) + num(row[rc.col]);
-      });
-      out[id] = rew;
-    });
-    return out;
-  }
-  var setR = rewards('SET REWARDS'), albR = rewards('ALBUM REWARDS');
-  return { count: count, total: total, bySet: bySet, setRewards: setR,
-           albumReward: albR['Album 1'] || null };
-}
 // The 21-column reward block every config sheet shares (Coins .. 6-star Dly), by OFFSET from the
 // row's id cell. Mirrors REWARD_COLUMNS in CardOpenings.gs; kept here so the gains engine does not
 // depend on the card sim's file being present.
@@ -3207,7 +3160,15 @@ var Context = (function(){
     _c = { ds: DataStore.get(), calCur: calCur, calNew: calNew,
            calCurOk: hasKeys_(calCur), calNewOk: hasKeys_(calNew) };
     return _c;
-  }};
+  },
+  // Drop the memo, so the next get() re-reads the calendars and hands out a fresh per-execution
+  // cache bag (_spt, _colCards, _colSim ... all live on the ctx object, so they go with it).
+  // Nothing in production calls this - a custom function is a fresh execution and starts empty
+  // anyway. It exists because the offline harnesses mutate a config sheet and then need the state a
+  // real recalculation would start from, and their only other way to get it was to re-eval the
+  // whole engine. That has to happen at module scope or the engine's `var`s become function-local
+  // and the memo survives - a trap that has silently passed a gate with a zero anchor before.
+  reset: function(){ _c = null; }};
 })();
 
 // Defensive: Apps Script files share ONE global namespace, so another project file defining
