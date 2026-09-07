@@ -93,6 +93,11 @@
  * merges (it refreshes the sims itself).
  ************************************************************************************************/
 
+// Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
+// is answerable from the sheet instead of from memory.
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D41  2026-09-07';
+
+
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
 // FALSE: recalculation only via the menu (EcoGainsSim ▸ Refresh simulations) or argument edits.
 var AUTO_REFRESH = true;
@@ -3304,11 +3309,76 @@ function mkInst_(start, dur){
 }
 
 // ---- menu-precompute (the robust fix for custom-function merge reading) ----
+
+// ============================== IS THE PASTED CODE CURRENT? =================================
+// Apps Script has no version number and no file list a script can read, and all .gs files share one
+// global namespace - so a SECOND copy of a file silently overrides the first by load order, and a
+// file that was never re-pasted looks exactly like one that was. Both failures present the same
+// way: the sheet keeps showing the numbers it showed yesterday, and nothing anywhere says why.
+//
+// This asks the LIVE code what it is, two ways:
+//   * the build stamp each file declares - which tells you which copy WON, not which copy exists
+//   * feature probes read off Function.prototype.toString() and the live constants, which is the
+//     only thing that cannot be faked by a stale duplicate: if colRewardRow_ does not mention
+//     colSimSeasons_, the running definition is the old closed form whatever any stamp says
+//
+//   =ECOGAINS_BUILD(sim_refresh!$A$1)      or   menu EcoGainsSim > Check code versions
+/** @customfunction */
+function ECOGAINS_BUILD(nonce){
+  var rows = [['What', 'Live', 'Expected', 'OK?']];
+  function has(name){ try { return eval('typeof ' + name) !== 'undefined'; } catch(e){ return false; } }
+  function src(name){ try { return eval(name).toString(); } catch(e){ return ''; } }
+  function row(what, live, want){
+    rows.push([what, String(live), String(want), (String(live) === String(want)) ? 'yes' : 'NO']);
+  }
+
+  rows.push(['--- build stamps (which COPY of each file won) ---', '', '', '']);
+  ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD', 'SPS_BUILD'].forEach(function(v){
+    rows.push([v, has(v) ? eval(v) : 'NOT IN THIS PROJECT', '', has(v) ? '' : 'NO']);
+  });
+
+  rows.push(['--- what the running code actually does ---', '', '', '']);
+  // D41: the collection rows run the card sim instead of the closed form
+  row('Col - Sets runs real seasons (D41)',
+      has('colSimSeasons_') && src('colRewardRow_').indexOf('colSimSeasons_') >= 0, true);
+  row('the closed form is gone (D41)', !has('expectedCardsDrawn_'), true);
+  row('seasons per segment (D41)', has('COL_SIM_SEASONS') ? COL_SIM_SEASONS : 0, 50);
+  // D40: the card sim plays ToF
+  row('card sim plays ToF runs (D40)', has('cardTofConfig_'), true);
+  row('ToF envelopes stop at the album close (D40)',
+      src('simToF').indexOf('SEASON_LAST_DAY') >= 0, true);
+  // D39/D38: the cadence block
+  row('cadence rows (D39)', has('CADENCE_ROWS') ? CADENCE_ROWS.length : 0, 8);
+  row('pack log columns (D31)', has('LOG_COLS') ? LOG_COLS.length : 0, 11);
+  // D37/D36/D35
+  row('ToF reward block is split (D37)', has('tofLadderRow_'), true);
+  row('Sim per Segment partition is total (D36)', has('spsGroupOf_'), true);
+  row('ToF is in the refresh list (D35)', REFRESH_SHEETS.indexOf('ToF') >= 0, true);
+  row('categories (D28)', CATEGORY_ORDER.length, 29);
+
+  rows.push(['--- if any row says NO ---', '', '', '']);
+  rows.push(['1. re-paste that file, then reload the spreadsheet tab', '', '', '']);
+  rows.push(['2. if it still says NO, the project has TWO copies of it - delete the old one', '', '', '']);
+  rows.push(['3. then run menu EcoGainsSim > Refresh simulations', '', '', '']);
+  return rows;
+}
+
+// Same check, from the menu, for when the sheet itself is the thing that is not updating.
+function checkCodeVersions(){
+  var g = ECOGAINS_BUILD(0), bad = [];
+  for (var i = 1; i < g.length; i++) if (String(g[i][3]) === 'NO') bad.push(g[i][0]);
+  var msg = bad.length ? ('STALE: ' + bad.join(' | ')) : 'Every file is current.';
+  Logger.log(g.map(function(r){ return r.join('  |  '); }).join('\n'));
+  try { SpreadsheetApp.getActive().toast(msg, 'Check code versions', 15); } catch(e){}
+  return msg;
+}
+
 function onOpen(){
   SpreadsheetApp.getUi().createMenu('EcoGainsSim')
     .addItem('Precompute calendars', 'precomputeCalendars')
     .addItem('Clear calendar precompute', 'clearCalendarPrecompute')
     .addItem('Refresh simulations', 'refreshSims_')
+    .addItem('Check code versions', 'checkCodeVersions')
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
     .addSeparator()
     .addItem('Simulate card pack openings', 'SimulatePackOpenings')   // CardOpenings.gs

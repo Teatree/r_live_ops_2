@@ -2374,5 +2374,44 @@ function logCol(name){
   }
 }
 
+// ---------- 7a7. the version checker must agree with the repo it ships in (2026-09-07) --------
+// "I made sure multiple times that the scripts are up to date and yet I don't see any difference."
+// Apps Script has no version number and no readable file list, and a SECOND copy of a file silently
+// overrides the first by load order - so a file that was never re-pasted and a file that lost to a
+// duplicate look identical from the sheet: yesterday's numbers, and nothing saying why.
+// ECOGAINS_BUILD() answers it by asking the LIVE code what it does. This gate keeps its expected
+// values honest: run against the repo's own files, every probe must say yes, or the checker would
+// start crying wolf on a project that is actually current.
+{
+  // The real Apps Script project holds all four files, so the harness has to as well - otherwise
+  // the checker truthfully reports SimPerSegmentFill.gs missing and the gate reads as a code fault.
+  // Module scope, deliberately: an eval inside a function makes the engine's `var`s function-local.
+  eval(fs.readFileSync(ENGINE('SimPerSegmentFill.gs'), 'utf8'));
+  const g = ECOGAINS_BUILD(0);
+  const bad = g.slice(1).filter(r => String(r[3]) === 'NO')
+               .map(r => r[0] + ' (live ' + r[1] + ', expected ' + r[2] + ')');
+  check('ECOGAINS_BUILD reports the repo as current on every probe',
+    bad.length === 0, bad.length ? bad.join(' | ') : (g.length - 1) + ' rows, no NO');
+  check('every engine file in this project declares a build stamp',
+    ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD'].every(v => {
+      try { return eval('typeof ' + v) === 'string'; } catch (e){ return false; }
+    }), ENGINE_BUILD + '  /  ' + CARDSIM_BUILD);
+
+  // COUNTER-GATE: it has to FAIL when the running code is stale, or it is decoration. Override
+  // colRewardRow_ the way a leftover duplicate file would, and the probe must catch it.
+  {
+    const realCol = colRewardRow_, realCad = CADENCE_ROWS;
+    colRewardRow_ = function(){ return zeroRow_(); };
+    CADENCE_ROWS = ['Packs per day (mean)'];
+    const caught = ECOGAINS_BUILD(0).slice(1).filter(r => String(r[3]) === 'NO').map(r => r[0]);
+    colRewardRow_ = realCol;
+    CADENCE_ROWS = realCad;
+    check('a stale duplicate overriding the namespace IS caught',
+      caught.length >= 2, 'caught: ' + caught.join(', '));
+    check('version-checker fixture restored',
+      ECOGAINS_BUILD(0).slice(1).every(r => String(r[3]) !== 'NO'));
+  }
+}
+
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures ? 1 : 0);

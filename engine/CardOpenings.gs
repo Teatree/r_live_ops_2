@@ -62,6 +62,11 @@
  *                    G2 = seed (blank -> generated and written back, so a run is reproducible)
  ************************************************************************************************/
 
+// Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
+// is answerable from the sheet instead of from memory.
+var CARDSIM_BUILD = 'CardOpenings.gs     D41  2026-09-07';
+
+
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
 var SHEET_PACK  = 'PackConfig';
 var SHEET_ALBUM = 'AlbumConfig';

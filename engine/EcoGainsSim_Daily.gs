@@ -52,6 +52,11 @@
  * DIFF = NEW(day) - CURRENT(day). Column totals therefore reconcile with ECOGAINS_SIM/_DIFF.
  ************************************************************************************************/
 
+// Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
+// is answerable from the sheet instead of from memory.
+var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D38  2026-09-07';
+
+
 var DAILY_DAYS = 33;
 var DAILY_ECON_SHEET = 'data_econ_daily';                 // actual per-day gain/spend (per earner)
 var DAILY_NET_BLOCKS = { 'SPEND':1, 'CURNET':1, 'NEWNET':1 };

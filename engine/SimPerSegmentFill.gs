@@ -31,6 +31,11 @@
  *   m+3 NONPAYER · m+4..m+8 segs · m+9 overall · m+10 PAYER · m+11..m+15 segs · m+16 overall.
  ************************************************************************************************/
 
+// Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
+// is answerable from the sheet instead of from memory.
+var SPS_BUILD     = 'SimPerSegmentFill.gs D36 2026-09-03';
+
+
 var SPS_SHEET = 'Sim per Segment';
 var SPS_SEGMENTS = ['0-9','10-19','20-39','40-99','100+'];
 var SPS_NET_C0 = 21;                                   // NET block first column (U)
