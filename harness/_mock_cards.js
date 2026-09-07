@@ -1937,5 +1937,91 @@ function logCol(name){
       on[K(p)].packTot.toFixed(2)).join(' | '));
 }
 
+// ---------- 7a4. envelopes are priced off the _v2 ladders ONLY (2026-09-07) -------------------
+// "I added packs for early rewards in each source and after running Simulate Card Cloud nothing
+// changed." The pipeline is live - it just has two ways to author a pack that do nothing, and both
+// are silent:
+//   * a pack typed on the BASE sheet. packLane_/packRungs_ read E_v2, so the base ladder cannot
+//     move a pack column at all (it only ever feeds the R ratio, where it cancels).
+//   * a pack typed on a LEADERBOARD's top rows. Those rows are ranks 1-3, which a mid segment
+//     reaches ~5% of the time - the "early" rows on a rank ladder are the HARDEST outcomes, not
+//     the easiest. At 10-19 NONPAYER one pack on Bomb Challenge rank 1 is worth 0.006 packs a
+//     season against a total of 11.9.
+// These gates pin both, so the difference stays visible instead of being rediscovered.
+{
+  const segP = '10-19', payP = 'NONPAYER';
+  function packE(){
+    const ctx = Context.get(), plan = packGrantPlan_(segP, payP, ctx);
+    let tot = 0;
+    plan.forEach(pl => pl.groups.forEach(g => g.rungs.forEach(rg => {
+      for (const t in (rg.packs || {}))
+        tot += pl.participation * pl.reach * rg.p * num(rg.packs[t]);
+    })));
+    return tot;
+  }
+  // A COLLECTION source: header row from COLL_R_SPECS, first ladder row, '1-star Dly' column.
+  const specC = COLL_R_SPECS['Hatchling Hideaway'];
+  const v2 = specC && data[specC.v2] && data[specC.v2].values;
+  const base = specC && data[specC.base] && data[specC.base].values;
+  const colOf = (v, hdr) => (v[hdr] || []).findIndex(x => String(x).trim() === '1-star Dly');
+  const c2 = v2 ? colOf(v2, specC.hdr) : -1;
+  check('HH_v2 carries a "1-star Dly" column to author envelopes on', c2 >= 0,
+    c2 >= 0 ? 'column ' + c2 : 'not found - RES_MAP expects exactly this heading');
+
+  if (c2 >= 0) {
+    const e0 = packE();
+    const row = specC.r0 + 1;                       // second ladder rung, mid-probability
+    const was = v2[row][c2];
+    v2[row][c2] = num(was) + 1;
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    const e1 = packE();
+    check('a pack authored on a _v2 collection rung RAISES expected envelopes',
+      e1 > e0 + 1e-9, e0.toFixed(4) + ' -> ' + e1.toFixed(4) + ' (+' + (e1 - e0).toFixed(4) + ')');
+    v2[row][c2] = was;
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    check('_v2 fixture restored', Math.abs(packE() - e0) < 1e-12);
+
+    // the SAME edit on the BASE sheet must do nothing at all
+    const cB = base ? colOf(base, specC.hdr) : -1;
+    if (cB >= 0) {
+      const wasB = base[row][cB];
+      base[row][cB] = num(wasB) + 5;                // five times the edit, still nothing
+      eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+      check('the same pack on the BASE ladder moves NOTHING (envelopes are cal_new / _v2 only)',
+        Math.abs(packE() - e0) < 1e-12, 'delta ' + (packE() - e0).toExponential(2));
+      base[row][cB] = wasB;
+      eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+      check('base fixture restored', Math.abs(packE() - e0) < 1e-12);
+    }
+  }
+
+  // A LEADERBOARD source: the same +1 pack is worth far less, because rank 1 is rare.
+  const specL = LB_R_SPECS['Bomb Challenge'];
+  const lv = specL && data[specL.v2] && data[specL.v2].values;
+  const cL = lv ? (lv[specL.hdr] || []).findIndex(x => String(x).trim() === '1-star Dly') : -1;
+  if (cL >= 0 && c2 >= 0) {
+    const e0 = packE();
+    const wasL = lv[specL.r0][cL];
+    lv[specL.r0][cL] = num(wasL) + 1;               // rank 1
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    const dLb = packE() - e0;
+    lv[specL.r0][cL] = wasL;
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+
+    const wasC = v2[specC.r0 + 1][c2];
+    v2[specC.r0 + 1][c2] = num(wasC) + 1;
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    const dColl = packE() - e0;
+    v2[specC.r0 + 1][c2] = wasC;
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+
+    check('+1 pack on a leaderboard TOP RANK is worth far less than on a collection rung',
+      dLb > 0 && dColl > dLb * 5,
+      'rank 1 +' + dLb.toFixed(4) + ' vs milestone +' + dColl.toFixed(4) +
+      ' (x' + (dColl / Math.max(dLb, 1e-12)).toFixed(1) + ')');
+    check('leaderboard fixture restored', Math.abs(packE() - e0) < 1e-12);
+  }
+}
+
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures ? 1 : 0);

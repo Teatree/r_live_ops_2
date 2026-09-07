@@ -36,7 +36,7 @@ SRC_ROWS = 30                                               # == CLOUD_SRC_ROWS
 TB = [                                                       # == TB in the engine, in sheet order
     ('TOTALS (mean per player)', 10),
     ('TOTALS (p10-p90 across players)', 10),
-    ('CADENCE (per calendar day, all 33)', 4),
+    ('CADENCE (per calendar day, all 33)', 6),
     ('ECONOMY IMPACT - TOTAL (mean per player)', 21),
     ('ECONOMY IMPACT - FROM SET COMPLETIONS', 21),
     ('ECONOMY IMPACT - FROM ALBUM COMPLETIONS', 21),
@@ -189,14 +189,21 @@ for label, nrows in TB:
 bar(ws2, r, 'NOTES', 8)
 note(ws2, r + 1, 'Ranges are p10-p90 ACROSS PLAYERS, not min-max: with 50 players the true '
                  'extremes are single outliers that move every run.')
-note(ws2, r + 2, 'Cadence is per CALENDAR day (all 33), including days the player did not play — '
-                 'so the permutations stay comparable.')
+note(ws2, r + 2, 'Cadence is per CALENDAR day (all 33), including days the player did not play, '
+                 'so the permutations stay comparable. Col_Cards_Daily counts the SAME season over '
+                 'the 4-6 days that actually dropped a pack, which is why its log reads 2-3 packs '
+                 'a day against 0.35 here. "Days with a pack" x "Packs on a day that has one" = '
+                 'Total Packs Opened, above.')
 note(ws2, r + 3, 'ECONOMY IMPACT is what the collection feature PAYS OUT (SET + ALBUM REWARDS). '
                  'It is not the segment\'s whole economy.')
 note(ws2, r + 4, 'A zero in a per-source row is a finding, not a gap — e.g. Kite Festival at its '
                  'assumed 0.35 opt-in, or a ladder with no pack authored on it.')
 note(ws2, r + 5, '"A. 0" is absent by design: data_seg_beh has no row for it, so nothing can price '
                  'its reach.')
+note(ws2, r + 6, 'Envelopes are priced off the _v2 ladders ONLY, in the 1-star Dly .. 6-star Dly '
+                 'columns. A pack typed on a base sheet, or under any other column heading, moves '
+                 'nothing here. On a LEADERBOARD the top rows are ranks 1-3, which a mid segment '
+                 'reaches ~5% of the time: a pack put there is worth ~0.006 packs a season.')
 
 ws2.column_dimensions['A'].width = 34.0
 for c in range(2, UL_COLS + 1):

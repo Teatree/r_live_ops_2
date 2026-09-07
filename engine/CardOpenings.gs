@@ -1527,7 +1527,13 @@ var TOTALS_ROWS = [
   'Stars Earned', 'Stars Spent on Chests', 'Final Star Balance', 'Sets Completed',
   'Album Completion %', 'Albums Completed'
 ];
+// 'Packs per day' is per CALENDAR day - all 33, including the days the player never opened the
+// app - which is what makes the permutations comparable. It is NOT what Col_Cards_Daily shows: that
+// log bunches a season's packs onto the four to six days the player attended an event that paid
+// one, so it reads 2-3 packs on a pack day. Same season, denominators 33 and ~5, and the two looked
+// like a 10x contradiction (2026-09-07). The last two rows close that gap on the sheet itself.
 var CADENCE_ROWS = ['Packs per day (mean)', 'Packs per day (p10-p90)',
+                    'Days with a pack (mean)', 'Packs on a day that has one (mean)',
                     'Sets per day (mean)',  'Sets per day (p10-p90)'];
 var UL_ROWS = ['Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb'];
 
@@ -1641,6 +1647,28 @@ function cloudAggregate_(runs, perm){
 
   var perDayPacks = pick(function(r){ return r.packsOpenedTotal / DAILY_DAYS; });
   var perDaySets  = pick(function(r){ return r.setsCompletedTotal / DAILY_DAYS; });
+  // How many of the 33 days actually saw a pack. dailyCloud[].packs is CUMULATIVE, so a day counts
+  // when the running total moved. Packs arrive in clumps - one attended instance can drop six at
+  // once - so this is typically 4-6 days out of 33, and it is the denominator Col_Cards_Daily's
+  // log is read with.
+  var perPackDays = pick(function(r){
+    var n = 0, prev = 0;
+    for (var pd = 0; pd < DAILY_DAYS; pd++){
+      var cum = num(r.dailyCloud[pd].packs);
+      if (cum > prev) n++;
+      prev = cum;
+    }
+    return n;
+  });
+  // RATIO OF MEANS, not the mean of per-player ratios: a player who drew no pack at all has no
+  // ratio to average, and dropping them would bias the number upward by exactly the share of
+  // empty seasons. total packs / total pack-days is well defined for the whole cohort.
+  var sumPacks = 0, sumPackDays = 0;
+  for (i = 0; i < runs.length; i++){
+    sumPacks += num(runs[i].packsOpenedTotal);
+    sumPackDays += perPackDays[i];
+  }
+  var packsPerPackDay = sumPackDays > 0 ? sumPacks / sumPackDays : 0;
 
   // eco gains: mean per player, per resource, from sets / albums / both
   var eco = { sets: {}, albums: {}, total: {} };
@@ -1670,7 +1698,9 @@ function cloudAggregate_(runs, perm){
   });
 
   return { perm: perm, n: runs.length, series: series, totals: totals,
-           perDayPacks: perDayPacks, perDaySets: perDaySets, eco: eco, bySource: bySource,
+           perDayPacks: perDayPacks, perDaySets: perDaySets,
+           perPackDays: perPackDays, packsPerPackDay: packsPerPackDay,
+           eco: eco, bySource: bySource,
            expectedPacks: runs.length ? runs[0].expectedTotal : 0 };
 }
 
@@ -1811,6 +1841,18 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
     nPlayers + ' players per permutation | seed ' + seed + ' | ' + stamp_() +
     '  |  every range is p10-p90 ACROSS PLAYERS, not min-max');
 
+  // Rows available to a block: from its header row to the row before the NEXT bar. A bar is a row
+  // with text in column A and nothing beside it, which is how the builder draws them.
+  function roomFor_(barRow){
+    for (var rr = barRow + 1; rr < tVals.length; rr++){
+      var a = String((tVals[rr] || [])[0] == null ? '' : (tVals[rr] || [])[0]).trim();
+      if (!a) continue;
+      var rest = (tVals[rr] || []).slice(1).filter(function(x){ return x !== '' && x != null; });
+      if (!rest.length) return rr - barRow - 1;          // -1 for the header row
+    }
+    return tVals.length - barRow - 1;
+  }
+
   function block(label, firstHdr, labels, valueFn, clearRows){
     var r = findBlockRow_(tVals, label);
     if (r < 0){ Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped."); return; }
@@ -1819,7 +1861,21 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
     sh.getRange(r + 1, 1, 1, hdr.length).setValues([hdr]);
     if (clearRows) sh.getRange(r + 2, 1, clearRows, 1 + nCols).clearContent();
     if (!labels.length) return;
-    var grid = labels.map(function(lab, i){
+    // CLAMP. A row list that outgrows what the sheet reserves used to write straight over the next
+    // block's bar, which then made findBlockRow_ miss that block entirely on the following run -
+    // one row added to a *_ROWS constant could quietly delete a whole table. Write what fits and
+    // say what did not, rather than corrupting the sheet. (2026-09-07, when CADENCE_ROWS went from
+    // four rows to six.)
+    var room = roomFor_(r);
+    var use = labels;
+    if (labels.length > room){
+      use = labels.slice(0, Math.max(0, room));
+      Logger.log("Col_Cards_Totals: the '" + label + "' block reserves " + room + " rows but the " +
+                 "engine has " + labels.length + " - dropped: " + labels.slice(room).join(', ') +
+                 ". Re-import display/Col_Cards_Totals_v1.xlsx (it reserves the current layout).");
+      if (!use.length) return;
+    }
+    var grid = use.map(function(lab, i){
       var line = [lab];
       for (var j = 0; j < nCols; j++) line.push(agg[j] ? valueFn(agg[j], i, lab) : '');
       return line;
@@ -1831,11 +1887,18 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
         function(a, i){ return round_(stats_(a.totals[i]).MEAN, 2); });
   block(TB.totalsBand, 'Metric', TOTALS_ROWS,
         function(a, i){ return band_(a.totals[i], 1); });
-  block(TB.cadence, 'Metric', CADENCE_ROWS, function(a, i){
-    if (i === 0) return round_(stats_(a.perDayPacks).MEAN, 3);
-    if (i === 1) return band_(a.perDayPacks, 3);
-    if (i === 2) return round_(stats_(a.perDaySets).MEAN, 3);
-    return band_(a.perDaySets, 3);
+  // BY LABEL, not by row index: CADENCE_ROWS grew from four rows to six on 2026-09-07 and an
+  // index-keyed writer would have silently kept filling the old positions with the wrong metric.
+  block(TB.cadence, 'Metric', CADENCE_ROWS, function(a, i, lab){
+    switch (lab){
+      case 'Packs per day (mean)':                 return round_(stats_(a.perDayPacks).MEAN, 3);
+      case 'Packs per day (p10-p90)':              return band_(a.perDayPacks, 3);
+      case 'Days with a pack (mean)':              return round_(stats_(a.perPackDays).MEAN, 2);
+      case 'Packs on a day that has one (mean)':   return round_(a.packsPerPackDay, 2);
+      case 'Sets per day (mean)':                  return round_(stats_(a.perDaySets).MEAN, 3);
+      case 'Sets per day (p10-p90)':               return band_(a.perDaySets, 3);
+    }
+    return '';
   });
 
   var resNames = REWARD_COLUMNS.map(function(rc){ return rc.name; });

@@ -281,6 +281,119 @@ function GATES() {
       `input kept at ${rowUL[1]}, ${raw} units x 30 = ${rowUL[2]}`);
   }
 
+  // --------------------------------------------- 9b. the cadence block reconciles (2026-09-07)
+  // 'Packs per day (mean)' is per CALENDAR day, all 33. Col_Cards_Daily's log shows the same season
+  // spread over only the 4-6 days that dropped a pack, so it reads 2-3 packs a day against 0.35
+  // here and the two sheets looked like they disagreed by 10x. They never did: at 10-19 NONPAYER
+  // both say ~11.6 packs a season. These gates pin the arithmetic that makes that checkable on the
+  // sheet, and the geometry that lets the block grow without silently overwriting the next one.
+  {
+    reset(); setInputs(N, SEED); SimulateCardCloud();
+    const T4 = totalsSheet();
+    const rCad = barRow(T4, TB.cadence), rTot = barRow(T4, TB.totals);
+    check('the CADENCE block is found by label', rCad > 0, 'row ' + rCad);
+
+    const cadIdx = {};
+    CADENCE_ROWS.forEach((lab, i) => { cadIdx[lab] = rCad + 1 + i; });
+    // Only the rows the SHEET has room for: an older import of Col_Cards_Totals reserves four rows
+    // and the writer clamps to them (checked below). Asserting all six would be asserting workbook
+    // state, which is exactly the gate rot this harness keeps re-learning - the rule is that every
+    // row that fits lands on its own label, in order.
+    let room = 0;
+    for (let r = rCad + 1; r < T4.length; r++) {
+      const a = String((T4[r] || [])[0] || '').trim();
+      const rest = (T4[r] || []).slice(1).filter(x => x !== '' && x != null);
+      if (a && !rest.length) break;
+      room++;
+    }
+    const fit = Math.min(CADENCE_ROWS.length, Math.max(0, room - 1));
+    const rowLabels = CADENCE_ROWS.slice(0, fit)
+      .map((lab, i) => String((T4[rCad + 1 + i] || [])[0] || '').trim());
+    check('every CADENCE row the sheet has room for landed on its own label',
+      rowLabels.join('|') === CADENCE_ROWS.slice(0, fit).join('|'),
+      fit + ' of ' + CADENCE_ROWS.length + ' rows fit: ' + rowLabels.join(' | ') +
+      (fit < CADENCE_ROWS.length ? '   <- re-import display/Col_Cards_Totals_v1.xlsx for the rest' : ''));
+    const haveNew = fit === CADENCE_ROWS.length;
+
+    // BUILDER vs ENGINE, read off the BUILDER SOURCE rather than off whichever import happens to be
+    // in the workbook: the two lists have to agree, and the sheet is downstream of both. This is
+    // the check that would have caught CADENCE growing to six rows against a four-row reservation.
+    {
+      const bsrc = fs.readFileSync(path.join(__dirname, '..', 'builders', '_build_cardcloud.py'), 'utf8');
+      const reserved = {};
+      const re = /\(\s*'([^']+)'\s*,\s*(SRC_ROWS|\d+)\s*\)/g;
+      let m;
+      while ((m = re.exec(bsrc))) reserved[m[1]] = (m[2] === 'SRC_ROWS' ? CLOUD_SRC_ROWS : Number(m[2]));
+      const want = { [TB.cadence]: CADENCE_ROWS.length, [TB.totals]: TOTALS_ROWS.length,
+                     [TB.totalsBand]: TOTALS_ROWS.length, [TB.ulMinutes]: UL_ROWS.length,
+                     [TB.ecoTotal]: REWARD_COLUMNS.length, [TB.ecoSets]: REWARD_COLUMNS.length,
+                     [TB.ecoAlbums]: REWARD_COLUMNS.length };
+      const short = Object.keys(want).filter(k => reserved[k] != null && reserved[k] < want[k]);
+      check('the builder reserves a row for every engine row, block by block',
+        short.length === 0,
+        short.length ? short.map(k => k + ': reserves ' + reserved[k] + ', engine has ' + want[k]).join(' | ')
+                     : Object.keys(want).map(k => k.split(' ')[0] + ' ' + reserved[k] + '>=' + want[k]).join(', '));
+    }
+
+    // ...and if a sheet in the wild IS too short, the writer must clamp rather than overwrite the
+    // next bar. Shrink the gap under the cadence bar and prove the block below survives.
+    {
+      const vT = data['Col_Cards_Totals'].values;
+      const snap = JSON.stringify(vT.slice(rCad - 1, rCad + CADENCE_ROWS.length + 3));
+      const nextLabel = TB.ecoTotal;
+      const rNext = barRow(totalsSheet(), nextLabel);
+      // move the next bar up so only 2 data rows fit
+      vT[rCad + 3] = [nextLabel];
+      SimulateCardCloud();
+      const T5 = totalsSheet();
+      check('an under-reserved block CLAMPS instead of overwriting the next bar',
+        String((T5[rCad + 3] || [])[0] || '').trim() === nextLabel,
+        'row ' + (rCad + 4) + ' still reads ' + JSON.stringify(String((T5[rCad + 3] || [])[0] || '')));
+      const restored = JSON.parse(snap);
+      for (let i = 0; i < restored.length; i++) vT[rCad - 1 + i] = restored[i];
+      reset(); setInputs(N, SEED); SimulateCardCloud();
+      check('cadence fixture restored (the next bar is back where it was)',
+        barRow(totalsSheet(), nextLabel) === rNext,
+        'bar at ' + barRow(totalsSheet(), nextLabel) + ', was ' + rNext);
+    }
+
+    const iTot = TOTALS_ROWS.indexOf('Total Packs Opened');
+    let worstA = 0, worstB = 0, atA = '', atB = '';
+    perms.forEach((pm, j) => {
+      const c = 1 + j;
+      const total = Number((T4[rTot + 1 + iTot] || [])[c]);
+      const perDay = Number((T4[cadIdx['Packs per day (mean)']] || [])[c]);
+      const gapA = Math.abs(perDay * DAILY_DAYS - total);
+      if (gapA > worstA) { worstA = gapA; atA = pm.label; }
+      if (!haveNew) return;
+      const nDays = Number((T4[cadIdx['Days with a pack (mean)']] || [])[c]);
+      const perPD = Number((T4[cadIdx['Packs on a day that has one (mean)']] || [])[c]);
+      const gapB = Math.abs(nDays * perPD - total);
+      if (gapB > worstB) { worstB = gapB; atB = pm.label; }
+    });
+    // Both sides are rounded for the sheet: packs/day to 3dp (x33 -> up to 0.0165) and the total to
+    // 2dp. Allow exactly that and nothing more.
+    check('Packs per day (mean) x 33 == Total Packs Opened',
+      worstA < 0.025, 'worst ' + worstA.toFixed(4) + (atA ? ' at ' + atA : ''));
+    if (haveNew)
+      check('Days with a pack x Packs on a day that has one == Total Packs Opened',
+        worstB < 0.35, 'worst ' + worstB.toFixed(4) + (atB ? ' at ' + atB : ''));
+
+    // and the new row must be BIGGER than the calendar-day number, or it is not measuring what it
+    // says: packs clump, so a pack day carries several
+    if (haveNew) {
+      let allBigger = true;
+      perms.forEach((pm, j) => {
+        const c = 1 + j;
+        const perDay = Number((T4[cadIdx['Packs per day (mean)']] || [])[c]);
+        const perPD = Number((T4[cadIdx['Packs on a day that has one (mean)']] || [])[c]);
+        if (!(perPD >= perDay)) allBigger = false;
+      });
+      check('a pack DAY carries more packs than a calendar day (the whole point of the row)',
+        allBigger);
+    }
+  }
+
   // ---------------------------------------------------------------- 10. per-source table
   {
     reset(); setInputs(N, SEED); SimulateCardCloud();
