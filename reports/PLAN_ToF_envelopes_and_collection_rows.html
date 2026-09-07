@@ -1,0 +1,543 @@
+<title>Two Models, One Album</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --paper:      #f6f7f9;
+  --paper-sunk: #eceff4;
+  --card:       #ffffff;
+  --ink:        #16202b;
+  --ink-soft:   #4a5563;
+  --ink-faint:  #7b8695;
+  --rule:       #d9dfe7;
+  --rule-soft:  #e7ebf1;
+  --indigo:     #2e3a8f;
+  --indigo-bg:  #e8eaf6;
+  --amber:      #8a6110;
+  --amber-bg:   #f7efdc;
+  --teal:       #12655f;
+  --teal-bg:    #ddefec;
+  --shadow:     0 1px 2px rgba(22,32,43,.06), 0 8px 24px -16px rgba(22,32,43,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:      #12161c;
+    --paper-sunk: #0d1116;
+    --card:       #191f27;
+    --ink:        #e6eaf0;
+    --ink-soft:   #a8b2c0;
+    --ink-faint:  #77828f;
+    --rule:       #2b333e;
+    --rule-soft:  #222933;
+    --indigo:     #9aa6ec;
+    --indigo-bg:  #1e2340;
+    --amber:      #d8ae5e;
+    --amber-bg:   #33280f;
+    --teal:       #6fc9c0;
+    --teal-bg:    #10312e;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:      #12161c;
+  --paper-sunk: #0d1116;
+  --card:       #191f27;
+  --ink:        #e6eaf0;
+  --ink-soft:   #a8b2c0;
+  --ink-faint:  #77828f;
+  --rule:       #2b333e;
+  --rule-soft:  #222933;
+  --indigo:     #9aa6ec;
+  --indigo-bg:  #1e2340;
+  --amber:      #d8ae5e;
+  --amber-bg:   #33280f;
+  --teal:       #6fc9c0;
+  --teal-bg:    #10312e;
+  --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+}
+
+*{ box-sizing: border-box; }
+body{
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap{ max-width: 53rem; margin: 0 auto; padding: 3.5rem 1.5rem 6rem; }
+
+/* ---------- masthead ---------- */
+.mast{ border-bottom: 2px solid var(--ink); padding-bottom: 1.5rem; }
+.eyebrow{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .7rem; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0 0 1rem;
+}
+h1{
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 500; font-size: clamp(2.1rem, 5.5vw, 3.1rem);
+  line-height: 1.08; letter-spacing: -.015em; text-wrap: balance;
+  margin: 0 0 .7rem;
+}
+.standfirst{
+  font-family: Newsreader, Georgia, serif;
+  font-size: 1.2rem; font-style: italic; color: var(--ink-soft);
+  max-width: 40ch; margin: 0;
+}
+.decided{
+  display: flex; flex-wrap: wrap; gap: .4rem .5rem; margin-top: 1.6rem;
+}
+.chip{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .7rem; letter-spacing: .02em;
+  border: 1px solid var(--rule); border-radius: 2px;
+  padding: .18rem .5rem; color: var(--ink-soft); background: var(--card);
+}
+
+/* ---------- step sections ---------- */
+.step{ margin-top: 4rem; }
+.step-head{ display: flex; gap: 1.1rem; align-items: baseline; }
+.step-num{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .78rem; font-weight: 500; letter-spacing: .08em;
+  color: var(--indigo); background: var(--indigo-bg);
+  border-radius: 2px; padding: .2rem .45rem;
+  white-space: nowrap; flex: none; position: relative; top: -.3rem;
+}
+h2{
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 500; font-size: clamp(1.55rem, 3.6vw, 2.05rem);
+  line-height: 1.15; letter-spacing: -.01em; text-wrap: balance; margin: 0;
+}
+h3{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .74rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 2.4rem 0 .7rem;
+  padding-bottom: .4rem; border-bottom: 1px solid var(--rule-soft);
+}
+p{ margin: 0 0 1rem; max-width: 66ch; }
+.step > p, .step > ul, .step > ol{ margin-left: 0; }
+strong{ font-weight: 600; }
+code{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .855em; background: var(--paper-sunk);
+  padding: .08em .3em; border-radius: 2px;
+}
+
+ul, ol{ max-width: 66ch; padding-left: 1.15rem; margin: 0 0 1rem; }
+li{ margin-bottom: .45rem; }
+li::marker{ color: var(--ink-faint); }
+
+/* ---------- the "in plain words" pull ---------- */
+.plain{
+  background: var(--card); border: 1px solid var(--rule);
+  border-left: 3px solid var(--indigo);
+  border-radius: 2px; padding: 1.1rem 1.3rem; margin: 0 0 1.6rem;
+  box-shadow: var(--shadow);
+}
+.plain p{ margin: 0; max-width: 60ch; }
+.plain p + p{ margin-top: .7rem; }
+
+/* ---------- worked example ---------- */
+.example{
+  background: var(--paper-sunk); border-radius: 2px;
+  padding: 1.15rem 1.3rem; margin: 1.4rem 0;
+  border: 1px solid var(--rule-soft);
+}
+.example-label{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-faint); display: block; margin-bottom: .6rem;
+}
+.example p{ margin: 0 0 .55rem; max-width: 62ch; }
+.example p:last-child{ margin-bottom: 0; }
+.calc{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .8rem; line-height: 1.85; color: var(--ink-soft);
+  white-space: pre; overflow-x: auto; display: block;
+  margin: .7rem 0; padding-bottom: .2rem;
+}
+
+/* ---------- tables ---------- */
+.tw{ overflow-x: auto; margin: 1.2rem 0 1.6rem; }
+table{ border-collapse: collapse; width: 100%; min-width: 30rem; font-size: .9rem; }
+caption{
+  text-align: left; font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-faint); padding-bottom: .55rem;
+}
+th{
+  text-align: left; font-weight: 600; font-size: .78rem;
+  letter-spacing: .02em; color: var(--ink-soft);
+  border-bottom: 1.5px solid var(--ink); padding: .4rem .7rem .4rem 0;
+  vertical-align: bottom;
+}
+td{
+  padding: .42rem .7rem .42rem 0; border-bottom: 1px solid var(--rule-soft);
+  font-variant-numeric: tabular-nums;
+}
+th.n, td.n{ text-align: right; padding-right: 1.1rem; }
+tbody tr:last-child td{ border-bottom: 1px solid var(--rule); }
+td.seg{ font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .8rem; white-space: nowrap; }
+.was{ color: var(--amber); font-weight: 600; }
+.now{ color: var(--teal); font-weight: 600; }
+.zero{ color: var(--ink-faint); }
+
+/* ---------- ladder diagram ---------- */
+.ladder{
+  display: grid; grid-template-columns: auto 1fr; gap: 0 1rem;
+  margin: 1.5rem 0; font-size: .9rem;
+}
+.ladder dt{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .76rem; color: var(--indigo); white-space: nowrap;
+  padding-top: .12rem;
+}
+.ladder dd{ margin: 0 0 .8rem; color: var(--ink-soft); max-width: 58ch; }
+.ladder dd:last-child{ margin-bottom: 0; }
+
+/* ---------- checks ---------- */
+.check{
+  border-top: 1px solid var(--rule); margin-top: 2.2rem; padding-top: 1.3rem;
+}
+.check h3{ margin-top: 0; border-bottom: none; padding-bottom: 0; }
+.gates{ list-style: none; padding-left: 0; }
+.gates li{
+  padding-left: 1.6rem; position: relative; max-width: 64ch;
+}
+.gates li::before{
+  content: "✓"; position: absolute; left: 0; top: 0;
+  color: var(--teal); font-weight: 600; font-size: .95rem;
+}
+
+/* ---------- risk ---------- */
+.risk{
+  background: var(--amber-bg); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  border-radius: 2px; padding: 1.1rem 1.3rem; margin: 1.6rem 0;
+}
+.risk .example-label{ color: var(--amber); }
+.risk p{ margin: 0 0 .5rem; max-width: 62ch; }
+.risk p:last-child{ margin: 0; }
+
+/* ---------- order ---------- */
+.order{ margin-top: 4.5rem; border-top: 2px solid var(--ink); padding-top: 1.5rem; }
+.commits{ display: grid; gap: 1rem; margin-top: 1.2rem; }
+@media (min-width: 40rem){ .commits{ grid-template-columns: 1fr 1fr; } }
+.commit{
+  background: var(--card); border: 1px solid var(--rule); border-radius: 2px;
+  padding: 1.1rem 1.2rem; box-shadow: var(--shadow);
+}
+.commit-tag{
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-faint); display: block; margin-bottom: .45rem;
+}
+.commit h4{
+  font-family: Newsreader, Georgia, serif; font-weight: 500;
+  font-size: 1.15rem; margin: 0 0 .5rem; line-height: 1.25;
+}
+.commit p{ margin: 0; font-size: .92rem; color: var(--ink-soft); max-width: none; }
+.commit ul{ margin: .5rem 0 0; font-size: .88rem; color: var(--ink-soft); max-width: none; }
+
+footer{
+  margin-top: 4rem; padding-top: 1.2rem; border-top: 1px solid var(--rule);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .7rem; letter-spacing: .04em; color: var(--ink-faint);
+}
+:focus-visible{ outline: 2px solid var(--indigo); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce){ *{ animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="eyebrow">Implementation plan &middot; card collection &middot; 7 Sep 2026</p>
+    <h1>Two Models, One Album</h1>
+    <p class="standfirst">Tower of Fortune hands out envelopes nobody opens, and two different methods
+      disagree about what finishing a set is worth. Both are the same kind of fault.</p>
+    <div class="decided">
+      <span class="chip">ToF: walk real runs</span>
+      <span class="chip">all-or-nothing</span>
+      <span class="chip">tickets from the log</span>
+      <span class="chip">envelopes stop day 29</span>
+      <span class="chip">card sim wins</span>
+      <span class="chip">20 seasons / segment</span>
+      <span class="chip">fixed dice</span>
+      <span class="chip">2 commits, ToF first</span>
+    </div>
+  </header>
+
+  <!-- ============================ STEP 1 ============================ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">Commit 1</span>
+      <h2>Tower of Fortune actually plays its runs</h2>
+    </div>
+
+    <div class="plain">
+      <p>The economy summary already credits Tower of Fortune with card envelopes. The card-opening
+        simulator has never heard of it. So those envelopes are counted in one place and never
+        opened in the other &mdash; and a player who should be filling their album slightly faster
+        isn't.</p>
+      <p>The reason is shape, not oversight. Every other event has a flat prize list: <em>finish
+        third, get this</em>. Tower of Fortune doesn't &mdash; you climb a ladder of doors, one of
+        which hides a Pig, and you either cash out or lose the lot. The card sim only knows how to
+        read flat prize lists, so it reads nothing here.</p>
+    </div>
+
+    <div class="tw">
+      <table>
+        <caption>What each sheet says today, envelopes per season</caption>
+        <thead>
+          <tr>
+            <th>Segment</th>
+            <th class="n">1-star</th>
+            <th class="n">2-star</th>
+            <th class="n">3-star</th>
+            <th class="n">4-star</th>
+            <th>In the card sim?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="seg">10-19 NONPAYER</td><td class="n was">0.126</td><td class="n was">0.126</td><td class="n zero">0</td><td class="n zero">0</td><td>no</td></tr>
+          <tr><td class="seg">40-99 PAYER</td><td class="n was">0.031</td><td class="n was">0.062</td><td class="n was">0.031</td><td class="n zero">0</td><td>no</td></tr>
+          <tr><td class="seg">100+ PAYER</td><td class="n was">0.002</td><td class="n was">0.004</td><td class="n was">0.004</td><td class="n was">0.002</td><td>no</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>What I'll build</h3>
+
+    <p>The card sim will play Tower of Fortune for real, one run at a time, using the tickets it
+      already tracks. It looks like this:</p>
+
+    <dl class="ladder">
+      <dt>tickets</dt>
+      <dd>The log already banks whole tickets, day by day, from every source that pays them. Those
+        are the tickets the runs spend &mdash; nothing new is invented, and nothing is asked of the
+        Tower of Fortune model. That also means the runs on the sheet can never contradict the
+        ticket column sitting right next to them.</dd>
+
+      <dt>each day</dt>
+      <dd>If the player opened the game and holds at least one ticket, they play &mdash; up to
+        <em>Runs per Active Day</em>, which is 2 today.</dd>
+
+      <dt>one run</dt>
+      <dd>Roll the survive chance at each door. Buy a continue when they can afford one and are
+        willing. Stop at their cash-out stage. If they make it, they bank the whole ladder; if a Pig
+        stops them first, they bank nothing.</dd>
+
+      <dt>envelopes</dt>
+      <dd>Only the envelopes go into the collection totals &mdash; the coins, boosters and pass
+        tokens on that ladder already live in the economy sheet's own Tower of Fortune row, and
+        counting them twice would be worse than not counting them at all.</dd>
+
+      <dt>day 29</dt>
+      <dd>After the album closes there's nowhere to put a card, so envelopes stop &mdash; same rule
+        every other source follows. Tickets keep flowing, because the event itself is always on.</dd>
+    </dl>
+
+    <div class="example">
+      <span class="example-label">Worked example &mdash; 10-19 non-payer</span>
+      <p>Their cash-out stage is 9. Getting there means passing two coin-flip doors and a
+        three-in-four, so their chance of banking anything is <strong>1.5%</strong> per run. They can
+        afford about 8 runs across the season.</p>
+      <code class="calc">chance a season shows no ToF envelope at all
+  = (1 - 0.015) ^ 8   =  88%
+
+chance it shows some
+  = 12%,  and then TWO at once (a 1-star and a 2-star)</code>
+      <p>So roughly nine seasons in ten will show no Tower of Fortune envelope, and the tenth shows
+        a pair of them on one day. That is not a rounding artefact &mdash; that <em>is</em> the
+        event. Averaged over many players it comes to the 0.126 + 0.126 the economy sheet already
+        reports, which is how we'll know the two agree.</p>
+    </div>
+
+    <p>And a Tower of Fortune row appears in the per-source tables on
+      <code>Col_Cards_Totals</code> even where it reads <strong>0.00</strong>. A zero there is the
+      finding: it says the envelopes you put on that ladder are worth almost nothing to a mid
+      segment, because they almost never survive to collect them.</p>
+
+    <div class="check">
+      <h3>How I'll know it's right</h3>
+      <ul class="gates">
+        <li>Over many seeds, the card sim's Tower of Fortune envelopes equal the economy sheet's
+          Tower of Fortune row. Every segment, both payer types.</li>
+        <li>A player with no tickets plays no runs &mdash; and a player whose tickets all arrive on
+          day 33 plays none either.</li>
+        <li>Push a segment's survive chance to 100% and every run banks; drop the cash-out stage to
+          1 and the pot is the first stage only. Then put both back and the original numbers
+          reproduce exactly.</li>
+        <li>No envelope from Tower of Fortune lands after day 29, while tickets still do.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================ STEP 2 ============================ -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">Commit 2</span>
+      <h2>One method for what a finished set is worth</h2>
+    </div>
+
+    <div class="plain">
+      <p>Two pieces of code answer &ldquo;what do set and album completions pay?&rdquo;, and they
+        disagree by a factor of two to a hundred. The economy sheet uses a shortcut formula. The
+        card sim plays it out properly. The card sim is right.</p>
+      <p>The shortcut assumes every card you draw is an independent lottery ticket. Four things in
+        the real game break that assumption, and <em>all four</em> make you finish sets sooner:</p>
+    </div>
+
+    <ul>
+      <li>Your <strong>Album Set Skew</strong> weights, which deliberately push draws toward the
+        sets you haven't finished. The shortcut ignores them completely.</li>
+      <li>Both <strong>pity systems</strong> &mdash; the one that forces a rare card, and the one
+        that forces a card you don't own yet.</li>
+      <li><strong>Star chests</strong>, which buy extra envelopes with duplicate stars.</li>
+      <li>Cards come out of a pack <strong>without going back in</strong>. The shortcut puts them
+        back.</li>
+    </ul>
+
+    <p>The code even says so about itself: <em>&ldquo;these rows are therefore a floor, not a
+      midpoint.&rdquo;</em> The album row is worse than a floor. It multiplies about seventy
+      probabilities together, which collapses to almost nothing, so it reports <strong>zero album
+      rewards for every segment</strong> &mdash; while the card sim finishes albums routinely for
+      your two biggest spenders.</p>
+
+    <div class="tw">
+      <table>
+        <caption>Coins per earner from collection rewards, over the 33-day window</caption>
+        <thead>
+          <tr>
+            <th>Segment</th>
+            <th class="n">Sets &mdash; shortcut</th>
+            <th class="n">Sets &mdash; real sim</th>
+            <th class="n">Albums &mdash; shortcut</th>
+            <th class="n">Albums &mdash; real sim</th>
+            <th class="n">Sets finished</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="seg">0-9 NONPAYER</td><td class="n zero">0</td><td class="n zero">0</td><td class="n zero">0</td><td class="n zero">0</td><td class="n zero">0.00</td></tr>
+          <tr><td class="seg">10-19 NONPAYER</td><td class="n was">0.2</td><td class="n now">25.0</td><td class="n zero">0</td><td class="n zero">0</td><td class="n">0.50</td></tr>
+          <tr><td class="seg">10-19 PAYER</td><td class="n was">33.9</td><td class="n now">118.0</td><td class="n zero">0</td><td class="n zero">0</td><td class="n">2.26</td></tr>
+          <tr><td class="seg">40-99 PAYER</td><td class="n was">176.3</td><td class="n now">378.0</td><td class="n was">0</td><td class="n now">160.0</td><td class="n">4.52</td></tr>
+          <tr><td class="seg">100+ PAYER</td><td class="n was">171.4</td><td class="n now">435.0</td><td class="n was">0</td><td class="n now">220.0</td><td class="n">4.74</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="example">
+      <span class="example-label">Why 0.2 and 25 are so far apart &mdash; 10-19 non-payer</span>
+      <p>This segment draws about 32 cards a season. Set 1 needs 9 specific ones out of 72.</p>
+      <code class="calc">shortcut     every card is an equal lottery ticket
+             P(own all 9)  =  tiny  ->  0.2 coins
+
+real sim     your skew sends 3x the draws at Set 1 while it is
+             unfinished, pity forces an unowned card after 3 dry
+             packs, and stars buy a chest or two
+             ->  Set 1 completes in half of all seasons  ->  25 coins</code>
+      <p>The gap isn't a bug in either piece of code. It's that the shortcut was never told about
+        the levers you've been tuning.</p>
+    </div>
+
+    <h3>What I'll build</h3>
+
+    <p>Delete the shortcut. Have the economy sheet run <strong>20 real card seasons</strong> for each
+      of the ten segment-and-payer pairs and average what they actually collected. The number stops
+      being an approximation of the card sim and simply <em>becomes</em> it &mdash; so the two can
+      never drift apart again, which is the whole point.</p>
+
+    <dl class="ladder">
+      <dt>fixed dice</dt>
+      <dd>The same seed on every recalculation, so a cell never changes value when nothing changed,
+        and two calendar versions are compared on identical luck. Edit a reward and the number
+        still moves &mdash; only the randomness is pinned.</dd>
+
+      <dt>every album</dt>
+      <dd>Whatever a season actually finished counts, first album or third. This falls out for free
+        and it's why the album row stops reading zero.</dd>
+
+      <dt>cost</dt>
+      <dd>200 simulated seasons per full refresh. I'll measure it and tell you the real number
+        before this ships.</dd>
+    </dl>
+
+    <div class="risk">
+      <span class="example-label">Two things this moves that you should expect</span>
+      <p><strong>Your headline gain goes up.</strong> These are two of the twenty-nine rows in
+        <code>EcoGainsSim</code>, and they feed the META column on <code>Sim per Segment</code> and
+        the net projection on the daily sheet. For a 40-99 payer, roughly <strong>+200 coins from
+        sets and +160 from albums</strong> per earner. I'll write the full before-and-after into the
+        commit so the jump is on the record.</p>
+      <p><strong>Commit 1 makes commit 2 slightly bigger.</strong> Tower of Fortune envelopes mean
+        more cards drawn, which means a few more sets finished. That's a real effect, not
+        double-counting &mdash; but it's why ToF goes first, so the collection rows are measured
+        once, against the finished card sim.</p>
+    </div>
+
+    <div class="check">
+      <h3>How I'll know it's right</h3>
+      <ul class="gates">
+        <li>The economy sheet's two collection rows equal the card sim's set and album rewards,
+          across all ten segment-and-payer pairs, within sampling error. This is exactly the check
+          that would have caught the gap in the first place.</li>
+        <li>Change a value in <strong>Set Rewards</strong> and both sides move together, by the same
+          amount. Then put it back and the original numbers reproduce.</li>
+        <li>Turn the album skew off and set completions fall on both sides &mdash; proving the
+          economy sheet is now genuinely reading your levers rather than a formula that ignores
+          them.</li>
+        <li>Two recalculations with nothing changed give identical numbers.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================ ORDER ============================ -->
+  <section class="order">
+    <p class="eyebrow">Delivery</p>
+    <h2 style="font-size:1.5rem;margin-bottom:.4rem;">Two commits, in this order</h2>
+    <p>Each lands separately with its own checks, all five harnesses green, and nothing pushed.</p>
+
+    <div class="commits">
+      <div class="commit">
+        <span class="commit-tag">first</span>
+        <h4>ToF plays its runs</h4>
+        <p>Touches the card sim and the per-source tables. Verifiable on its own: the card sim's
+          Tower of Fortune envelopes have to match the economy sheet's existing row.</p>
+        <ul>
+          <li><code>CardOpenings.gs</code> &mdash; the run walk, ticket spending, day-29 stop</li>
+          <li><code>_mock_cards.js</code> &mdash; the four checks above</li>
+        </ul>
+      </div>
+      <div class="commit">
+        <span class="commit-tag">second</span>
+        <h4>Collection rows read the sim</h4>
+        <p>Replaces the shortcut formula. Measured against the card sim <em>after</em> ToF is in it,
+          so the number is taken once and stands.</p>
+        <ul>
+          <li><code>EcoGainsSim_v4.gs</code> &mdash; drop the closed form, run seasons</li>
+          <li><code>_mock_cards.js</code> &mdash; the two-model gate plus the reward fixture</li>
+          <li>before-and-after table in the commit message</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>What I am not doing</h3>
+    <ul>
+      <li>Not touching the Tower of Fortune cash-out model. That stays a hard target stage, as you
+        decided on the 3rd &mdash; commit 1 only teaches the card sim to read it.</li>
+      <li>Not putting Tower of Fortune coins, boosters or pass tokens into the collection totals.</li>
+      <li>Not changing the pig odds, the skew, or the chest settings. If the numbers above look
+        wrong to you, those are the knobs &mdash; but that's a design call, not this plan.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Angry Birds Dream Blast &middot; LiveOps economy simulation &middot; every figure measured on
+    COLLECTIONS_UNDER_NEW_CALENDAR (7), 50 seeds per segment
+  </footer>
+
+</div>

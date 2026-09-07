@@ -1538,6 +1538,21 @@ function simToF(seg, payer, ctx, cat){
   if (!budget || !(budget.runs > 0)) return zeroRow_();     // no lane / no tickets -> nothing
   var out = zeroRow_();
   RESOURCES.forEach(function(r){ out[r] = num(run.bank[r]) * budget.runs; });
+  // D26 applies here too (2026-09-07). The ToF ladder pays ENVELOPES, and after SEASON_LAST_DAY
+  // there is no album left to put a card in - every other source stops paying them, and this row
+  // did not, because ToF was wired before the card sim could see it at all. The runs themselves do
+  // not stop: ToF is always-on, and its coins, boosters, SPT and tickets keep paying on all 33
+  // days. Only the six pack columns are scaled, by the share of the window's runs that fall inside
+  // the season, which is exactly what the card sim now draws.
+  if (SEASON_CUTOFF && budget.perDay && budget.perDay.length){
+    var inSeason = 0, allRuns = 0;
+    for (var di = 0; di < budget.perDay.length; di++){
+      allRuns += num(budget.perDay[di]);
+      if (di + 1 <= SEASON_LAST_DAY) inSeason += num(budget.perDay[di]);
+    }
+    var share = (allRuns > 0) ? inSeason / allRuns : 0;
+    PACK_RES.forEach(function(r){ out[r] = num(out[r]) * share; });
+  }
   // D34: gains only. The continue spend is reported on the ToF sheet, not netted into this row.
   if (TOF_SPEND_IN_ROW) out['HC'] = num(out['HC']) - run.spend * budget.runs;
   return out;

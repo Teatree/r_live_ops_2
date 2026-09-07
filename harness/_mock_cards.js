@@ -1734,12 +1734,24 @@ function logCol(name){
         // than hardcoding either answer.
         const sink = (typeof TOF_SPEND_IN_ROW !== 'undefined' && TOF_SPEND_IN_ROW && res === 'HC')
                        ? run.spend * b.runs : 0;
-        const expect = num(run.bank[res]) * b.runs - sink;
+        // 2026-09-07: ENVELOPES stop when the album closes, like every other source's do (D26).
+        // Only the six pack columns are scaled, by the share of the window's runs falling inside
+        // the season - the coins, boosters, SPT and tickets on that ladder keep paying all 33 days,
+        // because ToF itself is always-on. The gate follows SEASON_CUTOFF rather than hardcoding
+        // either answer.
+        let share = 1;
+        if (typeof SEASON_CUTOFF !== 'undefined' && SEASON_CUTOFF &&
+            PACK_RES.indexOf(res) >= 0 && b.perDay && b.perDay.length){
+          let ins = 0, all = 0;
+          b.perDay.forEach((x, di) => { all += num(x); if (di + 1 <= SEASON_LAST_DAY) ins += num(x); });
+          share = (all > 0) ? ins / all : 0;
+        }
+        const expect = num(run.bank[res]) * b.runs * share - sink;
         const gap = Math.abs(num(row[j]) - expect);
         if (gap > worst) { worst = gap; at = `${sg}/${p}/${res}`; }
       });
     }));
-    check('ToF row == banked reward x runs (gains only, spend not netted in)',
+    check('ToF row == banked reward x runs, envelopes cut at the album close',
       worst < 1e-9, `worst gap ${worst.toExponential(2)}${at ? ' at ' + at : ''}`);
   }
   // -- tickets are NOT envelopes: the collection-season cutoff must not touch them --
@@ -2020,6 +2032,196 @@ function logCol(name){
       'rank 1 +' + dLb.toFixed(4) + ' vs milestone +' + dColl.toFixed(4) +
       ' (x' + (dColl / Math.max(dLb, 1e-12)).toFixed(1) + ')');
     check('leaderboard fixture restored', Math.abs(packE() - e0) < 1e-12);
+  }
+}
+
+// ---------- 7a5. ToF plays its runs, and the card sim opens what it wins (2026-09-07) ---------
+// The gains model credited ToF with ENVELOPES and the card sim had never heard of the event:
+// packRungs_ returns null for ToF, because ToF has no rank or milestone ladder to read - it is a
+// push-your-luck walk. So a 10-19 non-payer was being paid 0.126 of a 1-star envelope on one sheet
+// and zero on the other. The card sim now plays the runs itself, out of the SAME ticket ledger its
+// log already prints, and draws each run all-or-nothing at P(bank).
+{
+  const ctxT5 = Context.get();
+  const cfgT5 = loadPackConfig_(), catT5 = loadCardCatalog_(cfgT5, mkSheet('AlbumConfig'));
+  const tof0 = cardTofConfig_('10-19', 'PAYER', ctxT5);
+  check('the card sim can read the ToF ladder for a real segment', !!tof0,
+    tof0 ? 'P(bank) ' + (tof0.pBank * 100).toFixed(2) + '%, cash-out stage ' + tof0.cashOut +
+           ', ladder ' + JSON.stringify(tof0.packs) : 'cardTofConfig_ returned null');
+
+  // FIXTURE. This workbook's ToF ladder may author no envelope at all, and a SKIP is how a gate
+  // rots - so author one on stage 1 (Safe (Start), always inside every segment's cash-out range)
+  // and gate the RULE either way. Restored at the end of the block.
+  let tofFx = null;
+  if (tof0 && !tof0.anyPacks) {
+    const sheetF = data['ToF'] ? 'ToF' : 'MD';
+    const vF = data[sheetF].values;
+    const sbF = mdBlock_(vF, 'STAGES'), hrF = mdHeaderRow_(vF, sbF, 'Stage');
+    const colF = (vF[hrF] || []).findIndex(x => String(x).trim() === '1-star Dly');
+    check('ToF STAGES carries a "1-star Dly" column to author an envelope on', colF >= 0,
+      colF >= 0 ? 'column ' + colF : 'not found - RES_MAP expects exactly this heading');
+    if (colF >= 0) {
+      tofFx = { v: vF, row: hrF + 1, col: colF, was: vF[hrF + 1][colF] };
+      vF[hrF + 1][colF] = 1;
+      _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+      eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    }
+  }
+  const tofF = cardTofConfig_('10-19', 'PAYER', Context.get());
+  if (tofF && tofF.anyPacks) {
+    const perBank = Object.keys(tofF.packs).reduce((a, k) => a + tofF.packs[k], 0);
+    check('an envelope authored on the ToF ladder is READ by the card sim',
+      perBank > 0, JSON.stringify(tofF.packs) + (tofFx ? '  (fixture)' : '  (authored on the sheet)'));
+
+    // EXACT IDENTITY, not a statistical one: a banked run pays its WHOLE ladder, so the number of
+    // ToF rows in the log must be the in-season bank count times the ladder size. Per season, every
+    // season - if this drifts, the draw and the payout have come apart.
+    let worstE = 0, atE = '', anyBank = 0;
+    for (let k = 0; k < 300; k++) {
+      const r = runOneCardSeason_('10-19', 'PAYER', 5000 + k * 7919, cfgT5, catT5,
+                                  cardSeasonPre_('10-19', 'PAYER', ctxT5));
+      const rows = r.log.filter(l => String(l[2]) === 'ToF' && String(l[1]).trim()).length;
+      const want = r.tofBankedInSeason * perBank;
+      anyBank += r.tofBankedInSeason;
+      if (Math.abs(rows - want) > worstE) { worstE = Math.abs(rows - want); atE = 'seed ' + (5000 + k * 7919); }
+    }
+    check('every banked ToF run pays its WHOLE ladder into the log', worstE === 0,
+      worstE === 0 ? anyBank + ' banked runs over 300 seasons x ' + perBank + ' envelopes each'
+                   : 'off by ' + worstE + ' at ' + atE);
+
+    // the album cutoff stops ENVELOPES and nothing else: ToF is always-on, so its TICKETS keep
+    // paying past SEASON_LAST_DAY (D26 + the D31 ticket rule)
+    let lateEnv = 0, lateTick = 0;
+    for (let k = 0; k < 200; k++) {
+      const r = runOneCardSeason_('40-99', 'PAYER', 8000 + k * 7919, cfgT5, catT5,
+                                  cardSeasonPre_('40-99', 'PAYER', ctxT5));
+      r.log.forEach(l => {
+        if (String(l[2]) === 'ToF' && String(l[1]).trim() && num(l[0]) > SEASON_LAST_DAY) lateEnv++;
+      });
+      const at29 = r.log.filter(l => num(l[0]) === SEASON_LAST_DAY);
+      const at33 = r.log.filter(l => num(l[0]) === DAILY_DAYS);
+      if (at29.length && at33.length &&
+          num(at33[at33.length - 1][LOG_COLS.length - 1]) > num(at29[at29.length - 1][LOG_COLS.length - 1]))
+        lateTick++;
+    }
+    check('no ToF envelope lands after the album closes on day ' + SEASON_LAST_DAY,
+      lateEnv === 0, lateEnv + ' late envelopes over 200 seasons');
+    check('ToF TICKETS still accrue past the cutoff (the event is always-on)',
+      lateTick > 0, lateTick + ' of 200 seasons gained tickets after day ' + SEASON_LAST_DAY);
+
+    // MUTATION: make every stage survivable and every run must bank, so envelopes == in-season
+    // runs x ladder. Without this the draw could be pinned at zero and every gate above would
+    // still pass.
+    {
+      const sheetT = data['ToF'] ? 'ToF' : 'MD';
+      const vT = data[sheetT].values;
+      const sb = mdBlock_(vT, 'STAGES'), hr = mdHeaderRow_(vT, sb, 'Stage');
+      const survC = (vT[hr] || []).findIndex(x => String(x).trim() === 'Survive p');
+      check('ToF STAGES has a "Survive p" column to mutate', survC >= 0);
+      if (survC >= 0) {
+        const snap = [];
+        for (let r = hr + 1; r < vT.length && num(vT[r][0]) > 0; r++) { snap.push(vT[r][survC]); vT[r][survC] = 1; }
+        _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+        eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+        const preM = cardSeasonPre_('10-19', 'PAYER', Context.get());
+        const tofM = cardTofConfig_('10-19', 'PAYER', Context.get());
+        let bad = 0, runsM = 0;
+        for (let k = 0; k < 40; k++) {
+          const r = runOneCardSeason_('10-19', 'PAYER', 5000 + k * 7919, cfgT5, catT5, preM);
+          runsM += r.tofRuns;
+          if (r.tofBanked !== r.tofRuns) bad++;
+        }
+        check('survive p = 1 -> EVERY ToF run banks',
+          bad === 0 && runsM > 0, bad + ' seasons lost a run; ' + (runsM / 40).toFixed(1) + ' runs/season' +
+          ', P(bank) now ' + (tofM ? (tofM.pBank * 100).toFixed(1) : '?') + '%');
+        for (let r = hr + 1, i = 0; i < snap.length; r++, i++) vT[r][survC] = snap[i];
+        _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+        eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+        const tofBack = cardTofConfig_('10-19', 'PAYER', Context.get());
+        check('ToF survive-p fixture restored',
+          !!tofBack && Math.abs(tofBack.pBank - tofF.pBank) < 1e-12);
+      }
+    }
+
+    // MUTATION: no run slots -> no runs and no ToF envelopes, whatever the tickets say
+    {
+      const sheetT = data['ToF'] ? 'ToF' : 'MD';
+      const vT = data[sheetT].values;
+      const bb = mdBlock_(vT, 'SEGMENT BEHAVIOUR'), bh = mdHeaderRow_(vT, bb, 'Segment');
+      const rpdC = (vT[bh] || []).findIndex(x => String(x).trim() === 'Runs per Active Day');
+      let segRow = -1;
+      for (let r = bh + 1; r < vT.length; r++) if (String(vT[r][0]).trim() === '10-19') { segRow = r; break; }
+      if (rpdC >= 0 && segRow >= 0) {
+        const was = vT[segRow][rpdC];
+        vT[segRow][rpdC] = 0;
+        _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+        eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+        const preZ = cardSeasonPre_('10-19', 'PAYER', Context.get());
+        let runsZ = 0, envZ = 0;
+        for (let k = 0; k < 40; k++) {
+          const r = runOneCardSeason_('10-19', 'PAYER', 5000 + k * 7919, cfgT5, catT5, preZ);
+          runsZ += r.tofRuns;
+          envZ += r.log.filter(l => String(l[2]) === 'ToF' && String(l[1]).trim()).length;
+        }
+        check('Runs per Active Day = 0 -> no ToF runs and no ToF envelopes',
+          runsZ === 0 && envZ === 0, runsZ + ' runs, ' + envZ + ' envelopes');
+        vT[segRow][rpdC] = was;
+        _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+        eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+        const tofBack2 = cardTofConfig_('10-19', 'PAYER', Context.get());
+        check('ToF runs-per-day fixture restored',
+          !!tofBack2 && tofBack2.runsPerDay === tofF.runsPerDay);
+      }
+    }
+
+    // ToF has to reach the per-source table, or the cloud sheet would show the event as absent
+    {
+      const r = runOneCardSeason_('40-99', 'PAYER', 4242, cfgT5, catT5,
+                                  cardSeasonPre_('40-99', 'PAYER', ctxT5));
+      const hasKey = Object.prototype.hasOwnProperty.call(r.bySource, 'ToF');
+      check('a banked ToF run is attributed to a "ToF" source row',
+        !hasKey || r.bySource['ToF'].packs > 0,
+        hasKey ? r.bySource['ToF'].packs + ' packs this season' : 'no bank this season (expected, P is tiny)');
+    }
+  } else {
+    check('the ToF ladder can be made to pay an envelope', false,
+      'cardTofConfig_ reports no envelopes even after the fixture');
+  }
+  if (tofFx) {
+    tofFx.v[tofFx.row][tofFx.col] = tofFx.was;
+    _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    const tofEnd = cardTofConfig_('10-19', 'PAYER', Context.get());
+    check('ToF envelope fixture restored (ladder back to what the sheet authors)',
+      !!tofEnd && !tofEnd.anyPacks, tofEnd ? JSON.stringify(tofEnd.packs) : 'null');
+  }
+
+  // THE TWO MODELS. The card sim spends WHOLE tickets on days the player attended; the gains
+  // model's run budget spends a FRACTION of a ticket on every live day (p_day x min(cap, balance)).
+  // Neither is wrong - one is a draw, the other a population mean - but they do not land on the
+  // same run count, and the gap runs BOTH ways: 1.12x at 0-9 NONPAYER, where the card sim saves up
+  // to a whole ticket and spends it, and 0.78x at 100+ NONPAYER, where it is limited by the days
+  // the player is actually in the game. Measured 0.78-1.12 across all ten pairs on 2026-09-07.
+  // Gated as a BAND with the reason attached, rather than pretended to be an identity.
+  {
+    let worstR = 1, atR = '';
+    ['0-9', '10-19', '20-39', '40-99', '100+'].forEach(sg => ['NONPAYER', 'PAYER'].forEach(pp => {
+      const pre = cardSeasonPre_(sg, pp, ctxT5);
+      if (!pre.tof) return;
+      let runs = 0;
+      const N = 60;
+      for (let k = 0; k < N; k++) runs += runOneCardSeason_(sg, pp, 1 + k * 7919, cfgT5, catT5, pre).tofRuns;
+      const rr = tofRun_(sg, pp, ctxT5.ds);
+      const b = tofRunBudget_(sg, pp, ctxT5, num(rr.bank[TOF_TICKET]));
+      if (!b || !(b.runs > 0)) return;
+      const ratio = (runs / N) / b.runs;
+      const off = Math.abs(Math.log(ratio));
+      if (off > Math.abs(Math.log(worstR))) { worstR = ratio; atR = sg + ' ' + pp; }
+    }));
+    check('card sim ToF runs are within 35% of the gains model run budget',
+      worstR > 0.65 && worstR < 1.35,
+      'worst ratio ' + worstR.toFixed(3) + (atR ? ' at ' + atR : '') +
+      ' (whole tickets on attended days vs fractional tickets on live days)');
   }
 }
 

@@ -581,11 +581,52 @@ function cardSeasonPre_(seg, payer, ctx){
       CATEGORY_ORDER.forEach(function(c){ t += num(resultRow_(c, seg, payer, ctx)['ToF_Ticket']); });
       return t;
     })(),
+    // Everything a ToF run needs, resolved once. Envelopes on the ToF ladder were counted by the
+    // gains model and NEVER OPENED by the card sim (2026-09-07): packRungs_ returns null for ToF,
+    // because ToF has no rank or milestone ladder to read - it is a push-your-luck walk. So the
+    // card sim plays it directly instead, and the two finally agree.
+    // Null on any workbook whose Apps Script project predates the ToF engine, or whose ToF sheet
+    // has no row for this segment; the card sim then behaves exactly as it did before.
+    tof: cardTofConfig_(seg, payer, ctx),
     pWd:   num(b.weekday_active_rate),    pWe:  num(b.weekend_active_rate),
     mins:  num(b.minutes_per_active_day), sess: num(b.sessions_per_active_day),
     lvlsP: num(b.levels_played_per_active_day),
     lvlsC: num(b.levels_completed_per_active_day)
   };
+}
+
+/** What ONE ToF run is worth to this segment, plus the rules for buying runs.
+ *  {pBank, packs, ticketsBack, perRun, runsPerDay, cashOut, live} or null when ToF is not wired.
+ *
+ *  pBank is the chance a run survives to its cash-out stage; `packs` is the ladder at FACE VALUE up
+ *  to that stage. The card sim multiplies them by DRAWING - all or nothing, the way the event
+ *  actually pays (user decision 2026-09-07) - where the gains model multiplies them arithmetically.
+ *  Same expectation, and the log gets a real outcome instead of a fraction of an envelope. */
+function cardTofConfig_(seg, payer, ctx){
+  if (typeof tofConfig_ !== 'function' || typeof tofLadderRow_ !== 'function') return null;
+  var cfg = tofConfig_();
+  if (!cfg || !cfg.beh || !cfg.beh[seg]) return null;
+  var run = tofRun_(seg, payer, ctx.ds);
+  if (!run) return null;
+  var cashOut = tofCashOutN_(cfg, seg);
+  var lad = tofLadderRow_(cfg, cashOut);
+  var packs = {}, any = false;
+  PACK_RES.forEach(function(r){
+    var n = Math.round(num(lad.row[r]));
+    if (n > 0){ packs[r] = n; any = true; }
+  });
+  // The days ToF is on the NEW calendar. Runs can only happen while the event is live, exactly as
+  // the gains model's run budget requires.
+  var live = {};
+  ((ctx.calNewOk && ctx.calNew[TOF_CAT]) || []).forEach(function(inst){
+    ((inst && inst.days) || []).forEach(function(d){ if (d >= 1 && d <= DAILY_DAYS) live[d] = 1; });
+  });
+  var beh = cfg.beh[seg];
+  return { pBank: num(run.pBank), packs: packs, anyPacks: any,
+           ticketsBack: Math.round(num(lad.row[TOF_TICKET])),
+           perRun: (cfg.ticketsPerRun > 0) ? cfg.ticketsPerRun : 1,
+           runsPerDay: (beh.runsPerDay > 0) ? beh.runsPerDay : 0,
+           cashOut: cashOut, live: live };
 }
 
 /** Nearest day the player was in the game, searched outward from `day` across the whole window.
@@ -1094,35 +1135,85 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     }
   });
 
+  // ---- ToF: ONE ticket ledger, spent on runs (2026-09-07) ------------------------------------
+  // The ledger was already here, computed inside the day walk below purely to fill the log's
+  // ToF_Ticket_gains column. It is lifted out because the runs have to spend the SAME tickets the
+  // column shows - a run bought out of a population average, next to a column showing this
+  // player's own draw, is two models on one sheet, which is the failure this project keeps
+  // re-finding. One ledger: tickets in, tickets out, both visible.
+  //
+  //   receive   whole tickets from the rungs that fired, plus the smooth stream discretised by a
+  //             carry (daily gift, Season Pass track - no instance structure to draw)
+  //   spend     on a day the player is in the game AND ToF is live: up to Runs per Active Day,
+  //             one ticket each, while the balance allows
+  //   run       banks with probability pBank, and then pays its WHOLE ladder. Envelopes only:
+  //             the coins, boosters and SPT on that ladder are the gains model's ToF row, and
+  //             counting them here as well would double them in any combined view.
+  var tofIncome = pre.tofTickets || [];
+  var tofCumByDay = [], tofRuns = 0, tofBanked = 0, tofBankedInSeason = 0;
+  {
+    var tofRand    = mulberry32((seed | 0) ^ 0x5bf03635);   // settles the trailing fraction
+    var tofRunRand = mulberry32((seed | 0) ^ 0x1f83d9ab);   // its OWN stream: adding runs must not
+                                                            // reshuffle the carry, or every prior
+                                                            // seed would produce a new season
+    var T = pre.tof;
+    var carry = 0, cum = 0, bal = 0, lastPay = 0;
+    for (var td = DAILY_DAYS; td >= 1; td--) if (num(tofIncome[td - 1]) > 0){ lastPay = td; break; }
+    for (var d1 = 1; d1 <= SEASON_DAYS; d1++){
+      var got = num(tofRung[d1 - 1]);                 // drawn rungs: already whole tickets
+      carry += num(tofIncome[d1 - 1]);                // the rest: expectation, carried to whole ones
+      while (carry >= 1){ carry -= 1; got += 1; }
+      // The last day that pays anything settles what is left, so the season total is unbiased
+      // rather than always rounded down: a segment earning 0.9 tickets a season would otherwise
+      // ALWAYS show 0, which is a different claim from "usually none, sometimes one".
+      if (d1 === lastPay && carry > 1e-12 && tofRand() < carry){ got += 1; carry = 0; }
+      cum += got; bal += got;
+
+      if (T && T.runsPerDay > 0 && playedOn[d1] && T.live[d1]){
+        var nRuns = Math.min(T.runsPerDay, Math.floor(bal / T.perRun));
+        for (var rn = 0; rn < nRuns; rn++){
+          bal -= T.perRun; tofRuns++;
+          // a-priori expectation for the tally's 'Expected Packs', conditional on the runs this
+          // player could afford - the same basis the rung expectations above are counted on
+          if (T.anyPacks)
+            for (var te in T.packs) expectedTotal += T.pBank * T.packs[te];
+          if (!(tofRunRand() < T.pBank)) continue;    // met a Pig and stopped: the pot is LOST
+          tofBanked++;
+          if (T.ticketsBack > 0){ bal += T.ticketsBack; cum += T.ticketsBack; }
+          // D26: after the album closes there is nowhere to put a card, so envelopes stop. The
+          // TICKETS above do not - ToF is always-on and has no relationship to the album season.
+          if (SEASON_CUTOFF && d1 > SEASON_LAST_DAY) continue;
+          tofBankedInSeason++;
+          for (var tp in T.packs)
+            for (var q = 0; q < T.packs[tp]; q++)
+              packOpens.push({ day: d1, packName: tp, source: TOF_CAT,
+                               detail: 'run ' + tofRuns + ', banked at stage ' + T.cashOut });
+        }
+      }
+      tofCumByDay.push(cum);
+    }
+    if (T)
+      Logger.log('ToF: ' + tofRuns + ' runs, ' + tofBanked + ' banked (P ' +
+                 (T.pBank * 100).toFixed(2) + '%), ladder ' + JSON.stringify(T.packs) +
+                 ' for ' + seg + ' ' + payer);
+  }
+
   packOpens.sort(function(a, b){ return a.day - b.day; });
   Logger.log('Stage 1: ' + packOpens.length + ' packs granted (expected ' +
              expectedTotal.toFixed(2) + ') for ' + seg + ' ' + payer);
 
   // === Stage 2: walk every day; open packs, sweep chests, snapshot running totals ============
   var output = [], daily = [], packIdx = 0;
-  // Whole-ticket ledger. `tofCarry` is the unpaid fractional remainder; every time it crosses 1 the
-  // player is handed a ticket. Its OWN random stream, derived from the seed like the others, so
-  // turning this on cannot reshuffle a single card draw or pack grant - the same seed produces the
-  // same season it did before, plus this column.
-  // Two ticket streams, deliberately. The instance-shaped sources are DRAWN per rung above, so a
-  // player who reaches Jigsaw milestone #2 banks the 2 tickets that rung pays - the whole number,
-  // not a slice of the population average. Everything else (daily gift, Season Pass track) has no
-  // per-instance structure to draw, so it keeps the smooth expectation and is discretised by the
-  // carry below. Adding them would double-count, which is why pre.tofTickets EXCLUDES every
-  // category the plan covers.
-  var tofIncome = pre.tofTickets || [], tofCarry = 0, tofCum = 0;
-  var tofRand = mulberry32((seed | 0) ^ 0x5bf03635);
-  var tofLastDay = 0;
-  for (var td = DAILY_DAYS; td >= 1; td--) if (num(tofIncome[td - 1]) > 0){ tofLastDay = td; break; }
+  // Two ticket streams feed the ledger above, deliberately. The instance-shaped sources are DRAWN
+  // per rung, so a player who reaches Jigsaw milestone #2 banks the 2 tickets that rung pays - the
+  // whole number, not a slice of the population average. Everything else (daily gift, Season Pass
+  // track) has no per-instance structure to draw, so it keeps the smooth expectation and is
+  // discretised by a carry. Adding them would double-count, which is why pre.tofTickets EXCLUDES
+  // every category the plan covers.
+  var tofCum = 0;
   for (var day = 1; day <= SEASON_DAYS; day++){
     var rowsBefore = output.length;
-    tofCum += num(tofRung[day - 1]);                 // drawn rungs: already whole tickets
-    tofCarry += num(tofIncome[day - 1]);            // the rest: expectation, carried to whole ones
-    while (tofCarry >= 1){ tofCarry -= 1; tofCum += 1; }
-    // The last day that pays anything settles what is left, so the season total is unbiased rather
-    // than always rounded down: a segment earning 0.9 tickets a season would otherwise ALWAYS show
-    // 0, which is a different claim from "usually none, sometimes one".
-    if (day === tofLastDay && tofCarry > 1e-12 && tofRand() < tofCarry){ tofCum += 1; tofCarry = 0; }
+    tofCum = num(tofCumByDay[day - 1]);
 
     while (packIdx < packOpens.length && packOpens[packIdx].day === day){
       var open = packOpens[packIdx];
@@ -1172,6 +1263,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
     collection: collection, collectionSize: collectionSize,
     tofTickets: tofCum, tofExpected: num(pre.tofExpected),
+    tofRuns: tofRuns, tofBanked: tofBanked, tofBankedInSeason: tofBankedInSeason,
     // How many of the 33 days this player opened the game. Drawn once per day above (D32) and used
     // by every instance, so it is the same attendance the packs were granted against - not a
     // second estimate of it. The cloud sheet divides by this to answer "packs on a day I play".
