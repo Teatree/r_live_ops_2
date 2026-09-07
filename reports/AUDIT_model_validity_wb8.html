@@ -1,0 +1,517 @@
+<title>Fifteen Cracks in the Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --paper:   #fbfbf9;
+  --sunk:    #f1f1ed;
+  --card:    #ffffff;
+  --ink:     #1a1d1b;
+  --ink-2:   #4d5350;
+  --ink-3:   #838a86;
+  --rule:    #dcdcd5;
+  --rule-2:  #e9e9e3;
+  --pine:    #2b5b4f;
+  --pine-bg: #e2eee9;
+  --high:    #9d2b1c;
+  --high-bg: #f7e4e0;
+  --med:     #8a6208;
+  --med-bg:  #f8efd9;
+  --struct:  #33566b;
+  --struct-bg:#e2ebf1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131513; --sunk:#0e100e; --card:#1b1e1c; --ink:#e9ebe8; --ink-2:#a9b0ab;
+    --ink-3:#787f7a; --rule:#2c312e; --rule-2:#232725; --pine:#7fc3b0; --pine-bg:#16302a;
+    --high:#e08878; --high-bg:#37201c; --med:#d7ab52; --med-bg:#332711;
+    --struct:#8fb6cc; --struct-bg:#1b2a34;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131513; --sunk:#0e100e; --card:#1b1e1c; --ink:#e9ebe8; --ink-2:#a9b0ab;
+  --ink-3:#787f7a; --rule:#2c312e; --rule-2:#232725; --pine:#7fc3b0; --pine-bg:#16302a;
+  --high:#e08878; --high-bg:#37201c; --med:#d7ab52; --med-bg:#332711;
+  --struct:#8fb6cc; --struct-bg:#1b2a34;
+}
+*{ box-sizing:border-box; }
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"Source Serif 4", Georgia, serif; font-size:17px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{ max-width:56rem; margin:0 auto; padding:3rem 1.4rem 6rem; }
+
+.eyebrow{
+  font-family:"JetBrains Mono", ui-monospace, monospace;
+  font-size:.68rem; letter-spacing:.15em; text-transform:uppercase; color:var(--ink-3);
+  margin:0 0 .9rem;
+}
+h1{
+  font-family:Archivo, system-ui, sans-serif; font-weight:700;
+  font-size:clamp(2rem,5.4vw,3rem); line-height:1.04; letter-spacing:-.022em;
+  text-wrap:balance; margin:0 0 .8rem;
+}
+.stand{ font-size:1.12rem; color:var(--ink-2); max-width:44ch; margin:0 0 1.6rem; }
+.mast{ border-bottom:3px double var(--rule); padding-bottom:1.6rem; }
+
+.legend{ display:flex; flex-wrap:wrap; gap:.45rem; }
+.sev{
+  font-family:"JetBrains Mono", ui-monospace, monospace;
+  font-size:.66rem; letter-spacing:.08em; text-transform:uppercase;
+  padding:.2rem .5rem; border-radius:2px; white-space:nowrap;
+}
+.sev.h{ color:var(--high); background:var(--high-bg); }
+.sev.m{ color:var(--med); background:var(--med-bg); }
+.sev.s{ color:var(--struct); background:var(--struct-bg); }
+
+/* ---- findings ---- */
+.f{ display:grid; grid-template-columns:2.6rem 1fr; gap:0 1.1rem; padding:2.2rem 0 0; }
+.f + .f{ border-top:1px solid var(--rule-2); }
+.num{
+  font-family:Archivo, sans-serif; font-weight:700; font-size:1.5rem;
+  color:var(--rule); line-height:1; padding-top:.35rem; font-variant-numeric:tabular-nums;
+}
+.f-body{ min-width:0; }
+.f h2{
+  font-family:Archivo, sans-serif; font-weight:600; font-size:1.28rem; line-height:1.24;
+  letter-spacing:-.008em; text-wrap:balance; margin:0 0 .55rem;
+}
+.f .sev{ display:inline-block; margin:0 0 .5rem; }
+.plain{ font-size:1.04rem; margin:0 0 .9rem; max-width:64ch; }
+.plain b{ font-weight:600; }
+.detail{
+  font-size:.95rem; color:var(--ink-2); max-width:66ch; margin:0 0 .9rem;
+}
+.detail-label{
+  font-family:"JetBrains Mono", ui-monospace, monospace;
+  font-size:.63rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3);
+  display:block; margin:1.1rem 0 .4rem;
+}
+code{
+  font-family:"JetBrains Mono", ui-monospace, monospace; font-size:.85em;
+  background:var(--sunk); padding:.08em .32em; border-radius:2px;
+}
+.tw{ overflow-x:auto; margin:.8rem 0 1rem; }
+table{ border-collapse:collapse; font-size:.87rem; min-width:min(100%,22rem); }
+th{
+  font-family:Archivo, sans-serif; font-weight:600; font-size:.74rem; text-align:left;
+  color:var(--ink-2); border-bottom:1.5px solid var(--ink); padding:.3rem 1rem .3rem 0;
+  white-space:nowrap;
+}
+td{
+  padding:.3rem 1rem .3rem 0; border-bottom:1px solid var(--rule-2);
+  font-variant-numeric:tabular-nums; font-family:"JetBrains Mono", ui-monospace, monospace;
+  font-size:.82rem; white-space:nowrap;
+}
+td:first-child{ font-family:"Source Serif 4",Georgia,serif; font-size:.9rem; }
+.bad{ color:var(--high); font-weight:500; }
+.ok{ color:var(--pine); font-weight:500; }
+ul{ font-size:.95rem; color:var(--ink-2); max-width:66ch; padding-left:1.1rem; margin:.6rem 0 .9rem; }
+li{ margin-bottom:.35rem; }
+li::marker{ color:var(--ink-3); }
+
+.fix{
+  border-left:2px solid var(--pine); background:var(--pine-bg);
+  padding:.7rem .95rem; margin:.9rem 0 0; font-size:.92rem; color:var(--ink);
+  border-radius:0 2px 2px 0;
+}
+.fix b{ font-family:Archivo,sans-serif; font-size:.7rem; letter-spacing:.1em;
+        text-transform:uppercase; color:var(--pine); display:block; margin-bottom:.2rem; }
+
+.note{
+  background:var(--sunk); border:1px solid var(--rule-2); border-radius:2px;
+  padding:1rem 1.2rem; margin:2rem 0 0; font-size:.93rem; color:var(--ink-2);
+}
+footer{
+  margin-top:3.5rem; padding-top:1.1rem; border-top:1px solid var(--rule);
+  font-family:"JetBrains Mono", ui-monospace, monospace; font-size:.68rem;
+  letter-spacing:.03em; color:var(--ink-3);
+}
+:focus-visible{ outline:2px solid var(--pine); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce){ *{ animation:none!important; transition:none!important; } }
+@media (max-width:34rem){ .f{ grid-template-columns:1.9rem 1fr; gap:0 .7rem; } .num{ font-size:1.2rem; } }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Model audit &middot; COLLECTIONS_UNDER_NEW_CALENDAR (8) &middot; 7 Sep 2026</p>
+  <h1>Fifteen Cracks in the Model</h1>
+  <p class="stand">Everything below is measured off workbook (8) and the shipped engine. Ordered by
+    how much it threatens a number you would actually quote.</p>
+  <div class="legend">
+    <span class="sev h">1&ndash;6 &nbsp;changes the answer</span>
+    <span class="sev m">7&ndash;11 &nbsp;makes a number unreliable</span>
+    <span class="sev s">12&ndash;15 &nbsp;waiting to break</span>
+  </div>
+</header>
+
+<!-- 1 -->
+<section class="f">
+  <div class="num">01</div>
+  <div class="f-body">
+    <span class="sev h">changes the answer</span>
+    <h2>Every leaderboard entrant wins a prize, and half of them podium</h2>
+    <p class="plain">The model thinks that if you enter Bomb, Chuck or Red Challenge you finish in
+      the <b>top ten, always</b> &mdash; and a coin-flip says you finish top three. Those events are
+      supposed to be competitions. In the model they are near-universal payouts.</p>
+    <p class="detail">The rank ladders are priced over a distribution built from three measured
+      percentiles in <code>data_event_inst</code>, and that distribution is then confined to the
+      ladder&rsquo;s own depth. So a player who would really finish 80th on a 10-row ladder is
+      modelled as finishing somewhere in 1&ndash;10. There is no losing tail at all.</p>
+    <div class="tw"><table>
+      <thead><tr><th>40-99 PAYER</th><th>p25/p50/p75</th><th>P(top 3)</th><th>P(top 10)</th><th>ladder rows</th></tr></thead>
+      <tbody>
+        <tr><td>Bomb Challenge</td><td>1 / 3 / 7</td><td class="bad">50%</td><td class="bad">100%</td><td>10</td></tr>
+        <tr><td>Chuck Challenge</td><td>1 / 2 / 5</td><td class="bad">58%</td><td class="bad">100%</td><td>10</td></tr>
+        <tr><td>Red Challenge</td><td>1 / 3 / 5</td><td class="bad">50%</td><td class="bad">100%</td><td>10</td></tr>
+        <tr><td>Target Day</td><td>1 / 2 / 5</td><td>58%</td><td>83%</td><td>20</td></tr>
+        <tr><td>Kite Festival</td><td>5 / 10 / 23</td><td>15%</td><td>50%</td><td>60</td></tr>
+      </tbody>
+    </table></div>
+    <p class="detail">The upstream question is whether <code>position_p50 = 2</code> is even the
+      right measurement. A median finishing position of second implies boards of about four people.
+      If the SQL is really measuring &ldquo;rank among players who scored at all&rdquo;, or a board
+      is segmented far more finely than the model assumes, then every leaderboard payout in the
+      redesign is inflated &mdash; and leaderboards are eight of the twenty-nine sources.</p>
+    <div class="fix"><b>What would settle it</b>Pull the true board size and the full rank
+      distribution for one event, not three percentiles. If boards are genuinely small, the model is
+      right and these events are simply generous by design &mdash; but that should be a stated
+      decision, not a side effect of clamping.</div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="f">
+  <div class="num">02</div>
+  <div class="f-body">
+    <span class="sev h">changes the answer</span>
+    <h2>Over half the envelope economy assumes everybody takes part</h2>
+    <p class="plain">Night Sky Prize and Rainbow Maker together hand out <b>57%</b> of all envelopes
+      for a 40-99 payer. Neither has any participation measurement, so the model assumes
+      <b>100% of players join</b>. Every source that <i>is</i> measured sits between 27% and 92%.</p>
+    <p class="detail">The pack lane prices envelopes as
+      <code>E_v2 &times; participation &times; &Sigma; reach</code>. When
+      <code>data_event_inst</code> has no row for a source, <code>packParticipation_</code> falls
+      through to <code>1.0</code>. That is the honest default when nothing is known, but it makes
+      the two largest envelope faucets the two least evidenced ones.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Source (40-99 PAYER)</th><th>priced at</th><th>measured</th><th>where from</th></tr></thead>
+      <tbody>
+        <tr><td>Daily Night Sky Prize</td><td class="bad">1.000</td><td>no row</td><td>no telemetry</td></tr>
+        <tr><td>Rainbow Maker</td><td class="bad">1.000</td><td>no row</td><td>no telemetry</td></tr>
+        <tr><td>Chuck Challenge</td><td>0.919</td><td>0.9195</td><td>measured</td></tr>
+        <tr><td>Target Day</td><td>0.829</td><td>0.8287</td><td>measured</td></tr>
+        <tr><td>Jigsaw</td><td>0.461</td><td>0.4607</td><td>measured</td></tr>
+        <tr><td>Bomb Challenge</td><td>0.270</td><td>0.2699</td><td>measured</td></tr>
+      </tbody>
+    </table></div>
+    <p class="detail">If the true Night Sky and Rainbow Maker opt-in is 60%, the collection economy
+      is overstated by roughly a quarter &mdash; and since the collection reward rows were rewired
+      to read the card sim, that error now flows into <b>coins</b> as well as envelopes.</p>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="f">
+  <div class="num">03</div>
+  <div class="f-body">
+    <span class="sev h">changes the answer</span>
+    <h2>Kite Festival is priced 8 to 56 times above what players actually do</h2>
+    <p class="plain">Measured Kite opt-in in workbook (8) is <b>0.6% to 4.5%</b>. The model prices it
+      at <b>35%</b>. That was a deliberate design assumption, and it is still the single largest
+      unvalidated number in the simulation.</p>
+    <p class="detail"><code>PACK_PARTICIPATION = { 'Kite Festival': 0.35 }</code>. It was set to
+      0.75 and lowered the same day; nothing has validated either figure. It was scoped to the pack
+      lane only, because participation cancels out of the <code>R</code> ratio &mdash; but that
+      containment no longer holds. Since the collection rows became a card-sim read-out, more Kite
+      envelopes mean more cards, more completed sets, and more <b>HC</b>. The assumption has quietly
+      escaped into the coin economy.</p>
+    <div class="fix"><b>Cheapest honest move</b>Put a <code>Participation</code> label on
+      <code>Ki_v2</code> with the number you actually believe. The reader prefers the sheet over the
+      constant, so it needs no code change &mdash; and it puts the assumption where a designer can
+      see it.</div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="f">
+  <div class="num">04</div>
+  <div class="f-body">
+    <span class="sev h">changes the answer</span>
+    <h2>The headline value number cannot see the thing the redesign is about</h2>
+    <p class="plain">The block at the very top of <code>Sim per Segment</code> &mdash; the one you
+      read first &mdash; converts every reward into coins. It has <b>no price for envelopes</b>, no
+      price for ToF tickets, and it prices <b>SPT&nbsp;x2 at zero</b>. So the collection redesign
+      contributes exactly nothing to the number that summarises it.</p>
+    <p class="detail"><code>item_vals</code> carries thirteen resources. The engine produces twenty.
+      Unpriced: <code>SPTx2</code>, all six <code>*-star Pack</code> tiers, and
+      <code>ToF_Ticket</code>. At 40-99 PAYER, <b>59 of 263</b> non-zero (source, resource) cells in
+      the grid carry no coin value &mdash; 22% of the model&rsquo;s own output is invisible to any
+      value-weighted view, including the OVERALL VALUE GAINS block and ToF&rsquo;s
+      &ldquo;coins-eq&rdquo; columns.</p>
+    <p class="detail"><code>SPT x2</code> at 0.0 is separately wrong on its face: a doubled season-pass
+      token is worth twice a token, so about 1.10, not nothing. Any event paying SPT&nbsp;x2 currently
+      reads as paying nothing of value.</p>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="f">
+  <div class="num">05</div>
+  <div class="f-body">
+    <span class="sev h">changes the answer</span>
+    <h2>The whale segment is modelled as opening the app less often than the one below it</h2>
+    <p class="plain">100+ players complete <b>122 levels on an active day</b> &mdash; more than twice
+      what 40-99 players do. Yet the data says they are <b>in the game on fewer days</b>. Every
+      reward that depends on showing up therefore pays your best segment less than your second-best.</p>
+    <div class="tw"><table>
+      <thead><tr><th>PAYER</th><th>weekday active</th><th>weekend active</th><th>levels completed / active day</th></tr></thead>
+      <tbody>
+        <tr><td>20-39</td><td>0.244</td><td>0.222</td><td>27.6</td></tr>
+        <tr><td>40-99</td><td class="ok">0.281</td><td class="ok">0.270</td><td>54.9</td></tr>
+        <tr><td>100+</td><td class="bad">0.220</td><td class="bad">0.220</td><td>122.2</td></tr>
+      </tbody>
+    </table></div>
+    <p class="detail">This is upstream data, not a bug in the engine &mdash; but it propagates
+      everywhere, because <code>reach</code> is built from those two rates. It is why 100+ takes
+      fewer ToF runs than 40-99 (11.7 against 16.3), why the 100+ HC column often trails 40-99, and
+      it makes any statement of the form &ldquo;the redesign rewards engagement&rdquo; hard to
+      defend. Either 100+ really is a burst-play segment that logs in rarely and plays enormously,
+      which is worth knowing in its own right, or <code>weekday_active_rate</code> is being computed
+      over a denominator that penalises them.</p>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="f">
+  <div class="num">06</div>
+  <div class="f-body">
+    <span class="sev h">changes the answer</span>
+    <h2>In Tower of Fortune, ambition is punished</h2>
+    <p class="plain">The deeper a segment&rsquo;s cash-out target, the less it earns and the more it
+      spends. A 0-9 player banks a third of their runs for six coins. A 100+ player banks
+      <b>one run in 700</b> and pays <b>28 coins</b> a run to do it. MAX pays 25,924 coins per run
+      to bank one run in 440,000.</p>
+    <div class="tw"><table>
+      <thead><tr><th>PAYER</th><th>cash-out stage</th><th>chance the run pays</th><th>coins spent / run</th></tr></thead>
+      <tbody>
+        <tr><td>0-9</td><td>6</td><td class="ok">34.5%</td><td>6</td></tr>
+        <tr><td>10-19</td><td>9</td><td>16.5%</td><td>12</td></tr>
+        <tr><td>20-39</td><td>12</td><td>5.1%</td><td>19</td></tr>
+        <tr><td>40-99</td><td>15</td><td>1.6%</td><td>24</td></tr>
+        <tr><td>100+</td><td>20</td><td class="bad">0.14%</td><td>28</td></tr>
+        <tr><td>MAX</td><td>60</td><td class="bad">0.0002%</td><td>25,924</td></tr>
+      </tbody>
+    </table></div>
+    <p class="detail">The mechanic is faithful &mdash; an un-continued Pig loses the whole pot, which
+      the design doc confirms. The <i>policy</i> is what inverts the ordering: the model banks only
+      at exactly the authored cash-out stage and never earlier, so a deeper target is strictly harder
+      to reach and pays strictly less. The sheet&rsquo;s own <code>Cash-Out Variant</code> input says
+      players may cash out after every successful stage; nothing reads it. Keeping the hard target was
+      a deliberate call on 3 Sep, and the cost of that call is this table.</p>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="f">
+  <div class="num">07</div>
+  <div class="f-body">
+    <span class="sev m">unreliable number</span>
+    <h2>Nobody finishes the album, so every album reward is dead weight</h2>
+    <p class="plain">Your best segment gets <b>79% of the way</b> through the album and receives
+      nothing. Across 500 simulated players in workbook (8), <b>zero</b> albums were completed. The
+      1,000-coin album reward is in the config and reaches no one.</p>
+    <div class="tw"><table>
+      <thead><tr><th>40-99 PAYER</th><th>(7)</th><th>(8)</th></tr></thead>
+      <tbody>
+        <tr><td>SNAP POOL size</td><td>411</td><td>817</td></tr>
+        <tr><td>packs / season</td><td>45.8</td><td>43.2</td></tr>
+        <tr><td>unique cards (of 72)</td><td>65.9</td><td>57.2</td></tr>
+        <tr><td>album completion</td><td class="ok">91.6%</td><td class="bad">79.4%</td></tr>
+        <tr><td>albums finished</td><td>0.1</td><td class="bad">0.0</td></tr>
+      </tbody>
+    </table></div>
+    <p class="detail">Doubling the pool between the two exports is what did it: with 817 copies of
+      72 cards, each specific card is half as likely per draw, and completion is a
+      <i>threshold</i>. A 6% drop in packs moved the model from &ldquo;almost always finishes&rdquo;
+      to &ldquo;never finishes&rdquo;. Gold is the binding tier &mdash; 41 copies across 10 cards,
+      about 0.5% of the pool per draw.</p>
+    <div class="fix"><b>Worth checking before shipping</b>A reward nobody can reach is worse than no
+      reward: it is a promise the album screen keeps showing. Either the pool comes back down, the
+      envelope flow goes up, or the album reward moves to a reachable milestone.</div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="f">
+  <div class="num">08</div>
+  <div class="f-body">
+    <span class="sev m">unreliable number</span>
+    <h2>The album reward row is an estimate too coarse to steer by</h2>
+    <p class="plain">Album completion is a rare 1,000-coin jackpot. The engine estimates it from 50
+      simulated seasons, which gives a margin of roughly <b>&plusmn;40%</b>. Any config change
+      smaller than that will not show up in the row at all.</p>
+    <p class="detail">On workbook (7) the row shipped <b>40 HC</b> for 40-99 PAYER where 400 seasons
+      say about <b>100</b> &mdash; 50 seasons caught two completions instead of five. On (8) it reads
+      0 everywhere. The number is deterministic (fixed seed, so it does not wobble between recalcs),
+      but deterministic is not the same as accurate. 200 seasons would fix the precision and breach
+      the 30-second custom-function ceiling; <code>COL_SIM_SEASONS</code> is the knob, and reading
+      the menu-run cloud sim instead is the way out.</p>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="f">
+  <div class="num">09</div>
+  <div class="f-body">
+    <span class="sev m">unreliable number</span>
+    <h2>Three sibling events, one config sheet, wildly different opt-in</h2>
+    <p class="plain">Bomb, Chuck and Red Challenge are the same event with a different bird. They
+      share one config sheet. Their measured participation is <b>27%, 92% and 49%</b>. At least one
+      of those is wrong, and Chuck is paying 3.4&times; Bomb for identical rewards.</p>
+    <p class="detail">All three read <code>Race_v2</code> and differ only by their
+      <code>data_event_inst</code> key (<code>Bomb</code> / <code>Chuck</code> / <code>Red</code>).
+      A 92% opt-in for an event in the same family as a 27% one points at either a keying problem in
+      the export or a genuine and very large scheduling difference. Combined with finding 01 &mdash;
+      58% of Chuck entrants modelled as top-three &mdash; Chuck Challenge is currently the model&rsquo;s
+      most generous leaderboard on the strength of one unexplained number.</p>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="f">
+  <div class="num">10</div>
+  <div class="f-body">
+    <span class="sev m">unreliable number</span>
+    <h2>The two simulators disagree about how many ToF runs a player takes</h2>
+    <p class="plain">The card simulator spends <b>whole tickets on days the player logged in</b>. The
+      gains model spends <b>a fraction of a ticket every day the event is live</b>. They land on
+      different run counts, and the gap runs both ways.</p>
+    <div class="tw"><table>
+      <thead><tr><th>segment / payer</th><th>card sim runs</th><th>gains model runs</th><th>ratio</th></tr></thead>
+      <tbody>
+        <tr><td>0-9 NONPAYER</td><td>4.59</td><td>4.11</td><td class="bad">1.12</td></tr>
+        <tr><td>10-19 PAYER</td><td>14.20</td><td>14.93</td><td>0.95</td></tr>
+        <tr><td>40-99 PAYER</td><td>16.32</td><td>17.74</td><td>0.92</td></tr>
+        <tr><td>100+ NONPAYER</td><td>8.38</td><td>10.75</td><td class="bad">0.78</td></tr>
+      </tbody>
+    </table></div>
+    <p class="detail">Neither is wrong in isolation &mdash; one is a draw, the other a population
+      mean &mdash; but a mean should equal the average of the draws, and here it does not. The
+      gains model lets a player spend part of a ticket on a day when their balance is below one,
+      which the discrete ledger cannot; that biases it high for low-ticket segments and the
+      attendance constraint biases it low for 100+. It is gated as a 35% band, which is an admission
+      rather than a fix.</p>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="f">
+  <div class="num">11</div>
+  <div class="f-body">
+    <span class="sev m">unreliable number</span>
+    <h2>The weekend/weekday Night Sky split does nothing</h2>
+    <p class="plain">There is machinery to pay a different Night Sky ladder on weekends than on
+      weekdays. It needs a sheet called <code>NS_v2_weekday</code>. That sheet is <b>not in the
+      workbook</b>, so the whole feature is inert &mdash; and Night Sky is the second largest
+      envelope source in the model.</p>
+    <p class="detail">Absent the sheet, <code>E_v2</code> falls back to <code>NS_v2</code> for every
+      day. The fallback is deliberate and safe, but it means any reasoning that assumes a
+      weekend-weighted Night Sky payout is describing a model that is not running. Night Sky Prize
+      pays 4.8&ndash;9.1 envelopes per season per segment, second only to Rainbow Maker.</p>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="f">
+  <div class="num">12</div>
+  <div class="f-body">
+    <span class="sev s">waiting to break</span>
+    <h2>The Rainbow Maker config split is pinned to instance order</h2>
+    <p class="plain">Rainbow Maker&rsquo;s five calendar slots read two different reward sheets:
+      the first three use <code>RM_1st</code>, the last two <code>RM_2nd</code>. That 3+2 split is
+      <b>hardcoded</b>. Add or remove one Rainbow Maker instance and three of them silently start
+      reading the wrong rewards.</p>
+    <p class="detail"><code>RM_INSTANCE_SHEETS = ["RM_1st","RM_1st","RM_1st","RM_2nd","RM_2nd"]</code>,
+      indexed by start-sorted position. Workbook (8) has exactly five instances (days 1-2, 6-9,
+      13-16, 20-23, 27-30) so it is correct today. There is no check that the count still matches,
+      and Rainbow Maker is the largest envelope source in the model &mdash; up to 10.4 packs a season.</p>
+  </div>
+</section>
+
+<!-- 13 -->
+<section class="f">
+  <div class="num">13</div>
+  <div class="f-body">
+    <span class="sev s">waiting to break</span>
+    <h2>The headline block is thirteen hand-written cell references</h2>
+    <p class="plain">The OVERALL VALUE GAINS block is not written by the engine. It is a spreadsheet
+      formula that names <b>thirteen specific row numbers</b> and thirteen specific
+      <code>item_vals</code> columns. It is correct today. It is also the one part of the sheet no
+      test can reach.</p>
+    <p class="detail"><code>=C26*item_vals!$B$3 + C45*item_vals!$J$3 + C64*item_vals!$I$3 + &hellip;</code>
+      &mdash; rows 26, 45, 64, 83, 102, 121, 140, 159, 178, 197, 216, 235, 254 against
+      <code>item_vals</code> columns B, J, I, H, E, F, G, N, M, L, K, C, D. I verified every pairing
+      resolves to the right resource. But resources have been appended to the engine three times this
+      year, and each time every block below the insertion point moves. When that happens, this
+      formula keeps returning a plausible number computed from the wrong rows &mdash; the exact
+      failure that produced the Sim per Segment grouping bug and the pack-log column bug.</p>
+    <div class="fix"><b>The structural fix</b>Let the engine write this block too, deriving positions
+      from <code>RESOURCES</code>, and gate it. It is the last positional coupling left on the sheet.</div>
+  </div>
+</section>
+
+<!-- 14 -->
+<section class="f">
+  <div class="num">14</div>
+  <div class="f-body">
+    <span class="sev s">waiting to break</span>
+    <h2>The &ldquo;PAID&rdquo; column contains no purchases</h2>
+    <p class="plain">The PAID group on <code>Sim per Segment</code> reads 300 HC for both 40-99 and
+      100+ payers. All of it is the paid season pass. <b><code>IAPs</code> pays zero HC in every
+      segment</b> &mdash; the model has no in-app-purchase currency at all.</p>
+    <p class="detail">Two consequences. A column labelled PAID that excludes purchases will be
+      misread by anyone who did not write it. And the paid pass being <i>identical</i> for 40-99 and
+      100+ (300 HC both) means the model has no notion of a whale buying more passes or higher
+      tiers &mdash; the two segments are indistinguishable on the one axis where they should differ
+      most. Worth remembering that the paid track is also assumed available to every payer, which is
+      a flagged assumption rather than a measurement.</p>
+  </div>
+</section>
+
+<!-- 15 -->
+<section class="f">
+  <div class="num">15</div>
+  <div class="f-body">
+    <span class="sev s">waiting to break</span>
+    <h2>The grid now runs a card simulation inside every cell</h2>
+    <p class="plain">Since the collection rows started running the real card simulator, each
+      <code>EcoGainsSim</code> cell simulates 50 player-seasons. That is an estimated <b>2 to 13
+      seconds per cell</b> against a hard <b>30-second</b> limit on spreadsheet functions.</p>
+    <p class="detail">Measured 0.21&ndash;0.64s per cell in node; Google Apps Script runs roughly
+      5&ndash;20&times; slower. It is comfortably inside the ceiling today, and there is no margin
+      for a bigger album, more sources, or a raised <code>COL_SIM_SEASONS</code>. When a custom
+      function does breach the limit it does not fall back &mdash; the cell errors, and neighbouring
+      cells that succeeded still show numbers, so the sheet looks partly fine.</p>
+  </div>
+</section>
+
+<div class="note">
+  <strong>What I did not count as a finding.</strong> The eight rarity-less rows in
+  <code>AlbumConfig</code> are sub-table headers and are correctly ignored (72 cards, eight sets of
+  nine). <code>cal_parsed</code> agrees with a live parse of <code>cal_new</code>, so the precompute
+  is not stale. The <code>A. 0</code> segment is inert by design &mdash; zero players, zero activity
+  rates. And <code>Sim per Segment</code> reproduces the engine to the decimal on every group column
+  I checked, including ToF inside META.
+</div>
+
+<footer>
+  Angry Birds Dream Blast &middot; LiveOps economy simulation &middot; every figure measured on
+  COLLECTIONS_UNDER_NEW_CALENDAR (8) and the engine at commit 5699969
+</footer>
+
+</div>

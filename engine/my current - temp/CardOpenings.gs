@@ -1,0 +1,2120 @@
+/************************************************************************************************
+ * CardOpenings.gs — card-collection (pack opening) simulator.
+ * ---------------------------------------------------------------------------------------------
+ * REQUIRES EcoGainsSim_v4.gs + EcoGainsSim_Daily.gs in the same project (uses Context, RESOURCES,
+ * PACK_RES, SEG_TO_GAINS, num, sheetVals_, DAILY_DAYS, dailyPacksFor_).
+ *
+ * REWIRED 2026-08-03 (D19). What changed:
+ *   - Pack ACQUISITION no longer comes from the 'EcoPackGains' sheet (deleted): its per-source
+ *     rate table and hardcoded '1/0/0/1...' schedule strings were a parallel universe that never
+ *     saw the redesigned calendar. Packs now come from dailyPacksFor_() — the same engine path
+ *     that renders EcoGainsSim_Daily — priced off the _v2 reward ladders against cal_new.
+ *   - Player archetypes no longer come from 'PlayerBehavior' (deleted): the sim runs a real
+ *     (segment x payer) pair from data_seg_beh, selected in Col_Cards_Daily.
+ *   - Season length is the engine's 33-day calendar window, not a 29-entry attendance array.
+ *   - The draw is COUNT-PROPORTIONAL over the snap pool. The old per-pack rarity-probability grid
+ *     is gone: it multiplied the pool counts, so rarity was applied twice. Pack tier now differs
+ *     only by Cards/Open and the (newly implemented) pity table.
+ *   - Chest buying reads the PackConfig CHEST PURCHASING panel (min stars / urgency ramp) instead
+ *     of a hardcoded 0.85-of-season greedy sweep.
+ *   - onOpen() REMOVED: it collided with EcoGainsSim_v4.gs's onOpen in the shared global
+ *     namespace (one silently overrode the other). The menu item lives in that file now.
+ *
+ *  Stage 1 — acquisition: per-day expected packs per tier per source, on cal_new, for the
+ *            selected segment x payer. Fractional expectations are accumulated into whole packs;
+ *            the trailing fraction is resolved by a SEEDED Bernoulli so the granted count is
+ *            unbiased (the old code always rounded the remainder UP, inflating every source).
+ *  Stage 2 — opening: draw cards per pack (without replacement), classify new/dupe, accrue stars.
+ *  Pity:     two independent mechanisms chasing DIFFERENT things.
+ *            (a) RARITY pity — PackConfig PACK PITY CONFIG. `PityProbabilities` is indexed by the
+ *                number of CONSECUTIVE MISSES of the target rarity, not by card slot:
+ *                [0, 0.8, 0.8, 1.0] = "no help at first; miss once and the next pull has an 80%
+ *                chance of the target; miss again, 80% again; miss a third time and the next pull
+ *                is GUARANTEED". Entries past the end reuse the last value. The counter resets on
+ *                any hit (forced or natural) and starts at 0 on every pack — it does NOT carry
+ *                between packs. Target = the highest rarity that STILL HAS COPIES when
+ *                PityForceHighestRarity is TRUE (so the empty Gold tier falls back to 5-star
+ *                rather than making the pity unsatisfiable), else any rarity above the pool's
+ *                most-stocked one.
+ *            (b) DRY-STREAK pity — chases a NEW card, not a rare one: after
+ *                PITY_CONFIG.threshold consecutive packs with zero new cards, the next pack
+ *                forces its last card to be an unowned type. Reset on any new card (forced or
+ *                natural) and on album advance.
+ *  Chests:   once day >= Urgency Start Day and balance >= Min Stars, each triggering pack rolls
+ *            the urgency probability (linear ramp from 0 at Urgency Start Day to End-of-Season
+ *            Buy Probability on the final day); on success the player buys the most expensive
+ *            affordable chest and opens its reward pack. Repeats while the roll keeps passing.
+ *  Rewards:  Set completions (per album) and Album completions append reward info to the Note
+ *            column AND are totalled as ECO GAINS (2026-08-21) into the SIMULATION TALLY, per
+ *            source, so the collection feature's contribution to the economy is a number rather
+ *            than only note text. Sourced from the PackConfig SET REWARDS / ALBUM REWARDS blocks. If a Set and
+ *            an Album complete on the same pack the two blocks are separated by ` ====== `.
+ *            Cumulative packs opened per star tier are shown with each Set completion (never
+ *            reset). An album index beyond the defined rows reuses the last row (loops).
+ *
+ * SHEET CONTRACT — every PackConfig block is located by its column-A LABEL at run time, so the
+ * sheet can be re-ordered or grown without touching this file. Blocks read:
+ *   SEASON BASICS · RARITY DEFINITIONS · SNAP POOL · PACK DEFINITIONS · PACK PITY CONFIG
+ *   STAR CHEST COSTS & REWARDS · CHEST PURCHASING · SET REWARDS · ALBUM REWARDS
+ * (builders/_build_packconfig.py generates the sheet — never hand-edit it.)
+ *
+ * Col_Cards_Daily inputs:  B2 = segment ('0-9'…'100+', 'A. 0')   D2 = payer (NONPAYER|PAYER)
+ *                    G2 = seed (blank -> generated and written back, so a run is reproducible)
+ ************************************************************************************************/
+
+// Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
+// is answerable from the sheet instead of from memory.
+var CARDSIM_BUILD = 'CardOpenings.gs     D41  2026-09-07';
+
+
+var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
+var SHEET_PACK  = 'PackConfig';
+var SHEET_ALBUM = 'AlbumConfig';
+
+var SIM_SEG_CELL   = 'B2';
+var SIM_PAYER_CELL = 'D2';
+var SIM_SEED_CELL  = 'G2';
+
+var OUT_START_ROW    = 57;                 // first row of the day-by-day pack log
+var TOTALS_FIRST_ROW = 6;                  // running-totals block: one row per calendar day
+var TALLY_FIRST_ROW  = 42;                 // SIMULATION TALLY value column (B)
+// COLLECTION ECO GAINS block: labels in column D, values in column E, four rows from this one.
+// Beside the tally, not below it - the tally starts at row 42 and the pack log's bar is at row 55,
+// so appending rows there would run the two blocks into each other.
+var REWARD_TALLY_ROW = 42;
+var REWARD_TALLY_COL = 4;                  // D = labels, E = values
+var ALBUM_NAMES_POOL = ['Main', 'Super', 'Ultra', 'Mythic', 'Legendary'];
+
+// Column order of the day-by-day pack log. THE ENGINE OWNS THIS, not the sheet: Col_Cards_Daily's header
+// row is written by builders/_build_simoutput.py and lags behind until the sheet is re-imported, so
+// anything deriving indices from the live header reads a stale layout. openPack builds its row from
+// this list and harness/_mock_cards.js reads its indices from it — one definition, no drift.
+// 'Source_Detail' added 2026-08-18: the ladder row a pack came from (rank / milestone / NS round).
+// 'ToF_Ticket_gains' added 2026-09-02 (the name Garry had already typed on the live sheet): the
+// Mighty Doors entry currency this player has been paid by EVERY other source, counted from day 1
+// to the row's day. It is a RUNNING TOTAL of tickets RECEIVED, not a balance - the ToF sim spends
+// them on runs and this column never subtracts.
+//
+// WHOLE TICKETS (2026-09-03). It first shipped as the raw expectation and read 0.437, 1.087,
+// 1.412 - fractions of an entry ticket, on a sheet whose entire purpose is ONE player's actual
+// season. Nobody is handed 0.437 of a ticket. The gains engine is right to work in expectations
+// (it prices a whole segment), but this log is a ledger, so the expectation is resolved into
+// discrete grants exactly the way pack counts already are: carry the fractional remainder forward
+// day by day, pay a ticket each time it crosses 1, and settle the trailing fraction with one
+// seeded Bernoulli at the end. The season total is unbiased - averaged over seeds it equals the
+// expectation - and any single run shows integers. The undiscretised number still exists on the
+// ToF sheet's RUN block ('Tickets earned'), which is where a per-segment average belongs.
+var LOG_COLS = ['Day', 'Pack', 'Source', 'Source_Detail', 'Album', 'Cards Drawn', 'New', 'Dupes',
+                'Stars Balance', 'Note', 'ToF_Ticket_gains'];
+// Album/set grids live to the RIGHT of the pack log. The scan starts at the FIRST column past the
+// log and runs wide, rather than assuming an exact offset: the builder leaves one spacer column
+// (grids at L) but a hand-arranged sheet may butt them straight against the log (grids at K), and a
+// scan starting at L silently finds no anchors there, paints nothing, and leaves whatever stale
+// grid was on the sheet. Starting at LOG_COLS.length + 1 covers both and still cannot overlap the
+// log, which ends at LOG_COLS.length.
+// ONE definition of where the grid block starts, shared with builders/_build_simoutput.py
+// (GRID_C0 = len(LOG_HDRS) + GRID_COL_OFFSET). They drifted once already: the engine's self-heal
+// wrote at K while the builder wrote at L, which would have left two label blocks in the scan range
+// and made the anchors ambiguous. Keep the two in step.
+var GRID_COL_OFFSET = 2;
+function gridCol_(){ return LOG_COLS.length + GRID_COL_OFFSET; }
+// The SCAN still starts one column earlier than the block, so a legacy sheet whose grids butt
+// straight against the log is still found rather than silently ignored.
+function gridScanRange_(){
+  return colLetter_(LOG_COLS.length + 1) + '55:' + colLetter_(LOG_COLS.length + 20) + '260';
+}
+function colLetter_(n){
+  var s = '';
+  while (n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
+  return s;
+}
+// Grid shape. 3x3 is only the DEFAULT: the real shape is derived from PackConfig 'Cards per Set' so
+// raising that value cannot make the painter index past the end of a hardcoded 3-row array.
+var GRID_DIM        = 3;
+function gridShape_(cardsPerSet){
+  var n = Math.max(1, Math.round(cardsPerSet || GRID_DIM * GRID_DIM));
+  var w = Math.ceil(Math.sqrt(n));
+  return { w: w, h: Math.ceil(n / w) };
+}
+
+// PackConfig block labels (column A). Order matters only for bounding a block's scan.
+var PC_BLOCKS = ['SEASON BASICS', 'RARITY DEFINITIONS', 'SNAP POOL', 'PACK DEFINITIONS',
+                 'PACK PITY CONFIG', 'STAR CHEST COSTS & REWARDS', 'CHEST PURCHASING',
+                 'SET REWARDS', 'ALBUM REWARDS', 'ALBUM SET SKEW'];
+
+// Reward columns of the SET/ALBUM REWARDS blocks — the 21-column block every config sheet in the
+// workbook shares (Coins .. 6-star Dly). row[0] is the ID; row[1..21] are these, in order.
+var REWARD_COLUMNS = [
+  { col: 1,  name: 'Coins' },            { col: 2,  name: 'SPT' },
+  { col: 3,  name: 'SPT x2' },           { col: 4,  name: 'Red' },
+  { col: 5,  name: 'Chuck' },            { col: 6,  name: 'Bomb' },
+  { col: 7,  name: 'Slingshot' },        { col: 8,  name: 'Shuffle' },
+  { col: 9,  name: 'Comet' },            { col: 10, name: 'Unlimited Lives' },
+  { col: 11, name: 'Unlimited Red' },    { col: 12, name: 'Unlimited Chuck' },
+  { col: 13, name: 'Unlimited Bomb' },   { col: 14, name: 'COOP Token' },
+  { col: 15, name: 'Avatar' },           { col: 16, name: '1-star Dly' },
+  { col: 17, name: '2-star Dly' },       { col: 18, name: '3-star Dly' },
+  { col: 19, name: '4-star Dly' },       { col: 20, name: '5-star Dly' },
+  { col: 21, name: '6-star Dly' }
+];
+
+// Dry-streak pity (mechanism (b) — the per-slot table is mechanism (a), read from the sheet).
+var PITY_CONFIG = { enabled: true, threshold: 3 };
+
+// --- Chapter (set) weight multipliers ----------------------------------
+// Per-card draw multipliers indexed by set number (1-based: index 0 = Set 1). During each draw a
+// card's effective weight = poolCount x chapterMult. (The per-card rarity weight was REMOVED
+// 2026-08-03 — it was the second rarity multiplier the user asked to eliminate; rarity now enters
+// only through how many copies of each card sit in the pool.)
+//
+//   beforeCompleted : multiplier while that set is still in progress in the current album
+//   afterCompleted  : multiplier once that set has been completed in the current album
+//
+// State source: `setsCompletedInAlbum` (resets on album advance), so chapter weighting resets per
+// album. Out-of-range / missing / non-finite / negative entries default to 1.0.
+//
+// AUTHORED ON THE SHEET: `beforeCompleted` below is only the FALLBACK. The live weights come from
+// PackConfig's 'ALBUM SET SKEW' block (one row per album, one 'SET #n' column per set), read by
+// loadPackConfig_ into cfg.albumSetSkew and applied in chapterMultFor. The block was ignored until
+// 2026-08-25 — a 900 typed on the sheet was inert and the run silently used these constants.
+// `afterCompleted` stays in code: the sheet has no before/after dimension to author.
+var CHAPTER_WEIGHTS = {
+  beforeCompleted: [3.0, 2.5, 2.0, 1.5, 1.2, 1.0, 0.8, 0.6],
+  afterCompleted:  [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+};
+
+// -----------------------------------------------------------------------
+
+function mulberry32(seed) {
+  return function() {
+    seed = (seed + 0x6D2B79F5) | 0;
+    var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// '3-star Pack' / '3-star Dly' / '3-star' -> '3-star Pack' (the RESOURCES / PACK_RES spelling).
+function normalizePackKey(name) {
+  var m = String(name).match(/^(\d+)[-\s]*star/i);
+  return m ? m[1] + '-star Pack' : String(name).trim();
+}
+
+// ============================== PackConfig reader ============================================
+// Every block is found by scanning column A for its label; the block's rows are everything
+// between it and the NEXT block label, filtered by a predicate. Note/annotation rows therefore
+// cost nothing and row numbers are never load-bearing.
+function loadPackConfig_(){
+  var v = sheetVals_(SHEET_PACK);
+  if (!v.length) throw new Error("Sheet '" + SHEET_PACK + "' is missing or empty.");
+
+  // Block labels are matched EXACT FIRST, then by prefix at a word boundary (2026-09-01).
+  // The sheet's chest panel had been hand-renamed 'CHEST PURCHASING (SIM CONTROLS)' while this
+  // file still looked for exactly 'CHEST PURCHASING'. Three things then broke at once, silently:
+  //   * the panel was never found, so buyMinStars/buyStartDay/buyEndProb came back undefined and
+  //     degraded to minStars=Infinity / endProb=0 - NO CHEST WAS EVER BOUGHT in a live run, so
+  //     'Stars Spent on Chests' and the star balance were structurally wrong, not merely zero;
+  //   * with no label to bound it, the STAR CHEST block ran on past its own rows and swallowed the
+  //     three purchasing parameters as if they were chests ('Min Stars to Consider Buying' priced
+  //     at 250 stars, reward pack 'no purchase below this star balance');
+  //   * neither failure raised anything - the run just quietly stopped buying.
+  // A trailing parenthetical or dash on a block heading is a normal thing for a designer to add, so
+  // the reader tolerates it. The boundary check keeps it honest: the character after the label must
+  // be non-alphanumeric, so 'SET REWARDS' cannot match a hypothetical 'SET REWARDSX'. Exact wins
+  // wherever both exist, and a prefix resolution is LOGGED so the drift stays visible.
+  var WORD_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  function labelBoundaryOk_(cell, label){
+    if (cell.length === label.length) return true;
+    return WORD_CHARS.indexOf(cell.charAt(label.length)) < 0;
+  }
+  var _labelRowMemo = {};
+  function labelRow(label){
+    if (_labelRowMemo[label] !== undefined) return _labelRowMemo[label];
+    var r, cell, hit = -1;
+    for (r = 0; r < v.length; r++)
+      if (String(v[r][0]).trim() === label){ hit = r; break; }
+    if (hit < 0){
+      for (r = 0; r < v.length; r++){
+        cell = String(v[r][0]).trim();
+        if (cell.length > label.length && cell.indexOf(label) === 0 &&
+            labelBoundaryOk_(cell, label)){
+          Logger.log('PackConfig block "' + label + '" matched by prefix on "' + cell +
+                     '" (row ' + (r + 1) + ') - the sheet heading has been renamed. Harmless, ' +
+                     'but rename it back or update PC_BLOCKS to keep the two in step.');
+          hit = r;
+          break;
+        }
+      }
+    }
+    _labelRowMemo[label] = hit;
+    return hit;
+  }
+  // rows of a block, filtered by `keep(row)`. Bounded by the next block label so a runaway
+  // predicate can never swallow the rest of the sheet.
+  function blockRows(label, keep){
+    var b = labelRow(label);
+    if (b < 0) return [];
+    var end = v.length;
+    for (var i = 0; i < PC_BLOCKS.length; i++){
+      var o = labelRow(PC_BLOCKS[i]);
+      if (o > b && o < end) end = o;
+    }
+    var out = [];
+    for (var r = b + 1; r < end; r++) if (keep(v[r])) out.push(v[r]);
+    return out;
+  }
+  function isNum(x){ return x !== '' && x != null && isFinite(parseFloat(x)); }
+  // a label -> value panel (col A label, col B value)
+  function panel(label){
+    var m = {};
+    blockRows(label, function(row){ return String(row[0]).trim() !== '' && isNum(row[1]); })
+      .forEach(function(row){ m[String(row[0]).trim()] = num(row[1]); });
+    return m;
+  }
+
+  var basics = panel('SEASON BASICS');
+
+  // rarity order, low -> high, from the RARITY DEFINITIONS block; also stars paid per duplicate
+  var rarityOrder = [], starsOnDupe = {};
+  blockRows('RARITY DEFINITIONS', function(row){ return String(row[0]).trim() !== '' && isNum(row[1]); })
+    .forEach(function(row){
+      var name = String(row[0]).trim();
+      rarityOrder.push(name);
+      starsOnDupe[name] = num(row[1]);
+    });
+
+  // SNAP POOL — the authoritative pool. 'TOTAL' and note rows are excluded by requiring the col-A
+  // value to be a defined rarity.
+  var validRarity = {};
+  rarityOrder.forEach(function(x){ validRarity[x] = true; });
+  var qtyByRarity = {};
+  blockRows('SNAP POOL', function(row){ return validRarity[String(row[0]).trim()] && isNum(row[1]); })
+    .forEach(function(row){ qtyByRarity[String(row[0]).trim()] = num(row[1]); });
+
+  var isPackRow = function(row){ return /^\d+[-\s]*star/i.test(String(row[0]).trim()); };
+
+  var cardsPerOpen = {};
+  blockRows('PACK DEFINITIONS', function(row){ return isPackRow(row) && isNum(row[1]); })
+    .forEach(function(row){ cardsPerOpen[normalizePackKey(row[0])] = Math.round(num(row[1])); });
+
+  // PACK PITY CONFIG: 'PityProbabilities' is a bracketed list, one entry per card slot.
+  var pity = {};
+  blockRows('PACK PITY CONFIG', isPackRow).forEach(function(row){
+    var probs = String(row[1] || '').replace(/[\[\]]/g, '').split(',')
+      .map(function(s){ return parseFloat(s); })
+      .filter(function(x){ return isFinite(x); });
+    var force = String(row[2]).trim().toUpperCase();
+    pity[normalizePackKey(row[0])] = {
+      probs: probs.length ? probs : [0],
+      forceHighest: (force === 'TRUE' || force === 'YES' || force === '1')
+    };
+  });
+
+  var chests = blockRows('STAR CHEST COSTS & REWARDS', function(row){
+      return String(row[0]).trim() !== '' && isNum(row[1]) && num(row[1]) > 0 &&
+             String(row[2]).trim() !== '';
+    })
+    .map(function(row){ return { tier: String(row[0]).trim(), cost: num(row[1]),
+                                 rewardPack: normalizePackKey(row[2]) }; })
+    .sort(function(a, b){ return b.cost - a.cost; });
+
+  var buy = panel('CHEST PURCHASING');
+  // Degrading to "never buy" is deliberate (see minStars/startDay/endProb below), but it must not
+  // be silent: a run with no chest purchases looks exactly like a run where the panel went missing.
+  if (!Object.keys(buy).length)
+    Logger.log('PackConfig has no readable CHEST PURCHASING panel - no chest will be bought, ' +
+               'so Stars Spent stays 0 and the star balance only ever rises. Check the block ' +
+               'heading in column A.');
+
+  function rewardTable(label){
+    var map = {}, order = [];
+    blockRows(label, function(row){ return String(row[0]).trim() !== '' && isNum(row[1]); })
+      .forEach(function(row){
+        var id = String(row[0]).trim(), rew = {};
+        REWARD_COLUMNS.forEach(function(rc){ rew[rc.name] = num(row[rc.col]); });
+        map[id] = rew;
+        order.push(id);
+      });
+    return { map: map, order: order };
+  }
+
+  // ALBUM SET SKEW: one row per ALBUM (col A 'Album 1', 'Album 2', ...), one column per set,
+  // located by its 'SET #n' header rather than by position — so the sheet can grow a column or
+  // re-order without silently re-assigning every weight. Read into a dense array indexed by
+  // set-1, blanks defaulting to 1.0 (NEUTRAL, not "skip"): an earlier reader dropped empty cells
+  // with `continue`, which shifted every later set one place left the moment one cell was blank.
+  // Absent block -> [] -> chapterMultFor falls back to the CHAPTER_WEIGHTS constant, so older
+  // PackConfig sheets keep working unchanged.
+  var albumSetSkew = [];
+  (function(){
+    var b = labelRow('ALBUM SET SKEW');
+    if (b < 0) return;
+    var setCol = {}, maxSet = 0;                       // 'SET #n' header -> column index
+    for (var r = b + 1; r < v.length; r++){
+      var row = v[r] || [], hit = false;
+      for (var c = 1; c < row.length; c++){
+        var m = /^SET\s*#?\s*(\d+)$/i.exec(String(row[c]).trim());
+        if (!m) continue;
+        hit = true;
+        var n = Number(m[1]);
+        if (setCol[n] == null){ setCol[n] = c; if (n > maxSet) maxSet = n; }
+      }
+      if (hit) break;
+      if (/^album\s*\d+/i.test(String(row[0]).trim())) break;   // rows started; no header found
+    }
+    if (!maxSet) return;                               // header row absent -> leave the fallback
+    blockRows('ALBUM SET SKEW', function(row){ return /^album\s*\d+/i.test(String(row[0]).trim()); })
+      .forEach(function(row){
+        var w = [];
+        for (var s = 1; s <= maxSet; s++){
+          var raw = (setCol[s] != null) ? row[setCol[s]] : '';
+          var x = parseFloat(String(raw).trim());
+          w.push((isFinite(x) && x >= 0) ? x : 1.0);   // blank / junk / negative -> neutral
+        }
+        albumSetSkew.push(w);
+      });
+  })();
+
+  var cardsPerSet = Math.round(basics['Cards per Set'] || 0);
+  var albumCount  = Math.round(basics['Album Count (before loop)'] || 0);
+  if (!(cardsPerSet > 0)) throw new Error("PackConfig 'Cards per Set' is missing or <= 0.");
+  if (!(albumCount > 0))  throw new Error("PackConfig 'Album Count (before loop)' is missing or <= 0.");
+  if (!rarityOrder.length) throw new Error('PackConfig RARITY DEFINITIONS block is empty.');
+  if (!Object.keys(cardsPerOpen).length) throw new Error('PackConfig PACK DEFINITIONS block is empty.');
+
+  var albumNames = [];
+  for (var i = 0; i < albumCount; i++) albumNames.push(ALBUM_NAMES_POOL[i] || ('Album ' + (i + 1)));
+
+  return {
+    cardsPerSet: cardsPerSet, albumCount: albumCount, albumNames: albumNames,
+    rarityOrder: rarityOrder, starsOnDupe: starsOnDupe, qtyByRarity: qtyByRarity,
+    cardsPerOpen: cardsPerOpen, pity: pity, chests: chests,
+    buyMinStars:  buy['Min Stars to Consider Buying'],
+    buyStartDay:  buy['Urgency Start Day'],
+    buyEndProb:   buy['End-of-Season Buy Probability'],
+    setRewards:   rewardTable('SET REWARDS'),
+    albumRewards: rewardTable('ALBUM REWARDS'),
+    albumSetSkew: albumSetSkew
+  };
+}
+
+// ============================== formatting helpers ===========================================
+function formatRewards_(rewards) {
+  if (!rewards) return '(no rewards defined)';
+  var parts = [];
+  REWARD_COLUMNS.forEach(function(rc){
+    var v = rewards[rc.name];
+    if (v && v > 0) parts.push(rc.name + ': ' + v);
+  });
+  return parts.length ? parts.join(', ') : '(none)';
+}
+function getAlbumReward_(tbl, albumNum) {
+  var id = 'Album ' + albumNum;
+  if (tbl.map[id]) return tbl.map[id];
+  if (!tbl.order.length) return null;
+  return tbl.map[tbl.order[tbl.order.length - 1]];     // beyond the table -> last row loops
+}
+// Tiers come from whatever PACK DEFINITIONS authors, NOT from a fixed 1..6 sweep: the season can
+// ship five tiers (or seven) and this line has to follow the sheet rather than pin the count.
+function formatPacksOpened_(packsOpenedByTier) {
+  var tiers = [];
+  for (var k in packsOpenedByTier) if (num(packsOpenedByTier[k]) > 0) tiers.push(Number(k));
+  tiers.sort(function(a, b){ return a - b; });
+  var parts = tiers.map(function(t){ return t + '★: ' + packsOpenedByTier[t]; });
+  return parts.length ? parts.join(', ') : '(none)';
+}
+
+// ============================== main =========================================================
+// Every function this file needs from its companions, and which file each lives in. All .gs files
+// in an Apps Script project share one namespace, so a companion that was not re-pasted fails at the
+// moment of use with a bare "X is not defined" that names no file. Checked up front instead, so the
+// message says exactly which file to paste.
+var CARD_SIM_COMPANIONS = [
+  ['Context',         'EcoGainsSim_v4.gs'],
+  ['packRungs_',      'EcoGainsSim_v4.gs'],
+  ['spPackTiers_',    'EcoGainsSim_v4.gs'],
+  ['isWeekend_',      'EcoGainsSim_v4.gs'],
+  ['packGrantPlan_',  'EcoGainsSim_Daily.gs'],
+  ['DAILY_LASTDAY',   'EcoGainsSim_Daily.gs']
+];
+function requireCompanions_(){
+  var missingBy = {};
+  CARD_SIM_COMPANIONS.forEach(function(pair){
+    var ok;
+    try { ok = (eval('typeof ' + pair[0]) !== 'undefined'); } catch (e){ ok = false; }
+    if (!ok) (missingBy[pair[1]] = missingBy[pair[1]] || []).push(pair[0]);
+  });
+  var files = Object.keys(missingBy);
+  if (!files.length) return;
+  throw new Error('CardOpenings.gs needs code that is not in this project yet. Re-paste ' +
+    files.map(function(f){ return f + ' (missing: ' + missingBy[f].join(', ') + ')'; }).join(' and ') +
+    ' from the repo, then run the sim again. All .gs files share one namespace, so a file that was ' +
+    'not updated shows up only as a bare "not defined" at the point of use.');
+}
+
+// ============================== SHARED SEASON CORE (2026-09-01, D24) =========================
+// SimulatePackOpenings was one 600-line function: sheet reads at the top, every piece of simulation
+// state in closures, sheet writes at the bottom. Fine for one player, impossible for many - so the
+// middle is split out here. THE SPLIT LINE IS SHEET ACCESS: nothing below touches SpreadsheetApp,
+// and everything expensive is passed in rather than recomputed per player.
+//
+// There is exactly ONE copy of the season rules. The single-player run and the stochastic run both
+// call runOneCardSeason_, so they cannot drift apart - which is the failure this project keeps
+// hitting whenever the same value ends up living in two places.
+
+/** AlbumConfig -> the card catalog, its lookups, and a fresh-pool factory. Deterministic: build it
+ *  once for the whole sim, not once per simulated player. */
+function loadCardCatalog_(cfg, album){
+  // ---- catalog (AlbumConfig) ----------------------------------------------------------------
+  var validRarities = {};
+  cfg.rarityOrder.forEach(function(x){ validRarities[x] = true; });
+  var catLastRow  = album.getLastRow();
+  var catalogData = catLastRow >= 3 ? album.getRange(3, 1, catLastRow - 2, 5).getValues() : [];
+
+  // RARITY NAME RECONCILIATION. AlbumConfig and PackConfig are authored separately and had drifted:
+  // AlbumConfig labels its top tier '6-star' while PackConfig RARITY DEFINITIONS calls the 6th tier
+  // 'Gold'. The old filter simply DROPPED every card whose rarity was not a defined name, so 10 of
+  // the 72 cards vanished from the simulation without a word: six of the eight sets could never be
+  // completed, no album could ever finish, and the 41 'Gold' copies in the SNAP POOL had no card to
+  // attach to. A silent drop of a tenth of the catalog is exactly the failure this reader must not
+  // have, so an 'N-star' name is resolved POSITIONALLY to the Nth defined rarity (rarityOrder is
+  // low->high), and anything still unresolved is a hard error naming the offenders.
+  function resolveRarity(raw){
+    var r = String(raw == null ? '' : raw).trim();
+    if (validRarities[r]) return r;
+    var m = r.match(/^(\d+)\s*[-\s]?\s*(?:star|\u2605|\*)?$/i);
+    if (m){
+      var idx = Number(m[1]) - 1;
+      if (idx >= 0 && idx < cfg.rarityOrder.length) return cfg.rarityOrder[idx];
+    }
+    return null;
+  }
+  var aliased = {}, unresolved = {};
+  var catalog = [];
+  catalogData.forEach(function(r){
+    if (!(r[0] && r[1] && r[4] && /^CARD/i.test(String(r[0])))) return;
+    var raw = String(r[4]).trim(), rar = resolveRarity(raw);
+    if (!rar){ unresolved[raw] = (unresolved[raw] || 0) + 1; return; }
+    if (rar !== raw) aliased[raw + ' -> ' + rar] = (aliased[raw + ' -> ' + rar] || 0) + 1;
+    catalog.push({ name: r[1], setNum: Number(r[2]), setName: String(r[3] == null ? '' : r[3]).trim(),
+                   rarity: rar, key: r[1] + ' ' + rar });
+  });
+  Object.keys(aliased).forEach(function(k){
+    Logger.log('AlbumConfig rarity ' + k + ' (' + aliased[k] + ' cards) resolved by tier position - ' +
+               'the two sheets name the same tier differently.');
+  });
+  if (Object.keys(unresolved).length){
+    var list = Object.keys(unresolved).map(function(k){ return '"' + k + '" x' + unresolved[k]; });
+    throw new Error('AlbumConfig uses ' + list.join(', ') + ', which PackConfig RARITY DEFINITIONS ' +
+                    'does not define (' + cfg.rarityOrder.join(', ') + '). Those cards would be ' +
+                    'silently uncollectable, so the run is stopped. Fix the rarity names on one of ' +
+                    'the two sheets.');
+  }
+  if (!catalog.length)
+    throw new Error('AlbumConfig has no usable card rows (need a Card ID starting with "CARD" and ' +
+                    'a Rarity defined in PackConfig RARITY DEFINITIONS).');
+
+  var rarityOf = {}, setOf = {};
+  catalog.forEach(function(c){ rarityOf[c.key] = c.rarity; setOf[c.key] = c.setNum; });
+  var totalUnique = catalog.length;
+  var rarityRank = {};
+  cfg.rarityOrder.forEach(function(x, i){ rarityRank[x] = i; });   // higher index = rarer
+
+  var cardKeysBySet = {};
+  catalog.forEach(function(c){ (cardKeysBySet[c.setNum] = cardKeysBySet[c.setNum] || []).push(c.key); });
+
+  // The pool: SNAP POOL quantities spread evenly across the catalog cards of each rarity
+  // (remainder to the lowest indices). Rarity probability is therefore purely a pool property.
+  function buildFreshPool() {
+    var byRarity = {};
+    catalog.forEach(function(c){ (byRarity[c.rarity] = byRarity[c.rarity] || []).push(c); });
+    var p = {};
+    for (var rarity in byRarity){
+      var qty = cfg.qtyByRarity[rarity];
+      if (!qty) { Logger.log('No SNAP POOL Qty Count for rarity "' + rarity + '", skipping'); continue; }
+      var cards = byRarity[rarity], base = Math.floor(qty / cards.length), rem = qty - base * cards.length;
+      cards.forEach(function(c, i){ p[c.key] = (i < rem) ? base + 1 : base; });
+    }
+    return p;
+  }
+  function poolBreakdown(p) {
+    var counts = {}, total = 0;
+    for (var key in p){
+      var cnt = p[key];
+      if (cnt <= 0) continue;
+      counts[rarityOf[key]] = (counts[rarityOf[key]] || 0) + cnt;
+      total += cnt;
+    }
+    return cfg.rarityOrder.map(function(r){ return r + '=' + (counts[r] || 0); }).join(', ') +
+           ' (' + total + ' total)';
+  }
+
+  return { catalog: catalog, rarityOf: rarityOf, setOf: setOf, cardKeysBySet: cardKeysBySet,
+           rarityRank: rarityRank, totalUnique: totalUnique,
+           buildFreshPool: buildFreshPool, poolBreakdown: poolBreakdown };
+}
+
+/** The per-(segment x payer) work that carries NO randomness: the discrete pack grant plan, the
+ *  Season Pass track, and the behaviour rates. packGrantPlan_ and spPackTiers_ walk the calendar and
+ *  every config sheet, so calling them per simulated player would multiply the cost of a 50-player
+ *  sweep by 50 for an identical result. Nothing in the core mutates what this returns. */
+function cardSeasonPre_(seg, payer, ctx){
+  ctx = ctx || Context.get();
+  var b = ctx.ds.beh(seg, payer);
+  return {
+    ctx:     ctx,
+    plan:    packGrantPlan_(seg, payer, ctx),
+    spPacks: spPackTiers_(seg, payer, ctx),
+    // Per-day ToF_Ticket income from every source EXCEPT ToF itself (tofTicketIncome_ excludes it
+    // to avoid re-entering its own budget walk), already weighted by this segment's activity rates
+    // - so it is what this player is expected to be paid, not the ladder's face value. Guarded by
+    // typeof: a workbook whose Apps Script project predates the ToF engine still runs the card sim,
+    // it just logs zeros.
+    // EXCLUDES every category the pack grant plan covers: those are drawn per rung inside the core
+    // (D31), and counting them here as well would pay their tickets twice.
+    tofTickets: (typeof tofTicketIncome_ === 'function')
+                  ? tofTicketIncome_(seg, payer, ctx, planCats_(packGrantPlan_(seg, payer, ctx))) : null,
+    // The EXPECTATION the gains model carries for this player, so the sheet can print it beside the
+    // count this one season actually drew (D33, 2026-09-03). Tickets arrive in lumps of 2-6 on rungs
+    // that fire or do not, and shared attendance (D32) correlates those lumps, so the per-season
+    // spread is wide: at 40-99 PAYER the mean is 26.7 with p10 14 and p90 40. Printing only the
+    // draw made a p90 run read as the two models disagreeing, which is exactly what happened.
+    // Same number ECOGAINS_SIM sums into its ToF_Ticket column.
+    tofExpected: (function(){
+      if (typeof resultRow_ !== 'function') return 0;
+      var t = 0;
+      CATEGORY_ORDER.forEach(function(c){ t += num(resultRow_(c, seg, payer, ctx)['ToF_Ticket']); });
+      return t;
+    })(),
+    // Everything a ToF run needs, resolved once. Envelopes on the ToF ladder were counted by the
+    // gains model and NEVER OPENED by the card sim (2026-09-07): packRungs_ returns null for ToF,
+    // because ToF has no rank or milestone ladder to read - it is a push-your-luck walk. So the
+    // card sim plays it directly instead, and the two finally agree.
+    // Null on any workbook whose Apps Script project predates the ToF engine, or whose ToF sheet
+    // has no row for this segment; the card sim then behaves exactly as it did before.
+    tof: cardTofConfig_(seg, payer, ctx),
+    pWd:   num(b.weekday_active_rate),    pWe:  num(b.weekend_active_rate),
+    mins:  num(b.minutes_per_active_day), sess: num(b.sessions_per_active_day),
+    lvlsP: num(b.levels_played_per_active_day),
+    lvlsC: num(b.levels_completed_per_active_day)
+  };
+}
+
+/** What ONE ToF run is worth to this segment, plus the rules for buying runs.
+ *  {pBank, packs, ticketsBack, perRun, runsPerDay, cashOut, live} or null when ToF is not wired.
+ *
+ *  pBank is the chance a run survives to its cash-out stage; `packs` is the ladder at FACE VALUE up
+ *  to that stage. The card sim multiplies them by DRAWING - all or nothing, the way the event
+ *  actually pays (user decision 2026-09-07) - where the gains model multiplies them arithmetically.
+ *  Same expectation, and the log gets a real outcome instead of a fraction of an envelope. */
+function cardTofConfig_(seg, payer, ctx){
+  if (typeof tofConfig_ !== 'function' || typeof tofLadderRow_ !== 'function') return null;
+  var cfg = tofConfig_();
+  if (!cfg || !cfg.beh || !cfg.beh[seg]) return null;
+  var run = tofRun_(seg, payer, ctx.ds);
+  if (!run) return null;
+  var cashOut = tofCashOutN_(cfg, seg);
+  var lad = tofLadderRow_(cfg, cashOut);
+  var packs = {}, any = false;
+  PACK_RES.forEach(function(r){
+    var n = Math.round(num(lad.row[r]));
+    if (n > 0){ packs[r] = n; any = true; }
+  });
+  // The days ToF is on the NEW calendar. Runs can only happen while the event is live, exactly as
+  // the gains model's run budget requires.
+  var live = {};
+  ((ctx.calNewOk && ctx.calNew[TOF_CAT]) || []).forEach(function(inst){
+    ((inst && inst.days) || []).forEach(function(d){ if (d >= 1 && d <= DAILY_DAYS) live[d] = 1; });
+  });
+  var beh = cfg.beh[seg];
+  return { pBank: num(run.pBank), packs: packs, anyPacks: any,
+           ticketsBack: Math.round(num(lad.row[TOF_TICKET])),
+           perRun: (cfg.ticketsPerRun > 0) ? cfg.ticketsPerRun : 1,
+           runsPerDay: (beh.runsPerDay > 0) ? beh.runsPerDay : 0,
+           cashOut: cashOut, live: live };
+}
+
+/** Nearest day the player was in the game, searched outward from `day` across the whole window.
+ *  The season-pass track is not an instance, so there is no instance day list to snap within - the
+ *  pass is climbed all season and the envelope is collected the next time they open the app. If the
+ *  player never played at all, the day is returned unchanged (they opened nothing anyway). */
+function spAttendedDay_(day, playedOn){
+  if (playedOn[day]) return day;
+  // DAILY_DAYS, not the caller's local SEASON_DAYS: this is top-level, and reading the alias here
+  // would resolve to nothing.
+  for (var d = 1; d < DAILY_DAYS; d++){
+    if (day + d <= DAILY_DAYS && playedOn[day + d]) return day + d;   // forward first: they collect
+    if (day - d >= 1 && playedOn[day - d]) return day - d;            // it next time they open up
+  }
+  return day;
+}
+
+/** The landing day, moved onto a day the player was actually in the game (D32). A multi-day
+ *  instance places a rung by its progress along the requirement axis, which can land on a day this
+ *  player did not open the app - the reward would then be logged beside '(did not play)'. Snap to
+ *  the NEAREST attended day of the same instance; if somehow none is attended the day is returned
+ *  unchanged (the caller only reaches here for an instance that WAS attended). */
+function attendedDay_(pl, day, playedOn){
+  var d = pl.attDays || pl.days || [];
+  if (playedOn[day]) return day;
+  var best = null, bestGap = Infinity;
+  for (var i = 0; i < d.length; i++){
+    if (!playedOn[d[i]]) continue;
+    var gap = Math.abs(d[i] - day);
+    if (gap < bestGap){ bestGap = gap; best = d[i]; }
+  }
+  return (best == null) ? day : best;
+}
+
+/** The set of categories a grant plan covers, so their ticket income is not counted twice. */
+function planCats_(plan){
+  var seen = {};
+  (plan || []).forEach(function(pl){ if (pl && pl.cat) seen[pl.cat] = true; });
+  return seen;
+}
+
+/** One player's 33-day season. Pure: no sheet reads, no sheet writes, no Math.random - the seed
+ *  fully determines the result. */
+function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
+  var CARDS_PER_SET = cfg.cardsPerSet;
+  var ALBUM_NAMES   = cfg.albumNames;
+
+  var rand = mulberry32(seed | 0);
+  // (a fourth stream for pack-log provenance was declared here and never read - the log takes
+  // its Source_Detail from rung.label. Removed 2026-09-01.)
+  // Stage 1 (which packs are EARNED) and Stage 2 (what is INSIDE them) are separate processes, and
+  // they get separate streams. Sharing one meant any change to the acquisition model reshuffled
+  // every card draw downstream, so unrelated distribution gates moved whenever the grant logic was
+  // touched. Derived from the same seed, so a run is still fully reproducible.
+  var grantRand = mulberry32((seed | 0) ^ 0x27d4eb2f);
+
+  var SEASON_DAYS = DAILY_DAYS;                        // the engine's calendar window (33)
+
+  // catalog bindings - the core reads these exactly as it did when they were its own locals
+  var catalog        = cat.catalog,
+      rarityOf       = cat.rarityOf,
+      setOf          = cat.setOf,
+      cardKeysBySet  = cat.cardKeysBySet,
+      rarityRank     = cat.rarityRank,
+      totalUnique    = cat.totalUnique,
+      buildFreshPool = cat.buildFreshPool,
+      poolBreakdown  = cat.poolBreakdown;
+  var simCtx = pre.ctx;
+
+  // === Mutable simulation state ==============================================================
+  var albumIdx             = 0;
+  var pool                 = buildFreshPool();
+  var collection           = {};
+  var collectionSize       = 0;
+  var pityCounter          = 0;
+  var balance              = 0;
+  var starsEarned          = 0;
+  var starsSpent           = 0;
+  var totalCardsDrawn      = 0;
+  var totalNew             = 0;
+  var totalDupes           = 0;
+  var setsCompletedTotal   = 0;
+  var dayAlbumCompleted    = 0;
+  var finalAlbumNoted      = false;
+  var setsCompletedInAlbum = {};
+  // seeded from the tiers PACK DEFINITIONS actually authors, so retiring a tier on the sheet
+  // retires it here too (and adding one needs no code change)
+  var packsOpenedByTier    = {};
+  Object.keys(cfg.cardsPerOpen).forEach(function(k){
+    var m = /^(\d+)-star/.exec(k);
+    if (m) packsOpenedByTier[Number(m[1])] = 0;
+  });
+  var packsOpenedTotal     = 0;
+  // Packs and cards attributed to the source that paid them, for the stochastic run's per-source
+  // table. Kept here rather than derived from the log afterwards: the log is a reporting artefact
+  // that gets cleared and re-parsed, and re-deriving a number from formatted text is how the two
+  // copies drift apart.
+  var bySource             = {};
+  // The cumulative per-day series the cloud charts. Deliberately NOT the `daily` array below:
+  // that one feeds the existing sheet and carries collectionSize / sets-in-album, both of which
+  // RESET on album advance. A progress curve must not fall to zero when a player does well.
+  var dailyCloud           = [];
+  // ECO GAINS from the collection feature itself. Set and album completions pay real currency out
+  // of the PackConfig SET REWARDS / ALBUM REWARDS blocks, and until now that payout only ever
+  // appeared as TEXT in the Note column - it was never totalled, so the feature's contribution to
+  // the economy could not be read off the sheet at all. Kept per source, because a set completion
+  // and an album completion are different levers.
+  var setRewardGains   = {};                 // {resourceName: amount} from SET REWARDS
+  var albumRewardGains = {};                 // {resourceName: amount} from ALBUM REWARDS
+  function addRewardGains_(into, rewards){
+    if (!rewards) return;
+    REWARD_COLUMNS.forEach(function(rc){
+      var v = num(rewards[rc.name]);
+      if (v > 0) into[rc.name] = num(into[rc.name]) + v;
+    });
+  }
+
+  function owned(key){ return collection[key] === true; }
+  function acquire(key){ if (!owned(key)){ collection[key] = true; collectionSize++; return true; } return false; }
+
+  // Effective draw multiplier for a card of `setNum`, for the album currently in progress.
+  //   completed in this album -> CHAPTER_WEIGHTS.afterCompleted (only duplicates remain, so the
+  //                              skew is switched off; the sheet has no before/after dimension,
+  //                              which is why this half stays in code)
+  //   otherwise               -> the PackConfig 'ALBUM SET SKEW' row for this album, so the skew
+  //                              is a property of WHICH ALBUM the player is on. Beyond the last
+  //                              authored album row the last row repeats (same convention as
+  //                              getAlbumReward_). No block on the sheet -> CHAPTER_WEIGHTS.
+  function chapterMultFor(setNum) {
+    if (setNum === undefined || setNum === null) return 1.0;
+    var idx = (setNum - 1) | 0;
+    var arr;
+    if (setsCompletedInAlbum[setNum]) {
+      arr = CHAPTER_WEIGHTS.afterCompleted;
+    } else {
+      var rows = cfg.albumSetSkew || [];
+      arr = rows.length ? rows[Math.min(albumIdx, rows.length - 1)]
+                        : CHAPTER_WEIGHTS.beforeCompleted;
+    }
+    if (!arr || idx < 0 || idx >= arr.length) return 1.0;
+    var v = Number(arr[idx]);
+    return (isFinite(v) && v >= 0) ? v : 1.0;
+  }
+
+  // One draw from the pool. Count-proportional (weight = copies x chapter multiplier) — the
+  // rarity odds fall out of the pool composition and drift as copies are removed.
+  // `filter` optionally restricts the eligible keys (pity). Returns null if nothing is eligible.
+  function drawOne(filter) {
+    var keys = [], wts = [], total = 0;
+    for (var key in pool){
+      var cnt = pool[key];
+      if (cnt <= 0) continue;
+      if (filter && !filter(key)) continue;
+      var w = cnt * chapterMultFor(setOf[key]);
+      if (w <= 0) continue;
+      keys.push(key); wts.push(w); total += w;
+    }
+    if (total <= 0) return null;
+    var r = rand() * total;
+    for (var i = 0; i < keys.length; i++){
+      r -= wts[i];
+      if (r < 0){ pool[keys[i]] -= 1; return keys[i]; }
+    }
+    var last = keys[keys.length - 1];
+    pool[last] -= 1;
+    return last;
+  }
+
+  // copies remaining per rarity, from the live pool
+  function poolRarityCounts() {
+    var counts = {};
+    for (var key in pool){
+      if (pool[key] <= 0) continue;
+      counts[rarityOf[key]] = (counts[rarityOf[key]] || 0) + pool[key];
+    }
+    return counts;
+  }
+
+  // The rarities a pity pull is CHASING — i.e. what counts as a "hit" and what a forced draw is
+  // restricted to. Recomputed per draw because the pool depletes as the season runs.
+  //   forceHighest TRUE  -> exactly the highest rarity that STILL HAS COPIES. This is also the
+  //                         empty-tier fallback (user decision): Gold ships at Qty 0, so a 6-star
+  //                         pack's pity resolves to 5★ until Gold has stock, instead of never
+  //                         being satisfiable.
+  //   forceHighest FALSE -> any rarity strictly ABOVE the most-stocked rarity in the pool
+  //                         ("better than what the pack usually gives" — a softer pity).
+  // Returns a {rarity: true} set, or null when nothing qualifies (pity then does nothing).
+  function pityTargets(forceHighest) {
+    var counts = poolRarityCounts(), out = {}, any = false, r;
+    if (forceHighest){
+      var best = null, bestRank = -1;
+      for (r in counts){
+        var rk = rarityRank[r];
+        if (rk > bestRank){ bestRank = rk; best = r; }
+      }
+      if (best == null) return null;
+      out[best] = true;
+      return out;
+    }
+    var modal = null, modalCnt = -1;
+    for (r in counts) if (counts[r] > modalCnt){ modalCnt = counts[r]; modal = r; }
+    if (modal == null) return null;
+    for (r in counts) if (rarityRank[r] > rarityRank[modal]){ out[r] = true; any = true; }
+    return any ? out : null;
+  }
+
+  function openPack(packName, source, day, detail) {
+    var key   = normalizePackKey(packName);
+    var nCard = cfg.cardsPerOpen[key];
+    if (!nCard) { Logger.log('No PACK DEFINITIONS row for "' + packName + '", skipping'); return null; }
+    var pityCfg = cfg.pity[key] || { probs: [0], forceHighest: false };
+
+    var tierMatch = key.match(/^(\d+)-star/);
+    if (tierMatch){
+      var tier = Number(tierMatch[1]);
+      packsOpenedByTier[tier] = (packsOpenedByTier[tier] || 0) + 1;
+    }
+    packsOpenedTotal++;
+
+    var dryPityActive = PITY_CONFIG.enabled && pityCounter >= PITY_CONFIG.threshold;
+    var startAlbum = ALBUM_NAMES[albumIdx];
+    var drawn = [], newCards = [], dupes = [];
+    var setCompletionNotes = [];
+    var albumNote = '';
+
+    // (a) RARITY PITY — `PityProbabilities` is indexed by the number of CONSECUTIVE MISSES so far,
+    // not by card slot: probs[0] applies to a pull with no misses behind it, probs[1] after one
+    // miss, probs[2] after two, and so on; entries past the end reuse the last value. So
+    // [0, 0.8, 0.8, 1.0] reads "no help at first; miss once and the next pull has an 80% chance;
+    // miss again, another 80%; miss a third time and the next pull is GUARANTEED".
+    // The counter RESETS to 0 the moment a pull lands on the target rarity — whether pity forced
+    // it or the player got there naturally — and starts at 0 on every pack open (it does NOT
+    // carry between packs).
+    var pityMiss = 0;
+
+    for (var i = 0; i < nCard; i++){
+      var isLast = (i === nCard - 1);
+      var targets = pityTargets(pityCfg.forceHighest);
+      var p = pityCfg.probs[Math.min(pityMiss, pityCfg.probs.length - 1)];
+      var cardKey = null;
+      if (targets && p > 0 && rand() < p)
+        cardKey = drawOne(function(k){ return targets[rarityOf[k]] === true; });
+      // (b) dry-streak pity on the last card (independent mechanism: chases a NEW card, not a rare one)
+      if (!cardKey && dryPityActive && isLast && newCards.length === 0)
+        cardKey = drawOne(function(k){ return !owned(k); });
+      if (!cardKey) cardKey = drawOne(null);
+      if (!cardKey) { Logger.log('Pool exhausted mid-pack on day ' + day); break; }
+
+      // hit -> reset, miss -> escalate. `targets` is recomputed each draw off the live pool, so a
+      // rarity that runs out mid-pack stops counting as the thing being chased.
+      pityMiss = (targets && targets[rarityOf[cardKey]] === true) ? 0 : pityMiss + 1;
+
+      drawn.push(cardKey);
+      totalCardsDrawn++;
+
+      if (acquire(cardKey)){
+        newCards.push(cardKey);
+        totalNew++;
+
+        var setNum = setOf[cardKey];
+        if (setNum !== undefined && !setsCompletedInAlbum[setNum]){
+          var setCards = cardKeysBySet[setNum] || [];
+          if (setCards.length && setCards.every(owned)){
+            setsCompletedInAlbum[setNum] = true;
+            setsCompletedTotal++;
+            var setId = 'Set ' + setNum;
+            addRewardGains_(setRewardGains, cfg.setRewards.map[setId]);
+            setCompletionNotes.push(setId + ' completed | Rewards: ' +
+              formatRewards_(cfg.setRewards.map[setId]) + ' | packs opened: ' +
+              formatPacksOpened_(packsOpenedByTier));
+          }
+        }
+
+        if (collectionSize === totalUnique){
+          var completedAlbumNum = albumIdx + 1;
+          var albumReward = getAlbumReward_(cfg.albumRewards, completedAlbumNum);
+          addRewardGains_(albumRewardGains, albumReward);
+          var albumRewardStr = formatRewards_(albumReward);
+          if (!dayAlbumCompleted) dayAlbumCompleted = day;
+          if (albumIdx < ALBUM_NAMES.length - 1){
+            albumNote = ALBUM_NAMES[albumIdx] + ' -> ' + ALBUM_NAMES[albumIdx + 1] +
+                        ' | Album rewards: ' + albumRewardStr + ' | Pool leftover: ' + poolBreakdown(pool);
+            albumIdx            += 1;
+            pool                 = buildFreshPool();
+            collection           = {};
+            collectionSize       = 0;
+            pityCounter          = 0;
+            setsCompletedInAlbum = {};
+          } else if (!finalAlbumNoted){
+            albumNote = ALBUM_NAMES[albumIdx] + ' completed (final album) | Album rewards: ' +
+                        albumRewardStr + ' | Pool leftover: ' + poolBreakdown(pool);
+            finalAlbumNoted = true;
+          }
+        }
+      } else {
+        dupes.push(cardKey);
+        totalDupes++;
+        var st = cfg.starsOnDupe[rarityOf[cardKey]] || 0;
+        balance += st;
+        starsEarned += st;
+      }
+    }
+
+    pityCounter = newCards.length > 0 ? 0 : pityCounter + 1;
+
+    var note = '', setBlock = setCompletionNotes.join(' | ');
+    if (setBlock && albumNote)  note = albumNote + ' ====== ' + setBlock;
+    else if (setBlock)          note = setBlock;
+    else if (albumNote)         note = albumNote;
+
+    var sk = sourceKey_(source);
+    var bs = bySource[sk] || (bySource[sk] = { packs: 0, cards: 0 });
+    bs.packs += 1;
+    bs.cards += drawn.length;
+
+    return [day, packName, source, detail || '', startAlbum,
+            drawn.join(', '), newCards.join(', '), dupes.join(', '), balance, note];
+  }
+
+  // Chest purchasing: gated by Min Stars + a linear urgency ramp to the final day (PackConfig
+  // CHEST PURCHASING). Missing/blank parameters degrade to "never buy" rather than to the old
+  // hardcoded greedy sweep — a silent behaviour change would be worse than an obvious zero.
+  var minStars  = isFinite(cfg.buyMinStars) ? cfg.buyMinStars : Infinity;
+  var startDay  = isFinite(cfg.buyStartDay) ? cfg.buyStartDay : Infinity;
+  var endProb   = isFinite(cfg.buyEndProb)  ? cfg.buyEndProb  : 0;
+  function buyProbability(day){
+    if (!(day >= startDay) || !(endProb > 0)) return 0;
+    var span = SEASON_DAYS - startDay;
+    if (span <= 0) return endProb;
+    return Math.max(0, Math.min(1, endProb * (day - startDay) / span));
+  }
+  function tryBuyChests(day, output) {
+    if (!cfg.chests.length) return;
+    var p = buyProbability(day);
+    if (p <= 0) return;
+    while (balance >= minStars && rand() < p){
+      var chest = null;
+      for (var i = 0; i < cfg.chests.length; i++)
+        if (balance >= cfg.chests[i].cost){ chest = cfg.chests[i]; break; }
+      if (!chest) break;
+      balance     -= chest.cost;
+      starsSpent  += chest.cost;
+      var row = openPack(chest.rewardPack, chest.tier + ' Chest Opened - ' + chest.rewardPack, day,
+                         'bought with ' + chest.cost + ' stars');
+      if (!row){
+        Logger.log("Couldn't open " + chest.tier + ' chest reward "' + chest.rewardPack + '" - refunding');
+        balance    += chest.cost;
+        starsSpent -= chest.cost;
+        break;
+      }
+      output.push(row);
+    }
+  }
+
+  // === Stage 1: pack acquisition from the simulated calendar ================================
+  // NOTE: dailyPacksFor_ used to be called here and its result thrown away - a leftover from the
+  // pre-2026-08-20 acquisition model, before packGrantPlan_ replaced the per-day expectation with
+  // the discrete per-instance plan below. It ran dailySeries_ over all 25 categories on every run
+  // purely to be discarded, which is the single most expensive thing the card sim did. Removed
+  // 2026-09-01; output is byte-identical (no side effects - Context and DataStore are memoized and
+  // it draws no random numbers), and the stochastic run repeats this work N times per segment.
+
+  // ---- attendance: ONE draw per day, shared by every instance (D32, 2026-09-03) ---------------
+  // This used to be REPORTING ONLY: it chose between '(played, no pack dropped)' and '(did not
+  // play)', while each instance separately drew `participation x reach` to decide whether the
+  // player took part. `reach` for a 1-day instance IS that day's active rate, so the sim asked "is
+  // this player in the game on day 3?" once for Target Day, again for Flash Race, again for Night
+  // Sky - and could answer yes, no, no. A player is in the game that day or they are not.
+  // The live log showed it plainly: rank 1 in Target Day and 54 levels played on day 3, and no
+  // participation at all in the Jigsaw instance running the same day.
+  //
+  // So attendance is now the shared event it always was: drawn ONCE per day here, and every
+  // instance asks whether the player was around on any of ITS days. Nothing is approximated -
+  // reach IS 1 - PROD(1 - p_day) over independent daily attendance, so E[attended] = reach exactly
+  // and every window total is unchanged. What changes is that the draws are now consistent with
+  // each other, and with the session note printed beside them.
+  // Its own seeded stream still, so this cannot perturb a card draw.
+  var pWd = pre.pWd, pWe = pre.pWe;
+  var attRand = mulberry32((seed | 0) ^ 0x9e3779b9);
+  var playedOn = [];
+  for (var ad = 1; ad <= SEASON_DAYS; ad++)
+    playedOn[ad] = attRand() < (isWeekend_(ad) ? pWe : pWd);
+  // Per ACTIVE day, from data_seg_beh — what an average day in this segment looks like.
+  var mins = pre.mins, sess = pre.sess, lvlsP = pre.lvlsP, lvlsC = pre.lvlsC;
+  function sessionNote_(){
+    var bits = [];
+    if (mins  > 0) bits.push(mins.toFixed(0) + ' min');
+    if (sess  > 0) bits.push(sess.toFixed(1) + ' sessions');
+    if (lvlsC > 0) bits.push(lvlsC.toFixed(0) + ' levels completed' +
+                             (lvlsP > 0 ? ' of ' + lvlsP.toFixed(0) + ' played' : ''));
+    return bits.length ? bits.join(', ') + '  (segment average for an active day)' : '';
+  }
+  // === Stage 1: pack acquisition, drawn PER INSTANCE ==========================================
+  // Replaces the old per-(source,tier) accumulator, which walked the days adding up the fractional
+  // expectation and emitted a pack every time the running total crossed 1. That was unbiased over
+  // the window but wrong about days, in two ways the live log showed plainly:
+  //   * it granted Target Day "rank 4", "rank 2" and "rank 1" on the SAME day. A leaderboard
+  //     instance pays exactly one rank; those outcomes are mutually exclusive.
+  //   * it back-loaded packs into the final week and left busy days empty, because every tier of
+  //     every source held its own separate counter and a 0.3/day lane needs four days to emit.
+  // The plan below carries the discrete structure instead: per instance, did the player take part,
+  // and then which rung(s) did they hit. Expectation per (source, tier) is unchanged, so window
+  // totals still reconcile with the gains model (see packRungs_).
+  var packOpens = [], expectedTotal = 0;
+  // Tickets granted to THIS player by the instance rungs that actually fired (D31). Sources with no
+  // instance structure - the daily gift, the Season Pass track - are not in the plan and keep the
+  // expectation path below.
+  var tofRung = [];
+  for (var tq = 0; tq < SEASON_DAYS; tq++) tofRung.push(0);
+  var plan = pre.plan;              // per-permutation: computed once by cardSeasonPre_
+
+  plan.forEach(function(pl){
+    if (pl.noPacks) return;      // kept only for its TICKETS (D31) - it opens no envelope
+    pl.groups.forEach(function(g){
+      g.rungs.forEach(function(rg){
+        for (var t in rg.packs)
+          expectedTotal += pl.participation * pl.reach * rg.p * num(rg.packs[t]);
+      });
+    });
+  });
+
+  // Landing day inside an instance. A rung with a place on the requirement axis is put where that
+  // progress falls (ladders are climbed in order), otherwise the day is sampled from the same
+  // weights the daily gains view uses (last day for rank rewards, accrual share for collections).
+  function pickDay(pl, rung){
+    var day;
+    if (rung && rung.progress != null && pl.days.length > 1 && !DAILY_LASTDAY[pl.cat]){
+      var idx = Math.ceil(rung.progress * pl.days.length) - 1;
+      day = pl.days[Math.max(0, Math.min(pl.days.length - 1, idx))];
+    } else {
+      var x = grantRand(), acc = 0;
+      day = pl.days[pl.days.length - 1];
+      for (var i = 0; i < pl.days.length; i++){
+        acc += pl.dayW[i];
+        if (x <= acc){ day = pl.days[i]; break; }
+      }
+    }
+    return attendedDay_(pl, day, playedOn);
+  }
+  function emitRung(pl, rung, day){
+    var cat = pl.cat;
+    // D31: the SAME rung event that grants an envelope grants its ToF_Tickets. Whole numbers,
+    // because a rung either fired for this player or it did not - the ladder pays what it says.
+    if (num(rung.tickets) > 0 && day >= 1 && day <= SEASON_DAYS)
+      tofRung[day - 1] = num(tofRung[day - 1]) + num(rung.tickets);
+    if (pl.noPacks) return;        // past the album season: tickets yes, envelopes no (D26 + D31)
+    for (var t in rung.packs){
+      var n = num(rung.packs[t]);
+      var whole = Math.floor(n);
+      if (n - whole > 1e-12 && grantRand() < (n - whole)) whole += 1;   // fractional counts stay unbiased
+      for (var k = 0; k < whole; k++)
+        packOpens.push({ day: day, packName: t, source: cat, detail: rung.label });
+    }
+  }
+
+  // Was the player in the game during ANY day of this instance? Shared with every other instance
+  // that overlaps those days, which is the whole point (D32).
+  function attended(pl){
+    var d = pl.attDays || pl.days || [];
+    for (var i = 0; i < d.length; i++) if (playedOn[d[i]]) return true;
+    return false;
+  }
+  plan.forEach(function(pl){
+    // attendance is shared; only the OPT-IN is drawn per instance now
+    if (!attended(pl)) return;
+    if (!(grantRand() < pl.participation)) return;
+    pl.groups.forEach(function(g){
+      if (g.exclusive){
+        // a rank ladder: the player finishes in exactly ONE place
+        var x = grantRand(), acc = 0, chosen = null;
+        for (var i = 0; i < g.rungs.length; i++){
+          acc += g.rungs[i].p;
+          if (x <= acc){ chosen = g.rungs[i]; break; }
+        }
+        if (chosen) emitRung(pl, chosen, pickDay(pl, chosen));
+      } else {
+        // a milestone ladder: each rung is reached (or not) on its own survival probability
+        g.rungs.forEach(function(rg){
+          if (grantRand() < rg.p) emitRung(pl, rg, pickDay(pl, rg));
+        });
+      }
+    });
+  });
+
+  // Season Pass is not instance-shaped: its packs sit on the season track and are collected as the
+  // player climbs it, so every tier up to the one they reach pays out with certainty. Granting them
+  // on the day that tier is reached (linear through the season) gives real provenance instead of the
+  // blank Source_Detail the old path produced, and keeps the total equal to the track's cs value.
+  var spPacks = pre.spPacks;        // ditto
+  spPacks.forEach(function(tp){
+    for (var t in tp.packs){
+      var n = num(tp.packs[t]);
+      var whole = Math.floor(n);
+      if (n - whole > 1e-12 && grantRand() < (n - whole)) whole += 1;
+      expectedTotal += n;
+      // D32 snapped every INSTANCE rung onto a day the player was actually in the game, but the
+      // season-pass track was not instance-shaped and kept its own unsnapped day - so pass envelopes
+      // landed on days the log itself marked '(did not play)'. It showed up as days-with-a-pack
+      // EXCEEDING days-played (0-9 NONPAYER: 3.2 pack days against 2.6 active days), which cannot
+      // happen to a real player. Snap to the nearest attended day, the same way the rungs do.
+      // (2026-09-07.) The tier day is still where the pass was CLIMBED to; only the opening moves.
+      var spDay = spAttendedDay_(tp.day, playedOn);
+      for (var k = 0; k < whole; k++)
+        packOpens.push({ day: spDay, packName: t, source: tp.source || 'Season Pass (Free)',
+                         detail: tp.label });
+    }
+  });
+
+  // ---- ToF: ONE ticket ledger, spent on runs (2026-09-07) ------------------------------------
+  // The ledger was already here, computed inside the day walk below purely to fill the log's
+  // ToF_Ticket_gains column. It is lifted out because the runs have to spend the SAME tickets the
+  // column shows - a run bought out of a population average, next to a column showing this
+  // player's own draw, is two models on one sheet, which is the failure this project keeps
+  // re-finding. One ledger: tickets in, tickets out, both visible.
+  //
+  //   receive   whole tickets from the rungs that fired, plus the smooth stream discretised by a
+  //             carry (daily gift, Season Pass track - no instance structure to draw)
+  //   spend     on a day the player is in the game AND ToF is live: up to Runs per Active Day,
+  //             one ticket each, while the balance allows
+  //   run       banks with probability pBank, and then pays its WHOLE ladder. Envelopes only:
+  //             the coins, boosters and SPT on that ladder are the gains model's ToF row, and
+  //             counting them here as well would double them in any combined view.
+  var tofIncome = pre.tofTickets || [];
+  var tofCumByDay = [], tofRuns = 0, tofBanked = 0, tofBankedInSeason = 0;
+  {
+    var tofRand    = mulberry32((seed | 0) ^ 0x5bf03635);   // settles the trailing fraction
+    var tofRunRand = mulberry32((seed | 0) ^ 0x1f83d9ab);   // its OWN stream: adding runs must not
+                                                            // reshuffle the carry, or every prior
+                                                            // seed would produce a new season
+    var T = pre.tof;
+    var carry = 0, cum = 0, bal = 0, lastPay = 0;
+    for (var td = DAILY_DAYS; td >= 1; td--) if (num(tofIncome[td - 1]) > 0){ lastPay = td; break; }
+    for (var d1 = 1; d1 <= SEASON_DAYS; d1++){
+      var got = num(tofRung[d1 - 1]);                 // drawn rungs: already whole tickets
+      carry += num(tofIncome[d1 - 1]);                // the rest: expectation, carried to whole ones
+      while (carry >= 1){ carry -= 1; got += 1; }
+      // The last day that pays anything settles what is left, so the season total is unbiased
+      // rather than always rounded down: a segment earning 0.9 tickets a season would otherwise
+      // ALWAYS show 0, which is a different claim from "usually none, sometimes one".
+      if (d1 === lastPay && carry > 1e-12 && tofRand() < carry){ got += 1; carry = 0; }
+      cum += got; bal += got;
+
+      if (T && T.runsPerDay > 0 && playedOn[d1] && T.live[d1]){
+        var nRuns = Math.min(T.runsPerDay, Math.floor(bal / T.perRun));
+        for (var rn = 0; rn < nRuns; rn++){
+          bal -= T.perRun; tofRuns++;
+          // a-priori expectation for the tally's 'Expected Packs', conditional on the runs this
+          // player could afford - the same basis the rung expectations above are counted on
+          if (T.anyPacks)
+            for (var te in T.packs) expectedTotal += T.pBank * T.packs[te];
+          if (!(tofRunRand() < T.pBank)) continue;    // met a Pig and stopped: the pot is LOST
+          tofBanked++;
+          if (T.ticketsBack > 0){ bal += T.ticketsBack; cum += T.ticketsBack; }
+          // D26: after the album closes there is nowhere to put a card, so envelopes stop. The
+          // TICKETS above do not - ToF is always-on and has no relationship to the album season.
+          if (SEASON_CUTOFF && d1 > SEASON_LAST_DAY) continue;
+          tofBankedInSeason++;
+          for (var tp in T.packs)
+            for (var q = 0; q < T.packs[tp]; q++)
+              packOpens.push({ day: d1, packName: tp, source: TOF_CAT,
+                               detail: 'run ' + tofRuns + ', banked at stage ' + T.cashOut });
+        }
+      }
+      tofCumByDay.push(cum);
+    }
+    if (T)
+      Logger.log('ToF: ' + tofRuns + ' runs, ' + tofBanked + ' banked (P ' +
+                 (T.pBank * 100).toFixed(2) + '%), ladder ' + JSON.stringify(T.packs) +
+                 ' for ' + seg + ' ' + payer);
+  }
+
+  packOpens.sort(function(a, b){ return a.day - b.day; });
+  Logger.log('Stage 1: ' + packOpens.length + ' packs granted (expected ' +
+             expectedTotal.toFixed(2) + ') for ' + seg + ' ' + payer);
+
+  // === Stage 2: walk every day; open packs, sweep chests, snapshot running totals ============
+  var output = [], daily = [], packIdx = 0;
+  // Two ticket streams feed the ledger above, deliberately. The instance-shaped sources are DRAWN
+  // per rung, so a player who reaches Jigsaw milestone #2 banks the 2 tickets that rung pays - the
+  // whole number, not a slice of the population average. Everything else (daily gift, Season Pass
+  // track) has no per-instance structure to draw, so it keeps the smooth expectation and is
+  // discretised by a carry. Adding them would double-count, which is why pre.tofTickets EXCLUDES
+  // every category the plan covers.
+  var tofCum = 0;
+  for (var day = 1; day <= SEASON_DAYS; day++){
+    var rowsBefore = output.length;
+    tofCum = num(tofCumByDay[day - 1]);
+
+    while (packIdx < packOpens.length && packOpens[packIdx].day === day){
+      var open = packOpens[packIdx];
+      var row = openPack(open.packName, open.source, day, open.detail);
+      if (row){
+        output.push(row);
+        tryBuyChests(day, output);
+      }
+      packIdx++;
+    }
+
+    if (output.length === rowsBefore){
+      var played = playedOn[day];
+      output.push([day, '', played ? '(played, no pack dropped)' : '(did not play)',
+                   played ? sessionNote_() : '', ALBUM_NAMES[albumIdx],
+                   '', '', '', balance, '']);
+    }
+
+    // Stamp the day's ticket count onto every row the day produced - pack opens, the chest opens
+    // tryBuyChests pushed from inside openPack's loop, and the "(did not play)" filler alike. Done
+    // here rather than in openPack because openPack does not know the day's running total and is
+    // called from two places; this way no row can be missed and none can get a stale value.
+    for (var tr = rowsBefore; tr < output.length; tr++) output[tr][LOG_COLS.length - 1] = tofCum;
+
+    // totalNew, not collectionSize: unique cards ACQUIRED across the season, which keeps rising
+    // through an album advance instead of resetting to 0. albumPct passes 100% the same way, so
+    // "finished album 1 and a third into album 2" reads 133%.
+    dailyCloud.push({ packs: packsOpenedTotal, cards: totalCardsDrawn, unique: totalNew,
+                      sets: setsCompletedTotal,
+                      albumPct: (albumIdx + (totalUnique ? collectionSize / totalUnique : 0)) * 100,
+                      balance: balance });
+    daily.push([day, balance, collectionSize,
+                totalUnique ? collectionSize / totalUnique : 0,
+                countKeys_(setsCompletedInAlbum), albumIdx + 1, packsOpenedTotal]);
+  }
+  Logger.log('Stage 2: ' + output.length + ' output rows.');
+  Logger.log('Collection ECO GAINS - set rewards: ' + formatRewards_(setRewardGains) +
+             ' | album rewards: ' + formatRewards_(albumRewardGains));
+
+  return {
+    daily: daily, dailyCloud: dailyCloud, log: output, bySource: bySource,
+    packsOpenedTotal: packsOpenedTotal, packsOpenedByTier: packsOpenedByTier,
+    totalCardsDrawn: totalCardsDrawn, totalNew: totalNew, totalDupes: totalDupes,
+    starsEarned: starsEarned, starsSpent: starsSpent, balance: balance,
+    setsCompletedTotal: setsCompletedTotal, albumIdx: albumIdx,
+    dayAlbumCompleted: dayAlbumCompleted, expectedTotal: expectedTotal,
+    setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
+    collection: collection, collectionSize: collectionSize,
+    tofTickets: tofCum, tofExpected: num(pre.tofExpected),
+    tofRuns: tofRuns, tofBanked: tofBanked, tofBankedInSeason: tofBankedInSeason,
+    // How many of the 33 days this player opened the game. Drawn once per day above (D32) and used
+    // by every instance, so it is the same attendance the packs were granted against - not a
+    // second estimate of it. The cloud sheet divides by this to answer "packs on a day I play".
+    activeDays: (function(){ var n = 0;
+      for (var q = 1; q <= SEASON_DAYS; q++) if (playedOn[q]) n++;
+      return n; })()
+  };
+}
+
+
+function SimulatePackOpenings() {
+  requireCompanions_();
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var simOut = ss.getSheetByName(SHEET_SIM);
+  var album  = ss.getSheetByName(SHEET_ALBUM);
+  if (!simOut) throw new Error("Sheet '" + SHEET_SIM + "' not found.");
+  if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
+
+  var cfg           = loadPackConfig_();
+  var CARDS_PER_SET = cfg.cardsPerSet;
+  var ALBUM_NAMES   = cfg.albumNames;
+
+  // ---- selection: a real (segment x payer) pair, same keys the rest of the engine uses -------
+  var seg   = String(simOut.getRange(SIM_SEG_CELL).getValue()   || '').trim();
+  var payer = String(simOut.getRange(SIM_PAYER_CELL).getValue() || '').trim().toUpperCase();
+  if (!seg)   throw new Error(SHEET_SIM + '!' + SIM_SEG_CELL + ' is empty, pick a player segment.');
+  if (SEG_TO_GAINS[seg] == null)
+    throw new Error('Unknown segment "' + seg + '" (use ' + Object.keys(SEG_TO_GAINS).join(' / ') + ').');
+  if (payer !== 'NONPAYER' && payer !== 'PAYER')
+    throw new Error(SHEET_SIM + '!' + SIM_PAYER_CELL + ' must be NONPAYER or PAYER (got "' + payer + '").');
+
+  var seed = Number(simOut.getRange(SIM_SEED_CELL).getValue());
+  if (!seed || !isFinite(seed)) {
+    seed = Math.floor(Math.random() * 2147483647) + 1;
+    simOut.getRange(SIM_SEED_CELL).setValue(seed);
+  }
+
+  var cat = loadCardCatalog_(cfg, album);
+  var pre = cardSeasonPre_(seg, payer, Context.get());
+  var res = runOneCardSeason_(seg, payer, seed, cfg, cat, pre);
+
+  // unpack into the names the write block below has always used
+  var SEASON_DAYS      = DAILY_DAYS;
+  var daily            = res.daily,              output             = res.log,
+      packsOpenedTotal = res.packsOpenedTotal,   totalCardsDrawn    = res.totalCardsDrawn,
+      totalNew         = res.totalNew,           totalDupes         = res.totalDupes,
+      starsEarned      = res.starsEarned,        starsSpent         = res.starsSpent,
+      balance          = res.balance,            setsCompletedTotal = res.setsCompletedTotal,
+      albumIdx         = res.albumIdx,           dayAlbumCompleted  = res.dayAlbumCompleted,
+      expectedTotal    = res.expectedTotal,      setRewardGains     = res.setRewardGains,
+      albumRewardGains = res.albumRewardGains,   collection         = res.collection;
+  var catalog = cat.catalog, totalUnique = cat.totalUnique;
+  var CARDS_PER_SET = cfg.cardsPerSet, ALBUM_NAMES = cfg.albumNames;
+
+  // --- write running totals ------------------------------------------------------------------
+  simOut.getRange(TOTALS_FIRST_ROW, 1, SEASON_DAYS, daily[0].length).setValues(daily);
+
+  // --- write tally ---------------------------------------------------------------------------
+  var tally = [
+    [packsOpenedTotal], [totalCardsDrawn], [totalNew], [totalDupes],
+    [starsEarned], [starsSpent], [balance], [setsCompletedTotal],
+    [albumIdx + 1], [dayAlbumCompleted || '-'],
+    [Math.round(expectedTotal * 100) / 100], [seg + ' / ' + payer]
+  ];
+  simOut.getRange(TALLY_FIRST_ROW, 2, tally.length, 1).setValues(tally);
+
+  // --- collection eco gains (2026-08-21) ------------------------------------------------------
+  // What the collection feature PAYS OUT, as numbers. Set and album completions grant real currency
+  // from the PackConfig SET REWARDS / ALBUM REWARDS blocks, and that payout previously existed only
+  // as text in a Note cell, so the feature's contribution to the economy could not be read off the
+  // sheet. Written as its OWN block beside the tally rather than appended to it: the tally column
+  // starts at row 42 and the pack log's bar sits at row 55, so four more rows would collide.
+  // Coins get their own cell because that is the currency every other lane is measured in.
+  // SIX rows since D33: the last two are the ToF ticket count this season drew and the expectation
+  // EcoGainsSim carries. One season is one sample from a wide distribution, so the drawn number on
+  // its own invited reading a p90 run as a disagreement between the two models. They sit side by
+  // side now. Still clear of the pack log's bar at row 55.
+  simOut.getRange(REWARD_TALLY_ROW, REWARD_TALLY_COL + 1, 6, 1).setValues([
+    [num(setRewardGains['Coins'])],
+    [formatRewards_(setRewardGains)],
+    [num(albumRewardGains['Coins'])],
+    [formatRewards_(albumRewardGains)],
+    [num(res.tofTickets)],
+    [Math.round(num(res.tofExpected) * 100) / 100]
+  ]);
+
+  // --- write pack log ------------------------------------------------------------------------
+  // STALE-SHEET GUARD. The log clear below wipes LOG_COLS.length columns. If Col_Cards_Daily is still the
+  // pre-2026-08-18 layout its Album/Set labels sit in column J, INSIDE that span, so the clear would
+  // silently destroy the first column of every 3x3 grid — the grids then render 2 wide and nothing
+  // reports an error. Detect it and stop before writing anything.
+  var stale = staleGridColumn_(simOut);
+  if (stale){
+    var msg = 'Col_Cards_Daily is the OLD layout: Album/Set labels found in column ' + stale +
+              ', inside the pack log (A..' + colLetter_(LOG_COLS.length) + '). Re-import ' +
+              'display/SimOutput_v2.xlsx: the log gained a "Source_Detail" column and the grids ' +
+              'moved to ' + colLetter_(LOG_COLS.length + 2) + '. Nothing was written.';
+    Logger.log(msg);
+    SpreadsheetApp.getActive().toast(msg, 'SimulatePackOpenings - STOPPED', 15);
+    throw new Error(msg);
+  }
+  var outCols = LOG_COLS.length;
+  var lastRow = simOut.getLastRow();
+  if (lastRow >= OUT_START_ROW)
+    simOut.getRange(OUT_START_ROW, 1, lastRow - OUT_START_ROW + 1, outCols).clearContent();
+  if (output.length)
+    simOut.getRange(OUT_START_ROW, 1, output.length, outCols).setValues(output);
+
+  writeAlbumGrids_(simOut, catalog, collection, albumIdx, CARDS_PER_SET, ALBUM_NAMES.length);
+
+  // The column count and the last header are in the toast so "is the pasted code current?" is
+  // answerable from one run. All .gs files share one namespace and LOG_COLS is a `var`, so a second
+  // (older) copy of this file in the project silently overrides it by load order - the sim then
+  // writes the OLD number of columns and nothing anywhere says so. If this reads 10 / "Note" while
+  // the repo says 11 / "ToF_Ticket_gains", the project is running someone else's LOG_COLS.
+  SpreadsheetApp.getActive().toast(
+    'log ' + outCols + ' cols, last "' + LOG_COLS[LOG_COLS.length - 1] + '" | ' +
+    'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + '), ' +
+    num(res.tofTickets) + ' ToF tickets (expected ' + num(res.tofExpected).toFixed(1) + '), ' +
+    seg + ' ' + payer + ', ' + ALBUM_NAMES[albumIdx] + ' (catalog ' + totalUnique +
+    ', balance ' + balance + ', seed ' + seed + ') | set rewards ' +
+    formatRewards_(setRewardGains) + ' | album rewards ' + formatRewards_(albumRewardGains),
+    'SimulatePackOpenings', 6);
+  return packsOpenedTotal;
+}
+
+function countKeys_(o){ var n = 0; for (var k in o) if (o[k]) n++; return n; }
+
+// Tally key for a pack's source. A chest's log Source names the reward pack too
+// ('Gold Chest Opened - 5-star Pack'), which in a per-source table would spread the chests across
+// one row per (tier, pack) pair; this collapses them to the tier. THE LOG TEXT IS UNCHANGED - only
+// the tally key is normalised, so the single-player sheet reads exactly as it always has.
+function sourceKey_(source){
+  var s = String(source == null ? '' : source);
+  var i = s.indexOf(' Chest Opened');
+  return (i > 0) ? ('Star Chest (' + s.slice(0, i) + ')') : s;
+}
+
+/** Column LETTER of any 'Album #N' / 'Set #N' label sitting inside the pack log's own columns,
+ *  or '' when the sheet layout is current. Cheap scan of the log block's header-ish rows. */
+function staleGridColumn_(simOut){
+  var n = LOG_COLS.length;
+  var rng = simOut.getRange(OUT_START_ROW - 2, 1, 8, n);
+  var v = rng.getValues();
+  for (var r = 0; r < v.length; r++)
+    for (var c = 0; c < v[r].length; c++){
+      var t = String(v[r][c] == null ? '' : v[r][c]).trim();
+      if (/^(Album|Set)\s*#\s*\d+$/i.test(t)) return colLetter_(c + 1);
+    }
+  return '';
+}
+
+/** Writes a fresh Album/Set scaffold to the right of the pack log and returns its anchors.
+ *  Layout per album:  'Album #N' <album name>
+ *                     'Set #K'   <set name>
+ *                     3 x GRID_DIM rows of grid
+ *  Set numbers and names come from the CATALOG, so the scaffold always matches AlbumConfig.
+ *  Only called when no anchors exist at all: a sheet that still has its labels is never rewritten,
+ *  so a hand-arranged layout survives untouched. */
+function buildGridScaffold_(simOut, catalog, cardsPerSet, albumCount){
+  var setNums = [], seen = {}, nameOf = {};
+  catalog.forEach(function(c){
+    if (c.setNum == null || isNaN(c.setNum) || seen[c.setNum]) return;
+    seen[c.setNum] = true;
+    setNums.push(c.setNum);
+    nameOf[c.setNum] = c.setName || '';
+  });
+  setNums.sort(function(a, b){ return a - b; });
+  if (!setNums.length) return {};
+  var col = gridCol_();                          // shared with the builder's GRID_C0
+  var shape = gridShape_(cardsPerSet);
+  var blank = []; for (var q0 = 0; q0 < shape.w; q0++) blank.push('');
+  var top = OUT_START_ROW - 1;                   // the log's header row; the grid block starts here
+                                                 // so an existing 'Album #1' is overwritten in place
+                                                 // rather than duplicated one row below it
+  var albums = Math.max(1, Math.round(albumCount || 1));
+  var rows = [], anchors = {};
+  for (var a = 1; a <= albums; a++){
+    anchors[a] = {};
+    rows.push(['Album #' + a].concat(blank.slice(1)));
+    for (var i = 0; i < setNums.length; i++){
+      var sn = setNums[i];
+      anchors[a][sn] = { row: top + rows.length, col: col };   // sheet row this Set label lands on
+      rows.push(['Set #' + sn, nameOf[sn]].concat(blank.slice(2)));
+      for (var g = 0; g < shape.h; g++) rows.push(blank.slice());
+    }
+    rows.push(blank.slice());                    // blank spacer between albums
+  }
+  // Clear the whole grid region first, INCLUDING any column between the log and the block. A damaged
+  // sheet keeps a legacy block one column to the left (that is how the live sheet ended up with a
+  // 2-wide grid), and writing the new scaffold beside it would leave two 'Album #1' labels inside
+  // the scan range - after which findGridAnchors_ has two candidate origins and picks by row order.
+  // Cleared to the block's full height so a shrunk scaffold cannot leave ghost rows below it either.
+  var legacyFrom = LOG_COLS.length + 1;
+  var wipeCols = (col + shape.w) - legacyFrom;
+  simOut.getRange(top, legacyFrom, rows.length + GRID_DIM, wipeCols).clearContent();
+  simOut.getRange(top, col, rows.length, shape.w).setValues(rows);
+  Logger.log('Rebuilt grid scaffold: ' + albums + ' albums x ' + setNums.length +
+             ' sets at column ' + colLetter_(col) + ', ' + rows.length + ' rows.');
+  return anchors;
+}
+
+/** Finds "Album #N" and "Set #N" labels in the grid area. Returns { albumNum: { setNum: {row,col} } }
+ *  where each Set is attached to the most recent Album label above-left of it. */
+function findGridAnchors_(simOut) {
+  var range  = simOut.getRange(gridScanRange_());
+  var values = range.getValues();
+  var r0 = range.getRow(), c0 = range.getColumn();
+  var labels = [];
+  values.forEach(function(row, ri){
+    row.forEach(function(cell, ci){
+      if (!cell) return;
+      var s = String(cell).trim(), m;
+      if ((m = s.match(/^Album\s*#\s*(\d+)$/i)))
+        labels.push({ type:'album', num:Number(m[1]), row:r0 + ri, col:c0 + ci });
+      else if ((m = s.match(/^Set\s*#\s*(\d+)$/i)))
+        labels.push({ type:'set', num:Number(m[1]), row:r0 + ri, col:c0 + ci });
+    });
+  });
+  labels.sort(function(a, b){ return a.row - b.row || a.col - b.col; });
+  var anchors = {}, currentAlbum = 1;
+  labels.forEach(function(l){
+    if (l.type === 'album'){ currentAlbum = l.num; return; }
+    anchors[currentAlbum] = anchors[currentAlbum] || {};
+    if (!anchors[currentAlbum][l.num]) anchors[currentAlbum][l.num] = { row: l.row, col: l.col };
+  });
+  return anchors;
+}
+
+/** Paints each labeled Album's 3x3 set grids:
+ *   Album # < current -> every card shown (that album was completed)
+ *   Album # == current -> the in-progress collection
+ *   Album # > current -> blank (not reached) */
+function writeAlbumGrids_(simOut, catalog, collection, albumIdx, cardsPerSet, albumCount) {
+  var anchors = findGridAnchors_(simOut);
+  // Rebuild on PARTIAL damage, not just total absence. Checking only for "no anchors at all" meant a
+  // scaffold missing a few 'Set #N' labels stayed broken forever: the survivors suppressed the
+  // rebuild and the missing sets simply never painted. The check is therefore structural - every
+  // album must carry every set in the catalog.
+  var wantSets = {}, nWant = 0;
+  catalog.forEach(function(c){ if (c.setNum != null && !isNaN(c.setNum) && !wantSets[c.setNum]){ wantSets[c.setNum] = 1; nWant++; } });
+  var wantAlbums = Math.max(1, Math.round(albumCount || 1));
+  var complete = Object.keys(anchors).length >= wantAlbums;
+  if (complete){
+    for (var a = 1; a <= wantAlbums && complete; a++){
+      var got = anchors[a];
+      if (!got || Object.keys(got).length < nWant){ complete = false; break; }
+      for (var sn in wantSets) if (!got[sn]){ complete = false; break; }
+    }
+  }
+  if (!complete){
+    // SELF-HEAL. The writer used to give up here, which is how the live sheet ended up showing a
+    // stale 2-column grid with no set headers: the 'Set #N' labels had been cleared at some point
+    // (an older, wider log clear reached the column they lived in), and nothing could ever put them
+    // back because painting only ever wrote INTO labels it found. A missing scaffold is now built
+    // from the catalog itself, so the grids cannot stay broken across runs.
+    Logger.log('Album/Set scaffold missing or incomplete in ' + gridScanRange_() +
+                ' - rebuilding it (' + wantAlbums + ' albums x ' + nWant + ' sets).');
+    anchors = buildGridScaffold_(simOut, catalog, cardsPerSet, albumCount);
+    if (!Object.keys(anchors).length){
+      Logger.log('Could not rebuild the album/set scaffold (no catalog sets).');
+      return;
+    }
+  }
+  var bySet = {};
+  catalog.forEach(function(c){ (bySet[c.setNum] = bySet[c.setNum] || []).push(c); });
+  var full = {};
+  catalog.forEach(function(c){ full[c.key] = true; });
+  var currentAlbumNum = albumIdx + 1;
+
+  Object.keys(anchors).forEach(function(albumNumStr){
+    var albumNum = Number(albumNumStr), use;
+    if (albumNum < currentAlbumNum)       use = full;
+    else if (albumNum === currentAlbumNum) use = collection;
+    else                                   use = {};
+    var setAnchors = anchors[albumNumStr];
+    Object.keys(setAnchors).forEach(function(setNumStr){
+      var setNum = Number(setNumStr), anchor = setAnchors[setNumStr];
+      var cards = bySet[setNum] || [];
+      if (cards.length > cardsPerSet)
+        Logger.log('Set #' + setNum + ' has ' + cards.length + ' cards, clipping to ' + cardsPerSet);
+      // Set NAME beside the 'Set #N' anchor. AlbumConfig has carried a 'Set Name' column all along
+      // ('Skull Isle', ...) and nothing was writing it, so every grid read as an anonymous 'Set #3'.
+      // Written to the RIGHT of the label, never over it: findGridAnchors_ locates grids by that
+      // exact 'Set #N' text, so overwriting it would make the grids unfindable on the next run.
+      var label = cards.length ? cards[0].setName : '';
+      if (label) simOut.getRange(anchor.row, anchor.col + 1).setValue(label);
+      var shape = gridShape_(cardsPerSet), grid = [];
+      for (var gr = 0; gr < shape.h; gr++){
+        var gline = [];
+        for (var gc = 0; gc < shape.w; gc++) gline.push('');
+        grid.push(gline);
+      }
+      cards.slice(0, cardsPerSet).forEach(function(c, i){
+        if (use[c.key]) grid[Math.floor(i / shape.w)][i % shape.w] = c.rarity;
+      });
+      var rng = simOut.getRange(anchor.row + 1, anchor.col, shape.h, shape.w);
+      rng.setValues(grid);
+      rng.setHorizontalAlignment('center');
+    });
+  });
+}
+
+/************************************************************************************************
+ * STOCHASTIC RUN (2026-09-01, D24) — SimulateCardCloud.
+ * ---------------------------------------------------------------------------------------------
+ * SimulatePackOpenings plays ONE player once. That is enough to debug the mechanics and useless
+ * for design questions: a single seed cannot say whether 35 packs is typical or lucky. This runs
+ * N players (default 50) across all 10 segment x payer permutations and reports the DISTRIBUTION.
+ *
+ * Cost. runOneCardSeason_ is pure and cheap; the expensive things are the calendar walk and the
+ * config-sheet reads, so they are hoisted: PackConfig and the catalog once for the whole sweep,
+ * cardSeasonPre_ once per permutation. 500 players therefore cost 10 engine walks, not 500.
+ *
+ * Two output sheets, both written by this function:
+ *   Col_Cards_Cloud   the 33-day cumulative series per metric - p10/p25/p50/p75/p90/MEAN, plus a
+ *                     block of MEANS for every permutation on one axis for cross-segment charts.
+ *   Col_Cards_Totals  the summary tables, and the two input cells.
+ *
+ * SHEET CONTRACT — every block is located by its column-A BAR LABEL at run time, exactly like
+ * loadPackConfig_ does with PackConfig. Row numbers are NOT load-bearing: the builder can move a
+ * block, or a designer can insert a note row, without touching this file. What IS shared with
+ * builders/_build_cardcloud.py is the label text and the column layout below - keep them in step.
+ ************************************************************************************************/
+
+var SHEET_CLOUD  = 'Col_Cards_Cloud';
+var SHEET_TOTALS = 'Col_Cards_Totals';
+
+// 'A. 0' is deliberately absent: data_seg_beh has no row for it, packGrantPlan_ refuses to price
+// reach without behaviour telemetry, and spPackTiers_ now carries the same guard - so it could only
+// ever produce ten columns of zeros that read like a bug.
+var CLOUD_SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+'];
+var CLOUD_PAYERS   = ['NONPAYER', 'PAYER'];
+
+// The six cumulative series. Keys match runOneCardSeason_'s dailyCloud rows.
+var CLOUD_METRICS = [
+  { key: 'packs',    label: 'Packs Opened' },
+  { key: 'cards',    label: 'Cards Drawn' },
+  { key: 'unique',   label: 'Unique Cards' },
+  { key: 'sets',     label: 'Sets Completed' },
+  { key: 'albumPct', label: 'Album %' },
+  { key: 'balance',  label: 'Star Balance' }
+];
+var CLOUD_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'MEAN'];
+
+var CLOUD_DEFAULT_PLAYERS = 50;
+var CLOUD_MAX_PLAYERS     = 500;
+// Apps Script kills a menu run at 6 minutes. Stop early and write what we have rather than dying
+// mid-write and leaving half a sheet that looks like a finished result.
+var CLOUD_TIME_BUDGET_MS  = 300000;
+
+// Input + stamp cells on the two sheets (builders/_build_cardcloud.py writes their labels).
+var CLOUD_PLAYERS_CELL      = 'B2';   // Col_Cards_Totals: players per permutation
+var CLOUD_SEED_CELL         = 'D2';   // Col_Cards_Totals: seed (blank -> generated, written back)
+var CLOUD_TOTALS_STAMP_CELL = 'F2';
+var CLOUD_STAMP_CELL        = 'A2';   // Col_Cards_Cloud run stamp
+
+// Block bar labels. THE SHEET IS SEARCHED FOR THESE, so they must match builders/_build_cardcloud.py.
+var CLOUD_BAR_MEANS = 'MEANS - ALL PERMUTATIONS';
+var CLOUD_BAR_BANDS = 'PER-PERMUTATION BANDS';
+// One band block per permutation, below the bands bar: label row, group row, header row, 33 data
+// rows, one spacer. Only the BAR is located by label; the ten sub-blocks sit at this stride under
+// it, so the builder must reserve the same 10 x CLOUD_BAND_STRIDE rows.
+var CLOUD_BAND_STRIDE = 37;
+var TB = {
+  totals:       'TOTALS (mean per player)',
+  totalsBand:   'TOTALS (p10-p90 across players)',
+  cadence:      'CADENCE (packs per day, three denominators)',
+  ecoTotal:     'ECONOMY IMPACT - TOTAL (mean per player)',
+  ecoSets:      'ECONOMY IMPACT - FROM SET COMPLETIONS',
+  ecoAlbums:    'ECONOMY IMPACT - FROM ALBUM COMPLETIONS',
+  ulMinutes:    'UNLIMITED BOOSTERS IN MINUTES',
+  packsSrc:     'PACKS PER SOURCE (mean)',
+  packsSrcBand: 'PACKS PER SOURCE (p10-p90)',
+  cardsSrc:     'CARDS PER SOURCE (mean)',
+  cardsSrcBand: 'CARDS PER SOURCE (p10-p90)'
+};
+
+// Bar labels this engine has used before. A renamed bar is a lookup MISS, and a miss silently
+// skips the whole block - so an older import keeps working (clamped to the rows it reserves) until
+// the sheet is re-imported. Same idea as TOF_SHEET_NAMES accepting 'ToF' and 'MD'.
+var TB_ALIASES = {};
+TB_ALIASES[TB.cadence] = ['CADENCE (per calendar day, all 33)'];
+
+var TOTALS_ROWS = [
+  'Total Packs Opened', 'Total Cards Drawn', 'Unique Cards', 'Duplicate Cards',
+  'Stars Earned', 'Stars Spent on Chests', 'Final Star Balance', 'Sets Completed',
+  'Album Completion %', 'Albums Completed'
+];
+// 'Packs per day' is per CALENDAR day - all 33, including the days the player never opened the
+// app - which is what makes the permutations comparable. It is NOT what Col_Cards_Daily shows: that
+// log bunches a season's packs onto the four to six days the player attended an event that paid
+// one, so it reads 2-3 packs on a pack day. Same season, denominators 33 and ~5, and the two looked
+// like a 10x contradiction (2026-09-07). The last two rows close that gap on the sheet itself.
+// THREE per-day rates, because "packs per day" has three honest denominators and they differ by
+// ~6x. The 33-day season total is deliberately NOT here - it lives in TOTALS above (user, 2026-09-07:
+// "I only care about how many packs players get per day").
+//   per CALENDAR day   all 33, including days the player never opened the app. The only one that is
+//                      comparable across segments, because it carries their attendance in it.
+//   per ACTIVE day     divided by the days they actually played. This is the pacing number: what a
+//                      player experiences when they show up.
+//   on a PACK day      divided by the days that dropped anything. Packs clump - one attended
+//                      Hatchling instance can drop three at once - so this is what the
+//                      Col_Cards_Daily log reads like, and it is the biggest of the three.
+// Both denominators are printed beside them so the arithmetic can be checked on the sheet.
+var CADENCE_ROWS = ['Packs per calendar day (mean)', 'Packs per calendar day (p10-p90)',
+                    'Packs per ACTIVE day (mean)', 'Packs on a day that has one (mean)',
+                    'Active days (mean, of 33)', 'Days with a pack (mean, of 33)',
+                    'Sets per day (mean)',  'Sets per day (p10-p90)'];
+var UL_ROWS = ['Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb'];
+
+// Rows reserved for the per-source blocks. The SOURCE SET IS DERIVED AT RUN TIME (which sources can
+// pay a pack depends on the calendar and on what is authored on the _v2 ladders), so this file
+// writes those labels; the builder only reserves and styles the area.
+var CLOUD_SRC_ROWS = 30;
+
+// ---------------------------------------------------------------------------------------------
+
+/** All 10 permutations, in sheet column order. */
+function cloudPermutations_(){
+  var out = [];
+  CLOUD_SEGMENTS.forEach(function(seg){
+    CLOUD_PAYERS.forEach(function(payer){
+      out.push({ seg: seg, payer: payer, label: seg + ' ' + payer });
+    });
+  });
+  return out;
+}
+
+/** Linear-interpolated percentile of an ASCENDING array. p in [0,1]. */
+function pctl_(sorted, p){
+  var n = sorted.length;
+  if (!n) return 0;
+  if (n === 1) return sorted[0];
+  var idx = (n - 1) * p, lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+/** {p10,p25,p50,p75,p90,MEAN} over a sample. */
+function stats_(values){
+  var v = values.slice().sort(function(a, b){ return a - b; });
+  var s = 0, i;
+  for (i = 0; i < v.length; i++) s += v[i];
+  return { p10: pctl_(v, 0.10), p25: pctl_(v, 0.25), p50: pctl_(v, 0.50),
+           p75: pctl_(v, 0.75), p90: pctl_(v, 0.90),
+           MEAN: v.length ? s / v.length : 0 };
+}
+
+/** A p10-p90 band as display text. */
+function band_(values, dp){
+  var st = stats_(values), d = (dp == null) ? 1 : dp;
+  return round_(st.p10, d) + ' - ' + round_(st.p90, d);
+}
+function round_(x, dp){
+  var f = Math.pow(10, dp == null ? 2 : dp);
+  return Math.round(num(x) * f) / f;
+}
+
+/**
+ * Seed for player k of permutation p. NOT base+k: mulberry32 seeds that differ by one produce
+ * streams whose first outputs are related, and 500 near-adjacent seeds is exactly the case where
+ * that would show up as structure in the percentiles. Avalanche them instead, so any single player
+ * is still reproducible from (seed, permutation index, player index).
+ */
+function playerSeed_(base, permIdx, k){
+  var x = ((base | 0) ^ Math.imul(permIdx + 1, 0x9E3779B1) ^ Math.imul(k + 1, 0x85EBCA6B)) | 0;
+  x = Math.imul(x ^ (x >>> 16), 0x7FEB352D) | 0;
+  x = Math.imul(x ^ (x >>> 15), 0x846CA68B) | 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x || 1;
+}
+
+/** Row index (1-based) of a block's bar label in column A, or -1. Prefix match at a word boundary,
+ *  same rule as loadPackConfig_ - a renamed heading with a trailing note still resolves. */
+function findBlockRow_(vals, label){
+  var i, cell;
+  for (i = 0; i < vals.length; i++)
+    if (String((vals[i] || [])[0]).trim() === label) return i + 1;
+  for (i = 0; i < vals.length; i++){
+    cell = String((vals[i] || [])[0]).trim();
+    if (cell.length > label.length && cell.indexOf(label) === 0 &&
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+          .indexOf(cell.charAt(label.length)) < 0) return i + 1;
+  }
+  return -1;
+}
+
+/** Aggregate one permutation's N player results. */
+function cloudAggregate_(runs, perm){
+  var i, m, d;
+  var pick = function(fn){ return runs.map(fn); };
+
+  // per-day series: {metricKey: [33][{p10..MEAN}]}
+  var series = {};
+  CLOUD_METRICS.forEach(function(met){
+    var days = [];
+    for (d = 0; d < DAILY_DAYS; d++){
+      var col = [];
+      for (i = 0; i < runs.length; i++) col.push(num(runs[i].dailyCloud[d][met.key]));
+      days.push(stats_(col));
+    }
+    series[met.key] = days;
+  });
+
+  // totals, in TOTALS_ROWS order
+  var totals = [
+    pick(function(r){ return r.packsOpenedTotal; }),
+    pick(function(r){ return r.totalCardsDrawn; }),
+    pick(function(r){ return r.totalNew; }),
+    pick(function(r){ return r.totalDupes; }),
+    pick(function(r){ return r.starsEarned; }),
+    pick(function(r){ return r.starsSpent; }),
+    pick(function(r){ return r.balance; }),
+    pick(function(r){ return r.setsCompletedTotal; }),
+    pick(function(r){ return r.dailyCloud[DAILY_DAYS - 1].albumPct; }),
+    pick(function(r){ return r.albumIdx; })          // albums FINISHED, not the tier reached
+  ];
+
+  var perDayPacks = pick(function(r){ return r.packsOpenedTotal / DAILY_DAYS; });
+  var perDaySets  = pick(function(r){ return r.setsCompletedTotal / DAILY_DAYS; });
+  // How many of the 33 days actually saw a pack. dailyCloud[].packs is CUMULATIVE, so a day counts
+  // when the running total moved. Packs arrive in clumps - one attended instance can drop six at
+  // once - so this is typically 4-6 days out of 33, and it is the denominator Col_Cards_Daily's
+  // log is read with.
+  var perPackDays = pick(function(r){
+    var n = 0, prev = 0;
+    for (var pd = 0; pd < DAILY_DAYS; pd++){
+      var cum = num(r.dailyCloud[pd].packs);
+      if (cum > prev) n++;
+      prev = cum;
+    }
+    return n;
+  });
+  // RATIO OF MEANS, not the mean of per-player ratios: a player who drew no pack at all has no
+  // ratio to average, and dropping them would bias the number upward by exactly the share of
+  // empty seasons. total packs / total pack-days is well defined for the whole cohort.
+  var perActiveDays = pick(function(r){ return num(r.activeDays); });
+  var sumPacks = 0, sumPackDays = 0, sumActive = 0;
+  for (i = 0; i < runs.length; i++){
+    sumPacks += num(runs[i].packsOpenedTotal);
+    sumPackDays += perPackDays[i];
+    sumActive += perActiveDays[i];
+  }
+  var packsPerPackDay   = sumPackDays > 0 ? sumPacks / sumPackDays : 0;
+  var packsPerActiveDay = sumActive   > 0 ? sumPacks / sumActive   : 0;
+
+  // eco gains: mean per player, per resource, from sets / albums / both
+  var eco = { sets: {}, albums: {}, total: {} };
+  REWARD_COLUMNS.forEach(function(rc){
+    var s = 0, a = 0;
+    for (i = 0; i < runs.length; i++){
+      s += num(runs[i].setRewardGains[rc.name]);
+      a += num(runs[i].albumRewardGains[rc.name]);
+    }
+    var n = runs.length || 1;
+    eco.sets[rc.name]   = s / n;
+    eco.albums[rc.name] = a / n;
+    eco.total[rc.name]  = (s + a) / n;
+  });
+
+  // per-source packs / cards, as samples so a band can be taken
+  var bySource = {};
+  for (i = 0; i < runs.length; i++)
+    for (var k in runs[i].bySource)
+      if (!bySource[k]) bySource[k] = { packs: [], cards: [] };
+  Object.keys(bySource).forEach(function(k){
+    for (i = 0; i < runs.length; i++){
+      var e = runs[i].bySource[k];
+      bySource[k].packs.push(e ? e.packs : 0);      // absent = this player got none, not missing
+      bySource[k].cards.push(e ? e.cards : 0);
+    }
+  });
+
+  return { perm: perm, n: runs.length, series: series, totals: totals,
+           perDayPacks: perDayPacks, perDaySets: perDaySets,
+           perPackDays: perPackDays, packsPerPackDay: packsPerPackDay,
+           perActiveDays: perActiveDays, packsPerActiveDay: packsPerActiveDay,
+           eco: eco, bySource: bySource,
+           expectedPacks: runs.length ? runs[0].expectedTotal : 0 };
+}
+
+// ============================== the run ======================================================
+
+function SimulateCardCloud(){
+  requireCompanions_();
+  var t0 = new Date().getTime();
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var cloud  = ss.getSheetByName(SHEET_CLOUD);
+  var totals = ss.getSheetByName(SHEET_TOTALS);
+  var album  = ss.getSheetByName(SHEET_ALBUM);
+  if (!cloud)  throw new Error("Sheet '" + SHEET_CLOUD + "' not found - import display/Col_Cards_Cloud_v1.xlsx.");
+  if (!totals) throw new Error("Sheet '" + SHEET_TOTALS + "' not found - import display/Col_Cards_Totals_v1.xlsx.");
+  if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
+
+  // ---- inputs -------------------------------------------------------------------------------
+  var tVals = totals.getDataRange().getValues();
+  var nPlayers = Math.round(num(totals.getRange(CLOUD_PLAYERS_CELL).getValue()));
+  if (!(nPlayers > 0)) nPlayers = CLOUD_DEFAULT_PLAYERS;
+  if (nPlayers > CLOUD_MAX_PLAYERS) nPlayers = CLOUD_MAX_PLAYERS;
+  var seed = Number(totals.getRange(CLOUD_SEED_CELL).getValue());
+  if (!seed || !isFinite(seed)){
+    seed = Math.floor(Math.random() * 2147483647) + 1;
+    totals.getRange(CLOUD_SEED_CELL).setValue(seed);
+  }
+
+  // ---- hoisted: everything that does not depend on the player ---------------------------------
+  var cfg = loadPackConfig_();
+  var cat = loadCardCatalog_(cfg, album);
+  var ctx = Context.get();
+
+  var perms = cloudPermutations_();
+  var agg = [], stoppedAt = -1, timings = [];
+
+  for (var pi = 0; pi < perms.length; pi++){
+    var elapsed = new Date().getTime() - t0;
+    if (pi > 0 && elapsed + (elapsed / pi) > CLOUD_TIME_BUDGET_MS){
+      stoppedAt = pi;
+      Logger.log('TIME BUDGET: stopping after ' + pi + ' of ' + perms.length +
+                 ' permutations (' + Math.round(elapsed / 1000) + 's used). Lower the player count.');
+      break;
+    }
+    var p = perms[pi], tp = new Date().getTime();
+    var pre = cardSeasonPre_(p.seg, p.payer, ctx);
+    var runs = [];
+    for (var k = 0; k < nPlayers; k++)
+      runs.push(runOneCardSeason_(p.seg, p.payer, playerSeed_(seed, pi, k), cfg, cat, pre));
+    agg.push(cloudAggregate_(runs, p));
+    var ms = new Date().getTime() - tp;
+    timings.push(p.label + ' ' + (ms / 1000).toFixed(1) + 's');
+    Logger.log('  ' + p.label + ': ' + nPlayers + ' players in ' + (ms / 1000).toFixed(1) + 's');
+  }
+
+  writeCloudSheet_(cloud, agg, nPlayers, seed);
+  writeTotalsSheet_(totals, tVals, agg, nPlayers, seed);
+
+  var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
+  var msg = agg.length + ' of ' + perms.length + ' permutations x ' + nPlayers +
+            ' players in ' + secs + 's (seed ' + seed + ')' +
+            (stoppedAt >= 0 ? '  -- STOPPED EARLY on the 6-minute limit, lower B2' : '');
+  Logger.log(msg + ' | ' + timings.join(', '));
+  SpreadsheetApp.getActive().toast(msg, 'SimulateCardCloud', 10);
+  return agg.length;
+}
+
+// ============================== writers ======================================================
+// The ENGINE writes every piece of text on these two sheets - group labels, headers, permutation
+// names, resource names, source names. The builder writes only the formatting, the input cells and
+// the BAR LABELS this file searches for. One shared string per block instead of a whole layout
+// duplicated across two files, which is the drift this project keeps paying for.
+
+/** Col_Cards_Cloud: the MEANS comparison block, then one p10-p90 band block per permutation. */
+function writeCloudSheet_(sh, agg, nPlayers, seed){
+  var vals = sh.getDataRange().getValues();
+  var perms = cloudPermutations_();
+  var d, m, j, s, row, rows, grp, hdr;
+
+  sh.getRange(CLOUD_STAMP_CELL).setValue(
+    nPlayers + ' players x ' + agg.length + ' permutations | seed ' + seed + ' | ' +
+    DAILY_DAYS + '-day cal_new window | ' + stamp_() +
+    '  (every series is a RUNNING TOTAL through that day)');
+
+  // ---- MEANS: Day | metric1 x 10 permutations | metric2 x 10 ... -------------------------------
+  var rMeans = findBlockRow_(vals, CLOUD_BAR_MEANS);
+  if (rMeans < 0) throw new Error("Col_Cards_Cloud has no '" + CLOUD_BAR_MEANS +
+                                  "' bar in column A - re-import display/Col_Cards_Cloud_v1.xlsx.");
+  grp = ['']; hdr = ['Day'];
+  CLOUD_METRICS.forEach(function(met){
+    perms.forEach(function(p, i){ grp.push(i === 0 ? met.label : ''); hdr.push(p.label); });
+  });
+  sh.getRange(rMeans + 1, 1, 1, grp.length).setValues([grp]);
+  sh.getRange(rMeans + 2, 1, 1, hdr.length).setValues([hdr]);
+
+  rows = [];
+  for (d = 0; d < DAILY_DAYS; d++){
+    row = [d + 1];
+    for (m = 0; m < CLOUD_METRICS.length; m++)
+      for (j = 0; j < perms.length; j++)
+        row.push(agg[j] ? round_(agg[j].series[CLOUD_METRICS[m].key][d].MEAN, 2) : '');
+    rows.push(row);
+  }
+  sh.getRange(rMeans + 3, 1, DAILY_DAYS, rows[0].length).setValues(rows);
+
+  // ---- BANDS: one block per permutation, at a fixed stride below the single bands bar -----------
+  var rBands = findBlockRow_(vals, CLOUD_BAR_BANDS);
+  if (rBands < 0) throw new Error("Col_Cards_Cloud has no '" + CLOUD_BAR_BANDS +
+                                  "' bar in column A - re-import display/Col_Cards_Cloud_v1.xlsx.");
+  for (j = 0; j < perms.length; j++){
+    var r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
+    var a = agg[j];
+    sh.getRange(r0, 1).setValue(perms[j].label + (a ? '' : '   (not run)'));
+    grp = ['']; hdr = ['Day'];
+    CLOUD_METRICS.forEach(function(met){
+      CLOUD_STATS.forEach(function(st, i){ grp.push(i === 0 ? met.label : ''); hdr.push(st); });
+    });
+    sh.getRange(r0 + 1, 1, 1, grp.length).setValues([grp]);
+    sh.getRange(r0 + 2, 1, 1, hdr.length).setValues([hdr]);
+    rows = [];
+    for (d = 0; d < DAILY_DAYS; d++){
+      row = [d + 1];
+      for (m = 0; m < CLOUD_METRICS.length; m++){
+        var st = a ? a.series[CLOUD_METRICS[m].key][d] : null;
+        for (s = 0; s < CLOUD_STATS.length; s++)
+          row.push(st ? round_(st[CLOUD_STATS[s]], 2) : '');
+      }
+      rows.push(row);
+    }
+    sh.getRange(r0 + 3, 1, DAILY_DAYS, rows[0].length).setValues(rows);
+  }
+}
+
+/** Col_Cards_Totals: label in column A, one column per permutation from B. */
+function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
+  var perms = cloudPermutations_(), nCols = perms.length;
+
+  sh.getRange(CLOUD_TOTALS_STAMP_CELL).setValue(
+    nPlayers + ' players per permutation | seed ' + seed + ' | ' + stamp_() +
+    '  |  every range is p10-p90 ACROSS PLAYERS, not min-max');
+
+  // Rows available to a block: from its header row to the row before the NEXT bar. A bar is a row
+  // with text in column A and nothing beside it, which is how the builder draws them.
+  function roomFor_(barRow){
+    for (var rr = barRow + 1; rr < tVals.length; rr++){
+      var a = String((tVals[rr] || [])[0] == null ? '' : (tVals[rr] || [])[0]).trim();
+      if (!a) continue;
+      var rest = (tVals[rr] || []).slice(1).filter(function(x){ return x !== '' && x != null; });
+      if (!rest.length) return rr - barRow - 1;          // -1 for the header row
+    }
+    return tVals.length - barRow - 1;
+  }
+
+  function block(label, firstHdr, labels, valueFn, clearRows){
+    var r = findBlockRow_(tVals, label);
+    if (r < 0)
+      (TB_ALIASES[label] || []).forEach(function(alt){
+        if (r < 0) r = findBlockRow_(tVals, alt);
+      });
+    if (r < 0){ Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped."); return; }
+    var hdr = [firstHdr];
+    perms.forEach(function(p){ hdr.push(p.label); });
+    sh.getRange(r + 1, 1, 1, hdr.length).setValues([hdr]);
+    if (clearRows) sh.getRange(r + 2, 1, clearRows, 1 + nCols).clearContent();
+    if (!labels.length) return;
+    // CLAMP. A row list that outgrows what the sheet reserves used to write straight over the next
+    // block's bar, which then made findBlockRow_ miss that block entirely on the following run -
+    // one row added to a *_ROWS constant could quietly delete a whole table. Write what fits and
+    // say what did not, rather than corrupting the sheet. (2026-09-07, when CADENCE_ROWS went from
+    // four rows to six.)
+    var room = roomFor_(r);
+    var use = labels;
+    if (labels.length > room){
+      use = labels.slice(0, Math.max(0, room));
+      Logger.log("Col_Cards_Totals: the '" + label + "' block reserves " + room + " rows but the " +
+                 "engine has " + labels.length + " - dropped: " + labels.slice(room).join(', ') +
+                 ". Re-import display/Col_Cards_Totals_v1.xlsx (it reserves the current layout).");
+      if (!use.length) return;
+    }
+    var grid = use.map(function(lab, i){
+      var line = [lab];
+      for (var j = 0; j < nCols; j++) line.push(agg[j] ? valueFn(agg[j], i, lab) : '');
+      return line;
+    });
+    sh.getRange(r + 2, 1, grid.length, grid[0].length).setValues(grid);
+  }
+
+  block(TB.totals, 'Metric', TOTALS_ROWS,
+        function(a, i){ return round_(stats_(a.totals[i]).MEAN, 2); });
+  block(TB.totalsBand, 'Metric', TOTALS_ROWS,
+        function(a, i){ return band_(a.totals[i], 1); });
+  // BY LABEL, not by row index: CADENCE_ROWS grew from four rows to six on 2026-09-07 and an
+  // index-keyed writer would have silently kept filling the old positions with the wrong metric.
+  block(TB.cadence, 'Metric', CADENCE_ROWS, function(a, i, lab){
+    switch (lab){
+      case 'Packs per calendar day (mean)':        return round_(stats_(a.perDayPacks).MEAN, 3);
+      case 'Packs per calendar day (p10-p90)':     return band_(a.perDayPacks, 3);
+      case 'Packs per ACTIVE day (mean)':          return round_(a.packsPerActiveDay, 2);
+      case 'Packs on a day that has one (mean)':   return round_(a.packsPerPackDay, 2);
+      case 'Active days (mean, of 33)':            return round_(stats_(a.perActiveDays).MEAN, 1);
+      case 'Days with a pack (mean, of 33)':       return round_(stats_(a.perPackDays).MEAN, 1);
+      case 'Sets per day (mean)':                  return round_(stats_(a.perDaySets).MEAN, 3);
+      case 'Sets per day (p10-p90)':               return band_(a.perDaySets, 3);
+    }
+    return '';
+  });
+
+  var resNames = REWARD_COLUMNS.map(function(rc){ return rc.name; });
+  block(TB.ecoTotal,  'Resource', resNames, function(a, i, lab){ return round_(a.eco.total[lab], 2); });
+  block(TB.ecoSets,   'Resource', resNames, function(a, i, lab){ return round_(a.eco.sets[lab], 2); });
+  block(TB.ecoAlbums, 'Resource', resNames, function(a, i, lab){ return round_(a.eco.albums[lab], 2); });
+
+  // ---- unlimited boosters in minutes ----------------------------------------------------------
+  // Column B is an INPUT (minutes per unit): read, never written back as anything but what it held.
+  // Blank -> the minutes cells read '-' rather than a number invented from a default nobody chose.
+  // This is the one block whose permutation columns start at C.
+  var rUL = findBlockRow_(tVals, TB.ulMinutes);
+  if (rUL > 0){
+    var perUnit = UL_ROWS.map(function(_, i){
+      var cell = (tVals[rUL + 1 + i] || [])[1];
+      var x = parseFloat(cell);
+      return (cell !== '' && cell != null && isFinite(x) && x > 0) ? x : null;
+    });
+    var hdrUL = ['Booster', 'Minutes per unit'];
+    perms.forEach(function(p){ hdrUL.push(p.label); });
+    sh.getRange(rUL + 1, 1, 1, hdrUL.length).setValues([hdrUL]);
+    var gridUL = UL_ROWS.map(function(lab, i){
+      var line = [lab, perUnit[i] == null ? '' : perUnit[i]];
+      for (var j = 0; j < nCols; j++)
+        line.push(!agg[j] ? '' :
+                  (perUnit[i] == null ? '-' : round_(num(agg[j].eco.total[lab]) * perUnit[i], 1)));
+      return line;
+    });
+    sh.getRange(rUL + 2, 1, gridUL.length, gridUL[0].length).setValues(gridUL);
+  }
+
+  // ---- per source -----------------------------------------------------------------------------
+  // The source set is derived at run time (which sources can pay a pack depends on the calendar and
+  // on what is authored on the _v2 ladders), so this file owns those labels. Every source that paid
+  // a pack in ANY permutation gets a row in ALL of them: a zero is a finding - Kite at a 0.35
+  // opt-in, or a ladder with no pack typed on it - whereas a missing row reads as a plumbing bug.
+  var srcSet = {};
+  agg.forEach(function(a){ Object.keys(a.bySource).forEach(function(k){ srcSet[k] = true; }); });
+  var srcs = Object.keys(srcSet).sort();
+  if (srcs.length > CLOUD_SRC_ROWS){
+    Logger.log('More pack sources (' + srcs.length + ') than reserved rows (' + CLOUD_SRC_ROWS +
+               ') - the tail is not shown. Widen CLOUD_SRC_ROWS and the builder together.');
+    srcs = srcs.slice(0, CLOUD_SRC_ROWS);
+  }
+  function sample(a, lab, which){
+    return a.bySource[lab] ? a.bySource[lab][which] : zerosN_(a.n);
+  }
+  block(TB.packsSrc, 'Source', srcs,
+        function(a, i, lab){ return round_(stats_(sample(a, lab, 'packs')).MEAN, 2); },
+        CLOUD_SRC_ROWS);
+  block(TB.packsSrcBand, 'Source', srcs,
+        function(a, i, lab){ return band_(sample(a, lab, 'packs'), 0); }, CLOUD_SRC_ROWS);
+  block(TB.cardsSrc, 'Source', srcs,
+        function(a, i, lab){ return round_(stats_(sample(a, lab, 'cards')).MEAN, 2); },
+        CLOUD_SRC_ROWS);
+  block(TB.cardsSrcBand, 'Source', srcs,
+        function(a, i, lab){ return band_(sample(a, lab, 'cards'), 0); }, CLOUD_SRC_ROWS);
+}
+
+function zerosN_(n){ var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }
+function stamp_(){
+  var d = new Date();
+  function p2(x){ return (x < 10 ? '0' : '') + x; }
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' +
+         p2(d.getHours()) + ':' + p2(d.getMinutes());
+}
