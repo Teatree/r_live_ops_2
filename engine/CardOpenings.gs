@@ -588,6 +588,21 @@ function cardSeasonPre_(seg, payer, ctx){
   };
 }
 
+/** Nearest day the player was in the game, searched outward from `day` across the whole window.
+ *  The season-pass track is not an instance, so there is no instance day list to snap within - the
+ *  pass is climbed all season and the envelope is collected the next time they open the app. If the
+ *  player never played at all, the day is returned unchanged (they opened nothing anyway). */
+function spAttendedDay_(day, playedOn){
+  if (playedOn[day]) return day;
+  // DAILY_DAYS, not the caller's local SEASON_DAYS: this is top-level, and reading the alias here
+  // would resolve to nothing.
+  for (var d = 1; d < DAILY_DAYS; d++){
+    if (day + d <= DAILY_DAYS && playedOn[day + d]) return day + d;   // forward first: they collect
+    if (day - d >= 1 && playedOn[day - d]) return day - d;            // it next time they open up
+  }
+  return day;
+}
+
 /** The landing day, moved onto a day the player was actually in the game (D32). A multi-day
  *  instance places a rung by its progress along the requirement axis, which can land on a day this
  *  player did not open the app - the reward would then be logged beside '(did not play)'. Snap to
@@ -1066,8 +1081,15 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
       var whole = Math.floor(n);
       if (n - whole > 1e-12 && grantRand() < (n - whole)) whole += 1;
       expectedTotal += n;
+      // D32 snapped every INSTANCE rung onto a day the player was actually in the game, but the
+      // season-pass track was not instance-shaped and kept its own unsnapped day - so pass envelopes
+      // landed on days the log itself marked '(did not play)'. It showed up as days-with-a-pack
+      // EXCEEDING days-played (0-9 NONPAYER: 3.2 pack days against 2.6 active days), which cannot
+      // happen to a real player. Snap to the nearest attended day, the same way the rungs do.
+      // (2026-09-07.) The tier day is still where the pass was CLIMBED to; only the opening moves.
+      var spDay = spAttendedDay_(tp.day, playedOn);
       for (var k = 0; k < whole; k++)
-        packOpens.push({ day: tp.day, packName: t, source: tp.source || 'Season Pass (Free)',
+        packOpens.push({ day: spDay, packName: t, source: tp.source || 'Season Pass (Free)',
                          detail: tp.label });
     }
   });
@@ -1149,7 +1171,13 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     dayAlbumCompleted: dayAlbumCompleted, expectedTotal: expectedTotal,
     setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
     collection: collection, collectionSize: collectionSize,
-    tofTickets: tofCum, tofExpected: num(pre.tofExpected)
+    tofTickets: tofCum, tofExpected: num(pre.tofExpected),
+    // How many of the 33 days this player opened the game. Drawn once per day above (D32) and used
+    // by every instance, so it is the same attendance the packs were granted against - not a
+    // second estimate of it. The cloud sheet divides by this to answer "packs on a day I play".
+    activeDays: (function(){ var n = 0;
+      for (var q = 1; q <= SEASON_DAYS; q++) if (playedOn[q]) n++;
+      return n; })()
   };
 }
 
@@ -1511,7 +1539,7 @@ var CLOUD_BAND_STRIDE = 37;
 var TB = {
   totals:       'TOTALS (mean per player)',
   totalsBand:   'TOTALS (p10-p90 across players)',
-  cadence:      'CADENCE (per calendar day, all 33)',
+  cadence:      'CADENCE (packs per day, three denominators)',
   ecoTotal:     'ECONOMY IMPACT - TOTAL (mean per player)',
   ecoSets:      'ECONOMY IMPACT - FROM SET COMPLETIONS',
   ecoAlbums:    'ECONOMY IMPACT - FROM ALBUM COMPLETIONS',
@@ -1521,6 +1549,12 @@ var TB = {
   cardsSrc:     'CARDS PER SOURCE (mean)',
   cardsSrcBand: 'CARDS PER SOURCE (p10-p90)'
 };
+
+// Bar labels this engine has used before. A renamed bar is a lookup MISS, and a miss silently
+// skips the whole block - so an older import keeps working (clamped to the rows it reserves) until
+// the sheet is re-imported. Same idea as TOF_SHEET_NAMES accepting 'ToF' and 'MD'.
+var TB_ALIASES = {};
+TB_ALIASES[TB.cadence] = ['CADENCE (per calendar day, all 33)'];
 
 var TOTALS_ROWS = [
   'Total Packs Opened', 'Total Cards Drawn', 'Unique Cards', 'Duplicate Cards',
@@ -1532,8 +1566,20 @@ var TOTALS_ROWS = [
 // log bunches a season's packs onto the four to six days the player attended an event that paid
 // one, so it reads 2-3 packs on a pack day. Same season, denominators 33 and ~5, and the two looked
 // like a 10x contradiction (2026-09-07). The last two rows close that gap on the sheet itself.
-var CADENCE_ROWS = ['Packs per day (mean)', 'Packs per day (p10-p90)',
-                    'Days with a pack (mean)', 'Packs on a day that has one (mean)',
+// THREE per-day rates, because "packs per day" has three honest denominators and they differ by
+// ~6x. The 33-day season total is deliberately NOT here - it lives in TOTALS above (user, 2026-09-07:
+// "I only care about how many packs players get per day").
+//   per CALENDAR day   all 33, including days the player never opened the app. The only one that is
+//                      comparable across segments, because it carries their attendance in it.
+//   per ACTIVE day     divided by the days they actually played. This is the pacing number: what a
+//                      player experiences when they show up.
+//   on a PACK day      divided by the days that dropped anything. Packs clump - one attended
+//                      Hatchling instance can drop three at once - so this is what the
+//                      Col_Cards_Daily log reads like, and it is the biggest of the three.
+// Both denominators are printed beside them so the arithmetic can be checked on the sheet.
+var CADENCE_ROWS = ['Packs per calendar day (mean)', 'Packs per calendar day (p10-p90)',
+                    'Packs per ACTIVE day (mean)', 'Packs on a day that has one (mean)',
+                    'Active days (mean, of 33)', 'Days with a pack (mean, of 33)',
                     'Sets per day (mean)',  'Sets per day (p10-p90)'];
 var UL_ROWS = ['Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb'];
 
@@ -1663,12 +1709,15 @@ function cloudAggregate_(runs, perm){
   // RATIO OF MEANS, not the mean of per-player ratios: a player who drew no pack at all has no
   // ratio to average, and dropping them would bias the number upward by exactly the share of
   // empty seasons. total packs / total pack-days is well defined for the whole cohort.
-  var sumPacks = 0, sumPackDays = 0;
+  var perActiveDays = pick(function(r){ return num(r.activeDays); });
+  var sumPacks = 0, sumPackDays = 0, sumActive = 0;
   for (i = 0; i < runs.length; i++){
     sumPacks += num(runs[i].packsOpenedTotal);
     sumPackDays += perPackDays[i];
+    sumActive += perActiveDays[i];
   }
-  var packsPerPackDay = sumPackDays > 0 ? sumPacks / sumPackDays : 0;
+  var packsPerPackDay   = sumPackDays > 0 ? sumPacks / sumPackDays : 0;
+  var packsPerActiveDay = sumActive   > 0 ? sumPacks / sumActive   : 0;
 
   // eco gains: mean per player, per resource, from sets / albums / both
   var eco = { sets: {}, albums: {}, total: {} };
@@ -1700,6 +1749,7 @@ function cloudAggregate_(runs, perm){
   return { perm: perm, n: runs.length, series: series, totals: totals,
            perDayPacks: perDayPacks, perDaySets: perDaySets,
            perPackDays: perPackDays, packsPerPackDay: packsPerPackDay,
+           perActiveDays: perActiveDays, packsPerActiveDay: packsPerActiveDay,
            eco: eco, bySource: bySource,
            expectedPacks: runs.length ? runs[0].expectedTotal : 0 };
 }
@@ -1855,6 +1905,10 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
 
   function block(label, firstHdr, labels, valueFn, clearRows){
     var r = findBlockRow_(tVals, label);
+    if (r < 0)
+      (TB_ALIASES[label] || []).forEach(function(alt){
+        if (r < 0) r = findBlockRow_(tVals, alt);
+      });
     if (r < 0){ Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped."); return; }
     var hdr = [firstHdr];
     perms.forEach(function(p){ hdr.push(p.label); });
@@ -1891,10 +1945,12 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
   // index-keyed writer would have silently kept filling the old positions with the wrong metric.
   block(TB.cadence, 'Metric', CADENCE_ROWS, function(a, i, lab){
     switch (lab){
-      case 'Packs per day (mean)':                 return round_(stats_(a.perDayPacks).MEAN, 3);
-      case 'Packs per day (p10-p90)':              return band_(a.perDayPacks, 3);
-      case 'Days with a pack (mean)':              return round_(stats_(a.perPackDays).MEAN, 2);
+      case 'Packs per calendar day (mean)':        return round_(stats_(a.perDayPacks).MEAN, 3);
+      case 'Packs per calendar day (p10-p90)':     return band_(a.perDayPacks, 3);
+      case 'Packs per ACTIVE day (mean)':          return round_(a.packsPerActiveDay, 2);
       case 'Packs on a day that has one (mean)':   return round_(a.packsPerPackDay, 2);
+      case 'Active days (mean, of 33)':            return round_(stats_(a.perActiveDays).MEAN, 1);
+      case 'Days with a pack (mean, of 33)':       return round_(stats_(a.perPackDays).MEAN, 1);
       case 'Sets per day (mean)':                  return round_(stats_(a.perDaySets).MEAN, 3);
       case 'Sets per day (p10-p90)':               return band_(a.perDaySets, 3);
     }

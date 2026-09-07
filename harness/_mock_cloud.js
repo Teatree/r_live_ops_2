@@ -290,8 +290,16 @@ function GATES() {
   {
     reset(); setInputs(N, SEED); SimulateCardCloud();
     const T4 = totalsSheet();
-    const rCad = barRow(T4, TB.cadence), rTot = barRow(T4, TB.totals);
-    check('the CADENCE block is found by label', rCad > 0, 'row ' + rCad);
+    // resolve the bar the way the ENGINE does - current label first, then the labels it used to
+    // carry - so this gate keeps working on an older import instead of asserting the newest one
+    const barRowA = (v, label) => {
+      let r = barRow(v, label);
+      (TB_ALIASES[label] || []).forEach(alt => { if (r < 0) r = barRow(v, alt); });
+      return r;
+    };
+    const rCad = barRowA(T4, TB.cadence), rTot = barRow(T4, TB.totals);
+    check('the CADENCE block is found by its label or a previous one', rCad > 0,
+      'row ' + rCad + ' (aliases: ' + (TB_ALIASES[TB.cadence] || []).join(', ') + ')');
 
     const cadIdx = {};
     CADENCE_ROWS.forEach((lab, i) => { cadIdx[lab] = rCad + 1 + i; });
@@ -357,40 +365,60 @@ function GATES() {
         'bar at ' + barRow(totalsSheet(), nextLabel) + ', was ' + rNext);
     }
 
+    // THE THREE DENOMINATORS. Each rate is a RATIO OF MEANS, so rate x its mean day count is
+    // exactly the mean season total - no rounding slack beyond what the sheet prints. That identity
+    // is what makes "packs per day" checkable on the sheet instead of an argument between two
+    // sheets, which is how this started (2026-09-07).
     const iTot = TOTALS_ROWS.indexOf('Total Packs Opened');
-    let worstA = 0, worstB = 0, atA = '', atB = '';
-    perms.forEach((pm, j) => {
-      const c = 1 + j;
-      const total = Number((T4[rTot + 1 + iTot] || [])[c]);
-      const perDay = Number((T4[cadIdx['Packs per day (mean)']] || [])[c]);
-      const gapA = Math.abs(perDay * DAILY_DAYS - total);
-      if (gapA > worstA) { worstA = gapA; atA = pm.label; }
-      if (!haveNew) return;
-      const nDays = Number((T4[cadIdx['Days with a pack (mean)']] || [])[c]);
-      const perPD = Number((T4[cadIdx['Packs on a day that has one (mean)']] || [])[c]);
-      const gapB = Math.abs(nDays * perPD - total);
-      if (gapB > worstB) { worstB = gapB; atB = pm.label; }
-    });
-    // Both sides are rounded for the sheet: packs/day to 3dp (x33 -> up to 0.0165) and the total to
-    // 2dp. Allow exactly that and nothing more.
-    check('Packs per day (mean) x 33 == Total Packs Opened',
-      worstA < 0.025, 'worst ' + worstA.toFixed(4) + (atA ? ' at ' + atA : ''));
-    if (haveNew)
-      check('Days with a pack x Packs on a day that has one == Total Packs Opened',
-        worstB < 0.35, 'worst ' + worstB.toFixed(4) + (atB ? ' at ' + atB : ''));
+    const need = ['Packs per calendar day (mean)', 'Packs per ACTIVE day (mean)',
+                  'Packs on a day that has one (mean)', 'Active days (mean, of 33)',
+                  'Days with a pack (mean, of 33)'];
+    const missing = need.filter(l => CADENCE_ROWS.indexOf(l) < 0);
+    check('every cadence row this gate reads still exists in CADENCE_ROWS',
+      missing.length === 0, missing.length ? 'renamed away: ' + missing.join(', ') : need.length + ' rows');
 
-    // and the new row must be BIGGER than the calendar-day number, or it is not measuring what it
-    // says: packs clump, so a pack day carries several
-    if (haveNew) {
-      let allBigger = true;
+    if (haveNew && !missing.length) {
+      const get = (lab, c) => Number((T4[cadIdx[lab]] || [])[c]);
+      let wCal = 0, wAct = 0, wPack = 0, atW = '';
+      let ordered = true;
       perms.forEach((pm, j) => {
         const c = 1 + j;
-        const perDay = Number((T4[cadIdx['Packs per day (mean)']] || [])[c]);
-        const perPD = Number((T4[cadIdx['Packs on a day that has one (mean)']] || [])[c]);
-        if (!(perPD >= perDay)) allBigger = false;
+        const total = Number((T4[rTot + 1 + iTot] || [])[c]);
+        const cal  = get('Packs per calendar day (mean)', c);
+        const act  = get('Packs per ACTIVE day (mean)', c);
+        const pkd  = get('Packs on a day that has one (mean)', c);
+        const nAct = get('Active days (mean, of 33)', c);
+        const nPkd = get('Days with a pack (mean, of 33)', c);
+        wCal  = Math.max(wCal,  Math.abs(cal * DAILY_DAYS - total));
+        wAct  = Math.max(wAct,  Math.abs(act * nAct - total));
+        wPack = Math.max(wPack, Math.abs(pkd * nPkd - total));
+        // Packs land ONLY on days the player was in the game, and they clump, so the three rates
+        // can only go one way. Not decoration: this caught season-pass envelopes opening on days
+        // the log itself marked '(did not play)' - days-with-a-pack came out ABOVE days-played
+        // (0-9 NONPAYER 3.2 vs 2.6), which no real player can do. Fixed by snapping the pass track
+        // to an attended day the way D32 already snapped the instance rungs.
+        if (!(pkd >= act - 1e-9 && act >= cal - 1e-9)) { ordered = false; atW = pm.label; }
       });
-      check('a pack DAY carries more packs than a calendar day (the whole point of the row)',
-        allBigger);
+      check('packs per CALENDAR day x 33 == Total Packs Opened',
+        wCal < 0.025, 'worst ' + wCal.toFixed(4));
+      check('packs per ACTIVE day x active days == Total Packs Opened',
+        wAct < 0.25, 'worst ' + wAct.toFixed(4));
+      check('packs on a PACK day x days with a pack == Total Packs Opened',
+        wPack < 0.35, 'worst ' + wPack.toFixed(4));
+      check('the three rates are ordered pack-day >= active day >= calendar day',
+        ordered, ordered ? 'on all ' + perms.length + ' permutations' : 'violated at ' + atW);
+
+      // the same rule stated on the day counts, which is where it is legible: a pack cannot drop
+      // on a day nobody played, so pack days can never outnumber active days
+      let daysOk = true, atD = '';
+      perms.forEach((pm, j) => {
+        const c = 1 + j;
+        if (get('Days with a pack (mean, of 33)', c) > get('Active days (mean, of 33)', c) + 1e-9) {
+          daysOk = false; atD = pm.label;
+        }
+      });
+      check('days with a pack never exceed days played', daysOk,
+        daysOk ? 'on all ' + perms.length + ' permutations' : 'violated at ' + atD);
     }
   }
 

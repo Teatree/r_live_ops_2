@@ -30,23 +30,29 @@ ap = argparse.ArgumentParser(description="Dump a workbook to a harness mockdata 
 ap.add_argument('--workbook', help='path to the .xlsx to dump (default: highest-numbered '
                                    'workbooks/NEW_LIVEOPS_CALENDAR_ECO*.xlsx)')
 ap.add_argument('--out', help='output json path (default: harness/_mockdata.json)')
+ap.add_argument('--overlay-into', dest='overlay_into',
+                help='patch the PENDING_IMPORT sheets into an EXISTING dump and exit, without '
+                     'reading a workbook (its source workbook may no longer be on disk)')
 args = ap.parse_args()
 
-if args.workbook:
-    SRC = (args.workbook if os.path.isabs(args.workbook)
-           else os.path.join(HERE, '..', args.workbook))
-    if not os.path.exists(SRC):
-        # also accept a bare filename living in workbooks/
-        alt = os.path.join(HERE, '..', 'workbooks', os.path.basename(args.workbook))
-        if not os.path.exists(alt):
-            raise SystemExit('No such workbook: ' + args.workbook)
-        SRC = alt
-else:
-    books = glob.glob(os.path.join(HERE, '..', 'workbooks', 'NEW_LIVEOPS_CALENDAR_ECO*.xlsx'))
-    if not books:
-        raise SystemExit('No NEW_LIVEOPS_CALENDAR_ECO*.xlsx in workbooks/ — pass --workbook.')
-    books.sort(key=lambda n: int((re.search(r'\((\d+)\)', n) or [0, 0])[1]))
-    SRC = books[-1]
+# --overlay-into needs no workbook at all, so resolving one first would fail on a machine where the
+# ECO lineage has been pruned.
+if args.workbook or not args.overlay_into:
+  if args.workbook:
+      SRC = (args.workbook if os.path.isabs(args.workbook)
+             else os.path.join(HERE, '..', args.workbook))
+      if not os.path.exists(SRC):
+          # also accept a bare filename living in workbooks/
+          alt = os.path.join(HERE, '..', 'workbooks', os.path.basename(args.workbook))
+          if not os.path.exists(alt):
+              raise SystemExit('No such workbook: ' + args.workbook)
+          SRC = alt
+  else:
+      books = glob.glob(os.path.join(HERE, '..', 'workbooks', 'NEW_LIVEOPS_CALENDAR_ECO*.xlsx'))
+      if not books:
+          raise SystemExit('No NEW_LIVEOPS_CALENDAR_ECO*.xlsx in workbooks/ — pass --workbook.')
+      books.sort(key=lambda n: int((re.search(r'\((\d+)\)', n) or [0, 0])[1]))
+      SRC = books[-1]
 
 OUT = ((args.out if os.path.isabs(args.out)
         else os.path.join(HERE, '..', args.out))
@@ -119,7 +125,13 @@ SHEETS = [
 # Col_Cards_Totals (imported as of workbook (4)), so leaving them here made the overlay replace the
 # real sheets - and any formulas added to them - with a builder artefact. Empty is the steady state;
 # add an entry only while a freshly built display sheet has not been imported yet.
-PENDING_IMPORT = {}
+# 2026-09-07: Col_Cards_Totals is BACK here, on its own, because the CADENCE block grew from four
+# rows to eight (three per-day denominators) and the workbook still holds the four-row import. The
+# engine clamps to whatever the sheet reserves, which is correct in the wild but leaves the new rows
+# untested. The overlay lets the harness see the layout the engine writes into. DROP THIS ENTRY once
+# display/Col_Cards_Totals_v1.xlsx has been imported - leaving it in makes the overlay replace the
+# real sheet, and anything typed into it (the 'Minutes per unit' column), with a builder artefact.
+PENDING_IMPORT = {'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
 
 
 def dump_sheet(ws):
@@ -134,6 +146,28 @@ def dump_sheet(ws):
               for m in ws.merged_cells.ranges]
     return {'values': vals, 'merges': merges}
 
+
+# --overlay-into <dump.json>: patch PENDING_IMPORT sheets into an EXISTING dump and exit, without
+# re-reading a workbook. The source workbook of a dump is not always still on disk - the collections
+# lineage is pruned as new exports arrive - and a rebuilt display sheet still has to reach the
+# fixture, or a block the engine just grew stays untested until someone imports it by hand.
+if args.overlay_into:
+    target = args.overlay_into
+    with open(target, encoding='utf-8') as fh:
+        cur = json.load(fh)
+    for name, fname in PENDING_IMPORT.items():
+        src = os.path.join(HERE, '..', 'display', fname)
+        if not os.path.exists(src):
+            print('PENDING_IMPORT source not built yet:', fname)
+            continue
+        pw = openpyxl.load_workbook(src, data_only=True)
+        src_ws = pw[name] if name in pw.sheetnames else pw.worksheets[0]
+        cur[name] = dump_sheet(src_ws)
+        print('OVERLAY %s <- display/%s into %s' % (name, fname, os.path.basename(target)))
+    with open(target, 'w', encoding='utf-8', newline='') as fh:
+        json.dump(cur, fh)
+    print('written', target)
+    sys.exit(0)
 
 wb = openpyxl.load_workbook(SRC, data_only=True)
 out = {}

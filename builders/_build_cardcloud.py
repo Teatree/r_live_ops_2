@@ -36,7 +36,7 @@ SRC_ROWS = 30                                               # == CLOUD_SRC_ROWS
 TB = [                                                       # == TB in the engine, in sheet order
     ('TOTALS (mean per player)', 10),
     ('TOTALS (p10-p90 across players)', 10),
-    ('CADENCE (per calendar day, all 33)', 6),
+    ('CADENCE (packs per day, three denominators)', 8),
     ('ECONOMY IMPACT - TOTAL (mean per player)', 21),
     ('ECONOMY IMPACT - FROM SET COMPLETIONS', 21),
     ('ECONOMY IMPACT - FROM ALBUM COMPLETIONS', 21),
@@ -189,10 +189,11 @@ for label, nrows in TB:
 bar(ws2, r, 'NOTES', 8)
 note(ws2, r + 1, 'Ranges are p10-p90 ACROSS PLAYERS, not min-max: with 50 players the true '
                  'extremes are single outliers that move every run.')
-note(ws2, r + 2, 'Cadence is per CALENDAR day (all 33), including days the player did not play, '
-                 'so the permutations stay comparable. Col_Cards_Daily counts the SAME season over '
-                 'the 4-6 days that actually dropped a pack, which is why its log reads 2-3 packs '
-                 'a day against 0.35 here. "Days with a pack" x "Packs on a day that has one" = '
+note(ws2, r + 2, 'CADENCE gives three per-day rates because "packs per day" has three '
+                 'denominators: all 33 calendar days (comparable across segments, carries '
+                 'attendance in it), the days the player actually played (the pacing number), and '
+                 'the days that dropped anything (what the Col_Cards_Daily log reads like, because '
+                 'packs clump). Both denominators are on the sheet, so each rate x its day count = '
                  'Total Packs Opened, above.')
 note(ws2, r + 3, 'ECONOMY IMPACT is what the collection feature PAYS OUT (SET + ALBUM REWARDS). '
                  'It is not the segment\'s whole economy.')
