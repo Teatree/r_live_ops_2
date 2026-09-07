@@ -457,6 +457,95 @@ function GATES() {
       }));
   }
 
+  // ------------------------------------------- 10b. PACK & CARD MIX per permutation (2026-09-07)
+  // PACKS PER SOURCE answers "how many"; these ten tables answer "of what" - the pack TIER and the
+  // card RARITY on the columns, one table per engagement level and payer flag. They are a breakdown,
+  // so the only property that matters is that they ADD UP to what they break down. Both identities
+  // are exact, not statistical: the same counters produce both numbers in the same run.
+  {
+    reset(); setInputs(N, SEED); SimulateCardCloud();
+    const T6 = totalsSheet();
+    const cfg6 = loadPackConfig_();
+    const rar = cfg6.rarityOrder;
+
+    // every block has to be findable, or a silent skip leaves last run's numbers on the sheet
+    const missing = perms.filter(pm => barRow(T6, TB_MIX_PREFIX + pm.label) < 0).map(pm => pm.label);
+    check('all ' + perms.length + ' PACK & CARD MIX blocks are found by label',
+      missing.length === 0, missing.length ? 'missing: ' + missing.join(', ') : TB_MIX_PREFIX + '*');
+
+    // the blocks must sit BELOW everything that was on the sheet before them: the whole point of
+    // appending was that no existing row moves
+    const rLast = Math.max(barRow(T6, TB.cardsSrcBand), barRow(T6, 'NOTES'));
+    const rFirstMix = barRow(T6, TB_MIX_PREFIX + perms[0].label);
+    check('the mix blocks are appended BELOW the existing sheet',
+      rFirstMix > rLast, 'first mix bar row ' + rFirstMix + ', last pre-existing bar row ' + rLast);
+
+    const rPk = barRow(T6, TB.packsSrc), rCd = barRow(T6, TB.cardsSrc);
+    let worstP = 0, worstC = 0, worstT = 0, atP = '', atC = '', atT = '';
+    let hdrOk = true, rowsSeen = 0;
+
+    perms.forEach((pm, j) => {
+      const r0 = barRow(T6, TB_MIX_PREFIX + pm.label);
+      if (r0 < 0) return;
+      const hdr = (T6[r0] || []).map(x => String(x == null ? '' : x).trim());
+      const want = ['Source'].concat(PACK_RES.map(t => t.replace(' Pack', '')))
+                            .concat(['Packs']).concat(rar).concat(['Cards']);
+      if (hdr.slice(0, want.length).join('|') !== want.join('|')) hdrOk = false;
+      const cPacks = 1 + PACK_RES.length;              // the Packs total column
+      const cCards = cPacks + 1 + rar.length;          // the Cards total column
+
+      // the source rows of PACKS/CARDS PER SOURCE, by label, so a reordering cannot mislead
+      const pkBy = {}, cdBy = {};
+      for (let i = 0; i < CLOUD_SRC_ROWS; i++) {
+        const lp = String((T6[rPk + 1 + i] || [])[0] || '').trim();
+        if (lp) pkBy[lp] = Number((T6[rPk + 1 + i] || [])[1 + j]);
+        const lc = String((T6[rCd + 1 + i] || [])[0] || '').trim();
+        if (lc) cdBy[lc] = Number((T6[rCd + 1 + i] || [])[1 + j]);
+      }
+
+      const totCol = [];
+      for (let i = 0; i < CLOUD_SRC_ROWS + 1; i++) {
+        const row = T6[r0 + 1 + i] || [];
+        const lab = String(row[0] == null ? '' : row[0]).trim();
+        if (!lab) break;
+        if (lab === 'TOTAL') {
+          // the TOTAL row must be the column sums of the rows above it
+          for (let c = 1; c <= cCards; c++) {
+            const gap = Math.abs(Number(row[c]) - (totCol[c] || 0));
+            if (gap > worstT) { worstT = gap; atT = pm.label + ' col ' + c; }
+          }
+          break;
+        }
+        rowsSeen++;
+        // tier columns sum to Packs, and Packs is this source's PACKS PER SOURCE (mean)
+        let sT = 0;
+        for (let c = 1; c <= PACK_RES.length; c++) sT += Number(row[c]);
+        let gp = Math.abs(sT - Number(row[cPacks]));
+        gp = Math.max(gp, Math.abs(Number(row[cPacks]) - num(pkBy[lab])));
+        if (gp > worstP) { worstP = gp; atP = pm.label + ' / ' + lab; }
+        // rarity columns sum to Cards, and Cards is its CARDS PER SOURCE (mean)
+        let sR = 0;
+        for (let c = cPacks + 1; c < cCards; c++) sR += Number(row[c]);
+        let gc = Math.abs(sR - Number(row[cCards]));
+        gc = Math.max(gc, Math.abs(Number(row[cCards]) - num(cdBy[lab])));
+        if (gc > worstC) { worstC = gc; atC = pm.label + ' / ' + lab; }
+        for (let c = 1; c <= cCards; c++) totCol[c] = (totCol[c] || 0) + Number(row[c]);
+      }
+    });
+
+    check('mix headers are the pack tiers and the live rarity names', hdrOk,
+      'tiers ' + PACK_RES.length + ', rarities ' + rar.join('/'));
+    check('the mix tables actually filled', rowsSeen > 0,
+      rowsSeen + ' source rows across ' + perms.length + ' blocks');
+    // every cell is rounded to 2dp for the sheet, so a 13-term sum can drift by 13 * 0.005
+    check('tier columns sum to Packs, and Packs matches PACKS PER SOURCE',
+      worstP < 0.07, 'worst ' + worstP.toFixed(4) + (atP ? ' at ' + atP : ''));
+    check('rarity columns sum to Cards, and Cards matches CARDS PER SOURCE',
+      worstC < 0.07, 'worst ' + worstC.toFixed(4) + (atC ? ' at ' + atC : ''));
+    check('the TOTAL row is the sum of the source rows above it',
+      worstT < 0.35, 'worst ' + worstT.toFixed(4) + (atT ? ' at ' + atT : ''));
+  }
+
   // ---------------------------------------------------------------- 11. namespace hygiene
   {
     const files = fs.readdirSync(path.join(__dirname, '..', 'engine'))

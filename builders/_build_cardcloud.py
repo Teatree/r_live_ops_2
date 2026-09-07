@@ -48,6 +48,15 @@ TB = [                                                       # == TB in the engi
 ]
 UL_BLOCK = 'UNLIMITED BOOSTERS IN MINUTES'                   # the one block with an input column
 
+# PACK & CARD MIX — one block per permutation, appended BELOW everything else including NOTES, so
+# adding them moves no existing row by even one (user, 2026-09-07: "just add at the bottom instead
+# of changing any ordering"). == TB_MIX_PREFIX in engine/CardOpenings.gs.
+TB_MIX_PREFIX = 'PACK & CARD MIX - '
+MIX_TIERS = 6           # 1-star .. 6-star, the PACK_RES width
+MIX_RARITIES = 6        # RARITY DEFINITIONS width; the engine LOGS if the live sheet has more
+MIX_COLS = 1 + MIX_TIERS + 1 + MIX_RARITIES + 1     # Source | 6 tiers | Packs | 6 rarities | Cards
+MIX_ROWS = SRC_ROWS + 1                             # the source rows, plus a TOTAL
+
 F_BAR, F_HDR, F_IN, F_OUT = 'FF000000', 'FFF7CB4D', 'FFFFF2CC', 'FFE2EFDA'
 fill = lambda rgb: PatternFill('solid', fgColor=rgb)
 thin = Side(style='thin')
@@ -205,9 +214,23 @@ note(ws2, r + 6, 'Envelopes are priced off the _v2 ladders ONLY, in the 1-star D
                  'columns. A pack typed on a base sheet, or under any other column heading, moves '
                  'nothing here. On a LEADERBOARD the top rows are ranks 1-3, which a mid segment '
                  'reaches ~5% of the time: a pack put there is worth ~0.006 packs a season.')
+note(ws2, r + 7, 'PACK & CARD MIX, one table per engagement level and payer flag, is BELOW this '
+                 'block. It breaks each source down by pack tier and card rarity; every row adds '
+                 'up to that source PACKS PER SOURCE and CARDS PER SOURCE figures above.')
+r += 9
+
+# ---- PACK & CARD MIX: one block per permutation ------------------------------------------------
+# Ten tables rather than ten more columns: the tier and rarity axes are what these tables are FOR,
+# and a single table carrying permutation x tier x rarity would be 60 columns wide and unreadable.
+for perm in PERMS:
+    bar(ws2, r, TB_MIX_PREFIX + perm, MIX_COLS)
+    hdr_row(ws2, r + 1, MIX_COLS)
+    data_block(ws2, r + 2, MIX_ROWS, MIX_COLS)
+    positions[TB_MIX_PREFIX + perm] = r
+    r += 2 + MIX_ROWS + 1
 
 ws2.column_dimensions['A'].width = 34.0
-for c in range(2, UL_COLS + 1):
+for c in range(2, max(UL_COLS, MIX_COLS) + 1):
     ws2.column_dimensions[CL(c)].width = 15.0
 
 out_totals = os.path.join(DISPLAY, 'Col_Cards_Totals_v1.xlsx')
@@ -218,6 +241,8 @@ print(f'  {BAR_MEANS!r} bar at row {MEANS_BAR}, {DAYS} data rows, {MEANS_COLS} c
 print(f'  {BAR_BANDS!r} bar at row {BANDS_BAR}, {NPERM} blocks x {BAND_STRIDE} rows, {BAND_COLS} cols')
 print(f'  chart prompt at row {PROMPT_R}')
 print('written Col_Cards_Totals_v1.xlsx')
+for perm in PERMS:
+    print("  '%s%s' bar at row %d" % (TB_MIX_PREFIX, perm, positions[TB_MIX_PREFIX + perm]))
 for label, _ in TB:
     print(f'  {label!r} bar at row {positions[label]}')
 print(f'  inputs B2 (players) / D2 (seed)')

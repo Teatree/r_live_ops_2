@@ -943,9 +943,19 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     else if (albumNote)         note = albumNote;
 
     var sk = sourceKey_(source);
-    var bs = bySource[sk] || (bySource[sk] = { packs: 0, cards: 0 });
+    var bs = bySource[sk] || (bySource[sk] = { packs: 0, cards: 0, tiers: {}, rarities: {} });
     bs.packs += 1;
     bs.cards += drawn.length;
+    // Which TIER this source paid, and which RARITIES came out of it. `key` is the normalised pack
+    // name, so '6-star Pack (Paid)' is counted as '6-star Pack' and the columns line up with
+    // PACK_RES. Counted here rather than re-derived from the log afterwards: the log is a reporting
+    // artefact that gets cleared and re-parsed, and re-deriving a number from formatted text is
+    // exactly how two copies of it drift apart.
+    bs.tiers[key] = num(bs.tiers[key]) + 1;
+    for (var di = 0; di < drawn.length; di++){
+      var dr = rarityOf[drawn[di]];
+      if (dr) bs.rarities[dr] = num(bs.rarities[dr]) + 1;
+    }
 
     return [day, packName, source, detail || '', startAlbum,
             drawn.join(', '), newCards.join(', '), dupes.join(', '), balance, note];
@@ -1653,6 +1663,12 @@ var TB = {
 var TB_ALIASES = {};
 TB_ALIASES[TB.cadence] = ['CADENCE (per calendar day, all 33)'];
 
+// One block per permutation, at the BOTTOM of the sheet (user, 2026-09-07: "just add at the bottom
+// instead of changing any ordering"). Nothing above them moves by a single row. The label carries
+// the permutation, so the engine finds each block by scanning column A exactly as it does the rest.
+// Kept in step with builders/_build_cardcloud.py.
+var TB_MIX_PREFIX = 'PACK & CARD MIX - ';
+
 var TOTALS_ROWS = [
   'Total Packs Opened', 'Total Cards Drawn', 'Unique Cards', 'Duplicate Cards',
   'Stars Earned', 'Stars Spent on Chests', 'Final Star Balance', 'Sets Completed',
@@ -1836,11 +1852,23 @@ function cloudAggregate_(runs, perm){
     for (var k in runs[i].bySource)
       if (!bySource[k]) bySource[k] = { packs: [], cards: [] };
   Object.keys(bySource).forEach(function(k){
+    var tSum = {}, rSum = {};
     for (i = 0; i < runs.length; i++){
       var e = runs[i].bySource[k];
       bySource[k].packs.push(e ? e.packs : 0);      // absent = this player got none, not missing
       bySource[k].cards.push(e ? e.cards : 0);
+      if (!e) continue;
+      for (var t in e.tiers)    tSum[t] = num(tSum[t]) + num(e.tiers[t]);
+      for (var rr in e.rarities) rSum[rr] = num(rSum[rr]) + num(e.rarities[rr]);
     }
+    // MEANS over the whole cohort, including the players this source paid nothing - dividing by the
+    // number who happened to get one would report the mean of the lucky, which is a different claim.
+    var nAll = runs.length || 1;
+    var tMean = {}, rMean = {};
+    for (var t2 in tSum) tMean[t2] = tSum[t2] / nAll;
+    for (var r2 in rSum) rMean[r2] = rSum[r2] / nAll;
+    bySource[k].tierMean = tMean;
+    bySource[k].rarityMean = rMean;
   });
 
   return { perm: perm, n: runs.length, series: series, totals: totals,
@@ -1903,7 +1931,7 @@ function SimulateCardCloud(){
   }
 
   writeCloudSheet_(cloud, agg, nPlayers, seed);
-  writeTotalsSheet_(totals, tVals, agg, nPlayers, seed);
+  writeTotalsSheet_(totals, tVals, agg, nPlayers, seed, cfg);
 
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
   var msg = agg.length + ' of ' + perms.length + ' permutations x ' + nPlayers +
@@ -1981,7 +2009,7 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
 }
 
 /** Col_Cards_Totals: label in column A, one column per permutation from B. */
-function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
+function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
   var perms = cloudPermutations_(), nCols = perms.length;
 
   sh.getRange(CLOUD_TOTALS_STAMP_CELL).setValue(
@@ -2109,6 +2137,75 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed){
         CLOUD_SRC_ROWS);
   block(TB.cardsSrcBand, 'Source', srcs,
         function(a, i, lab){ return band_(sample(a, lab, 'cards'), 0); }, CLOUD_SRC_ROWS);
+
+  // ---- PACK & CARD MIX, one block per permutation ---------------------------------------------
+  // PACKS PER SOURCE answers "how many", and until now nothing answered "of what". These tables put
+  // the pack TIER and the card RARITY on the columns, one table per engagement level x payer flag,
+  // so a source that pays six 1-star envelopes is legible next to one that pays a single 5-star.
+  //
+  // The tier columns are PACK_RES, which is the spelling normalizePackKey produces - so the sheet's
+  // '6-star Pack (Paid)' lands in the '6-star' column instead of a seventh one nobody reserved. The
+  // rarity columns come from PackConfig RARITY DEFINITIONS at run time, so renaming a tier on the
+  // sheet renames the column here with no code change.
+  //
+  // Every row reconciles with the blocks above BY CONSTRUCTION: the tier columns sum to Packs, which
+  // is that source's PACKS PER SOURCE (mean); the rarity columns sum to Cards, which is its
+  // CARDS PER SOURCE (mean). Gated, because a breakdown that does not add up to the total it breaks
+  // down is worse than no breakdown.
+  var mixTiers = PACK_RES.slice();
+  var mixRar   = (cfg && cfg.rarityOrder) ? cfg.rarityOrder.slice() : [];
+  if (!mixRar.length)
+    Logger.log('PACK & CARD MIX: PackConfig RARITY DEFINITIONS is empty, so the rarity columns are ' +
+               'blank. The tier columns still fill.');
+  perms.forEach(function(pm, j){
+    var label = TB_MIX_PREFIX + pm.label;
+    var r = findBlockRow_(tVals, label);
+    if (r < 0){
+      Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped. Re-import " +
+                 'display/Col_Cards_Totals_v1.xlsx to add the per-permutation mix tables.');
+      return;
+    }
+    var hdr = ['Source'];
+    mixTiers.forEach(function(t){ hdr.push(t.replace(' Pack', '')); });
+    hdr.push('Packs');
+    mixRar.forEach(function(x){ hdr.push(x); });
+    hdr.push('Cards');
+    sh.getRange(r + 1, 1, 1, hdr.length).setValues([hdr]);
+
+    var a = agg[j];
+    var lines = [], tot = [];
+    for (var z = 0; z < hdr.length - 1; z++) tot.push(0);
+    srcs.forEach(function(lab){
+      var e = a ? a.bySource[lab] : null;
+      var line = [lab], k = 0, pk = 0, cd = 0, v;
+      mixTiers.forEach(function(t){
+        v = (e && e.tierMean) ? num(e.tierMean[t]) : 0;
+        line.push(round_(v, 2)); tot[k++] += v; pk += v;
+      });
+      line.push(round_(pk, 2)); tot[k++] += pk;
+      mixRar.forEach(function(x){
+        v = (e && e.rarityMean) ? num(e.rarityMean[x]) : 0;
+        line.push(round_(v, 2)); tot[k++] += v; cd += v;
+      });
+      line.push(round_(cd, 2)); tot[k++] += cd;
+      lines.push(line);
+    });
+    // A TOTAL row, because the question these tables exist for ("what is the season's mix?") is
+    // asked of the whole calendar at least as often as of one source.
+    lines.push(['TOTAL'].concat(tot.map(function(x){ return round_(x, 2); })));
+
+    // Clear to the reserved height first: a shorter source list must not leave last run's rows
+    // sitting under the new ones, and the clamp below stops the write crossing the next bar.
+    var room = roomFor_(r);
+    sh.getRange(r + 2, 1, Math.max(room, lines.length), hdr.length).clearContent();
+    var use = lines;
+    if (lines.length > room){
+      use = lines.slice(0, Math.max(0, room));
+      Logger.log("Col_Cards_Totals: '" + label + "' reserves " + room + ' rows but there are ' +
+                 lines.length + ' sources plus a TOTAL - re-import the sheet.');
+    }
+    if (use.length) sh.getRange(r + 2, 1, use.length, hdr.length).setValues(use);
+  });
 }
 
 function zerosN_(n){ var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }
