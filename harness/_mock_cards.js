@@ -604,9 +604,13 @@ let firstRun = null;
   const opened = SimulatePackOpenings();
   check('SimulatePackOpenings ran and opened packs', opened > 0, opened + ' packs');
 
-  const tally = {};
-  for (let i = 0; i < 12; i++)
-    tally[data['Col_Cards_Daily'].values[41 + i][0]] = data['Col_Cards_Daily'].values[41 + i][1];
+  const readTally = () => {
+    const t = {};
+    for (let i = 0; i < 12; i++)
+      t[data['Col_Cards_Daily'].values[41 + i][0]] = data['Col_Cards_Daily'].values[41 + i][1];
+    return t;
+  };
+  const tally = readTally();
   console.log('  tally:', JSON.stringify(tally));
 
   check('tally: cards drawn == new + dupes',
@@ -626,11 +630,74 @@ let firstRun = null;
   const tofFlow = (flow.bySource.filter(s => s.cat === 'ToF')[0] || {}).days;   // {cat, days, prov}
   const tofExp = tofFlow ? tofFlow.reduce((s, r) => s + r.reduce((a, b) => a + b, 0), 0) : 0;
   const nonTof = expected - tofExp;
-  check('tally: expected packs is the unrounded flow (non-ToF exact, ToF within 25%)',
-    Math.abs(tally['Expected Packs (fractional)'] - expected) <= Math.max(0.02, 0.25 * tofExp),
-    `${tally['Expected Packs (fractional)']} vs ${f2(expected)} ` +
-    `(non-ToF ${f2(nonTof)}, ToF ${f2(tofExp)} arithmetic vs ` +
-    `${f2(tally['Expected Packs (fractional)'] - nonTof)} played)`);
+
+  // THE TWO MODELS AGREE WHERE THEY MUST, AND DIVERGE WHERE THEY SHOULD (D48, 2026-09-09).
+  // 'Expected Packs (fractional)' is the CARD SIM's expectation and is now computed under the
+  // per-player attendance model: E[reach] across a cohort whose players differ in intensity.
+  // dailyPacksFor_ is the GAINS model and still uses the homogeneous reach. These are no longer the
+  // same number, and no tolerance should be widened to pretend otherwise - reach = 1 - PROD(1-p_d)
+  // is CONCAVE in intensity, so the two are identical on every 1-day instance and the card sim is
+  // strictly lower on every multi-day one. Assert exactly that, three ways.
+  {
+    const modelWas = SEG_ATTENDANCE_MODEL;
+    SEG_ATTENDANCE_MODEL = 'homogeneous';
+    SimulatePackOpenings();
+    const tHom = readTally();
+    SEG_ATTENDANCE_MODEL = modelWas;
+    SimulatePackOpenings();                       // put the sheet back the way the tally above found it
+
+    // (a) with one shared intensity the old identity is exact, so the plumbing is still gated
+    check('tally: under the homogeneous model expected packs IS the gains flow (non-ToF exact, ToF within 25%)',
+      Math.abs(tHom['Expected Packs (fractional)'] - expected) <= Math.max(0.02, 0.25 * tofExp),
+      `${tHom['Expected Packs (fractional)']} vs ${f2(expected)} ` +
+      `(non-ToF ${f2(nonTof)}, ToF ${f2(tofExp)} arithmetic vs ` +
+      `${f2(tHom['Expected Packs (fractional)'] - nonTof)} played)`);
+
+    // (b) MUTATION FIXTURE for the agreement half: a 1-day instance has no concavity to lose, so
+    //     E[reach] over the cohort must equal the homogeneous reach to floating-point.
+    const b = Context.get().ds.beh('10-19', 'NONPAYER');
+    const pWd = Number(b.weekday_active_rate), pWe = Number(b.weekend_active_rate);
+    const curve = attendanceCurve_(b, DAILY_DAYS);
+    const one = [4];                                       // a weekend day; any single day will do
+    const hetOne = reachHet_(one, pWd, pWe, curve, DAILY_DAYS);
+    const homOne = reachHet_(one, pWd, pWe, null, DAILY_DAYS);
+    check('a 1-day instance reaches the same cohort under both attendance models',
+      Math.abs(hetOne - homOne) < 1e-9, `${hetOne.toFixed(6)} vs ${homOne.toFixed(6)}`);
+
+    // (c) MUTATION FIXTURE for the divergence half: widen the same instance and the heterogeneous
+    //     reach must fall BELOW the homogeneous one, by more every day it is widened. A model that
+    //     silently reverted to one shared rate would pass (b) and fail this.
+    // The gap is strictly positive at every multi-day span, and BOTH reaches still rise with
+    // duration. Deliberately NOT "the gap grows with duration" - it does not, and asserting that
+    // would have been a wrong claim that happened to hold for short spans: both curves converge on
+    // 1 as the span covers the window, so the gap peaks in the middle and shrinks back. Measured
+    // here: 0.086 at 2 days, 0.192 at 5, already back to 0.182 at 8.
+    let strict = true, rising = true, shown = [];
+    let prevHet = -1, prevHom = -1;
+    for (const n of [2, 3, 5, 8, 14]) {
+      const days = []; for (let d = 1; d <= n; d++) days.push(d);
+      const het = reachHet_(days, pWd, pWe, curve, DAILY_DAYS);
+      const hom = reachHet_(days, pWd, pWe, null, DAILY_DAYS);
+      if (!(hom - het > 1e-6)) strict = false;
+      if (het < prevHet - 1e-9 || hom < prevHom - 1e-9) rising = false;
+      prevHet = het; prevHom = hom;
+      shown.push(`${n}d ${het.toFixed(4)}<${hom.toFixed(4)}`);
+    }
+    check('a multi-day instance reaches a MIXED cohort strictly less often, both rising with duration',
+      strict && rising, shown.join('  '));
+
+    // (d) the LEVEL is preserved: mixing players changes the spread, never the expected active days
+    let nWe = 0; for (let d = 1; d <= DAILY_DAYS; d++) if (isWeekend_(d)) nWe++;
+    const target = (DAILY_DAYS - nWe) * pWd + nWe * pWe;
+    let acc = 0, M = 2000;
+    for (let k = 0; k < M; k++) {
+      const u = (k + 0.5) / M;
+      const sc = attendanceScale_(pWd, pWe, DAILY_DAYS, curveAt_(curve, u));
+      acc += (DAILY_DAYS - nWe) * Math.min(1, sc * pWd) + nWe * Math.min(1, sc * pWe);
+    }
+    check('the intensity curve preserves the cohort mean active days exactly',
+      Math.abs(acc / M - target) < 0.01, `${(acc / M).toFixed(4)} vs ${target.toFixed(4)} expected`);
+  }
   check('granted packs are within 1 per (source,tier) of the expectation (unbiased rounding)',
     Math.abs(tally['Total Packs Opened'] - expected) <= 18 + tofExp,
     `granted ${tally['Total Packs Opened']} vs expected ${f2(expected)}`);

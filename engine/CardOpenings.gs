@@ -585,17 +585,249 @@ function loadCardCatalog_(cfg, album){
            buildFreshPool: buildFreshPool, poolBreakdown: poolBreakdown };
 }
 
+/************************************************************************************************
+ * PER-PLAYER ATTENDANCE INTENSITY (2026-09-09, D48)
+ * ---------------------------------------------------------------------------------------------
+ * Until now every simulated player in a permutation shared ONE pair of activity rates, so a
+ * cohort's active-day count was Binomial(33, p). At 100+ PAYER that is mean 11.1 with p10-p90 =
+ * 7.6-14.6. data_seg_beh says the real distribution is p25=4, p50=5, p75=18, p90=33 - churners and
+ * everydays, not fifty copies of the average. The model therefore could not produce a hardcore
+ * player AT ALL, and a p98 pack count off that cohort would have been p90 plus card-draw luck.
+ *
+ * So each player draws their OWN intensity: u ~ U(0,1) reads an active-day target off the segment's
+ * percentile curve, and their weekday/weekend rates are scaled to hit it while keeping the measured
+ * weekday:weekend shape. The curve is LEVEL-CORRECTED first, so the cohort's mean active days still
+ * equals data_seg_beh's active_days_mean exactly - shape from the percentiles, level from the mean,
+ * the same division of labour the R ratios use everywhere else in this project.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT DO
+ *   * It does not correlate intensity with OUTCOME. A p98 attender still draws their leaderboard
+ *     rank and their milestone survival from the same segment-wide curves as everyone else. No such
+ *     correlation is measured for any segment (user decision, 2026-09-09), and inventing one would
+ *     put an unmeasured assumption inside every band on both sheets.
+ *   * It does not preserve multi-day REACH, and it cannot. reach = 1 - PROD(1 - p_d) is concave in
+ *     the intensity, so by Jensen a heterogeneous cohort reaches a multi-day instance LESS often
+ *     than a uniform cohort on the same mean: half the players never showing up and half showing up
+ *     every day gives a 5-day instance reach 0.50, where everyone at 50% gives 0.97. The homogeneous
+ *     model - which is what packLane_ and ECOGAINS_SIM still use - therefore OVERSTATES multi-day
+ *     reach, and this one is the more honest number. `expectedTotal` is computed under whichever
+ *     model is running (see reachHet_), so the sim stays internally consistent; the divergence from
+ *     the gains model is measured and logged per permutation rather than left to be discovered.
+ *
+ * SEG_ATTENDANCE_MODEL = 'homogeneous' restores the pre-2026-09-09 behaviour exactly, including the
+ * random stream (the intensity draw is skipped, not drawn-and-ignored).
+ ************************************************************************************************/
+var SEG_ATTENDANCE_MODEL = 'percentile';
+
+/************************************************************************************************
+ * MAX - THE CEILING PLAYER (2026-09-09, D49)
+ * ---------------------------------------------------------------------------------------------
+ * Every other column on Col_Cards_Totals is a measured cohort. This one is a BOUND: the most any
+ * human could extract from this calendar. He is worth having beside the ten real permutations for
+ * one reason - the question "could a whale finish the album" has no answer in a distribution whose
+ * p98 is still an average player having a good month.
+ *
+ * WHAT IS FORCED (user, 2026-09-09), and nothing else:
+ *   attend 1.0     in the game all 33 days, so every instance reaches him and the pass never stalls
+ *   rankTop        first place in every leaderboard instance, and on every Team Event block
+ *   allRungs       every milestone / streak / matchables rung cleared, on every ladder
+ *   optIn 1.0      takes part in everything - which overrides the Kite Festival 0.35 assumption
+ *   fullPass       owns the whole Season Pass track, FREE and PAID (he is a payer)
+ *   tofRow 'MAX'   reads the ToF sheet's own authored MAX row: take-up 1.0, cash-out at stage 60,
+ *                  99 runs an active day, a 100,000-coin wallet. Authored there, not here.
+ *
+ * WHAT IS NOT FORCED. Everything else is still read from a real segment - the config sheets, the
+ * event instances, the accrual curves, the levels and minutes per active day. `seg` is 40-99 PAYER
+ * (user's choice): 40-99 carries the highest measured activity rates of any segment, and reading a
+ * real row is what keeps Max comparable to the column beside him instead of an invented player
+ * whose numbers cannot be traced to anything.
+ *
+ * WHAT MAX IS NOT: a forecast, or a segment. Nobody plays like this, no player population has these
+ * rates, and he is never mixed into the ten permutations - he is only ever his own column. The card
+ * DRAWS are still random for him, so he gets a band like everyone else; the spread in his column is
+ * purely how the cards fell, which is the only thing left that could vary.
+ ************************************************************************************************/
+var PLAYER_PROFILES = {
+  MAX: { label: 'MAX', seg: '40-99', payer: 'PAYER',
+         attend: 1, rankTop: true, allRungs: true, optIn: 1, fullPass: true,
+         // The ToF sheet has carried its own authored 'MAX' segment row since the event was built -
+         // continue take-up 1.0, cash-out stage 60, 99 runs an active day, a 100,000-coin balance
+         // override. Naming that row is strictly better than synthesising the same numbers here:
+         // they stay editable on the sheet, where every other ToF input already lives, and the two
+         // cannot drift apart. Falls back to `seg` when a ToF sheet has no such row.
+         tofRow: 'MAX' }
+};
+
+// Quadrature points used to average reach over the intensity distribution. Midpoint rule; 40 is
+// well past the point where the answer stops moving in the 4th decimal, and it runs once per
+// permutation, not once per player.
+var ATT_QUAD_N = 40;
+
+/** data_seg_beh's active-days percentile anchors as an ascending [[u, days], ...] curve.
+ *  (0, 1) leads it: every player counted in data_seg_beh was active at least one day in the window,
+ *  or they would not be in the population. (1, nDays) closes it. A percentile the sheet does not
+ *  carry is simply absent and the curve interpolates across the gap - which is what makes
+ *  active_days_p95 / active_days_p98 optional rather than load-bearing. */
+function activeDaysAnchors_(b, nDays){
+  var pts = [[0, 1]], seen = {};
+  [['active_days_p25', 0.25], ['active_days_p50', 0.50], ['active_days_p75', 0.75],
+   ['active_days_p90', 0.90], ['active_days_p95', 0.95], ['active_days_p98', 0.98]
+  ].forEach(function(a){
+    var x = num(b[a[0]]);
+    if (!(x > 0) || seen[a[1]]) return;
+    seen[a[1]] = true;
+    pts.push([a[1], Math.min(nDays, x)]);
+  });
+  if (pts.length < 2) return null;                 // no percentile columns at all -> homogeneous
+  pts.push([1, nDays]);
+  // Monotone by construction in the data, but a hand-edited sheet is not. Enforce it rather than
+  // producing a curve that hands a p90 player fewer days than a p50 one.
+  for (var i = 1; i < pts.length; i++)
+    if (pts[i][1] < pts[i - 1][1]) pts[i][1] = pts[i - 1][1];
+  return pts;
+}
+
+/** x at percentile u on a piecewise-linear inverse CDF. */
+function curveAt_(pts, u){
+  if (u <= pts[0][0]) return pts[0][1];
+  for (var i = 1; i < pts.length; i++){
+    if (u > pts[i][0]) continue;
+    var u0 = pts[i - 1][0], x0 = pts[i - 1][1], u1 = pts[i][0], x1 = pts[i][1];
+    return (u1 === u0) ? x1 : x0 + (x1 - x0) * (u - u0) / (u1 - u0);
+  }
+  return pts[pts.length - 1][1];
+}
+
+/** Mean of that curve: the integral of the inverse CDF over u, by trapezoid. Exact for a
+ *  piecewise-linear curve, so this is the cohort's expected active days, not an approximation. */
+function curveMean_(pts){
+  var m = 0;
+  for (var i = 1; i < pts.length; i++)
+    m += (pts[i][0] - pts[i - 1][0]) * (pts[i][1] + pts[i - 1][1]) / 2;
+  return m;
+}
+
+/** LEVEL CORRECTION. The percentile anchors give the right SHAPE but not the right LEVEL: their own
+ *  mean lands 0.3%-4.5% off, because the p90-to-p100 stretch is a guess and p25/p50 are integers in
+ *  a heavily skewed distribution. Scale every anchor by k, solved so the clamped curve's mean hits
+ *  `targetMean` exactly. Shape from the percentiles, level from the anchor - the same division of
+ *  labour the R ratios use everywhere else here.
+ *
+ *  WHICH MEAN IS THE ANCHOR, and why it is not active_days_mean. data_seg_beh carries two measures
+ *  of the same thing and they disagree by ~4% (0-9 NONPAYER: active_days_mean 10.91, but the
+ *  weekday/weekend rates sum to 10.49 over the window). They are computed differently and both are
+ *  flagged as such in sqls/data_seg_beh.sql [F2] - active_days_mean is per-player over a modal
+ *  segment, the rates are ratio-of-sums over player-days. EVERYTHING downstream in this engine is
+ *  built on the rates: reach, the daily allocation, packLane_, the gains model. Anchoring the curve
+ *  to active_days_mean would therefore move the cohort's expected active days by 4% ON TOP of the
+ *  shape change, and the two effects could no longer be told apart. Anchoring to the rates' own sum
+ *  changes exactly ONE thing - the spread - which is the whole point of the model. */
+function levelCorrect_(pts, targetMean, nDays){
+  if (!(targetMean > 0)) return pts;
+  function scaled(k){
+    return pts.map(function(pt){ return [pt[0], Math.max(0, Math.min(nDays, pt[1] * k))]; });
+  }
+  var lo = 0.2, hi = 5, k = 1;
+  // Monotone in k, so bisection converges; 40 halvings is far more precision than the inputs carry.
+  for (var it = 0; it < 40; it++){
+    k = (lo + hi) / 2;
+    if (curveMean_(scaled(k)) < targetMean) lo = k; else hi = k;
+  }
+  return scaled(k);
+}
+
+/** The whole curve for one cohort, or null when the model is off / the sheet has no percentiles. */
+function attendanceCurve_(b, nDays){
+  if (SEG_ATTENDANCE_MODEL !== 'percentile') return null;
+  var pts = activeDaysAnchors_(b, nDays);
+  if (!pts) return null;
+  return levelCorrect_(pts, expectedActiveDays_(b, nDays), nDays);
+}
+
+/** The window's expected active days under the measured rates - Sum over d of p_day. The level the
+ *  whole engine already runs on, and so the level the intensity curve is anchored to. */
+function expectedActiveDays_(b, nDays){
+  var t = windowDayTypes_(nDays);
+  return t.wd * num(b.weekday_active_rate) + t.we * num(b.weekend_active_rate);
+}
+
+/** Weekday/weekend day counts of the window, which never change. (Used by expectedActiveDays_
+ *  above it - function declarations hoist, so the order here is readability, not dependency.) */
+function windowDayTypes_(nDays){
+  var nWe = 0;
+  for (var d = 1; d <= nDays; d++) if (isWeekend_(d)) nWe++;
+  return { we: nWe, wd: nDays - nWe };
+}
+
+/** Scale s such that the window's sum of min(1, s*p_day) equals `target` active days, keeping the
+ *  measured weekday:weekend ratio. The clamp is what makes this a solve rather than a division: a
+ *  p98 player at a 0.37 base rate needs s = 2.7, which would push a 0.9 day past 1. */
+function attendanceScale_(pWd, pWe, nDays, target){
+  var t = windowDayTypes_(nDays);
+  var pmax = Math.max(pWd, pWe);
+  if (!(pmax > 0)) return 1;
+  function daysAt(s){ return t.wd * Math.min(1, s * pWd) + t.we * Math.min(1, s * pWe); }
+  var sFull = 1 / pmax;
+  if (target >= daysAt(sFull)) return sFull;       // asking for more days than the window has
+  var lo = 0, hi = sFull, s = 1;
+  for (var i = 0; i < 40; i++){
+    s = (lo + hi) / 2;
+    if (daysAt(s) < target) lo = s; else hi = s;
+  }
+  return s;
+}
+
+/** E[reach] for one instance over the intensity distribution: the average of 1 - PROD(1 - p_d)
+ *  across the cohort rather than the reach of the average player. This is the number expectedTotal
+ *  must use once players differ, or the sim would report an expectation no cohort it simulates can
+ *  meet. Falls back to the homogeneous reach when the model is off. */
+function reachHet_(days, pWd, pWe, curve, nDays){
+  if (!days || !days.length) return 0;
+  function reachAt(a, b2){
+    var q = 1;
+    for (var i = 0; i < days.length; i++) q *= (1 - (isWeekend_(days[i]) ? b2 : a));
+    return 1 - q;
+  }
+  if (!curve) return reachAt(pWd, pWe);
+  var sum = 0;
+  for (var k = 0; k < ATT_QUAD_N; k++){
+    var s = attendanceScale_(pWd, pWe, nDays, curveAt_(curve, (k + 0.5) / ATT_QUAD_N));
+    sum += reachAt(Math.min(1, s * pWd), Math.min(1, s * pWe));
+  }
+  return sum / ATT_QUAD_N;
+}
+
 /** The per-(segment x payer) work that carries NO randomness: the discrete pack grant plan, the
  *  Season Pass track, and the behaviour rates. packGrantPlan_ and spPackTiers_ walk the calendar and
  *  every config sheet, so calling them per simulated player would multiply the cost of a 50-player
  *  sweep by 50 for an identical result. Nothing in the core mutates what this returns. */
-function cardSeasonPre_(seg, payer, ctx){
+function cardSeasonPre_(seg, payer, ctx, prof){
   ctx = ctx || Context.get();
   var b = ctx.ds.beh(seg, payer);
+  var pWd0 = num(b.weekday_active_rate), pWe0 = num(b.weekend_active_rate);
+  // A profile that forces attendance replaces the measured rates here, so reach, the plan and the
+  // per-day draw all see the same thing. It also has no intensity SPREAD to draw from - a ceiling
+  // player is the top of the distribution, not a sample from it - so the curve is skipped outright.
+  if (prof && prof.attend != null){ pWd0 = num(prof.attend); pWe0 = num(prof.attend); }
+  // The active-day percentile curve this cohort's players are drawn from, level-corrected so their
+  // MEAN active days still equals active_days_mean. null when SEG_ATTENDANCE_MODEL is off or the
+  // sheet carries no percentile columns, in which case everything below behaves exactly as it did.
+  var adCurve = (prof && prof.attend != null) ? null : attendanceCurve_(b, DAILY_DAYS);
+  var plan = packGrantPlan_(seg, payer, ctx, prof);
+  // E[reach] ACROSS the cohort, not the reach of the average player. Attached here rather than in
+  // packGrantPlan_ because that function is shared with dailyPacksFor_ - the gains model must keep
+  // reporting the homogeneous reach it has always reported, and this is the card sim's own view of
+  // the same instance. `attDays` is the instance's real unclamped days, which is what attended()
+  // tests; `reach` beside it stays the gains-model number so the two can be compared.
+  if (adCurve)
+    plan.forEach(function(pl){
+      pl.reachHet = reachHet_(pl.attDays || pl.days, pWd0, pWe0, adCurve, DAILY_DAYS);
+    });
   return {
     ctx:     ctx,
-    plan:    packGrantPlan_(seg, payer, ctx),
-    spPacks: spPackTiers_(seg, payer, ctx),
+    plan:    plan,
+    adCurve: adCurve,
+    spPacks: spPackTiers_(seg, payer, ctx, prof),
     // Per-day ToF_Ticket income from every source EXCEPT ToF itself (tofTicketIncome_ excludes it
     // to avoid re-entering its own budget walk), already weighted by this segment's activity rates
     // - so it is what this player is expected to be paid, not the ladder's face value. Guarded by
@@ -604,7 +836,7 @@ function cardSeasonPre_(seg, payer, ctx){
     // EXCLUDES every category the pack grant plan covers: those are drawn per rung inside the core
     // (D31), and counting them here as well would pay their tickets twice.
     tofTickets: (typeof tofTicketIncome_ === 'function')
-                  ? tofTicketIncome_(seg, payer, ctx, planCats_(packGrantPlan_(seg, payer, ctx))) : null,
+                  ? tofTicketIncome_(seg, payer, ctx, planCats_(plan)) : null,
     // The EXPECTATION the gains model carries for this player, so the sheet can print it beside the
     // count this one season actually drew (D33, 2026-09-03). Tickets arrive in lumps of 2-6 on rungs
     // that fire or do not, and shared attendance (D32) correlates those lumps, so the per-season
@@ -623,8 +855,8 @@ function cardSeasonPre_(seg, payer, ctx){
     // card sim plays it directly instead, and the two finally agree.
     // Null on any workbook whose Apps Script project predates the ToF engine, or whose ToF sheet
     // has no row for this segment; the card sim then behaves exactly as it did before.
-    tof: cardTofConfig_(seg, payer, ctx),
-    pWd:   num(b.weekday_active_rate),    pWe:  num(b.weekend_active_rate),
+    tof: cardTofConfig_(seg, payer, ctx, prof),
+    pWd:   pWd0,                          pWe:  pWe0,
     mins:  num(b.minutes_per_active_day), sess: num(b.sessions_per_active_day),
     lvlsP: num(b.levels_played_per_active_day),
     lvlsC: num(b.levels_completed_per_active_day)
@@ -710,13 +942,18 @@ function walkTofRun_(W, rand, wallet){
  *  to that stage. The card sim multiplies them by DRAWING - all or nothing, the way the event
  *  actually pays (user decision 2026-09-07) - where the gains model multiplies them arithmetically.
  *  Same expectation, and the log gets a real outcome instead of a fraction of an envelope. */
-function cardTofConfig_(seg, payer, ctx){
+function cardTofConfig_(seg, payer, ctx, prof){
   if (typeof tofConfig_ !== 'function' || typeof tofLadderRow_ !== 'function') return null;
   var cfg = tofConfig_();
-  if (!cfg || !cfg.beh || !cfg.beh[seg]) return null;
-  var run = tofRun_(seg, payer, ctx.ds);
+  if (!cfg || !cfg.beh) return null;
+  // A profile may name its own row on the ToF sheet (D49). Everything ToF then comes from that row -
+  // take-up, cash-out stage, runs per day, continue cap, wallet - so the ceiling is authored on the
+  // sheet rather than in this file. Unknown row name, or no profile: the player's real segment.
+  var behSeg = (prof && prof.tofRow && cfg.beh[prof.tofRow]) ? prof.tofRow : seg;
+  if (!cfg.beh[behSeg]) return null;
+  var run = tofRun_(behSeg, payer, ctx.ds);
   if (!run) return null;
-  var cashOut = tofCashOutN_(cfg, seg);
+  var cashOut = tofCashOutN_(cfg, behSeg);
   var lad = tofLadderRow_(cfg, cashOut);
   // FRACTIONAL on purpose since the slot model landed (2026-09-09). A stage that carries an
   // envelope on one of three doors contributes 1/3 of one, so the ladder total is rarely a whole
@@ -734,7 +971,7 @@ function cardTofConfig_(seg, payer, ctx){
   ((ctx.calNewOk && ctx.calNew[TOF_CAT]) || []).forEach(function(inst){
     ((inst && inst.days) || []).forEach(function(d){ if (d >= 1 && d <= DAILY_DAYS) live[d] = 1; });
   });
-  var beh = cfg.beh[seg];
+  var beh = cfg.beh[behSeg];
   // THE ACTUAL RUN (2026-09-09). Everything below `walk` is what the card sim needs to play a run
   // door by door instead of drawing one Bernoulli on pBank and paying the average ladder: the
   // stages with their real doors, the continue ladder, and the wallet percentiles a continue is
@@ -753,7 +990,7 @@ function cardTofConfig_(seg, payer, ctx){
                    // An authored 'Coin Balance override' replaces the measured percentiles, exactly
                    // as it does in the gains model - that is how the MAX ceiling case gets a wallet
                    // no real player has.
-                   balances: (beh.balance > 0) ? [beh.balance] : tofBalances_(seg, payer),
+                   balances: (beh.balance > 0) ? [beh.balance] : tofBalances_(behSeg, payer),
                    payer: String(payer).toUpperCase() === 'PAYER' },
            ticketsBack: num(lad.row[TOF_TICKET]),   // fractional too; settled per banked run
            perRun: (cfg.ticketsPerRun > 0) ? cfg.ticketsPerRun : 1,
@@ -1315,6 +1552,17 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // Its own seeded stream still, so this cannot perturb a card draw.
   var pWd = pre.pWd, pWe = pre.pWe;
   var attRand = mulberry32((seed | 0) ^ 0x9e3779b9);
+  // PER-PLAYER INTENSITY (D48). The intensity draw comes FIRST off this stream, so a player's whole
+  // attendance profile is reproducible from their seed alone - and when the model is off the draw
+  // is skipped rather than drawn-and-discarded, which is what keeps 'homogeneous' bit-identical to
+  // the pre-2026-09-09 engine instead of merely equivalent in distribution.
+  var attTarget = 0;
+  if (pre.adCurve){
+    attTarget = curveAt_(pre.adCurve, attRand());
+    var sAtt = attendanceScale_(pWd, pWe, SEASON_DAYS, attTarget);
+    pWd = Math.min(1, pWd * sAtt);
+    pWe = Math.min(1, pWe * sAtt);
+  }
   var playedOn = [];
   for (var ad = 1; ad <= SEASON_DAYS; ad++)
     playedOn[ad] = attRand() < (isWeekend_(ad) ? pWe : pWd);
@@ -1349,10 +1597,15 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
 
   plan.forEach(function(pl){
     if (pl.noPacks) return;      // kept only for its TICKETS (D31) - it opens no envelope
+    // reachHet when players differ in intensity, pl.reach when they do not. Using pl.reach under
+    // the percentile model would report an expectation the cohort cannot meet: reach is concave in
+    // intensity, so a mixed cohort clears a multi-day instance LESS often than a uniform one on the
+    // same mean (D48). The gap is the gains model's overstatement, and SimulateCardCloud logs it.
+    var rch = (pl.reachHet != null) ? pl.reachHet : pl.reach;
     pl.groups.forEach(function(g){
       g.rungs.forEach(function(rg){
         for (var t in rg.packs)
-          expectedTotal += pl.participation * pl.reach * rg.p * num(rg.packs[t]);
+          expectedTotal += pl.participation * rch * rg.p * num(rg.packs[t]);
       });
     });
   });
@@ -2006,7 +2259,12 @@ var CLOUD_METRICS = [
   { key: 'albumPct', label: 'Album %' },
   { key: 'balance',  label: 'Star Balance' }
 ];
-var CLOUD_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'MEAN'];
+// p95/p98 added 2026-09-09 (user). Each band block therefore goes from 1 + 6x6 = 37 columns to
+// 1 + 6x8 = 49; its ROW height is unchanged, so CLOUD_BAND_STRIDE stays 37 and no block moves.
+var CLOUD_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'p98', 'MEAN'];
+// Below which sample size p98 is the near-max of the cohort rather than a percentile of anything.
+// Not enforced - it only decides whether the run stamp carries the warning.
+var CLOUD_TAIL_MIN_PLAYERS = 200;
 
 var CLOUD_DEFAULT_PLAYERS = 50;
 var CLOUD_MAX_PLAYERS     = 500;
@@ -2022,6 +2280,11 @@ var CLOUD_STAMP_CELL        = 'A2';   // Col_Cards_Cloud run stamp
 
 // Block bar labels. THE SHEET IS SEARCHED FOR THESE, so they must match builders/_build_cardcloud.py.
 var CLOUD_BAR_MEANS = 'MEANS - ALL PERMUTATIONS';
+// The MEANS block's twin, at p98 (2026-09-09). Same shape, same column order, so a chart built on
+// one can be duplicated onto the other: it answers "what does the season look like for the players
+// at the top of each segment" on a single axis, which the per-permutation bands cannot - they put
+// each permutation in its own table.
+var CLOUD_BAR_P98   = 'P98 - ALL PERMUTATIONS';
 var CLOUD_BAR_BANDS = 'PER-PERMUTATION BANDS';
 // One band block per permutation, below the bands bar: label row, group row, header row, 33 data
 // rows, one spacer. Only the BAR is located by label; the ten sub-blocks sit at this stride under
@@ -2100,7 +2363,7 @@ var CLOUD_SRC_ROWS = 30;
 
 // ---------------------------------------------------------------------------------------------
 
-/** All 10 permutations, in sheet column order. */
+/** The 10 MEASURED permutations, in sheet column order. */
 function cloudPermutations_(){
   var out = [];
   CLOUD_SEGMENTS.forEach(function(seg){
@@ -2109,6 +2372,19 @@ function cloudPermutations_(){
     });
   });
   return out;
+}
+
+/** The 10 measured permutations plus the MAX ceiling column (D49) - the Col_Cards_TOTALS axis.
+ *
+ *  Col_Cards_Cloud deliberately does NOT get this column. Its blocks are per-day DISTRIBUTIONS of a
+ *  cohort, and a bound is not a distribution: sitting Max on the same axis as a p10-p90 band invites
+ *  reading him as its top end, which is exactly what he is not. On Col_Cards_Totals he is a column
+ *  of summary numbers next to ten other columns of summary numbers, which is legible. */
+function totalsPermutations_(){
+  var mx = PLAYER_PROFILES.MAX;
+  return cloudPermutations_().concat([
+    { seg: mx.seg, payer: mx.payer, label: mx.label, prof: mx }
+  ]);
 }
 
 /** Linear-interpolated percentile of an ASCENDING array. p in [0,1]. */
@@ -2121,13 +2397,19 @@ function pctl_(sorted, p){
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
 
-/** {p10,p25,p50,p75,p90,MEAN} over a sample. */
+/** {p10,p25,p50,p75,p90,p95,p98,MEAN} over a sample.
+ *  p95 and p98 added 2026-09-09. READ THE SAMPLE SIZE BEFORE READING THEM: pctl_ interpolates
+ *  between order statistics, so at N=50 p98 sits between the 49th and 50th value - it is the
+ *  near-maximum of the cohort, not an estimate of a population percentile, and it moves a lot
+ *  between seeds. The run stamp says so on the sheet. At N=200 the 98th percentile has four
+ *  players above it and starts to mean what it says. */
 function stats_(values){
   var v = values.slice().sort(function(a, b){ return a - b; });
   var s = 0, i;
   for (i = 0; i < v.length; i++) s += v[i];
   return { p10: pctl_(v, 0.10), p25: pctl_(v, 0.25), p50: pctl_(v, 0.50),
-           p75: pctl_(v, 0.75), p90: pctl_(v, 0.90),
+           p75: pctl_(v, 0.75), p90: pctl_(v, 0.90), p95: pctl_(v, 0.95),
+           p98: pctl_(v, 0.98),
            MEAN: v.length ? s / v.length : 0 };
 }
 
@@ -2201,19 +2483,16 @@ function cloudAggregate_(runs, perm){
     pick(function(r){ return r.albumIdx; })          // albums FINISHED, not the tier reached
   ];
 
-  // The 2026-09-09 outcome rows, keyed by the SAME label the totals block asks for. Per-tier chest
-  // counts are built from whatever tiers the runs actually bought, so a config with four tiers or
-  // renamed ones needs no change here either.
+  // The 2026-09-09 outcome rows, keyed by the SAME label the totals block asks for.
+  // The per-tier 'Chests Bought - <tier>' rows that shipped alongside these were REMOVED on
+  // 2026-09-09 (user): chest purchasing still runs and still shows up where it matters - in
+  // 'Stars Spent on Chests', in 'Final Star Balance', and in the extra packs it buys - but the
+  // tier breakdown was reporting the mechanism rather than an outcome. `chestsByTier` is still
+  // carried on the run object for the single-player log; nothing on Col_Cards_Totals reads it.
   var extra = {};
   extra['ToF Runs Played']        = pick(function(r){ return num(r.tofRuns); });
   extra['ToF Runs Banked']        = pick(function(r){ return num(r.tofBanked); });
   extra['ToF Mean Stage Reached'] = pick(function(r){ return num(r.tofStageMean); });
-  var tierSeen = {};
-  for (i = 0; i < runs.length; i++)
-    for (var ct in (runs[i].chestsByTier || {})) tierSeen[ct] = true;
-  Object.keys(tierSeen).forEach(function(t){
-    extra['Chests Bought - ' + t] = pick(function(r){ return num((r.chestsByTier || {})[t]); });
-  });
 
   var perDayPacks = pick(function(r){ return r.packsOpenedTotal / DAILY_DAYS; });
   var perDaySets  = pick(function(r){ return r.setsCompletedTotal / DAILY_DAYS; });
@@ -2282,12 +2561,22 @@ function cloudAggregate_(runs, perm){
     bySource[k].rarityMean = rMean;
   });
 
+  // THE COHORT'S expectation, not player zero's (2026-09-09). expectedTotal is a PER-PLAYER number
+  // - it carries that player's own ToF runs, and since D48 their own attendance intensity too - so
+  // runs[0].expectedTotal was one arbitrary season presented as the model's prediction for all of
+  // them. Under the old homogeneous model it barely varied and the error was invisible; under the
+  // percentile model a low-intensity seed reported 25.8 where the cohort expects 35.8. Averaging is
+  // what makes "granted vs expected" a statement about the cohort the sheet is describing.
+  var expMean = 0;
+  for (i = 0; i < runs.length; i++) expMean += num(runs[i].expectedTotal);
+  expMean = runs.length ? expMean / runs.length : 0;
+
   return { perm: perm, n: runs.length, series: series, totals: totals, extra: extra,
            perDayPacks: perDayPacks, perDaySets: perDaySets,
            perPackDays: perPackDays, packsPerPackDay: packsPerPackDay,
            perActiveDays: perActiveDays, packsPerActiveDay: packsPerActiveDay,
            eco: eco, bySource: bySource,
-           expectedPacks: runs.length ? runs[0].expectedTotal : 0 };
+           expectedPacks: expMean };
 }
 
 // ============================== the run ======================================================
@@ -2319,7 +2608,10 @@ function SimulateCardCloud(){
   var cat = loadCardCatalog_(cfg, album);
   var ctx = Context.get();
 
-  var perms = cloudPermutations_();
+  // The sweep runs the TOTALS axis (10 measured permutations + MAX). writeCloudSheet_ takes the
+  // first ten off the front of the same agg array, so the two sheets cannot disagree about what
+  // "0-9 PAYER" means - there is one run per column, not two.
+  var perms = totalsPermutations_();
   var agg = [], stoppedAt = -1, timings = [];
 
   for (var pi = 0; pi < perms.length; pi++){
@@ -2331,7 +2623,7 @@ function SimulateCardCloud(){
       break;
     }
     var p = perms[pi], tp = new Date().getTime();
-    var pre = cardSeasonPre_(p.seg, p.payer, ctx);
+    var pre = cardSeasonPre_(p.seg, p.payer, ctx, p.prof);
     var runs = [];
     for (var k = 0; k < nPlayers; k++)
       runs.push(runOneCardSeason_(p.seg, p.payer, playerSeed_(seed, pi, k), cfg, cat, pre));
@@ -2370,30 +2662,54 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
   var d, m, j, s, row, rows, grp, hdr;
 
   sh.getRange(CLOUD_STAMP_CELL).setValue(
-    nPlayers + ' players x ' + agg.length + ' permutations | seed ' + seed + ' | ' +
+    nPlayers + ' players x ' + Math.min(agg.length, perms.length) + ' permutations | seed ' +
+    seed + ' | ' +
     DAILY_DAYS + '-day cal_new window | ' + stamp_() +
-    '  (every series is a RUNNING TOTAL through that day)');
+    '  (every series is a RUNNING TOTAL through that day)' +
+    // Said where it will be read, not buried in a note: p98 of 50 samples is the 49th of 50, so it
+    // is the cohort's near-maximum and it moves between seeds. Raising B2 on Col_Cards_Totals is
+    // the fix; the warning disappears on its own once it is high enough.
+    (nPlayers < CLOUD_TAIL_MIN_PLAYERS
+       ? '  --  p95/p98 READ FROM ONLY ' + nPlayers + ' PLAYERS: p98 is the near-max of the ' +
+         'cohort, not a population percentile. Raise B2 on Col_Cards_Totals to ' +
+         CLOUD_TAIL_MIN_PLAYERS + '+ for a stable tail.'
+       : ''));
 
-  // ---- MEANS: Day | metric1 x 10 permutations | metric2 x 10 ... -------------------------------
-  var rMeans = findBlockRow_(vals, CLOUD_BAR_MEANS);
-  if (rMeans < 0) throw new Error("Col_Cards_Cloud has no '" + CLOUD_BAR_MEANS +
-                                  "' bar in column A - re-import display/Col_Cards_Cloud_v1.xlsx.");
-  grp = ['']; hdr = ['Day'];
-  CLOUD_METRICS.forEach(function(met){
-    perms.forEach(function(p, i){ grp.push(i === 0 ? met.label : ''); hdr.push(p.label); });
-  });
-  sh.getRange(rMeans + 1, 1, 1, grp.length).setValues([grp]);
-  sh.getRange(rMeans + 2, 1, 1, hdr.length).setValues([hdr]);
-
-  rows = [];
-  for (d = 0; d < DAILY_DAYS; d++){
-    row = [d + 1];
-    for (m = 0; m < CLOUD_METRICS.length; m++)
-      for (j = 0; j < perms.length; j++)
-        row.push(agg[j] ? round_(agg[j].series[CLOUD_METRICS[m].key][d].MEAN, 2) : '');
-    rows.push(row);
+  // ---- ACROSS-PERMUTATION blocks: Day | metric1 x 10 permutations | metric2 x 10 ... -----------
+  // One statistic, every permutation, on one axis - which is what makes a cross-segment chart
+  // possible. MEANS has always been here; P98 is its twin (2026-09-09), so "the top of each
+  // segment" can be charted the same way the middle already could.
+  function acrossBlock(label, stat, required){
+    var r0 = findBlockRow_(vals, label);
+    if (r0 < 0){
+      if (required)
+        throw new Error("Col_Cards_Cloud has no '" + label +
+                        "' bar in column A - re-import display/Col_Cards_Cloud_v1.xlsx.");
+      Logger.log("Col_Cards_Cloud has no '" + label + "' bar - block skipped. Re-import " +
+                 'display/Col_Cards_Cloud_v1.xlsx to add it.');
+      return false;
+    }
+    var g = [''], h = ['Day'];
+    CLOUD_METRICS.forEach(function(met){
+      perms.forEach(function(p, i){ g.push(i === 0 ? met.label : ''); h.push(p.label); });
+    });
+    sh.getRange(r0 + 1, 1, 1, g.length).setValues([g]);
+    sh.getRange(r0 + 2, 1, 1, h.length).setValues([h]);
+    var out = [];
+    for (var dd = 0; dd < DAILY_DAYS; dd++){
+      var ln = [dd + 1];
+      for (var mm = 0; mm < CLOUD_METRICS.length; mm++)
+        for (var jj = 0; jj < perms.length; jj++)
+          ln.push(agg[jj] ? round_(agg[jj].series[CLOUD_METRICS[mm].key][dd][stat], 2) : '');
+      out.push(ln);
+    }
+    sh.getRange(r0 + 3, 1, DAILY_DAYS, out[0].length).setValues(out);
+    return true;
   }
-  sh.getRange(rMeans + 3, 1, DAILY_DAYS, rows[0].length).setValues(rows);
+  acrossBlock(CLOUD_BAR_MEANS, 'MEAN', true);
+  // NOT required: a workbook whose Col_Cards_Cloud predates this block still runs, it just does not
+  // get the p98 table. Same rule as every other bar on these two sheets.
+  acrossBlock(CLOUD_BAR_P98, 'p98', false);
 
   // ---- BANDS: one block per permutation, at a fixed stride below the single bands bar -----------
   var rBands = findBlockRow_(vals, CLOUD_BAR_BANDS);
@@ -2425,12 +2741,15 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
 
 /** Col_Cards_Totals: label in column A, one column per permutation from B. */
 function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
-  var perms = cloudPermutations_(), nCols = perms.length;
+  var perms = totalsPermutations_(), nCols = perms.length;
   var skipped = [];                     // bars this sheet does not have; returned to the caller
 
   sh.getRange(CLOUD_TOTALS_STAMP_CELL).setValue(
     nPlayers + ' players per permutation | seed ' + seed + ' | ' + stamp_() +
-    '  |  every range is p10-p90 ACROSS PLAYERS, not min-max');
+    '  |  every range is p10-p90 ACROSS PLAYERS, not min-max' +
+    '  |  the MAX column is a CEILING, not a cohort: ' + PLAYER_PROFILES.MAX.seg + ' ' +
+    PLAYER_PROFILES.MAX.payer + ' data with attendance, opt-in, every rank and every milestone ' +
+    'forced to their best - nobody plays like that');
 
   // Rows available to a block: from its header row to the row before the NEXT bar. A bar is a row
   // with text in column A and nothing beside it, which is how the builder draws them.
@@ -2473,14 +2792,23 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
     var hdr = [firstHdr];
     perms.forEach(function(p){ hdr.push(p.label); });
     sh.getRange(r + 1, 1, 1, hdr.length).setValues([hdr]);
-    if (clearRows) sh.getRange(r + 2, 1, clearRows, 1 + nCols).clearContent();
-    if (!labels.length) return;
     // CLAMP. A row list that outgrows what the sheet reserves used to write straight over the next
     // block's bar, which then made findBlockRow_ miss that block entirely on the following run -
     // one row added to a *_ROWS constant could quietly delete a whole table. Write what fits and
     // say what did not, rather than corrupting the sheet. (2026-09-07, when CADENCE_ROWS went from
     // four rows to six.)
     var room = roomFor_(r, labels);
+    // CLEAR THE WHOLE RESERVED HEIGHT, always - not just the blocks that asked for it (2026-09-09).
+    // A row list that SHRINKS left its tail sitting on the sheet, still carrying last run's values
+    // under a label nobody writes any more, which reads exactly like live output. That is what the
+    // three 'Chests Bought - <tier>' rows would have done the moment they were removed: the block
+    // writes 13 rows into a 16-row reservation and rows 19-21 keep yesterday's chest counts for
+    // ever. Clearing to `room` also means a sheet re-import is never needed to drop a row.
+    // EXACTLY `room` rows - never labels.length. Clearing past the room would wipe the next
+    // block's bar, which is the very thing the clamp below exists to prevent (caught by the
+    // under-reserved-block gate the moment this was written as max(room, labels.length)).
+    if (room > 0) sh.getRange(r + 2, 1, room, 1 + nCols).clearContent();
+    if (!labels.length) return;
     var use = labels;
     if (labels.length > room){
       use = labels.slice(0, Math.max(0, room));
@@ -2497,16 +2825,10 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
     sh.getRange(r + 2, 1, grid.length, grid[0].length).setValues(grid);
   }
 
-  // The TOTALS labels are TOTALS_ROWS plus the outcome rows added 2026-09-09: one per authored
-  // chest tier, and the three that describe the played ToF run. The chest tiers are read off
-  // PackConfig rather than hardcoded to Bronze/Silver/Gold - renaming a tier or adding a fourth
-  // then needs no code change, and a tier that is deleted stops producing a row instead of leaving
-  // a stale one. Extra rows are CLAMPED by block() until the sheet reserves them, and it logs which
-  // ones it dropped, so this is safe to ship before Col_Cards_Totals_v1.xlsx is re-imported.
-  var chestTiers = (cfg && cfg.chests ? cfg.chests : []).map(function(c){ return c.tier; });
-  var totalsRows = TOTALS_ROWS
-    .concat(chestTiers.map(function(t){ return 'Chests Bought - ' + t; }))
-    .concat(TOF_TOTALS_ROWS);
+  // The TOTALS labels are TOTALS_ROWS plus the three rows that describe the played ToF run. The
+  // per-chest-tier rows that sat between them were removed on 2026-09-09 (user); block() now clears
+  // its whole reserved height, so they blank themselves on the next run without a sheet edit.
+  var totalsRows = TOTALS_ROWS.concat(TOF_TOTALS_ROWS);
   function totalsValue(a, i, lab){
     if (i < TOTALS_ROWS.length) return round_(stats_(a.totals[i]).MEAN, 2);
     return round_(stats_(a.extra[lab] || []).MEAN, 2);

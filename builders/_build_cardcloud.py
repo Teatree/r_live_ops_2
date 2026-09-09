@@ -24,21 +24,32 @@ PAYERS = ['NONPAYER', 'PAYER']                              # == CLOUD_PAYERS
 PERMS = [f'{s} {p}' for s in SEGMENTS for p in PAYERS]      # 10, in engine column order
 NPERM = len(PERMS)
 
+# MAX — the ceiling player (D49, 2026-09-09). Col_Cards_TOTALS carries an 11th column for him;
+# Col_Cards_Cloud does NOT, because its blocks are per-day distributions and a bound is not one.
+# == PLAYER_PROFILES.MAX.label and totalsPermutations_() in engine/CardOpenings.gs.
+MAX_LABEL = 'MAX'
+TPERMS = PERMS + [MAX_LABEL]                                # the Col_Cards_Totals axis
+NTPERM = len(TPERMS)
+
 METRICS = ['Packs Opened', 'Cards Drawn', 'Unique Cards',
            'Sets Completed', 'Album %', 'Star Balance']     # == CLOUD_METRICS labels
-STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'MEAN']         # == CLOUD_STATS
+# p95/p98 added 2026-09-09 (user). Widens every band block from 37 to 49 columns; the ROW geometry
+# is untouched, so BAND_STRIDE stays 37 and nothing below a band block moves.
+STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'p98', 'MEAN']    # == CLOUD_STATS
 
 BAR_MEANS = 'MEANS - ALL PERMUTATIONS'                      # == CLOUD_BAR_MEANS
+BAR_P98 = 'P98 - ALL PERMUTATIONS'                          # == CLOUD_BAR_P98
 BAR_BANDS = 'PER-PERMUTATION BANDS'                         # == CLOUD_BAR_BANDS
 BAND_STRIDE = 37                                            # == CLOUD_BAND_STRIDE
 SRC_ROWS = 30                                               # == CLOUD_SRC_ROWS
 
-# TOTALS gained six OUTCOME rows on 2026-09-09: one per authored star-chest tier (the end-of-season
-# spend-down), and three describing the ToF run the card sim now PLAYS door by door rather than
-# averaging. The engine builds those labels at run time from PackConfig's chest tiers, so this only
-# has to reserve the room; block() clamps and LOGS when the sheet is short, which is what an
-# un-reimported workbook does until this file is re-run and the sheet re-imported.
-TOTALS_ROWS = 10 + 3 + 3        # 10 metrics + 3 chest tiers + 3 ToF rows
+# TOTALS = the 10 collection metrics plus three rows describing the ToF run the card sim PLAYS door
+# by door rather than averaging. The per-chest-tier rows that briefly sat between them were removed
+# on 2026-09-09 (user): chest buying still runs and still shows in 'Stars Spent on Chests', in
+# 'Final Star Balance' and in the extra packs it buys, but the tier breakdown reported the mechanism
+# rather than an outcome. The engine now CLEARS a block's whole reserved height before writing, so a
+# sheet still carrying the old 16-row reservation blanks the three orphans by itself.
+TOTALS_ROWS = 10 + 3            # 10 metrics + 3 ToF rows
 
 TB = [                                                       # == TB in the engine, in sheet order
     ('TOTALS (mean per player)', TOTALS_ROWS),
@@ -118,8 +129,8 @@ ws = wb.active
 ws.title = 'Col_Cards_Cloud'
 ws.sheet_view.showGridLines = False
 
-MEANS_COLS = 1 + len(METRICS) * NPERM          # 61
-BAND_COLS = 1 + len(METRICS) * len(STATS)      # 37
+MEANS_COLS = 1 + len(METRICS) * NPERM          # 61  (Cloud keeps the 10 measured permutations)
+BAND_COLS = 1 + len(METRICS) * len(STATS)      # 49  (was 37 before p95/p98)
 
 ws['A1'] = 'CARD COLLECTION — STOCHASTIC SIMULATION (per-day distribution)'
 ws['A1'].font = ARIAL(size=14, bold=True)
@@ -133,7 +144,18 @@ for c in range(1, MEANS_COLS + 1):
 hdr_row(ws, MEANS_BAR + 2, MEANS_COLS)
 data_block(ws, MEANS_BAR + 3, DAYS, MEANS_COLS, first_col_left=False)
 
-BANDS_BAR = MEANS_BAR + 3 + DAYS + 1                         # 41
+# The MEANS block's twin at p98 (2026-09-09): same shape, same column order, so a chart built on one
+# duplicates onto the other. It answers "what does the season look like for the players at the top
+# of each segment" on a single axis, which the per-permutation bands cannot.
+P98_BAR = MEANS_BAR + 3 + DAYS + 1
+bar(ws, P98_BAR, BAR_P98, MEANS_COLS)
+note(ws, P98_BAR + 1, '')                                    # group-label row (engine writes)
+for c in range(1, MEANS_COLS + 1):
+    ws.cell(P98_BAR + 1, c).font = ARIAL(size=10, bold=True, color='FF555555')
+hdr_row(ws, P98_BAR + 2, MEANS_COLS)
+data_block(ws, P98_BAR + 3, DAYS, MEANS_COLS, first_col_left=False)
+
+BANDS_BAR = P98_BAR + 3 + DAYS + 1
 bar(ws, BANDS_BAR, BAR_BANDS, BAND_COLS)
 note(ws, BANDS_BAR + 1,
      f'One block per permutation, {BAND_STRIDE} rows apart. Only the bar above is found by label — '
@@ -166,8 +188,8 @@ ws2 = wb2.active
 ws2.title = 'Col_Cards_Totals'
 ws2.sheet_view.showGridLines = False
 
-TOT_COLS = 1 + NPERM                                          # A + 10 permutations
-UL_COLS = 2 + NPERM                                           # A + minutes-per-unit input + 10
+TOT_COLS = 1 + NTPERM                                         # A + 10 permutations + MAX  (B..L)
+UL_COLS = 2 + NTPERM                                          # A + minutes-per-unit input + 11 (C..M)
 
 ws2['A1'] = 'CARD COLLECTION — STOCHASTIC SIMULATION (totals per permutation)'
 ws2['A1'].font = ARIAL(size=14, bold=True)
@@ -224,12 +246,18 @@ note(ws2, r + 6, 'Envelopes are priced off the _v2 ladders ONLY, in the 1-star D
 note(ws2, r + 7, 'PACK & CARD MIX, one table per engagement level and payer flag, is BELOW this '
                  'block. It breaks each source down by pack tier and card rarity; every row adds '
                  'up to that source PACKS PER SOURCE and CARDS PER SOURCE figures above.')
-r += 9
+note(ws2, r + 8, 'The MAX column is a CEILING, not a cohort and not a forecast: 40-99 PAYER data '
+                 'with attendance, opt-in, every finishing rank and every milestone forced to their '
+                 'best, and the whole Season Pass track owned. Nobody plays like that. Its range is '
+                 'still p10-p90 because the card DRAWS stay random - that spread is how the cards '
+                 'fell, nothing else.')
+r += 10
 
 # ---- PACK & CARD MIX: one block per permutation ------------------------------------------------
-# Ten tables rather than ten more columns: the tier and rarity axes are what these tables are FOR,
-# and a single table carrying permutation x tier x rarity would be 60 columns wide and unreadable.
-for perm in PERMS:
+# Eleven tables rather than eleven more columns: the tier and rarity axes are what these tables are
+# FOR, and a single table carrying permutation x tier x rarity would be 66 columns wide and
+# unreadable. MAX gets one too, so the ceiling can be read by tier the same way the cohorts are.
+for perm in TPERMS:
     bar(ws2, r, TB_MIX_PREFIX + perm, MIX_COLS)
     hdr_row(ws2, r + 1, MIX_COLS)
     data_block(ws2, r + 2, MIX_ROWS, MIX_COLS)
@@ -245,10 +273,11 @@ wb2.save(out_totals)
 
 print('written Col_Cards_Cloud_v1.xlsx')
 print(f'  {BAR_MEANS!r} bar at row {MEANS_BAR}, {DAYS} data rows, {MEANS_COLS} cols')
+print(f'  {BAR_P98!r} bar at row {P98_BAR}, {DAYS} data rows, {MEANS_COLS} cols')
 print(f'  {BAR_BANDS!r} bar at row {BANDS_BAR}, {NPERM} blocks x {BAND_STRIDE} rows, {BAND_COLS} cols')
 print(f'  chart prompt at row {PROMPT_R}')
 print('written Col_Cards_Totals_v1.xlsx')
-for perm in PERMS:
+for perm in TPERMS:
     print("  '%s%s' bar at row %d" % (TB_MIX_PREFIX, perm, positions[TB_MIX_PREFIX + perm]))
 for label, _ in TB:
     print(f'  {label!r} bar at row {positions[label]}')

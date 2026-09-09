@@ -24,7 +24,12 @@ const PRELUDE = CARDS.slice(0, CARDS.indexOf(CUT));
 function GATES() {
   const N = 24;                       // players per permutation for the gates (kept small: fast)
   const SEED = 20260901;
-  const perms = cloudPermutations_();
+  // TWO AXES since D49 (2026-09-09). Col_Cards_Cloud carries the ten MEASURED permutations;
+  // Col_Cards_Totals carries those ten plus the MAX ceiling column. A gate that reads the wrong one
+  // is off by exactly one column, which is the quietest possible way to check the wrong number - so
+  // they are named apart here rather than derived at each use.
+  const perms  = cloudPermutations_();      // Col_Cards_Cloud
+  const tperms = totalsPermutations_();     // Col_Cards_Totals
 
   const cloudSheet  = () => data['Col_Cards_Cloud'].values;
   const totalsSheet = () => data['Col_Cards_Totals'].values;
@@ -44,6 +49,9 @@ function GATES() {
     data = JSON.parse(RAW);
     eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
   };
+  // Re-eval the engine but KEEP the sheet data: a fixture that has just added rows to a mock sheet
+  // needs those rows to survive, which reset() would throw away with everything else.
+  const reset2 = () => { eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {}; };
 
   // ---------------------------------------------------------------- 0. shape
   console.log('data: ' + (data._meta ? data._meta.source : '(no _meta)'));
@@ -51,6 +59,12 @@ function GATES() {
   check('10 permutations, five real segments x two payer flags',
     perms.length === 10 && !perms.some(p => p.seg === 'A. 0'),
     perms.map(p => p.label).join(', '));
+  check('Col_Cards_Totals adds the MAX ceiling column, and Col_Cards_Cloud does not',
+    tperms.length === perms.length + 1 &&
+    tperms[tperms.length - 1].label === PLAYER_PROFILES.MAX.label &&
+    !!tperms[tperms.length - 1].prof &&
+    !perms.some(p => p.label === PLAYER_PROFILES.MAX.label),
+    tperms.map(p => p.label).join(', '));
   check('A. 0 is excluded by construction (no data_seg_beh row to price its reach)',
     CLOUD_SEGMENTS.indexOf('A. 0') < 0);
 
@@ -109,7 +123,7 @@ function GATES() {
   const t0 = Date.now();
   const nRun = SimulateCardCloud();
   const secs = (Date.now() - t0) / 1000;
-  check('the sweep runs every permutation', nRun === perms.length, nRun + ' of ' + perms.length);
+  check('the sweep runs every permutation', nRun === tperms.length, nRun + ' of ' + tperms.length);
   console.log(`  ${N} players x ${nRun} permutations in ${secs.toFixed(1)}s (node; Apps Script is slower)`);
 
   const C = cloudSheet(), T = totalsSheet();
@@ -130,17 +144,31 @@ function GATES() {
   }
 
   // ---------------------------------------------------------------- 3. percentile ordering
+  // EVERY offset below is derived from CLOUD_STATS, never from a literal 6. These three gates used
+  // to hardcode "6 stats per metric, MEAN at offset 5"; adding p95/p98 on 2026-09-09 moved MEAN to
+  // offset 7 and they silently started reading the wrong COLUMN - two failed loudly, and the
+  // cumulative-series gate went on passing while checking p90. That is the two-lists-that-must-agree
+  // failure this project keeps paying for, so the list is read from the engine instead of retyped.
+  const PCTS = CLOUD_STATS
+    .map((s2, i) => ({ name: s2, i: i, n: /^p(\d+)$/.test(s2) ? Number(RegExp.$1) : null }))
+    .filter(x => x.n !== null);
+  const iMEAN = CLOUD_STATS.indexOf('MEAN');
+  const NSTAT = CLOUD_STATS.length;
+  const cellAt = (row, m, statIdx) => Number(row[1 + m * NSTAT + statIdx]);
   {
+    check('CLOUD_STATS lists its percentiles in ascending order, and carries a MEAN',
+      iMEAN >= 0 && PCTS.every((x, i) => i === 0 || x.n > PCTS[i - 1].n),
+      CLOUD_STATS.join(' '));
+
     let bad = 0, checked = 0, worst = '';
     for (let j = 0; j < perms.length; j++) {
       const r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
       for (let d = 1; d <= DAILY_DAYS; d++) {
         const row = C[r0 + 1 + d];                       // day d, 0-indexed
         for (let m = 0; m < CLOUD_METRICS.length; m++) {
-          const v = [];
-          for (let s = 0; s < 5; s++) v.push(Number(row[1 + m * 6 + s]));   // p10..p90
+          const v = PCTS.map(x => cellAt(row, m, x.i));
           checked++;
-          for (let i = 1; i < 5; i++)
+          for (let i = 1; i < v.length; i++)
             if (v[i] < v[i - 1] - 1e-9) {
               bad++;
               if (!worst) worst = `${perms[j].label} d${d} ${CLOUD_METRICS[m].label}: ${v.join(' ')}`;
@@ -148,7 +176,7 @@ function GATES() {
         }
       }
     }
-    check('p10 <= p25 <= p50 <= p75 <= p90 on every series, day and permutation',
+    check(PCTS.map(x => x.name).join(' <= ') + ' on every series, day and permutation',
       bad === 0, bad + ' violations over ' + checked + ' cells' + (worst ? '  first: ' + worst : ''));
   }
 
@@ -160,8 +188,8 @@ function GATES() {
       for (let m = 0; m < CLOUD_METRICS.length; m++) {
         if (CLOUD_METRICS[m].key === 'balance') continue;   // a level, spent down by chests
         for (let d = 2; d <= DAILY_DAYS; d++) {
-          const prev = Number(C[r0 + d][1 + m * 6 + 5]);    // MEAN, day d-1
-          const cur  = Number(C[r0 + 1 + d][1 + m * 6 + 5]);
+          const prev = cellAt(C[r0 + d], m, iMEAN);         // MEAN, day d-1
+          const cur  = cellAt(C[r0 + 1 + d], m, iMEAN);
           if (cur < prev - 1e-9) bad++;
         }
       }
@@ -177,7 +205,7 @@ function GATES() {
       const r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
       for (let m = 0; m < CLOUD_METRICS.length; m++)
         for (let d = 1; d <= DAILY_DAYS; d++) {
-          const fromBand  = Number(C[r0 + 1 + d][1 + m * 6 + 5]);
+          const fromBand  = cellAt(C[r0 + 1 + d], m, iMEAN);
           const fromMeans = Number(C[rMeans + 1 + d][1 + m * perms.length + j]);
           if (Math.abs(fromBand - fromMeans) > 1e-9) bad++;
         }
@@ -186,28 +214,80 @@ function GATES() {
       bad + ' mismatched cells');
   }
 
+  // ---------------------------------------------------------------- 5b. the p98 twin block
+  // Added with p95/p98 (2026-09-09). Same shape as MEANS, one statistic across all permutations, so
+  // the same reconciliation applies: every cell must be the p98 column of the matching band block.
+  // Skipped rather than failed when the sheet has no such bar - an un-reimported Col_Cards_Cloud
+  // still runs, and the engine logs the skip.
+  {
+    const rP98 = barRow(cloudSheet(), CLOUD_BAR_P98);
+    const iP98 = CLOUD_STATS.indexOf('p98');
+    if (rP98 < 0) {
+      console.log('  SKIP p98 block: this dump has no "' + CLOUD_BAR_P98 +
+                  '" bar (re-run builders/_build_cardcloud.py and re-dump)');
+    } else {
+      let bad = 0;
+      for (let j = 0; j < perms.length; j++) {
+        const r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
+        for (let m = 0; m < CLOUD_METRICS.length; m++)
+          for (let d = 1; d <= DAILY_DAYS; d++) {
+            const fromBand = cellAt(C[r0 + 1 + d], m, iP98);
+            const fromP98  = Number(C[rP98 + 1 + d][1 + m * perms.length + j]);
+            if (Math.abs(fromBand - fromP98) > 1e-9) bad++;
+          }
+      }
+      check('the P98 block matches the p98 column of each band block', bad === 0,
+        bad + ' mismatched cells');
+    }
+  }
+
   // ---------------------------------------------------------------- 6. unbiased vs the model
   // The granted pack count is a sum of Bernoulli draws around the modelled expectation, so the mean
   // over N players must sit inside Monte-Carlo error of it. This is the gate that would catch a
   // rounding bias creeping back into the trailing-fraction grant.
-  {
+  //
+  // PAIRED, and per player. Two things were wrong here before 2026-09-09, and both were hidden by
+  // the old homogeneous attendance model rather than absent:
+  //   * it compared the cohort mean against ONE player's expectedTotal (seed 1). expectedTotal is a
+  //     per-player quantity - it carries that player's ToF runs, and since D48 their attendance
+  //     intensity too - so under the percentile model seed 1 reported 25.8 against a cohort that
+  //     expects 35.8, and the gate was measuring the wrong thing by 30%.
+  //   * it compared TOTAL packs opened, which includes packs bought with duplicate stars from star
+  //     chests. Nothing in expectedTotal models a chest, so that was a built-in ~4% offset absorbed
+  //     by a wide tolerance.
+  // Comparing granted-minus-chest against each player's OWN expectation makes it a paired test: the
+  // per-player difference has a far smaller sd than the count itself, so this now detects a bias an
+  // order of magnitude smaller than the version it replaces.
+  //
+  // Run under BOTH attendance models, because the failure mode is model-specific: a reach that is
+  // right on average but wrong per player passes the homogeneous case and fails this one.
+  for (const attModel of ['homogeneous', 'percentile']) {
     reset();
+    SEG_ATTENDANCE_MODEL = attModel;
     const cfg = loadPackConfig_();
     const cat = loadCardCatalog_(cfg, mkSheet(SHEET_ALBUM));
     const pre = cardSeasonPre_('20-39', 'PAYER', Context.get());
-    const M = 200, tot = [];
-    for (let k = 0; k < M; k++)
-      tot.push(runOneCardSeason_('20-39', 'PAYER', playerSeed_(SEED, 4, k), cfg, cat, pre)
-                 .packsOpenedTotal);
-    const mean = tot.reduce((a, b) => a + b, 0) / M;
-    const sd = Math.sqrt(tot.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (M - 1));
-    const exp = runOneCardSeason_('20-39', 'PAYER', 1, cfg, cat, pre).expectedTotal;
-    const tol = 3 * sd / Math.sqrt(M);
-    check('mean packs granted matches the modelled expectation within Monte-Carlo error',
-      Math.abs(mean - exp) <= tol,
-      `${mean.toFixed(2)} observed vs ${exp.toFixed(2)} expected (sd ${sd.toFixed(2)}, ` +
-      `tolerance +/-${tol.toFixed(2)} over ${M} players)`);
+    const M = 300, diff = [];
+    let sumG = 0, sumE = 0;
+    for (let k = 0; k < M; k++) {
+      const r = runOneCardSeason_('20-39', 'PAYER', playerSeed_(SEED, 4, k), cfg, cat, pre);
+      let chest = 0;
+      for (const src in r.bySource)
+        if (src.indexOf('Star Chest') === 0) chest += r.bySource[src].packs;
+      const granted = r.packsOpenedTotal - chest;
+      sumG += granted; sumE += r.expectedTotal;
+      diff.push(granted - r.expectedTotal);
+    }
+    const dm = diff.reduce((a, b) => a + b, 0) / M;
+    const dsd = Math.sqrt(diff.reduce((a, b) => a + (b - dm) * (b - dm), 0) / (M - 1));
+    const tol = 3 * dsd / Math.sqrt(M);
+    check('[' + attModel + '] packs granted match each player\'s own expectation (paired)',
+      Math.abs(dm) <= tol,
+      `${(sumG / M).toFixed(2)} granted vs ${(sumE / M).toFixed(2)} expected, ` +
+      `paired diff ${dm.toFixed(3)} (sd ${dsd.toFixed(2)}, tolerance +/-${tol.toFixed(3)} ` +
+      `over ${M} players)`);
   }
+  reset();
 
   // ---------------------------------------------------------------- 7. seeding
   {
@@ -241,18 +321,26 @@ function GATES() {
     const budgetWas = CLOUD_TIME_BUDGET_MS;
     CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER;
     logs.length = 0;
+    // The run stamp in A2 carries stamp_(), which is wall-clock to the MINUTE. Comparing it made
+    // this gate fail whenever two sweeps straddled a minute boundary - a flake that says nothing
+    // about the simulation, and one that got likelier as the sweep got slower (2026-09-09, when the
+    // attendance model added work). Compare everything EXCEPT that row, and assert separately that
+    // the stamp was written at all, so dropping it cannot hide a writer that stopped stamping.
+    const noStamp = v => JSON.stringify(v.map((row, i) => (i === 1 ? '(stamp)' : row)));
     reset(); CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER; setInputs(8, 4242); SimulateCardCloud();
-    const a = JSON.stringify(data['Col_Cards_Cloud'].values);
+    const a = noStamp(data['Col_Cards_Cloud'].values);
+    const stampA = String((data['Col_Cards_Cloud'].values[1] || [])[0] || '');
     reset(); CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER; setInputs(8, 4242); SimulateCardCloud();
-    const b = JSON.stringify(data['Col_Cards_Cloud'].values);
+    const b = noStamp(data['Col_Cards_Cloud'].values);
     const truncated = logs.some(l => String(l).indexOf('TIME BUDGET') >= 0);
     reset(); CLOUD_TIME_BUDGET_MS = Number.MAX_SAFE_INTEGER; setInputs(8, 99); SimulateCardCloud();
-    const c = JSON.stringify(data['Col_Cards_Cloud'].values);
+    const c = noStamp(data['Col_Cards_Cloud'].values);
     CLOUD_TIME_BUDGET_MS = budgetWas;
     check('determinism comparison ran both permutation sweeps in full', !truncated,
       truncated ? 'a run hit the time budget — the comparison would be vacuous' : 'no truncation');
-    check('same seed -> identical sheet', a === b);
+    check('same seed -> identical sheet (the wall-clock stamp aside)', a === b);
     check('a different seed changes the result', a !== c);
+    check('the run stamp is still written', /players x .* seed /.test(stampA), stampA.slice(0, 60));
   }
 
   // ---------------------------------------------------------------- 9. the minutes input
@@ -327,7 +415,7 @@ function GATES() {
         for (let k = r + 1; k < tv.length && k < r + 30; k++) {
           const a = String((tv[k] || [])[0] || '').trim();
           if (a && a === a.toUpperCase() && a.length > 6) break;   // next bar
-          for (let c = 1; c <= perms.length; c++) if (tv[k]) tv[k][c] = '';
+          for (let c = 1; c <= tperms.length; c++) if (tv[k]) tv[k][c] = '';
         }
         renamed++;
       });
@@ -342,7 +430,7 @@ function GATES() {
         const r = barRow(after, avg);
         if (r < 0) { unfound.push(avg); return; }
         // the row under the header must carry numbers, not the blanks a skipped block leaves
-        const first = (after[r + 1] || []).slice(1, 1 + perms.length);
+        const first = (after[r + 1] || []).slice(1, 1 + tperms.length);
         if (!first.some(x => x !== '' && x != null)) unwritten.push(avg);
       });
       check('every block is still FOUND when its bar uses the "avg" spelling',
@@ -438,7 +526,7 @@ function GATES() {
       const get = (lab, c) => Number((T4[cadIdx[lab]] || [])[c]);
       let wCal = 0, wAct = 0, wPack = 0, atW = '';
       let ordered = true;
-      perms.forEach((pm, j) => {
+      tperms.forEach((pm, j) => {
         const c = 1 + j;
         const total = Number((T4[rTot + 1 + iTot] || [])[c]);
         const cal  = get('Packs per calendar day (mean)', c);
@@ -454,7 +542,13 @@ function GATES() {
         // the log itself marked '(did not play)' - days-with-a-pack came out ABOVE days-played
         // (0-9 NONPAYER 3.2 vs 2.6), which no real player can do. Fixed by snapping the pass track
         // to an attended day the way D32 already snapped the instance rungs.
-        if (!(pkd >= act - 1e-9 && act >= cal - 1e-9)) { ordered = false; atW = pm.label; }
+        // TOLERANCE, not 1e-9. The three rates are written to DIFFERENT precisions - the calendar
+        // rate to 3dp, the other two to 2dp - so when two of them are genuinely EQUAL the rounding
+        // alone can invert them. That is exactly what MAX does: he plays all 33 days, so active
+        // days == calendar days and the two rates are the same number, printed as 6.23 and 6.234.
+        // A 2dp write can be half a unit in the last place below the truth, hence 0.006.
+        const eps = 0.006;
+        if (!(pkd >= act - eps && act >= cal - eps)) { ordered = false; atW = pm.label; }
       });
       check('packs per CALENDAR day x 33 == Total Packs Opened',
         wCal < 0.025, 'worst ' + wCal.toFixed(4));
@@ -463,19 +557,19 @@ function GATES() {
       check('packs on a PACK day x days with a pack == Total Packs Opened',
         wPack < 0.35, 'worst ' + wPack.toFixed(4));
       check('the three rates are ordered pack-day >= active day >= calendar day',
-        ordered, ordered ? 'on all ' + perms.length + ' permutations' : 'violated at ' + atW);
+        ordered, ordered ? 'on all ' + tperms.length + ' permutations' : 'violated at ' + atW);
 
       // the same rule stated on the day counts, which is where it is legible: a pack cannot drop
       // on a day nobody played, so pack days can never outnumber active days
       let daysOk = true, atD = '';
-      perms.forEach((pm, j) => {
+      tperms.forEach((pm, j) => {
         const c = 1 + j;
         if (get('Days with a pack (mean, of 33)', c) > get('Active days (mean, of 33)', c) + 1e-9) {
           daysOk = false; atD = pm.label;
         }
       });
       check('days with a pack never exceed days played', daysOk,
-        daysOk ? 'on all ' + perms.length + ' permutations' : 'violated at ' + atD);
+        daysOk ? 'on all ' + tperms.length + ' permutations' : 'violated at ' + atD);
     }
   }
 
@@ -500,7 +594,7 @@ function GATES() {
     for (let i = 0; i < labels.length; i++) {
       const row = T3[rSrc + 1 + i];
       let all0 = true;
-      for (let j = 1; j <= perms.length; j++) if (Number(row[j]) > 0) all0 = false;
+      for (let j = 1; j <= tperms.length; j++) if (Number(row[j]) > 0) all0 = false;
       if (all0) zeroRows++;
     }
     console.log('  ' + zeroRows + ' of ' + labels.length +
@@ -508,7 +602,7 @@ function GATES() {
     check('every listed source has a value in all 10 permutation columns',
       labels.every((_, i) => {
         const row = T3[rSrc + 1 + i];
-        for (let j = 1; j <= perms.length; j++)
+        for (let j = 1; j <= tperms.length; j++)
           if (row[j] === '' || row[j] == null) return false;
         return true;
       }));
@@ -525,15 +619,37 @@ function GATES() {
     const cfg6 = loadPackConfig_();
     const rar = cfg6.rarityOrder;
 
-    // every block has to be findable, or a silent skip leaves last run's numbers on the sheet
-    const missing = perms.filter(pm => barRow(T6, TB_MIX_PREFIX + pm.label) < 0).map(pm => pm.label);
-    check('all ' + perms.length + ' PACK & CARD MIX blocks are found by label',
-      missing.length === 0, missing.length ? 'missing: ' + missing.join(', ') : TB_MIX_PREFIX + '*');
+    // THE CONTRACT IS BUILDER vs ENGINE, read off the BUILDER SOURCE - not off whichever import
+    // happens to be in the workbook. Asserting that the live sheet already carries every bar is
+    // asserting workbook state, which is exactly the gate rot this harness keeps re-learning: the
+    // MAX block (D49) exists in the builder from the day it is written and in the workbook only
+    // once someone edits the sheet, and a red gate in between says nothing about the engine.
+    {
+      const bsrc = fs.readFileSync(
+        path.join(__dirname, '..', 'builders', '_build_cardcloud.py'), 'utf8');
+      const mMax = /^MAX_LABEL\s*=\s*'([^']+)'/m.exec(bsrc);
+      const usesT = /for perm in TPERMS:/.test(bsrc);
+      const mT = /^TPERMS\s*=\s*PERMS\s*\+\s*\[MAX_LABEL\]/m.test(bsrc);
+      check('the builder reserves one PACK & CARD MIX block per Col_Cards_Totals permutation',
+        !!mMax && mMax[1] === PLAYER_PROFILES.MAX.label && usesT && mT,
+        `builder MAX_LABEL ${mMax ? mMax[1] : '(absent)'} vs engine ` +
+        `${PLAYER_PROFILES.MAX.label}; TPERMS ${mT}; mix loop over TPERMS ${usesT}`);
+    }
+
+    // ...and every block THE SHEET DOES have must be found, or a silent skip leaves last run's
+    // numbers sitting under a bar as though they were this run's.
+    const onSheet = tperms.filter(pm => barRow(T6, TB_MIX_PREFIX + pm.label) >= 0);
+    const absent = tperms.filter(pm => barRow(T6, TB_MIX_PREFIX + pm.label) < 0).map(pm => pm.label);
+    check('every PACK & CARD MIX block this sheet reserves is found by label',
+      onSheet.length > 0 && onSheet.length + absent.length === tperms.length,
+      onSheet.length + ' of ' + tperms.length + ' present' +
+      (absent.length ? '   <- not yet on this sheet: ' + absent.join(', ') +
+                       ' (add the bar, or re-import display/Col_Cards_Totals_v1.xlsx)' : ''));
 
     // the blocks must sit BELOW everything that was on the sheet before them: the whole point of
     // appending was that no existing row moves
     const rLast = Math.max(barRow(T6, TB.cardsSrcBand), barRow(T6, 'NOTES'));
-    const rFirstMix = barRow(T6, TB_MIX_PREFIX + perms[0].label);
+    const rFirstMix = barRow(T6, TB_MIX_PREFIX + onSheet[0].label);
     check('the mix blocks are appended BELOW the existing sheet',
       rFirstMix > rLast, 'first mix bar row ' + rFirstMix + ', last pre-existing bar row ' + rLast);
 
@@ -541,7 +657,7 @@ function GATES() {
     let worstP = 0, worstC = 0, worstT = 0, atP = '', atC = '', atT = '';
     let hdrOk = true, rowsSeen = 0;
 
-    perms.forEach((pm, j) => {
+    tperms.forEach((pm, j) => {
       const r0 = barRow(T6, TB_MIX_PREFIX + pm.label);
       if (r0 < 0) return;
       const hdr = (T6[r0] || []).map(x => String(x == null ? '' : x).trim());
@@ -593,7 +709,7 @@ function GATES() {
     check('mix headers are the pack tiers and the live rarity names', hdrOk,
       'tiers ' + PACK_RES.length + ', rarities ' + rar.join('/'));
     check('the mix tables actually filled', rowsSeen > 0,
-      rowsSeen + ' source rows across ' + perms.length + ' blocks');
+      rowsSeen + ' source rows across ' + tperms.length + ' blocks');
     // every cell is rounded to 2dp for the sheet, so a 13-term sum can drift by 13 * 0.005
     check('tier columns sum to Packs, and Packs matches PACKS PER SOURCE',
       worstP < 0.07, 'worst ' + worstP.toFixed(4) + (atP ? ' at ' + atP : ''));
@@ -601,6 +717,118 @@ function GATES() {
       worstC < 0.07, 'worst ' + worstC.toFixed(4) + (atC ? ' at ' + atC : ''));
     check('the TOTAL row is the sum of the source rows above it',
       worstT < 0.35, 'worst ' + worstT.toFixed(4) + (atT ? ' at ' + atT : ''));
+  }
+
+  // ------------------------------- 10c. the two blocks the live workbook does not carry YET
+  // 'P98 - ALL PERMUTATIONS' (Col_Cards_Cloud) and 'PACK & CARD MIX - MAX' (Col_Cards_Totals) are
+  // new on 2026-09-09. A workbook grows them when someone adds the bar or re-imports the builder
+  // output - which this dump has not - so rather than leave both untested until that happens, ADD
+  // the bars here, run, assert they fill and reconcile, and restore. Snapshot / mutate / assert /
+  // restore, the same shape as the bar-rename fixture above.
+  //
+  // The two blocks need DIFFERENT room, and that difference is the whole reason this is a gate:
+  //   * acrossBlock (P98) writes with setValues and grows the sheet, so a bar alone is enough;
+  //   * the mix writer CLAMPS to roomFor_, so a bar with nothing under it writes NOTHING AT ALL.
+  //     A sheet edit that adds the bar and forgets the rows produces an empty table that looks
+  //     exactly like a block the engine skipped.
+  {
+    const snapC = JSON.stringify(data['Col_Cards_Cloud'].values);
+    const snapT = JSON.stringify(data['Col_Cards_Totals'].values);
+    const vC = data['Col_Cards_Cloud'].values;
+    const vT = data['Col_Cards_Totals'].values;
+
+    vC.push([]);
+    const rP98Bar = vC.push([CLOUD_BAR_P98]);            // 1-based row of the bar
+    for (let i = 0; i < DAILY_DAYS + 2; i++) vC.push([]);
+
+    vT.push([]);
+    const rMixBar = vT.push([TB_MIX_PREFIX + PLAYER_PROFILES.MAX.label]);
+    const MIX_RESERVE = CLOUD_SRC_ROWS + 1 + 1;          // source rows + TOTAL + the header row
+    for (let i = 0; i < MIX_RESERVE; i++) vT.push([]);
+    vT.push(['END OF FIXTURE']);                         // a bar, so roomFor_ has something to stop at
+
+    reset2();
+    SimulateCardCloud();
+    const C2 = data['Col_Cards_Cloud'].values, T7 = data['Col_Cards_Totals'].values;
+
+    // (a) the P98 block fills, and every cell IS the p98 column of the matching band block
+    const rB = barRow(C2, CLOUD_BAR_BANDS);
+    const iP98 = CLOUD_STATS.indexOf('p98');
+    const NS2 = CLOUD_STATS.length;
+    let bad = 0, seen = 0;
+    for (let j = 0; j < perms.length; j++) {
+      const r0 = rB + 2 + j * CLOUD_BAND_STRIDE;
+      for (let m = 0; m < CLOUD_METRICS.length; m++)
+        for (let d = 1; d <= DAILY_DAYS; d++) {
+          const fromBand = Number((C2[r0 + 1 + d] || [])[1 + m * NS2 + iP98]);
+          const fromP98  = Number((C2[rP98Bar + 1 + d] || [])[1 + m * perms.length + j]);
+          seen++;
+          if (Math.abs(fromBand - fromP98) > 1e-9) bad++;
+        }
+    }
+    check('the P98 block fills and matches the p98 column of every band block',
+      seen > 0 && bad === 0, bad + ' mismatched of ' + seen + ' cells');
+
+    // (b) the MAX mix block fills, and its tier columns still sum to its Packs column
+    const hdrMix = (T7[rMixBar] || []).map(x => String(x == null ? '' : x).trim());
+    const cPacks = 1 + PACK_RES.length;
+    let mixRows = 0, sumBad = 0;
+    for (let i = 0; i < MIX_RESERVE; i++) {
+      const row = T7[rMixBar + 1 + i] || [];
+      const lab = String(row[0] == null ? '' : row[0]).trim();
+      if (!lab || lab === 'END OF FIXTURE') continue;
+      mixRows++;
+      let t = 0;
+      for (let c = 1; c < cPacks; c++) t += Number(row[c]) || 0;
+      if (Math.abs(t - (Number(row[cPacks]) || 0)) > 0.05) sumBad++;
+    }
+    check('the PACK & CARD MIX - MAX block fills, and its tier columns sum to its Packs column',
+      hdrMix[0] === 'Source' && mixRows > 1 && sumBad === 0,
+      mixRows + ' rows written, ' + sumBad + ' that do not add up');
+
+    data['Col_Cards_Cloud'].values = JSON.parse(snapC);
+    data['Col_Cards_Totals'].values = JSON.parse(snapT);
+  }
+
+  // ------------------------------- 10d. MAX is a CEILING, not another cohort
+  // The property that makes the column worth having, and the one that would break silently if a
+  // profile override stopped being threaded through: forcing attendance, opt-in, every finishing
+  // rank and every milestone cannot make a player do WORSE than a measured cohort's average.
+  {
+    reset(); setInputs(N, SEED); SimulateCardCloud();
+    const T8 = totalsSheet();
+    const rTot = barRow(T8, TB.totals);
+    const iMax = tperms.length;                          // 1-based column offset of MAX
+    const rowOf = lab => {
+      for (let i = 1; i < 20; i++)
+        if (String((T8[rTot + i] || [])[0] || '').trim() === lab) return T8[rTot + i];
+      return null;
+    };
+    let worst = '', ok = true;
+    ['Total Packs Opened', 'Total Cards Drawn', 'Unique Cards'].forEach(lab => {
+      const row = rowOf(lab);
+      if (!row) { ok = false; worst = lab + ' row not found'; return; }
+      const mx = Number(row[iMax]);
+      for (let j = 1; j < iMax; j++)
+        if (Number(row[j]) > mx + 1e-9) {
+          ok = false;
+          if (!worst) worst = `${lab}: ${tperms[j - 1].label} ${row[j]} > MAX ${mx}`;
+        }
+      if (!worst) worst = `${lab} MAX ${mx}`;
+    });
+    check('MAX is at or above every measured permutation on packs, cards and unique cards',
+      ok, worst);
+
+    // ...and he is in the game every day, which is the input the rest of it rests on
+    // alias-aware, like the engine: the workbook has renamed this bar before
+    let rCad2 = barRow(T8, TB.cadence);
+    (TB_ALIASES[TB.cadence] || []).forEach(alt => { if (rCad2 < 0) rCad2 = barRow(T8, alt); });
+    let adRow = null;
+    for (let i = 1; i < 12; i++)
+      if (String((T8[rCad2 + i] || [])[0] || '').trim() === 'Active days (mean, of 33)')
+        adRow = T8[rCad2 + i];
+    check('MAX plays all 33 days', !!adRow && Math.abs(Number(adRow[iMax]) - DAILY_DAYS) < 0.05,
+      adRow ? Number(adRow[iMax]) + ' of ' + DAILY_DAYS : 'active-days row not found');
   }
 
   // ---------------------------------------------------------------- 11. namespace hygiene
