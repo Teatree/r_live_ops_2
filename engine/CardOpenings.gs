@@ -1104,6 +1104,14 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   var totalDupes           = 0;
   var setsCompletedTotal   = 0;
   var dayAlbumCompleted    = 0;
+  // Envelopes opened and cards drawn AT THE MOMENT album 1 first completed - not at the end of the
+  // season. "How many envelopes does it take to finish" is a question about the run up to the
+  // finish line; a player who completes on day 19 and keeps opening for another fortnight would
+  // otherwise report every one of those as part of the cost. Captured after both counters have been
+  // incremented for the pack that completed it, so the completing envelope is included.
+  // 0 means "never finished", which is why the reducer filters on albumIdx rather than on these.
+  var packsAtAlbum1        = 0;
+  var cardsAtAlbum1        = 0;
   var finalAlbumNoted      = false;
   var setsCompletedInAlbum = {};
   // seeded from the tiers PACK DEFINITIONS actually authors, so retiring a tier on the sheet
@@ -1407,7 +1415,11 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
           var albumReward = getAlbumReward_(cfg.albumRewards, completedAlbumNum);
           addRewardGains_(albumRewardGains, albumReward);
           var albumRewardStr = formatRewards_(albumReward);
-          if (!dayAlbumCompleted) dayAlbumCompleted = day;
+          if (!dayAlbumCompleted){
+            dayAlbumCompleted = day;
+            packsAtAlbum1     = packsOpenedTotal;
+            cardsAtAlbum1     = totalCardsDrawn;
+          }
           if (albumIdx < ALBUM_NAMES.length - 1){
             albumNote = ALBUM_NAMES[albumIdx] + ' -> ' + ALBUM_NAMES[albumIdx + 1] +
                         ' | Album rewards: ' + albumRewardStr + ' | Pool leftover: ' + poolBreakdown(pool);
@@ -1906,6 +1918,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     starsEarned: starsEarned, starsSpent: starsSpent, balance: balance,
     setsCompletedTotal: setsCompletedTotal, albumIdx: albumIdx,
     dayAlbumCompleted: dayAlbumCompleted, expectedTotal: expectedTotal,
+    packsAtAlbum1: packsAtAlbum1, cardsAtAlbum1: cardsAtAlbum1,
     setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
     collection: collection, collectionSize: collectionSize,
     tofTickets: tofCum, tofExpected: num(pre.tofExpected),
@@ -2979,6 +2992,276 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
   });
 
   return skipped;
+}
+
+/************************************************************************************************
+ * ALBUM COMPLETION ACROSS THE POPULATION (2026-09-10, D50)
+ * ---------------------------------------------------------------------------------------------
+ * "What percentage of the whole player base actually finishes the first album, how many envelopes
+ * does a finisher open to get there, and how many cards do they draw doing it."
+ *
+ * WHY THIS IS A MENU RUN AND NOT A CUSTOM FUNCTION. A custom function gets 30 seconds. Walking the
+ * calendar and every config sheet for the ten cells - cardSeasonPre_ - costs 6.6s in Node before a
+ * single player is simulated, and Apps Script is several times slower than Node: the setup alone
+ * would blow the cap with nothing to show. A menu run gets six minutes. (User decision 2026-09-10,
+ * after being shown the measurement.)
+ *
+ * WHAT THE THREE NUMBERS MEAN, precisely, because each has a wrong reading that looks right:
+ *   Population finishing album 1
+ *       P(albumIdx >= 1), NOT the mean of albumIdx. Col_Cards_Totals' 'Albums Completed' row is the
+ *       MEAN - 0.03 albums per player - which is a different quantity and cannot be read as a rate.
+ *   Envelopes opened to complete it
+ *       Mean packsAtAlbum1 among FINISHERS ONLY, counted UP TO the completing envelope - not the
+ *       season total. A player who finishes on day 19 and keeps opening for a fortnight did not
+ *       spend those on finishing.
+ *   Cards drawn to complete it
+ *       Mean cardsAtAlbum1 among finishers, INCLUDING duplicates. The distinct count is 72 by
+ *       definition (8 sets x 9), so it would carry no information; the duplicate burden is the
+ *       interesting part, and it is what feeds the star and chest economy.
+ *
+ * THE POPULATION IS WEIGHTED, AND THE TWO WEIGHTINGS DIFFER. The completion RATE is weighted by
+ * data_seg_beh's unique_players. The two finisher averages are weighted by the FINISHERS each cell
+ * contributes (population x rate) - the mean over all finishers, not the mean of ten cell means,
+ * which would let a cell with three finishers pull as hard as one with three hundred.
+ *
+ * WHAT THE DENOMINATOR IS. The ten (segment, payer) cells data_seg_beh carries. 'A. 0' is NOT in
+ * it - that segment has no behaviour telemetry anywhere in this workbook, so nothing can price its
+ * reach - which means this is "of players with at least one saga completion in the window", not
+ * "of everyone who opened the app". The block prints the population it represents so the claim
+ * cannot drift from the number.
+ *
+ * SENSITIVITY, FLAGGED LOUDLY. Album completion is a THRESHOLD outcome and the population piles up
+ * just short of it: mean completion runs ~61% while ~3% actually finish. A 10% change in envelope
+ * volume therefore does not move the rate by 10% - it can plausibly halve or double it. Read this
+ * number as a statement about the current ladders, not about the players.
+ ************************************************************************************************/
+
+var TB_ALBUM = 'ALBUM COMPLETION (population-weighted)';
+
+// The rows this block writes, in order. Kept as a list for the same reason CADENCE_ROWS is: the
+// writer keys off the LABEL, so inserting a row here cannot silently shift the others.
+var ALBUM_ROWS = [
+  'Population finishing album 1',
+  'Envelopes opened to complete it (finishers)',
+  'Cards drawn to complete it (finishers)',
+  'Finishers in sample',
+  'Players simulated'
+];
+
+/** Per-cell album-completion stats from a cohort's runs. Pure - no sheet, no randomness. */
+function albumCellStats_(runs){
+  var n = runs.length, fin = 0, packs = 0, cards = 0;
+  for (var i = 0; i < n; i++){
+    if (!(num(runs[i].albumIdx) >= 1)) continue;
+    fin++;
+    packs += num(runs[i].packsAtAlbum1);
+    cards += num(runs[i].cardsAtAlbum1);
+  }
+  return { n: n, finishers: fin,
+           rate:  n   ? fin / n     : 0,
+           packs: fin ? packs / fin : 0,      // finishers only; 0 finishers -> reported as '-'
+           cards: fin ? cards / fin : 0 };
+}
+
+/** data_seg_beh's unique_players per cell, and the total they represent. A cell the sheet has no
+ *  row for weighs 0 rather than defaulting to an equal share - an invented weight would silently
+ *  change the headline number. */
+function cellPopulations_(ctx){
+  var out = {}, total = 0;
+  cloudPermutations_().forEach(function(p){
+    var b = ctx.ds.beh(p.seg, p.payer) || {};
+    var u = num(b.unique_players);
+    out[p.label] = u;
+    total += u;
+  });
+  return { pop: out, total: total };
+}
+
+/** Roll the per-cell stats up to the population. See the header for why the two weightings differ. */
+function albumPopulationStats_(byCell, popInfo){
+  var perms = cloudPermutations_();
+  var rate = 0, finW = 0, packs = 0, cards = 0, finishers = 0, players = 0;
+  perms.forEach(function(p){
+    var c = byCell[p.label];
+    if (!c) return;
+    var w = popInfo.total ? popInfo.pop[p.label] / popInfo.total : 0;
+    rate      += w * c.rate;
+    var fw     = w * c.rate;                 // this cell's share of ALL finishers, before scaling
+    finW      += fw;
+    packs     += fw * c.packs;
+    cards     += fw * c.cards;
+    finishers += c.finishers;
+    players   += c.n;
+  });
+  return { rate: rate,
+           packs: finW > 0 ? packs / finW : 0,
+           cards: finW > 0 ? cards / finW : 0,
+           finishers: finishers, players: players,
+           population: popInfo.total };
+}
+
+/**
+ * MENU: EcoGainsSim > Album completion across the population.
+ * Runs the same season core the rest of the card sim uses, over the ten measured cells, and writes
+ * the block. Reads the player count and seed from Col_Cards_Totals B2/D2 - the same two inputs the
+ * cloud run uses, so the two are comparable and reproducible from one seed.
+ */
+function SimulateAlbumCompletion(){
+  requireCompanions_();
+  var t0 = new Date().getTime();
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var totals = ss.getSheetByName(SHEET_TOTALS);
+  var album  = ss.getSheetByName(SHEET_ALBUM);
+  if (!totals) throw new Error("Sheet '" + SHEET_TOTALS + "' not found - import display/Col_Cards_Totals_v1.xlsx.");
+  if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
+
+  var tVals = totals.getDataRange().getValues();
+  var nPlayers = Math.round(num(totals.getRange(CLOUD_PLAYERS_CELL).getValue()));
+  if (!(nPlayers > 0)) nPlayers = CLOUD_DEFAULT_PLAYERS;
+  if (nPlayers > CLOUD_MAX_PLAYERS) nPlayers = CLOUD_MAX_PLAYERS;
+  var seed = Number(totals.getRange(CLOUD_SEED_CELL).getValue());
+  if (!seed || !isFinite(seed)){
+    seed = Math.floor(Math.random() * 2147483647) + 1;
+    totals.getRange(CLOUD_SEED_CELL).setValue(seed);
+  }
+
+  var cfg = loadPackConfig_();
+  var cat = loadCardCatalog_(cfg, album);
+  var ctx = Context.get();
+  var perms = cloudPermutations_();
+  var byCell = {}, stoppedAt = -1;
+
+  for (var pi = 0; pi < perms.length; pi++){
+    var elapsed = new Date().getTime() - t0;
+    if (pi > 0 && elapsed + (elapsed / pi) > CLOUD_TIME_BUDGET_MS){
+      stoppedAt = pi;
+      Logger.log('TIME BUDGET: stopping after ' + pi + ' of ' + perms.length + ' cells.');
+      break;
+    }
+    var p = perms[pi];
+    // The SAME seeding as the cloud run, so a cell simulated by both entry points at the same
+    // (seed, players) contains exactly the same players and the two sheets cannot disagree.
+    var pre = cardSeasonPre_(p.seg, p.payer, ctx);
+    var runs = [];
+    for (var k = 0; k < nPlayers; k++)
+      runs.push(runOneCardSeason_(p.seg, p.payer, playerSeed_(seed, pi, k), cfg, cat, pre));
+    byCell[p.label] = albumCellStats_(runs);
+  }
+
+  var popInfo = cellPopulations_(ctx);
+  var pop = albumPopulationStats_(byCell, popInfo);
+  var wrote = writeAlbumBlock_(totals, tVals, byCell, pop, popInfo, nPlayers, seed);
+
+  var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
+  var msg = (100 * pop.rate).toFixed(2) + '% of ' + popInfo.total.toLocaleString() +
+            ' players finish album 1  |  a finisher opens ' + pop.packs.toFixed(1) +
+            ' envelopes and draws ' + pop.cards.toFixed(0) + ' cards to do it  |  ' +
+            pop.finishers + ' finishers in ' + pop.players + ' simulated (' + secs + 's, seed ' +
+            seed + ')' +
+            (stoppedAt >= 0 ? '  --  STOPPED EARLY on the time budget, lower B2' : '') +
+            (wrote ? '' : "  --  BLOCK NOT WRITTEN: no '" + TB_ALBUM + "' bar in column A of " +
+                          SHEET_TOTALS);
+  Logger.log(msg);
+  SpreadsheetApp.getActive().toast(msg, 'Album completion', 12);
+  return pop.rate;
+}
+
+/** The block: label column, POPULATION column, then one column per measured cell. */
+function writeAlbumBlock_(sh, tVals, byCell, pop, popInfo, nPlayers, seed){
+  var perms = cloudPermutations_();
+  var r = findBlockRow_(tVals, TB_ALBUM);
+  if (r < 0){
+    Logger.log("Col_Cards_Totals has no '" + TB_ALBUM + "' bar - block skipped. Add the bar in " +
+               'column A (and ' + (ALBUM_ROWS.length + 3) + ' rows under it), or re-import ' +
+               'display/Col_Cards_Totals_v1.xlsx.');
+    return false;
+  }
+  var hdr = ['Metric', 'POPULATION'];
+  perms.forEach(function(p){ hdr.push(p.label); });
+  sh.getRange(r + 1, 1, 1, hdr.length).setValues([hdr]);
+
+  // A cell with no finishers has no finisher average to report. '-' rather than 0: a 0 there reads
+  // as "a finisher opened no envelopes", which is not a thing that can happen.
+  function cellVal(lab, c){
+    if (!c) return '';
+    switch (lab){
+      case 'Population finishing album 1':                return round_(100 * c.rate, 2) + '%';
+      case 'Envelopes opened to complete it (finishers)': return c.finishers ? round_(c.packs, 1) : '-';
+      case 'Cards drawn to complete it (finishers)':      return c.finishers ? round_(c.cards, 0) : '-';
+      case 'Finishers in sample':                         return c.finishers;
+      case 'Players simulated':                           return c.n;
+    }
+    return '';
+  }
+  function popVal(lab){
+    switch (lab){
+      case 'Population finishing album 1':                return round_(100 * pop.rate, 2) + '%';
+      case 'Envelopes opened to complete it (finishers)': return pop.finishers ? round_(pop.packs, 1) : '-';
+      case 'Cards drawn to complete it (finishers)':      return pop.finishers ? round_(pop.cards, 0) : '-';
+      case 'Finishers in sample':                         return pop.finishers;
+      case 'Players simulated':                           return pop.players;
+    }
+    return '';
+  }
+
+  var grid = ALBUM_ROWS.map(function(lab){
+    var line = [lab, popVal(lab)];
+    perms.forEach(function(p){ line.push(cellVal(lab, byCell[p.label])); });
+    return line;
+  });
+
+  // The basis, on the sheet rather than in a toast nobody keeps: what this number is OF, and the
+  // Monte-Carlo error on it. A 3% rate read off 50 players a cell carries +/-1.7pp, which is the
+  // difference between "3% finish" and "1% finish" - a conclusion, not a rounding detail.
+  var half = albumCI_(byCell, popInfo);
+  grid.push(['Population represented', popInfo.total]);
+  grid.push(['95% CI on the rate', '+/- ' + round_(100 * half, 2) + ' pp']);
+  grid.push(['Basis', nPlayers + ' players x ' + perms.length + ' cells | seed ' + seed + ' | ' +
+             stamp_() + '  |  "A. 0" is NOT in this population (no behaviour telemetry). ' +
+             'Album completion is a THRESHOLD outcome - a 10% change in envelope volume can ' +
+             'halve or double this rate.']);
+
+  var room = roomFor_ALBUM_(tVals, r, grid.map(function(l){ return l[0]; }));
+  if (room > 0) sh.getRange(r + 2, 1, room, hdr.length).clearContent();
+  var use = grid;
+  if (grid.length > room){
+    use = grid.slice(0, Math.max(0, room));
+    Logger.log("Col_Cards_Totals: the '" + TB_ALBUM + "' block reserves " + room + ' rows but the ' +
+               'engine has ' + grid.length + ' - dropped: ' +
+               grid.slice(room).map(function(l){ return l[0]; }).join(', ') + '.');
+  }
+  if (!use.length) return false;
+  sh.getRange(r + 2, 1, use.length, hdr.length).setValues(use);
+  return true;
+}
+
+/** 95% half-width on the population-weighted rate: sqrt(SUM w^2 p(1-p)/n) x 1.96. The weighted sum
+ *  of independent cell proportions, so the cells with the most population dominate the error - the
+ *  reason a 100+ cell being noisy barely matters and a 0-9 cell being noisy matters a lot. */
+function albumCI_(byCell, popInfo){
+  var v = 0;
+  cloudPermutations_().forEach(function(p){
+    var c = byCell[p.label];
+    if (!c || !c.n) return;
+    var w = popInfo.total ? popInfo.pop[p.label] / popInfo.total : 0;
+    v += w * w * c.rate * (1 - c.rate) / c.n;
+  });
+  return 1.96 * Math.sqrt(v);
+}
+
+/** Rows between this bar and the next. Standalone copy of writeTotalsSheet_'s roomFor_, because
+ *  that one is a closure over its own tVals; same rule, including "our own labels are not bars". */
+function roomFor_ALBUM_(tVals, barRow, own){
+  var mine = {};
+  (own || []).forEach(function(l){ mine[String(l).trim()] = true; });
+  for (var rr = barRow + 1; rr < tVals.length; rr++){
+    var a = String((tVals[rr] || [])[0] == null ? '' : (tVals[rr] || [])[0]).trim();
+    if (!a) continue;
+    if (mine[a]) continue;
+    var rest = (tVals[rr] || []).slice(1).filter(function(x){ return x !== '' && x != null; });
+    if (!rest.length) return rr - barRow - 1;
+  }
+  return tVals.length - barRow - 1;
 }
 
 function zerosN_(n){ var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }

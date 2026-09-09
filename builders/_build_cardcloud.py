@@ -63,6 +63,12 @@ TB = [                                                       # == TB in the engi
     ('PACKS PER SOURCE (p10-p90)', SRC_ROWS),
     ('CARDS PER SOURCE (mean)', SRC_ROWS),
     ('CARDS PER SOURCE (p10-p90)', SRC_ROWS),
+    # D50 (2026-09-10). Written by its OWN menu run (EcoGainsSim > Album completion across the
+    # population), not by SimulateCardCloud - so it can be re-run at a higher player count without
+    # paying for the whole Cloud sheet. 5 metric rows + 3 basis rows (population, CI, stamp).
+    # Its columns are label | POPULATION | the 10 MEASURED cells - MAX is deliberately absent, a
+    # ceiling player is not part of a population.
+    ('ALBUM COMPLETION (population-weighted)', 8),
 ]
 UL_BLOCK = 'UNLIMITED BOOSTERS IN MINUTES'                   # the one block with an input column
 

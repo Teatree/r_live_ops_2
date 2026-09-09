@@ -3515,6 +3515,9 @@ function onOpen(){
     .addSeparator()
     .addItem('Simulate card pack openings', 'SimulatePackOpenings')   // CardOpenings.gs
     .addItem('Simulate card cloud (all segments)', 'SimulateCardCloud')   // CardOpenings.gs
+    // D50: not a custom function. cardSeasonPre_ over the ten cells costs more than a custom
+    // function's 30-second budget on its own, so this is a menu run with six minutes.
+    .addItem('Album completion across the population', 'SimulateAlbumCompletion')   // CardOpenings.gs
     .addSeparator()
     .addItem('Mark v2 config diffs (red)', 'markV2ConfigDiffs')   // V2Diff.gs
     .addItem('Clear v2 config diff marks', 'clearV2ConfigDiffs')  // V2Diff.gs

@@ -140,14 +140,44 @@ PACK & CARD MIX - MAX
 > This is gated in `harness/_mock_cloud.js` (§10c) — the fixture adds the bar *and* the rows, exactly as
 > you will.
 
+### 3d. Add the `ALBUM COMPLETION (population-weighted)` block
+
+New on 2026-09-10 (D50). Written by its **own** menu run, not by the cloud sweep.
+
+It is exactly the same shape as the `CADENCE` block — bar + header + 8 data rows, 12 columns — so
+copy that one rather than building it by hand. Do this **after** step 3c, so the sheet already ends
+at row 645:
+
+1. Select rows **42:51** (the `CADENCE` block: bar 42, header 43, data 44:51).
+2. Copy.
+3. Paste into row **647** (leave 646 blank). It lands on 647..656.
+4. Set `A647` to exactly:
+
+```
+ALBUM COMPLETION (population-weighted)
+```
+
+> Same trap as the mix block, for the same reason: **empty rows do not extend the used range.** A
+> bar with genuinely blank rows under it measures a room of zero and writes nothing. Copying a block
+> brings real cell contents (and the formatting) with it, which is what makes the rows count.
+
+Its columns are `Metric | POPULATION | <the 10 measured cells>` — **MAX is deliberately absent**, a
+ceiling player is not part of a population. The block is found by bar label, so it can live anywhere;
+the bottom is simply the only place that moves nothing else.
+
 ---
 
 ## 4. Run it
 
-**EcoGainsSim ▸ Simulate card cloud.** The toast names any block whose bar it couldn't find, so if
-something reads stale, that line says which.
+**EcoGainsSim ▸ Simulate card cloud** — everything except the album block.
 
-`B2` (players per permutation) still defaults to 50. See the p98 caveat below.
+**EcoGainsSim ▸ Album completion across the population** — the album block only. Separate on purpose:
+this is the one number that wants a big sample (see below), and running it alone lets you crank `B2`
+up without also paying for the full Cloud sheet.
+
+Both toasts name any block whose bar they couldn't find, so if something reads stale, that line says
+which. Both read `B2` (players per cell) and `D2` (seed) from `Col_Cards_Totals`, so a cell simulated
+by both contains exactly the same players.
 
 ---
 
@@ -310,3 +340,56 @@ block and that the MAX mix table's tier columns sum to its Packs column, and the
 layout. You are **not** importing them — they exist so a future clean import is right and so the builder
 can't drift from the engine. Their row numbers differ from yours (the TOTALS block lost 3 rows and the
 Cloud sheet gained a block), which is harmless: everything is located by bar label.
+
+
+---
+
+# Album completion across the population (D50)
+
+**EcoGainsSim ▸ Album completion across the population.** Three numbers, plus the basis they rest on:
+
+| row | what it is |
+|---|---|
+| Population finishing album 1 | `P(albums finished ≥ 1)` — a **rate**, not the `Albums Completed` mean already on the sheet |
+| Envelopes opened to complete it (finishers) | mean envelopes **up to and including the one that finished it**, among finishers only |
+| Cards drawn to complete it (finishers) | mean cards **including duplicates**, among finishers only |
+| Finishers in sample / Players simulated | so you can see whether a cell's numbers mean anything |
+| Population represented / 95% CI / Basis | the denominator, the Monte-Carlo error, and the stamp |
+
+**Why it is not a formula.** A custom function gets **30 seconds**. Walking the calendar and every
+config sheet for the ten cells costs 6.6s in Node alone — before a single player is simulated — and
+Apps Script is several times slower. The setup would blow the cap with nothing to show. A menu run
+gets six minutes.
+
+**Two different weightings, on purpose.** The *rate* is weighted by `data_seg_beh.unique_players`. The
+two finisher averages are weighted by the **finishers each cell contributes** (population × rate) —
+the mean over all finishers, not the mean of ten cell means, which would let a cell with three
+finishers pull as hard as one with three hundred.
+
+**The denominator.** The ten cells `data_seg_beh` carries — 54,521 players. **`A. 0` is not in it**,
+and cannot be: that segment has no behaviour telemetry anywhere in this workbook. So this is "of
+players with at least one saga completion in the window", not "of everyone who opened the app". The
+block prints the population so the claim can't drift from the number.
+
+**Sample size — this one needs it.** The rate is ~3%, so:
+
+| players per cell | 95% CI on the population rate |
+|---|---|
+| 50 (the default) | ±1.69 pp |
+| 200 | ±0.84 pp |
+| 500 (the cap) | ±0.53 pp |
+
+At 50 the answer is "somewhere between 1% and 6%", which is not an answer. **Set `B2` to at least
+200 before trusting this block**; the CI is printed in it so you never have to guess. Per-*cell*
+numbers stay noisy even at 500 — separating a 1.5% cell from a 4% cell needs ~4,500 each.
+
+> ### ⚠ It reacts to the pack ladders, and it reacts HARD
+>
+> This is the number you asked for, so this is the caveat that matters: album completion is a
+> **threshold** outcome, and the population piles up just short of the line. Mean album completion
+> runs ~61% while only ~3% actually finish. A 10% cut in envelope volume does **not** move the rate
+> by 10% — it can plausibly halve it. Read this as a statement about the current ladders, not about
+> the players.
+>
+> Gated: blanking every authored `*-star Dly` cell takes the rate to **exactly 0**, and restoring
+> them brings it back to the cent.

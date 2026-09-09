@@ -831,6 +831,105 @@ function GATES() {
       adRow ? Number(adRow[iMax]) + ' of ' + DAILY_DAYS : 'active-days row not found');
   }
 
+  // ------------------------------- 10e. ALBUM COMPLETION ACROSS THE POPULATION (D50)
+  // The three numbers the menu run writes, and the one property that makes them worth writing:
+  // they must MOVE when the pack ladders move. That is the whole reason this exists rather than a
+  // static note - "if I hand out fewer envelopes, fewer players finish" is the question being
+  // asked, so a run that reported the same rate after the ladders were emptied would be worse than
+  // no run at all.
+  {
+    const vT = data['Col_Cards_Totals'].values;
+    const snapT = JSON.stringify(vT);
+    vT.push([]);
+    const rBar = vT.push([TB_ALBUM]);                       // 1-based row of the bar
+    for (let i = 0; i < ALBUM_ROWS.length + 4; i++) vT.push([]);
+    vT.push(['END OF ALBUM FIXTURE']);
+    reset2();
+    setInputs(N, SEED);
+
+    const rate1 = SimulateAlbumCompletion();
+    const T = data['Col_Cards_Totals'].values;
+    const rowOf = lab => {
+      for (let i = 1; i <= ALBUM_ROWS.length + 4; i++)
+        if (String((T[rBar + i] || [])[0] || '').trim() === lab) return T[rBar + i];
+      return null;
+    };
+    const hdrA = (T[rBar] || []).map(x => String(x == null ? '' : x).trim());
+    check('the album block writes a label column, a POPULATION column and the 10 measured cells',
+      hdrA[0] === 'Metric' && hdrA[1] === 'POPULATION' &&
+      hdrA.length === 2 + perms.length &&
+      hdrA.slice(2).join('|') === perms.map(p => p.label).join('|') &&
+      !hdrA.some(h => h === PLAYER_PROFILES.MAX.label),
+      hdrA.join(' | '));
+
+    const rRate = rowOf('Population finishing album 1');
+    const rFin  = rowOf('Finishers in sample');
+    const rPly  = rowOf('Players simulated');
+    const rPk   = rowOf('Envelopes opened to complete it (finishers)');
+    check('every album row landed on its own label', !!(rRate && rFin && rPly && rPk),
+      ALBUM_ROWS.map(l => (rowOf(l) ? 'y' : 'NO ' + l)).join(' '));
+
+    // the POPULATION rate is a weighted mean of the cell rates, so it cannot sit outside them
+    if (rRate) {
+      const pc = perms.map((_, j) => parseFloat(String(rRate[2 + j]))).filter(x => isFinite(x));
+      const popRate = parseFloat(String(rRate[1]));
+      check('the POPULATION rate lies between the lowest and highest cell rate',
+        pc.length === perms.length && popRate >= Math.min(...pc) - 1e-9 &&
+        popRate <= Math.max(...pc) + 1e-9,
+        `${popRate}% against cells ${Math.min(...pc)}%..${Math.max(...pc)}%`);
+      check('the returned rate matches the rate written to the sheet',
+        Math.abs(100 * rate1 - popRate) < 0.02, `${(100 * rate1).toFixed(2)} vs ${popRate}`);
+    }
+    if (rFin && rPly) {
+      let ok = true;
+      for (let j = 0; j <= perms.length; j++) {
+        const f = Number(rFin[1 + j]), n = Number(rPly[1 + j]);
+        if (!(f >= 0 && n > 0 && f <= n)) ok = false;
+      }
+      check('finishers never exceed players simulated, in any column', ok,
+        `population ${rFin[1]} of ${rPly[1]}`);
+    }
+    // 'Envelopes to complete it' is counted UP TO the completing pack, so it can never exceed the
+    // season's total packs for that cohort - the bug this rules out is reading packsOpenedTotal.
+    if (rPk) {
+      const v = parseFloat(String(rPk[1]));
+      check('a finisher opens fewer envelopes to finish than a whole season holds',
+        isFinite(v) && v > 0 && v < 2000, `${v} envelopes`);
+    }
+
+    // === THE MUTATION. Blank every authored '*-star Dly' cell -> no envelopes exist at all ->
+    //     nobody can finish, and the rate must be exactly 0. Restores afterwards.
+    const packDlyHdrs = PACK_RES.map(r => r.replace(' Pack', ' Dly'));
+    const snapAll = JSON.stringify(data);
+    let zeroed = 0;
+    Object.keys(data).forEach(name => {
+      const sh = data[name];
+      if (!sh || !sh.values) return;
+      const cols = {};
+      sh.values.forEach(row => (row || []).forEach((cell, c) => {
+        if (c > 0 && packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
+      }));
+      if (!Object.keys(cols).length) return;
+      sh.values.forEach(row => Object.keys(cols).forEach(c => {
+        if (row && typeof row[c] === 'number' && row[c] !== 0) { row[c] = 0; zeroed++; }
+      }));
+    });
+    _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+    const rate0 = SimulateAlbumCompletion();
+    check('emptying every pack ladder drives the completion rate to exactly 0 (it REACTS to the rewards)',
+      zeroed > 0 && rate0 === 0 && rate1 > 0,
+      `${zeroed} pack cells blanked: ${(100 * rate1).toFixed(2)}% -> ${(100 * rate0).toFixed(2)}%`);
+
+    data = JSON.parse(snapAll);
+    _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
+    const rateBack = SimulateAlbumCompletion();
+    check('pack-ladder fixture restored (the rate comes back)',
+      Math.abs(rateBack - rate1) < 1e-12, `${(100 * rateBack).toFixed(2)}% vs ${(100 * rate1).toFixed(2)}%`);
+
+    data['Col_Cards_Totals'].values = JSON.parse(snapT);
+    reset2();
+  }
+
   // ---------------------------------------------------------------- 11. namespace hygiene
   {
     const files = fs.readdirSync(path.join(__dirname, '..', 'engine'))
