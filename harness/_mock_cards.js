@@ -1195,6 +1195,153 @@ function logCol(name){
     `${firstIsTarget}/${firstCards} first cards were the target`);
 }
 
+// ------------------------------ 6c. per-pack guarantees (2026-09-09) -------------------------
+// GuaranteedMinRarity (PackConfig col C) and GuaranteedNewSnap (col D) are FLOORS ON THE FINISHED
+// PACK, not extra cards: a naturally-drawn card discharges them, one card can discharge both, and
+// the engine reserves only the trailing slots without which the floor could no longer be met.
+//
+// The NO-OP gate comes first deliberately. A new draw mechanic that perturbs runs which never
+// asked for it is the expensive kind of regression, and it is the one a "does the feature work?"
+// test would never catch.
+{
+  // Patch every PACK DEFINITIONS row. Returns the row count so a moved/renamed block fails loudly
+  // instead of silently testing nothing — the failure mode that rotted five gates in D24b.
+  const setGuarantees = (minRarity, newSnap) => {
+    const pc = data['PackConfig'].values;
+    let b = -1;
+    for (let r = 0; r < pc.length; r++)
+      if (String(pc[r][0]).trim() === 'PACK DEFINITIONS') { b = r; break; }
+    if (b < 0) return 0;
+    let n = 0;
+    for (let r = b + 2; r < pc.length; r++) {
+      if (!/^\d+[-\s]*star/i.test(String(pc[r][0]).trim())) break;
+      pc[r][2] = minRarity; pc[r][3] = newSnap; n++;
+    }
+    return n;
+  };
+  // One season, reduced to the per-pack facts these gates assert on.
+  const runPacks = () => {
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    const sh = mkSheet('Col_Cards_Daily');
+    sh.getRange('B2').setValue('100+');
+    sh.getRange('D2').setValue('PAYER');
+    sh.getRange('G2').setValue(4242);
+    SimulatePackOpenings();
+    const out = [];
+    for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+      const row = data['Col_Cards_Daily'].values[r];
+      if (!row || row[0] === '' || row[0] == null) break;
+      if (!row[logCol('Cards Drawn')]) continue;
+      out.push({
+        pack:  normalizePackKey(String(row[logCol('Pack')]).trim()),
+        cards: String(row[logCol('Cards Drawn')]).split(', ').filter(Boolean),
+        news:  String(row[logCol('New')] || '').split(', ').filter(Boolean)
+      });
+    }
+    return out;
+  };
+  const fresh = () => { data = JSON.parse(RAW); authorLadders(); };
+  const rarityOfCard = (s) => { const m = String(s).match(/(\d★|Gold)$/); return m ? m[1] : null; };
+
+  // (i) NO-OP: both parameters at 0 must reproduce the untouched run byte for byte. With nothing
+  // reserved, no rand() call is diverted and every number downstream is unchanged.
+  fresh();
+  const baseline = JSON.stringify(runPacks());
+  fresh();
+  const patched = setGuarantees(0, 0);
+  check('guarantees: fixture reaches all 6 pack tiers', patched === 6, patched + ' rows patched');
+  check('guarantees: 0/0 reproduces the untouched run byte for byte',
+    JSON.stringify(runPacks()) === baseline);
+
+  // Cards/Open, read from the sheet rather than assumed — the gate below asserts a guarantee
+  // CONSUMES a slot rather than adding one, so it needs the authored pack sizes.
+  fresh();
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  const pcfg = loadPackConfig_();
+  const order = pcfg.rarityOrder;                    // low -> high, index 0 = the first row
+  const sizeOf = pcfg.cardsPerOpen;
+
+  // (ii) GuaranteedMinRarity. Ask for the 5th RARITY DEFINITIONS row and assert every pack carries
+  // a card at or above it. The acceptable set is derived from cfg.rarityOrder, never a hardcoded
+  // rarity name: the pool's top tier has already moved once (Gold shipped at Qty 0).
+  // A miss is LEGAL once the pool has no floor-eligible copies left - that is the documented
+  // degradation, not a broken guarantee. So the assertion is the full rule: a pack may miss the
+  // floor only after the SNAP POOL supply of those rarities has been drawn dry. Counting the
+  // supply from the sheet rather than asserting "never misses" is what keeps this a test of the
+  // RULE; the first draft asserted the happy path and red-flagged correct behaviour on the very
+  // last pack of the season, which had spent the pool exactly.
+  const FLOOR = 5;
+  const okRarity = new Set(order.slice(FLOOR - 1));
+  const supply = order.slice(FLOOR - 1)
+    .reduce((s, r) => s + (pcfg.qtyByRarity[r] || 0), 0);
+  fresh();
+  setGuarantees(FLOOR, 0);
+  const rar = runPacks();
+  let missFloor = 0, missWithStock = 0, wrongSize = 0, drewEligible = 0;
+  rar.forEach(p => {
+    const hit = p.cards.filter(c => okRarity.has(rarityOfCard(c))).length;
+    if (!hit){
+      missFloor++;
+      if (drewEligible < supply) missWithStock++;   // the pool could still have paid: a real miss
+    }
+    drewEligible += hit;
+    if (sizeOf[p.pack] && p.cards.length !== sizeOf[p.pack]) wrongSize++;
+  });
+  console.log(`  floor = rarity row ${FLOOR} (${[...okRarity].join('/')}) · ${rar.length} packs · ` +
+              `${drewEligible} floor-eligible drawn of a supply of ${supply}`);
+  check('GuaranteedMinRarity: no pack misses the floor while the pool can still supply it',
+    rar.length > 20 && missWithStock === 0,
+    `${missWithStock} of ${rar.length} packs missed with stock left (${missFloor} total misses)`);
+  check('GuaranteedMinRarity: the guarantee consumes a slot, it does not add one',
+    wrongSize === 0, `${wrongSize} packs differed from Cards/Open`);
+  // It must actually be BINDING, or the gate proves nothing: some packs must have needed the
+  // forced draw, i.e. the unguarded baseline missed the floor where this run does not.
+  const baseMiss = JSON.parse(baseline)
+    .filter(p => !p.cards.some(c => okRarity.has(rarityOfCard(c)))).length;
+  check('GuaranteedMinRarity: the floor is binding (the unguarded run misses it)',
+    baseMiss > 0, `${baseMiss} of ${rar.length} baseline packs had no card at/above the floor`);
+
+  // (iii) GuaranteedNewSnap. Two new cards per pack. The collection never completes in a season
+  // (best observed is 63 of 72 unique), so the unowned pool is never empty and the degradation
+  // path is never taken — every pack must therefore deliver two, capped at its own size.
+  fresh();
+  setGuarantees(0, 2);
+  const ns = runPacks();
+  let shortNew = 0;
+  ns.forEach(p => { if (p.news.length < Math.min(2, p.cards.length)) shortNew++; });
+  const baseShort = JSON.parse(baseline)
+    .filter(p => p.news.length < Math.min(2, p.cards.length)).length;
+  check('GuaranteedNewSnap: every pack delivers 2 new cards (capped at its size)',
+    ns.length > 20 && shortNew === 0, `${shortNew} of ${ns.length} packs fell short`);
+  check('GuaranteedNewSnap: it is binding (the unguarded run falls short)',
+    baseShort > 0, `${baseShort} of ${ns.length} baseline packs had fewer than 2 new`);
+
+  // (iv) BOTH. One card that is new AND above the floor discharges both, so a pack owing one of
+  // each still reserves ONE slot and still returns exactly Cards/Open cards.
+  fresh();
+  setGuarantees(FLOOR, 1);
+  const both = runPacks();
+  let bothMissStock = 0, bothShort = 0, bothSize = 0, bothDrew = 0;
+  both.forEach(p => {
+    const hit = p.cards.filter(c => okRarity.has(rarityOfCard(c))).length;
+    if (!hit && bothDrew < supply) bothMissStock++;
+    bothDrew += hit;
+    if (p.news.length < 1) bothShort++;
+    if (sizeOf[p.pack] && p.cards.length !== sizeOf[p.pack]) bothSize++;
+  });
+  // This is the gate that caught the ordering bug in guaranteedDraw: when no UNOWNED card cleared
+  // the floor, the first draft degraded straight to "best new card" and abandoned the rarity floor
+  // without ever trying an owned card that would have met it. Five packs missed a floor the pool
+  // could still pay. The fallback chain now drops the new-card constraint BEFORE the floor.
+  check('guarantees: both set, neither floor is dropped while the pool can pay it',
+    both.length > 20 && bothMissStock === 0 && bothShort === 0,
+    `${bothMissStock} missed the rarity floor with stock left, ${bothShort} had no new card`);
+  check('guarantees: both set together, pack size is still Cards/Open',
+    bothSize === 0, `${bothSize} packs differed`);
+
+  fresh();   // leave the fixture clean for the next block
+}
+
 // ---------------------------------------------------------------- 7. chest purchasing rules
 {
   data = JSON.parse(RAW);

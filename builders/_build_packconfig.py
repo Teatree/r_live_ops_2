@@ -41,6 +41,11 @@ SNAP_POOL = [281, 215, 143, 112, 66, 0]          # copies of each rarity in the 
 
 PACKS = ['1-star Pack', '2-star Pack', '3-star Pack', '4-star Pack', '5-star Pack', '6-star Pack']
 CARDS_PER_OPEN = [2, 3, 4, 5, 6, 7]
+# Per-pack guarantees (2026-09-09), one entry per PACKS row. Shipped at 0 = OFF for every pack, so
+# a regenerated sheet reproduces today's simulation exactly; these are DESIGN INPUTS for the user
+# to type, not measurements. GuaranteedMinRarity is a 1-based row number into RARITY DEFINITIONS.
+GUARANTEED_MIN_RARITY = [0, 0, 0, 0, 0, 0]
+GUARANTEED_NEW_SNAP   = [0, 0, 0, 0, 0, 0]
 PITY_PROBS = ['[0]', '[0]', '[0]', '[0]', '[0, 0.33, 0.66, 1.0]', '[0, 0.8, 0.8, 1.0]']
 PITY_FORCE = [False, False, False, False, False, True]
 
@@ -173,10 +178,22 @@ note('Copies are spread evenly across the AlbumConfig cards of each rarity (rema
 gap()
 
 # ---- 4. PACK DEFINITIONS ----------------------------------------------------------------------
-bar('PACK DEFINITIONS', 3)
-header(['Pack Type', 'Cards/Open', 'Notes'])
-for p, n in zip(PACKS, CARDS_PER_OPEN):
-    row([p, n, ''])
+bar('PACK DEFINITIONS', 5)
+header(['Pack Type', 'Cards/Open', 'GuaranteedMinRarity', 'GuaranteedNewSnap', 'Notes'])
+for p, n, gr, gn in zip(PACKS, CARDS_PER_OPEN, GUARANTEED_MIN_RARITY, GUARANTEED_NEW_SNAP):
+    row([p, n, gr, gn, ''])
+note('GuaranteedMinRarity: the pack contains at least one card of AT LEAST this rarity, given as '
+     'the 1-based ROW NUMBER in RARITY DEFINITIONS above (1 = the first row, 6 = the last). '
+     '0 = no guarantee.')
+note('GuaranteedNewSnap: the pack contains at least this many cards the player does not already '
+     'own. 0 = no guarantee.')
+note('Both are FLOORS ON THE FINISHED PACK, not extra cards: they never change how many cards a '
+     'pack gives (that stays Cards/Open), and a card drawn naturally counts towards them. One '
+     'card that is both new and above the floor satisfies both at once. Where the pool cannot '
+     'meet a floor — no unowned card left, or no copies at that rarity — the draw degrades to the '
+     'best available rather than failing.')
+note('GuaranteedNewSnap also stands in for the engine\'s built-in dry-streak pity on any pack '
+     'where it is set: the two make the same promise, so only one of them runs.')
 note('Cards/Open and the pity table below are the ONLY things that differentiate pack tiers '
      '(D19/9) — the rarity odds are identical for all of them and come from the SNAP POOL.',
      bold=True)

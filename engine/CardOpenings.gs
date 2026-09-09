@@ -297,6 +297,26 @@ function loadPackConfig_(){
   blockRows('PACK DEFINITIONS', function(row){ return isPackRow(row) && isNum(row[1]); })
     .forEach(function(row){ cardsPerOpen[normalizePackKey(row[0])] = Math.round(num(row[1])); });
 
+  // PER-PACK GUARANTEES, columns C and D of the same PACK DEFINITIONS row (2026-09-09):
+  //   GuaranteedMinRarity  the pack must contain at least one card of AT LEAST this rarity, given
+  //                        as a 1-based INDEX INTO RARITY DEFINITIONS (1 = the first rarity row,
+  //                        6 = the last). Stored here as a 0-based rank to match `rarityRank`,
+  //                        which is the index into cfg.rarityOrder. 0 on the sheet -> -1 -> off.
+  //   GuaranteedNewSnap    the pack must contain at least this many cards the player does not
+  //                        already own. 0 -> off.
+  // Both default to 0, so a PackConfig written before these columns existed - or one whose C/D
+  // cells are blank - behaves exactly as it did. num('') is 0, which is the off value, so no
+  // isNum() guard is wanted here: requiring a number would drop the whole row.
+  var guarantees = {};
+  blockRows('PACK DEFINITIONS', function(row){ return isPackRow(row) && isNum(row[1]); })
+    .forEach(function(row){
+      var minRarity = Math.round(num(row[2])), newSnap = Math.round(num(row[3]));
+      guarantees[normalizePackKey(row[0])] = {
+        minRank: (minRarity > 0) ? minRarity - 1 : -1,
+        newSnap: (newSnap > 0) ? newSnap : 0
+      };
+    });
+
   // PACK PITY CONFIG: 'PityProbabilities' is a bracketed list, one entry per card slot.
   var pity = {};
   blockRows('PACK PITY CONFIG', isPackRow).forEach(function(row){
@@ -388,7 +408,7 @@ function loadPackConfig_(){
   return {
     cardsPerSet: cardsPerSet, albumCount: albumCount, albumNames: albumNames,
     rarityOrder: rarityOrder, starsOnDupe: starsOnDupe, qtyByRarity: qtyByRarity,
-    cardsPerOpen: cardsPerOpen, pity: pity, chests: chests,
+    cardsPerOpen: cardsPerOpen, guarantees: guarantees, pity: pity, chests: chests,
     buyMinStars:  buy['Min Stars to Consider Buying'],
     buyStartDay:  buy['Urgency Start Day'],
     buyEndProb:   buy['End-of-Season Buy Probability'],
@@ -838,6 +858,71 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     return any ? out : null;
   }
 
+  // ---- PER-PACK GUARANTEES (GuaranteedMinRarity / GuaranteedNewSnap, 2026-09-09) --------------
+  // The rarities that satisfy a ">= minRank" floor, counted off the LIVE pool so a rarity that
+  // runs out stops being offered. `within` optionally restricts which cards count as stocked, so
+  // the floor can be asked of the unowned cards alone.
+  // DEGRADATION (user decision): when nothing at or above the floor has copies left, fall back to
+  // the highest rarity that DOES - the same rule pityTargets(forceHighest) already uses so a
+  // 6-star pack stays satisfiable while Gold ships at Qty 0. Returns null only when `within`
+  // leaves nothing stocked at all.
+  function rarityFloorTargets(minRank, within) {
+    var counts = {}, r, key;
+    for (key in pool){
+      if (pool[key] <= 0) continue;
+      if (within && !within(key)) continue;
+      // EFFECTIVE weight, the same quantity drawOne sorts on - a rarity whose only remaining
+      // copies sit on zero-weight cards is not actually available, and offering it here would
+      // hand drawOne a filter it cannot satisfy.
+      if (pool[key] * chapterMultFor(setOf[key]) <= 0) continue;
+      counts[rarityOf[key]] = (counts[rarityOf[key]] || 0) + pool[key];
+    }
+    var out = {}, any = false, best = null, bestRank = -1;
+    for (r in counts){
+      var rk = rarityRank[r];
+      if (rk >= minRank){ out[r] = true; any = true; }
+      if (rk > bestRank){ bestRank = rk; best = r; }
+    }
+    if (any) return out;
+    if (best == null) return null;
+    out[best] = true;
+    return out;
+  }
+
+  // One draw for a RESERVED slot. `wantNew` and `minRank` are the guarantees still outstanding;
+  // a single card discharges both when it can (user decision), which is why the first attempt
+  // filters on both at once. Each fallback drops the requirement that is cheapest to lose:
+  // the new-card constraint before the rarity floor, because an exhausted unowned pool is a
+  // permanent condition while a thin rarity tier is not.
+  function guaranteedDraw(wantNew, minRank) {
+    var isNew     = function(k){ return !owned(k); };
+    var atOrAbove = function(k){ return rarityRank[rarityOf[k]] >= minRank; };
+    var cardKey = null, t;
+
+    // 1. BOTH, strictly. One card discharging both guarantees is the cheapest outcome for the
+    //    pack, so it is always tried first and never skipped in favour of a degraded draw.
+    if (wantNew && minRank >= 0)
+      cardKey = drawOne(function(k){ return isNew(k) && atOrAbove(k); });
+    // 2. THE FLOOR ALONE. The new-card constraint is dropped before the rarity floor, deliberately:
+    //    an exhausted unowned pool is permanent, a momentarily thin rarity tier is not.
+    if (!cardKey && minRank >= 0) cardKey = drawOne(atOrAbove);
+    // 3. THE FLOOR IS UNREACHABLE - nothing at or above it can still be drawn. Degrade to the
+    //    highest rarity that can, preferring a new card, then taking any.
+    if (!cardKey && minRank >= 0){
+      t = rarityFloorTargets(minRank, wantNew ? isNew : null);
+      if (t) cardKey = drawOne(function(k){
+        return (!wantNew || isNew(k)) && t[rarityOf[k]] === true;
+      });
+      if (!cardKey){
+        t = rarityFloorTargets(minRank, null);
+        if (t) cardKey = drawOne(function(k){ return t[rarityOf[k]] === true; });
+      }
+    }
+    // 4. NEW ALONE (also the whole job when no floor was asked for).
+    if (!cardKey && wantNew) cardKey = drawOne(isNew);
+    return cardKey || drawOne(null);                   // nothing left to be picky about
+  }
+
   function openPack(packName, source, day, detail) {
     var key   = normalizePackKey(packName);
     var nCard = cfg.cardsPerOpen[key];
@@ -867,18 +952,61 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     // carry between packs).
     var pityMiss = 0;
 
+    // (c) PER-PACK GUARANTEES. Both are FLOORS ON THE FINISHED PACK, not extra forced cards: a
+    // card that arrives naturally (or through pity (a)) discharges them just as well, so the only
+    // slots that get forced are the ones without which the floor could no longer be met.
+    // RESERVE THE TAIL: force as soon as `slots remaining == guarantees still outstanding`. With
+    // one outstanding guarantee that is exactly the last slot, matching pity (b); with two it is
+    // the last two. Everything before that draws normally, which is what keeps a loose guarantee
+    // from changing a pack it was never going to bind on.
+    // RESERVE PESSIMISTICALLY, DISCHARGE OPPORTUNISTICALLY. `outstanding` is a SUM, because a card
+    // that is both new and above the floor is not guaranteed to EXIST - late in a season the only
+    // drawable 5-stars can all be owned already. Reserving by max() then left a single slot to pay
+    // two promises it could not both keep, and the pack came out with its rarity floor met and no
+    // new card (5 of 43 packs, caught by the gate). Reserving the sum costs nothing when one card
+    // does turn out to satisfy both: the counters below drop together and the extra slot is
+    // released before it is ever forced.
+    var guar        = cfg.guarantees[key] || { minRank: -1, newSnap: 0 };
+    var gMinRank    = guar.minRank;
+    var needNew     = Math.min(guar.newSnap, nCard);   // cannot promise more new cards than slots
+    var needRarity  = gMinRank >= 0;
+    var guaranteeOn = needRarity || needNew > 0;
+    if (guar.newSnap > nCard)
+      Logger.log('PackConfig GuaranteedNewSnap ' + guar.newSnap + ' on "' + key + '" exceeds its ' +
+                 nCard + ' Cards/Open - capped at ' + nCard + '.');
+    var outstanding = function(){ return needNew + (needRarity ? 1 : 0); };
+
     for (var i = 0; i < nCard; i++){
       var isLast = (i === nCard - 1);
+      // Computed BEFORE any draw in this slot, as it always was: `targets` is also the yardstick
+      // the pityMiss counter is scored against below, and reading it off the post-draw pool would
+      // quietly change that bookkeeping on reserved slots.
       var targets = pityTargets(pityCfg.forceHighest);
       var p = pityCfg.probs[Math.min(pityMiss, pityCfg.probs.length - 1)];
       var cardKey = null;
-      if (targets && p > 0 && rand() < p)
+
+      if (guaranteeOn && (nCard - i) <= outstanding()){
+        // A reserved slot answers to the guarantee alone - pity (a) and (b) are skipped here, and
+        // so is pity's rand() call. With both parameters at 0 nothing is ever reserved, so the
+        // random stream, and every number downstream of it, is byte-identical to before.
+        cardKey = guaranteedDraw(needNew > 0, needRarity ? gMinRank : -1);
+      }
+
+      if (!cardKey && targets && p > 0 && rand() < p)
         cardKey = drawOne(function(k){ return targets[rarityOf[k]] === true; });
-      // (b) dry-streak pity on the last card (independent mechanism: chases a NEW card, not a rare one)
-      if (!cardKey && dryPityActive && isLast && newCards.length === 0)
+      // (b) dry-streak pity on the last card (independent mechanism: chases a NEW card, not a rare
+      // one). Stands down whenever the pack authors its own guarantee: GuaranteedNewSnap is the
+      // same promise made explicitly, and running both would force two new cards where one was
+      // asked for. Packs with no guarantee keep this exactly as it was.
+      if (!cardKey && !guaranteeOn && dryPityActive && isLast && newCards.length === 0)
         cardKey = drawOne(function(k){ return !owned(k); });
       if (!cardKey) cardKey = drawOne(null);
       if (!cardKey) { Logger.log('Pool exhausted mid-pack on day ' + day); break; }
+
+      // Discharge the guarantees against whatever actually landed, however it was drawn. The
+      // rarity floor is satisfied by ANY card at or above it - it never had to be a new one.
+      if (needRarity && rarityRank[rarityOf[cardKey]] >= gMinRank) needRarity = false;
+      if (needNew > 0 && !owned(cardKey)) needNew--;
 
       // hit -> reset, miss -> escalate. `targets` is recomputed each draw off the live pool, so a
       // rarity that runs out mid-pack stops counting as the thing being chased.
