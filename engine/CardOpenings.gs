@@ -635,9 +635,14 @@ function cardTofConfig_(seg, payer, ctx){
   if (!run) return null;
   var cashOut = tofCashOutN_(cfg, seg);
   var lad = tofLadderRow_(cfg, cashOut);
+  // FRACTIONAL on purpose since the slot model landed (2026-09-09). A stage that carries an
+  // envelope on one of three doors contributes 1/3 of one, so the ladder total is rarely a whole
+  // number; Math.round here silently deleted any envelope worth less than half a pack across the
+  // entire ladder. The fraction is settled per banked run instead, by a seeded Bernoulli, the same
+  // way the pack grant plan settles its own trailing fractions.
   var packs = {}, any = false;
   PACK_RES.forEach(function(r){
-    var n = Math.round(num(lad.row[r]));
+    var n = num(lad.row[r]);
     if (n > 0){ packs[r] = n; any = true; }
   });
   // The days ToF is on the NEW calendar. Runs can only happen while the event is live, exactly as
@@ -648,7 +653,7 @@ function cardTofConfig_(seg, payer, ctx){
   });
   var beh = cfg.beh[seg];
   return { pBank: num(run.pBank), packs: packs, anyPacks: any,
-           ticketsBack: Math.round(num(lad.row[TOF_TICKET])),
+           ticketsBack: num(lad.row[TOF_TICKET]),   // fractional too; settled per banked run
            perRun: (cfg.ticketsPerRun > 0) ? cfg.ticketsPerRun : 1,
            runsPerDay: (beh.runsPerDay > 0) ? beh.runsPerDay : 0,
            cashOut: cashOut, live: live };
@@ -1299,6 +1304,17 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     var tofRunRand = mulberry32((seed | 0) ^ 0x1f83d9ab);   // its OWN stream: adding runs must not
                                                             // reshuffle the carry, or every prior
                                                             // seed would produce a new season
+    // A THIRD stream, for the same reason: the slot model made the banked ladder fractional, and
+    // settling those fractions off either stream above would have reshuffled the ticket carry or
+    // the run outcomes. `whole` floors and then buys the remainder with one draw, so the payout is
+    // unbiased over seeds - a ladder worth 0.4 envelopes pays one on 40% of banked runs instead of
+    // rounding to nothing.
+    var tofPayRand = mulberry32((seed | 0) ^ 0x94d049bb);
+    var whole = function(x){
+      var n = Math.floor(num(x)), fr = num(x) - n;
+      if (fr > 1e-12 && tofPayRand() < fr) n += 1;
+      return n;
+    };
     var T = pre.tof;
     var carry = 0, cum = 0, bal = 0, lastPay = 0;
     for (var td = DAILY_DAYS; td >= 1; td--) if (num(tofIncome[td - 1]) > 0){ lastPay = td; break; }
@@ -1322,15 +1338,20 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
             for (var te in T.packs) expectedTotal += T.pBank * T.packs[te];
           if (!(tofRunRand() < T.pBank)) continue;    // met a Pig and stopped: the pot is LOST
           tofBanked++;
-          if (T.ticketsBack > 0){ bal += T.ticketsBack; cum += T.ticketsBack; }
+          if (T.ticketsBack > 0){
+            var tb = whole(T.ticketsBack);
+            if (tb > 0){ bal += tb; cum += tb; }
+          }
           // D26: after the album closes there is nowhere to put a card, so envelopes stop. The
           // TICKETS above do not - ToF is always-on and has no relationship to the album season.
           if (SEASON_CUTOFF && d1 > SEASON_LAST_DAY) continue;
           tofBankedInSeason++;
-          for (var tp in T.packs)
-            for (var q = 0; q < T.packs[tp]; q++)
+          for (var tp in T.packs){
+            var nEnv = whole(T.packs[tp]);
+            for (var q = 0; q < nEnv; q++)
               packOpens.push({ day: d1, packName: tp, source: TOF_CAT,
                                detail: 'run ' + tofRuns + ', banked at stage ' + T.cashOut });
+          }
         }
       }
       tofCumByDay.push(cum);

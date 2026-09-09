@@ -1234,18 +1234,95 @@ function tofConfig_(){
   }
   var rewCols = {};
   for (var hh in cols){ var res = RES_MAP[hh]; if (res && rewCols[res] == null) rewCols[res] = cols[hh]; }
-  var stages = [];
+
+  // ---- SLOT MODEL (2026-09-09) --------------------------------------------------------------
+  // The STAGES block used to be one row per stage carrying 'Survive p' and 'P(reward | survived)'.
+  // It is now one row per SLOT: each stage lists the doors the player is shown, and each door is a
+  // 'card type' of reward / pig / empty. The player picks one at random from the doors that are
+  // actually presented, so:
+  //
+  //   nonEmpty = slots whose type is not 'empty'      (what the player sees: 2, 3 or 4 doors)
+  //   H        = P(survive) = 1 - pigs / nonEmpty
+  //   rew      = the reward GIVEN SURVIVAL = the arithmetic MEAN of the reward slots
+  //
+  // `rew` is conditional on purpose. tofRunOnce_ pays the pot as `rew x I x pBank` and pBank is
+  // already P(survived to cash-out), so pricing the stage unconditionally here would apply survival
+  // twice and shrink every banked pot by a factor of H per stage. I is pinned to 1: the old
+  // "survived but got nothing" probability is now expressed directly, as a reward slot whose
+  // amounts are all zero.
+  //
+  // The sheet's own 'p' column is NOT read (user decision): the choice is uniform over the doors
+  // presented, so p is derived as 1/nonEmpty and cannot drift from the slot rows beside it. The
+  // 'Empty Slots' column is vestigial and likewise ignored - emptiness is already stated by the
+  // slot's own type.
+  if (cols['card type'] == null)
+    throw new Error("ToF STAGES has no 'card type' column. This engine reads the SLOT layout " +
+                    '(one row per door, card type = reward / pig / empty). A sheet still on the ' +
+                    "old one-row-per-stage layout ('Survive p' / 'P(reward | survived)') must be " +
+                    'rebuilt to the slot layout - the old reader was removed 2026-09-09.');
+
+  var stages = [], order = [], byN = {};
   for (var r = hdr + 1; r < v.length; r++){
     var sn = num(v[r] && v[r][cols['Stage']]);
     if (!(sn > 0)) break;
-    var rew = {};
-    for (var res2 in rewCols){ var amt = num(v[r][rewCols[res2]]); if (amt) rew[res2] = amt; }
-    stages.push({ n: sn,
-                  type: String(v[r][cols['Type']] || '').trim(),
-                  H:    num(v[r][cols['Survive p']]),
-                  I:    (cols['P(reward | survived)'] != null) ? num(v[r][cols['P(reward | survived)']]) : 1,
-                  rew:  rew });
+    var kind = String(v[r][cols['card type']] == null ? '' : v[r][cols['card type']]).trim().toLowerCase();
+    // Closed set. An unrecognised word becomes 'empty' - it contributes nothing and is logged -
+    // rather than silently becoming a payable door.
+    if (kind !== 'reward' && kind !== 'pig' && kind !== 'empty'){
+      try { Logger.log('ToF stage ' + sn + ': unrecognised card type "' + kind + '" - treated as ' +
+                       'empty. Expected reward / pig / empty.'); } catch(e){}
+      kind = 'empty';
+    }
+    var rew2 = {};
+    for (var res2 in rewCols){ var amt = num(v[r][rewCols[res2]]); if (amt) rew2[res2] = amt; }
+    // Defensive: only a reward door can pay. A number left on a pig or empty row by a half-cleared
+    // copy-paste is dropped, and said out loud once per stage so the drop is never invisible.
+    if (kind !== 'reward'){
+      var stray = false;
+      for (var sres in rew2) { stray = true; break; }
+      if (stray){
+        try { Logger.log('ToF stage ' + sn + ': a "' + kind + '" slot carries reward amounts - ' +
+                         'ignored. Only reward slots pay.'); } catch(e){}
+        rew2 = {};
+      }
+    }
+    if (byN[sn] == null){
+      byN[sn] = { n: sn, type: String(v[r][cols['Type']] || '').trim(), slots: [] };
+      order.push(sn);
+    }
+    byN[sn].slots.push({ kind: kind, rew: rew2 });
   }
+
+  order.forEach(function(sn){
+    var s = byN[sn], nonEmpty = 0, pigs = 0, rewSlots = [];
+    s.slots.forEach(function(sl){
+      if (sl.kind === 'empty') return;
+      nonEmpty++;
+      if (sl.kind === 'pig') pigs++; else rewSlots.push(sl.rew);
+    });
+    // A stage with no door at all cannot be played. Auto-survive with no reward, and say so: the
+    // alternative readings (skip the stage, or kill every run) both change the ladder silently.
+    if (nonEmpty === 0){
+      try { Logger.log('ToF stage ' + sn + ': every slot is empty - no door to pick. Treated as ' +
+                       'auto-survive paying nothing.'); } catch(e){}
+      stages.push({ n: s.n, type: s.type, H: 1, I: 1, rew: {}, nonEmpty: 0, pigs: 0 });
+      return;
+    }
+    if (nonEmpty < 2)
+      try { Logger.log('ToF stage ' + sn + ': only ' + nonEmpty + ' door is presented (the design ' +
+                       'minimum is 2), so that outcome is certain.'); } catch(e){}
+    var H = 1 - pigs / nonEmpty;
+    var rew = {};
+    if (rewSlots.length){
+      rewSlots.forEach(function(rw){
+        for (var res in rw) rew[res] = num(rew[res]) + num(rw[res]);
+      });
+      for (var res3 in rew) rew[res3] = rew[res3] / rewSlots.length;   // MEAN, given survival
+    }
+    stages.push({ n: s.n, type: s.type, H: H, I: 1, rew: rew,
+                  nonEmpty: nonEmpty, pigs: pigs });
+  });
+
   if (!stages.length) return (_tofCfgCache = false);
   cfg.stages = stages;
 
@@ -1701,7 +1778,8 @@ function ECOGAINS_TOF(payer, block, nonce){
     // house edge. Diff is absolute coins, not a ratio -- a ratio against a small spend runs to
     // five figures and no chart survives it.
     var head = ['Stage','Type'];
-    segs.forEach(function(sg){ head.push(sg + ' gain (raw)', sg + ' gain (exp)', sg + ' spend', sg + ' net (exp - spend)'); });
+    segs.forEach(function(sg){ head.push(sg + ' gain (raw)', sg + ' gain (exp)', sg + ' spend',
+                                         sg + ' net (exp - spend)', sg + ' stage EV'); });
     var grid = [head], stages = cfg.stages;
     var pre = segs.map(function(sg){ return tofStageCurve_(sg, p, ctx); });
     for (var i = 0; i < stages.length; i++){
@@ -1709,7 +1787,10 @@ function ECOGAINS_TOF(payer, block, nonce){
       for (var k = 0; k < segs.length; k++){
         var c = pre[k];
         var raw = c ? c.raw[i] : 0, ex = c ? c.exp[i] : 0, sp = c ? c.spend[i] : 0;
-        line.push(raw, ex, sp, (ex === '' || sp === '') ? '' : ex - sp);
+        // stage EV = this stage on its own, sum of p x reward, priced through item_vals. The three
+        // columns beside it are all CUMULATIVE along the ladder; this one is not.
+        var sev = c ? c.stageExp[i] : 0;
+        line.push(raw, ex, sp, (ex === '' || sp === '') ? '' : ex - sp, sev);
       }
       grid.push(line);
     }
@@ -1732,13 +1813,18 @@ function tofStageCurve_(seg, payer, ctx){
   if (!beh) return null;
   var stages = cfg.stages, vals = itemVals_();
   var cashOutN = (beh.cashOut > 0) ? beh.cashOut : stages[stages.length - 1].n;
-  var raw = [], exp = [], spend = [], cum = 0;
+  var raw = [], exp = [], spend = [], stageExp = [], cum = 0;
   // One walk per stage is O(n^2) but n is 60 and the sheet asks for this once per segment.
   for (var i = 0; i < stages.length; i++){
     var st = stages[i], v = 0;
     for (var res in st.rew) v += st.rew[res] * st.I * num(vals[res]);
     cum += v;
     raw.push(cum);
+    // THIS stage alone, unconditionally: what one visit to it is worth before you know whether the
+    // door you opened was the pig. `v` is the payout GIVEN SURVIVAL, so H puts the death chance
+    // back in - this is the sum-of-p-x-reward view, and it is deliberately NOT what the ladder
+    // uses (the ladder is conditional; pBank supplies survival exactly once).
+    stageExp.push(v * st.H);
     // Past this segment's cash-out stage the run does not exist: they stop before it. Carrying the
     // last spend forward would draw a flat negative net across 40 stages nobody plays, which reads
     // as "the deep ladder loses you money" when in fact it is never reached. '' so the chart stops.
@@ -1756,7 +1842,7 @@ function tofStageCurve_(seg, payer, ctx){
     exp.push(cum * pB);
     spend.push(sp);
   }
-  return { raw: raw, exp: exp, spend: spend };
+  return { raw: raw, exp: exp, spend: spend, stageExp: stageExp };
 }
 
 // Coin-equivalent price per resource, from the item_vals sheet (row 2 = names, row 3 = coins).

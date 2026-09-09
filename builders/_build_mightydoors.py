@@ -1,3 +1,19 @@
+# ============================================================================================
+# ⚠ STALE — DO NOT RUN AGAINST THE LIVE WORKBOOK (2026-09-09)
+#
+# This builder still emits the SUPERSEDED one-row-per-stage STAGES layout:
+#     Stage | Type | Tier | Choices | Reward Slots | Pig Slots | <rewards>
+# The workbook, and engine/EcoGainsSim_v4.gs since 2026-09-09, use the SLOT layout — one row per
+# door, four doors per stage:
+#     Stage | Type | Tier | card type | Empty Slots | p | <rewards> | ToF_Ticket
+# where card type is reward / pig / empty, and a stage's survival is derived as
+# 1 - pigs / non-empty rather than read from a 'Survive p' column that no longer exists.
+#
+# Running this would overwrite the authored slot structure with the old shape, and tofConfig_ would
+# then THROW on the missing 'card type' column. Left in place deliberately (user decision) rather
+# than rewritten: the reward values are being authored by hand per stage and a generated sheet has
+# nothing to contribute yet. Rewrite it to the slot layout before it is ever run again.
+# ============================================================================================
 # Builds ToF_v1.xlsx — the 'ToF' config sheet for Mighty Doors / Tower of Fortune, the push-your-luck
 # event from design_pdfs/DRBL-Mighty Doors (DB Tower of Fortune)-010926-212845.pdf.
 # See source_docs/mighty-doors.md for the mechanics this encodes.

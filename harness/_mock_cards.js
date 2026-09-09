@@ -371,21 +371,28 @@ let cfg;
     if (!sh || !sh.values) return;
     const cols = {};
     sh.values.forEach(row => (row || []).forEach((cell, c) => {
-      if (packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
+      if (c > 0 && packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;   // see note below
     }));
     if (!Object.keys(cols).length) return;
     sh.values.forEach(row => Object.keys(cols).forEach(c => {
       if (row && typeof row[c] === 'number' && row[c] !== 0) { row[c] = 0; zeroedCells++; }
     }));
   });
-  _sheetValsCache = {};
+  // ToF keeps its OWN caches. Clearing only _sheetValsCache left tofConfig_ serving the ladder it
+  // read before the blanking, so ToF went on paying envelopes from a sheet this fixture had just
+  // emptied. Harmless until 2026-09-09 because ToF's P(run banks) was 0 and its pack row was 0
+  // either way; the moment the slot model made ToF pay, the stale cache became a failing gate.
+  const bustAll = () => { _sheetValsCache = {}; _tofCfgCache = null;
+                          _tofBalCache = {}; _tofIncomeCache = {}; };
+  bustAll();
   const zeroFlow = dailyPacksFor_('10-19', 'NONPAYER', Context.get());
   check('no authored pack ladder -> zero pack flow (plumbing only, D19/1)',
     zeroedCells > 0 && zeroFlow.total.every(r => r.every(v => v === 0)) &&
     zeroFlow.bySource.length === 0,
-    zeroedCells + ' authored pack cells blanked, ' + zeroFlow.bySource.length + ' sources left');
+    zeroedCells + ' authored pack cells blanked, ' + zeroFlow.bySource.length + ' sources left' +
+    (zeroFlow.bySource.length ? ': ' + zeroFlow.bySource.map(s => s.cat).join(', ') : ''));
   data = JSON.parse(zeroSnap);
-  _sheetValsCache = {};
+  bustAll();
   check('zero-flow fixture restored', JSON.stringify(data) === zeroSnap);
 }
 
@@ -464,8 +471,12 @@ let cfg;
       const sh = data[name];
       if (!sh || !sh.values) return;
       const cols = {};
+      // c > 0: the same word appears in column A as a ROW LABEL, not a column header - the ToF
+      // sheet lists 'ToF_Ticket' as a resource in REWARD PER RUN. Marking column 0 blanked every
+      // Stage NUMBER in the STAGES block, so tofConfig_ read no stages at all and returned false.
+      // The fixture was destroying the sheet it meant to de-fund.
       sh.values.forEach(row => (row || []).forEach((cell, c) => {
-        if (packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
+        if (c > 0 && packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
       }));
       sh.values.forEach(row => Object.keys(cols).forEach(c => {
         if (row && typeof row[c] === 'number') row[c] = 0;
@@ -606,11 +617,22 @@ let firstRun = null;
     `${tally['Final Star Balance']} vs ${tally['Stars Earned']} - ${tally['Stars Spent on Chests']}`);
   check('tally: segment/payer recorded', tally['Segment / Payer'] === '10-19 / NONPAYER',
     String(tally['Segment / Payer']));
-  check('tally: expected packs is the unrounded flow',
-    Math.abs(tally['Expected Packs (fractional)'] - expected) < 0.02,
-    `${tally['Expected Packs (fractional)']} vs ${f2(expected)}`);
+  // ToF IS PRICED TWICE, ON PURPOSE (D40, and live since the slot model made P(run banks) non-zero
+  // on 2026-09-09). The gains model multiplies its ladder arithmetically into dailyPacksFor_; the
+  // card sim instead PLAYS the runs, gated on a whole-ticket balance, a per-day run cap and the
+  // days ToF is actually live. Those cannot agree to the cent, so the gate asserts what it can:
+  // every NON-ToF source must match exactly, and ToF's own contribution is allowed to differ by a
+  // quarter of itself. Both numbers are printed so drift is visible rather than absorbed.
+  const tofFlow = (flow.bySource.filter(s => s.cat === 'ToF')[0] || {}).days;   // {cat, days, prov}
+  const tofExp = tofFlow ? tofFlow.reduce((s, r) => s + r.reduce((a, b) => a + b, 0), 0) : 0;
+  const nonTof = expected - tofExp;
+  check('tally: expected packs is the unrounded flow (non-ToF exact, ToF within 25%)',
+    Math.abs(tally['Expected Packs (fractional)'] - expected) <= Math.max(0.02, 0.25 * tofExp),
+    `${tally['Expected Packs (fractional)']} vs ${f2(expected)} ` +
+    `(non-ToF ${f2(nonTof)}, ToF ${f2(tofExp)} arithmetic vs ` +
+    `${f2(tally['Expected Packs (fractional)'] - nonTof)} played)`);
   check('granted packs are within 1 per (source,tier) of the expectation (unbiased rounding)',
-    Math.abs(tally['Total Packs Opened'] - expected) <= 18,
+    Math.abs(tally['Total Packs Opened'] - expected) <= 18 + tofExp,
     `granted ${tally['Total Packs Opened']} vs expected ${f2(expected)}`);
 
   // running totals: 33 rows, monotonic packs-opened, album tier never decreases
@@ -787,14 +809,34 @@ let firstRun = null;
         expectSetCoins += num((cfgR.setRewards.map[id] || {})['Coins']);
       });
     }
+    // "A set completion must show up as coins" was asserting the workbook, not the rule: on the
+    // current SET REWARDS only sets 4-8 pay Coins at all, and sets 1-3 pay Unlimited Lives. A run
+    // that completes sets 1-3 therefore books 0 coins CORRECTLY. Re-derive what the completions
+    // that actually happened are worth, and assert against that.
+    let expectSetRes = {};
+    for (let r = 57; r < 57 + 300; r++) {
+      const row = v[r - 1];
+      if (!row || row[0] === '' || row[0] == null) break;
+      const mm = String(row[9] || '').match(/Set (\d+) completed/g);
+      if (!mm) continue;
+      mm.forEach(x => {
+        const rew = cfgR.setRewards.map['Set ' + x.match(/\d+/)[0]] || {};
+        Object.keys(rew).forEach(k => { if (num(rew[k])) expectSetRes[k] = true; });
+      });
+    }
+    const owed = Object.keys(expectSetRes);
     check('set-completion eco gains are totalled, not just noted',
-      setsSeen === 0 || setCoins > 0,
-      setsSeen + ' set completions in the log, Set Reward Coins = ' + setCoins);
+      setsSeen === 0 || expectSetCoins === 0 || setCoins > 0,
+      setsSeen + ' completions worth ' + expectSetCoins + ' coins, Set Reward Coins = ' + setCoins);
     check('set-reward coins equal the sum over the completions that happened',
       Math.abs(setCoins - expectSetCoins) < 1e-6,
       setCoins + ' written vs ' + expectSetCoins + ' re-derived from the log notes');
-    check('the per-resource breakdown is written beside the coin total',
-      setsSeen === 0 || /Coins/.test(setAll), setAll.slice(0, 60));
+    // The breakdown must name every resource the completed sets owe - whatever those are.
+    const absent = owed.filter(k => setAll.indexOf(k) < 0);
+    check('the per-resource breakdown names every resource the completions owe',
+      setsSeen === 0 || absent.length === 0,
+      (owed.length ? 'owed: ' + owed.join(', ') + '  ' : 'nothing owed  ') +
+      (absent.length ? 'MISSING: ' + absent.join(', ') + '  ' : '') + setAll.slice(0, 70));
     check('album-reward coins are a number (0 when no album completed)',
       isFinite(albCoins), String(albCoins));
 
@@ -1650,24 +1692,134 @@ function logCol(name){
         const ulRow = before.slice(2).find(l => String(l[0]) === 'Unlimited Lives');
         const c0 = 1;                                    // first segment 'if banked'
         const was = num(ulRow[c0]), wasExp = num(ulRow[c0 + 1]);
-        const cell = vR[hr + 1][ulCol];                  // stage 1 - Safe (Start), cannot be missed
+        // SLOT MODEL (2026-09-09): stage 1 is no longer one row, it is one row per door. A stage's
+        // ladder value is the MEAN of its reward doors, because the player opens exactly one of
+        // them, so +7 on a single door raises the stage by 7 / (reward doors) — not by 7. The
+        // divisor is COUNTED off the sheet rather than hardcoded to 4: the door count per stage is
+        // authored and varies (2, 3 and 4 all appear), and a hardcoded 4 is exactly the kind of
+        // frozen workbook state this harness keeps having to un-rot.
+        let ctCol = -1;
+        (vR[hr] || []).forEach((h, i) => { if (String(h).trim() === 'card type') ctCol = i; });
+        check('ToF STAGES has a "card type" column (the slot layout)', ctCol >= 0);
+        const stageCol = 0;
+        const stage1 = num(vR[hr + 1][stageCol]);
+        let rewardDoors = 0;
+        for (let r = hr + 1; r < vR.length && num(vR[r][stageCol]) === stage1; r++)
+          if (String(vR[r][ctCol]).trim().toLowerCase() === 'reward') rewardDoors++;
+        check('stage 1 has reward doors to divide by', rewardDoors > 0, rewardDoors + ' doors');
+        const rise = 7 / rewardDoors;
+
+        const cell = vR[hr + 1][ulCol];                  // stage 1, FIRST door
         vR[hr + 1][ulCol] = num(cell) + 7;
         bust();
         const after = ECOGAINS_TOF('NONPAYER', 'REWARD', 1);
         const ulRow2 = after.slice(2).find(l => String(l[0]) === 'Unlimited Lives');
-        check('ToF: +7 Unlimited Lives on stage 1 raises "if banked" by exactly 7',
-          Math.abs(num(ulRow2[c0]) - (was + 7)) < 1e-9,
-          was.toFixed(3) + ' -> ' + num(ulRow2[c0]).toFixed(3) + ' (' + String(bh[c0]) + ')');
-        // ...and the expected column moves by 7 x P(bank), not by 7
+        check('ToF: +7 Unlimited Lives on ONE stage-1 door raises "if banked" by 7 / reward doors',
+          Math.abs(num(ulRow2[c0]) - (was + rise)) < 1e-9,
+          was.toFixed(3) + ' -> ' + num(ulRow2[c0]).toFixed(3) + ' (expected +' + rise.toFixed(3) +
+          ' = 7/' + rewardDoors + ') (' + String(bh[c0]) + ')');
+        // ...and the expected column moves by that x P(bank), not by the raw 7
         const pB = num(after[1][c0]);
-        check('ToF: the expected column moves by 7 x P(run banks), not by 7',
-          Math.abs((num(ulRow2[c0 + 1]) - wasExp) - 7 * pB) < 1e-9,
-          'delta ' + (num(ulRow2[c0 + 1]) - wasExp).toFixed(4) + ' vs 7 x ' + pB.toFixed(5));
+        check('ToF: the expected column moves by (7 / reward doors) x P(run banks)',
+          Math.abs((num(ulRow2[c0 + 1]) - wasExp) - rise * pB) < 1e-9,
+          'delta ' + (num(ulRow2[c0 + 1]) - wasExp).toFixed(4) + ' vs ' + rise.toFixed(3) +
+          ' x ' + pB.toFixed(5));
         vR[hr + 1][ulCol] = cell;
         bust();
         const back = ECOGAINS_TOF('NONPAYER', 'REWARD', 1);
         const ulRow3 = back.slice(2).find(l => String(l[0]) === 'Unlimited Lives');
         check('ToF stage fixture restored', Math.abs(num(ulRow3[c0]) - was) < 1e-9);
+
+        // ---- SLOT SEMANTICS (2026-09-09) ----------------------------------------------------
+        // H = 1 - pigs / non-empty doors, read straight off the slot rows. These mutate a stage's
+        // door TYPES rather than its reward values, which is the part the old one-row layout could
+        // not express at all.
+        const stageRows = (n) => {
+          const out = [];
+          for (let r = hr + 1; r < vR.length; r++) {
+            const sn = num(vR[r][stageCol]);
+            if (!(sn > 0)) break;
+            if (sn === n) out.push(r);
+          }
+          return out;
+        };
+        const surviveOf = (n) => {
+          const cfg = tofConfig_();
+          const st = cfg.stages.filter(s => s.n === n)[0];
+          return st ? st.H : null;
+        };
+        // Pick a stage that currently has a pig and at least two reward doors, so both mutations
+        // below have somewhere to bite. Chosen from the sheet, not named.
+        let target = -1, targetRows = null;
+        for (let n = 2; n <= 60 && target < 0; n++) {
+          const rows = stageRows(n);
+          if (!rows.length) continue;
+          const kinds = rows.map(r => String(vR[r][ctCol]).trim().toLowerCase());
+          if (kinds.indexOf('pig') >= 0 && kinds.filter(k => k === 'reward').length >= 2) {
+            target = n; targetRows = rows;
+          }
+        }
+        check('found a ToF stage with a pig and 2+ reward doors to mutate', target > 0,
+          'stage ' + target);
+
+        if (target > 0) {
+          bust();
+          const h0 = surviveOf(target);
+          const kinds0 = targetRows.map(r => vR[r][ctCol]);
+          const firstReward = targetRows.filter(r =>
+            String(vR[r][ctCol]).trim().toLowerCase() === 'reward')[0];
+
+          // (a) EMPTY a reward door -> fewer doors presented, same pig -> death chance RISES.
+          vR[firstReward][ctCol] = 'empty';
+          bust();
+          const hEmpty = surviveOf(target);
+          check('ToF: emptying a reward door raises the death chance (H falls)',
+            hEmpty < h0 - 1e-12,
+            'stage ' + target + ' H ' + h0.toFixed(4) + ' -> ' + hEmpty.toFixed(4));
+
+          // (b) that same door as a PIG instead -> two pigs out of the same door count.
+          vR[firstReward][ctCol] = 'pig';
+          bust();
+          const hPig = surviveOf(target);
+          const cfgP = tofConfig_();
+          const stP = cfgP.stages.filter(s => s.n === target)[0];
+          check('ToF: H is exactly 1 - pigs / non-empty doors, with more than one pig supported',
+            stP && stP.pigs >= 2 && Math.abs(hPig - (1 - stP.pigs / stP.nonEmpty)) < 1e-12,
+            stP ? ('stage ' + target + ': ' + stP.pigs + ' pigs of ' + stP.nonEmpty +
+                   ' doors -> H ' + hPig.toFixed(4)) : 'stage not found');
+
+          // (c) a stray reward left on that pig door must NOT be paid.
+          const ulWasP = vR[firstReward][ulCol];
+          vR[firstReward][ulCol] = 999;
+          bust();
+          const stStray = tofConfig_().stages.filter(s => s.n === target)[0];
+          check('ToF: reward amounts on a pig door are ignored',
+            stStray && num(stStray.rew['Unlimited Lives']) < 999,
+            stStray ? ('stage ' + target + ' UL = ' +
+                       num(stStray.rew['Unlimited Lives']).toFixed(3)) : 'stage not found');
+          vR[firstReward][ulCol] = ulWasP;
+
+          // restore every door type
+          targetRows.forEach((r, i) => { vR[r][ctCol] = kinds0[i]; });
+          bust();
+          check('ToF slot fixture restored',
+            Math.abs(surviveOf(target) - h0) < 1e-12,
+            'H back to ' + h0.toFixed(4));
+        }
+
+        // The whole point of the rewrite: the old parser read 'Survive p', which the slot layout
+        // does not have, so H was 0 for every stage and P(run banks) was 0 for every segment. If
+        // this ever reads 0 again the sheet and the parser have diverged.
+        bust();
+        const runBlk = ECOGAINS_TOF('NONPAYER', 'RUN', 1);
+        let pbCol = -1;                                  // it is a COLUMN of the RUN block
+        (runBlk[0] || []).forEach((h, i) => { if (/P\(run banks\)/i.test(String(h))) pbCol = i; });
+        const pbVals = pbCol < 0 ? []
+          : runBlk.slice(1).map(l => num(l[pbCol])).filter(x => isFinite(x));
+        check('ToF: P(run banks) is non-zero again for at least one segment',
+          pbCol >= 0 && pbVals.some(x => x > 0),
+          pbCol < 0 ? 'P(run banks) column not found'
+                    : pbVals.map(x => x.toFixed(4)).join(', '));
       }
     }
   }
@@ -1733,10 +1885,20 @@ function logCol(name){
   // ladder read empty, so nobody ever continued, every segment's spend went to 0 and P(run pays)
   // collapsed - with nothing anywhere saying why. Assert the RULE (label matching tolerates case
   // and a trailing plural), with a mutation fixture, on every bar the reader looks for.
+  // Locate the bar the way the ENGINE does, not by the spelling that happened to be on the sheet
+  // the day this gate was written. The workbook already renamed 'CONTINUE COST' -> 'CONTINUE COSTs'
+  // once; hardcoding either spelling here just moves the rot from the engine into the harness.
+  const findBar = (v, label) => {
+    const norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/s$/, '');
+    const want = norm(label);
+    for (let i = 0; i < v.length; i++) if (norm((v[i] || [])[0]) === want) return i;
+    return -1;
+  };
   ['CONTINUE COST', 'STAGES', 'SEGMENT BEHAVIOUR', 'RUN CONFIG'].forEach(label => {
     const v = data[sheetName].values;
-    const row = v.findIndex(r => String((r || [])[0] || '').trim() === label);
+    const row = findBar(v, label);
     if (row < 0) { check(`ToF: bar "${label}" is present to rename`, false, 'bar not found'); return; }
+    const asWritten = v[row][0];              // restore the sheet's OWN spelling, not `label`
     // Only pluralise a label that is not already plural: 'STAGESs' is not a rename anyone makes,
     // and demanding the reader swallow a doubled plural would be widening the match for nothing.
     const plural = /s$/i.test(label) ? [] : [label + 's', label.toLowerCase() + 's'];
@@ -1751,20 +1913,24 @@ function logCol(name){
           c ? `${c.stages.length} stages, ${c.costs.length} rungs, ${Object.keys(c.beh).length} segments`
             : 'config unreadable');
       });
-    v[row][0] = label;
+    v[row][0] = asWritten;
     resetTof();
   });
   // ...and the fixture really can break it, or the gate above proves nothing.
   {
     const v = data[sheetName].values;
-    const row = v.findIndex(r => String((r || [])[0] || '').trim() === 'CONTINUE COST');
-    v[row][0] = 'CONTINUE PRICES';
-    resetTof();
-    const c = tofConfig_();
-    check('ToF: an actually-different bar name DOES break the ladder (fixture is live)',
-      !!c && c.costs.length === 0, c ? `${c.costs.length} rungs` : 'config unreadable');
-    v[row][0] = 'CONTINUE COST';
-    resetTof();
+    const row = findBar(v, 'CONTINUE COST');
+    const asWritten = row >= 0 ? v[row][0] : null;
+    check('ToF: the CONTINUE COST bar is present to break', row >= 0, 'row ' + row);
+    if (row >= 0) {
+      v[row][0] = 'CONTINUE PRICES';
+      resetTof();
+      const c = tofConfig_();
+      check('ToF: an actually-different bar name DOES break the ladder (fixture is live)',
+        !!c && c.costs.length === 0, c ? `${c.costs.length} rungs` : 'config unreadable');
+      v[row][0] = asWritten;
+      resetTof();
+    }
   }
 
   const ctxT = Context.get();
@@ -1862,8 +2028,12 @@ function logCol(name){
       const sh = data[name];
       if (!sh || !sh.values) return;
       const cols = {};
+      // c > 0: the same word appears in column A as a ROW LABEL, not a column header - the ToF
+      // sheet lists 'ToF_Ticket' as a resource in REWARD PER RUN. Marking column 0 blanked every
+      // Stage NUMBER in the STAGES block, so tofConfig_ read no stages at all and returned false.
+      // The fixture was destroying the sheet it meant to de-fund.
       sh.values.forEach(row => (row || []).forEach((cell, c) => {
-        if (packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
+        if (c > 0 && packDlyHdrs.indexOf(String(cell).trim()) >= 0) cols[c] = true;
       }));
       sh.values.forEach(row => Object.keys(cols).forEach(c => {
         if (row && typeof row[c] === 'number') row[c] = 0;
@@ -2087,11 +2257,28 @@ function logCol(name){
 
   // 6. "Events cut in the middle still give the full reward" -- a straddler's envelope total is
   //    UNCHANGED. Its packs merely land on or before the last day, which gate 1 already covers.
-  const strad = straddle.filter(c => (off['20-39|PAYER'].packByCat[c] || 0) > 1e-12);
-  check('straddling instances pay their envelopes in full',
+  // ToF is NOT instance-shaped and is excluded here deliberately. Every other source pays a whole
+  // instance atomically, so a straddler pays in full; ToF is a per-day run loop, and the card sim
+  // stops its envelopes on the first day past the cutoff (SEASON_CUTOFF && d1 > SEASON_LAST_DAY).
+  // Its tickets keep flowing - ToF is always-on and has no relationship to the album season. That
+  // asymmetry is asserted directly below rather than hidden by dropping ToF from the list.
+  const strad = straddle.filter(c => c !== 'ToF' &&
+    (off['20-39|PAYER'].packByCat[c] || 0) > 1e-12);
+  check('straddling instances pay their envelopes in full (ToF excluded: not instance-shaped)',
     strad.length > 0 && strad.every(c =>
       Math.abs((on['20-39|PAYER'].packByCat[c] || 0) - off['20-39|PAYER'].packByCat[c]) < 1e-9),
     strad.length ? strad.join(', ') : 'no straddling instance pays packs in this workbook');
+
+  // ...and the ToF exception is a RULE, so gate it: with the cutoff on, ToF's envelopes must be
+  // strictly fewer than with it off. Only meaningful once ToF actually pays envelopes, which it
+  // did not until the slot model landed (2026-09-09).
+  const tofOff = off['20-39|PAYER'].packByCat['ToF'] || 0;
+  const tofOn  = on['20-39|PAYER'].packByCat['ToF'] || 0;
+  if (tofOff > 1e-12)
+    check('ToF envelopes ARE clipped by the season cutoff (it is not instance-shaped)',
+      tofOn < tofOff - 1e-9, tofOff.toFixed(4) + ' -> ' + tofOn.toFixed(4));
+  else
+    console.log('  (ToF pays no envelopes in this workbook - cutoff asymmetry not exercised)');
 
   // 7. Season Pass is exempt: the track is climbed during the season, so it pays its whole reached
   //    ladder even though the calendar draws a second pass instance past the cutoff.
@@ -2290,11 +2477,19 @@ function logCol(name){
       const sheetT = data['ToF'] ? 'ToF' : 'MD';
       const vT = data[sheetT].values;
       const sb = mdBlock_(vT, 'STAGES'), hr = mdHeaderRow_(vT, sb, 'Stage');
-      const survC = (vT[hr] || []).findIndex(x => String(x).trim() === 'Survive p');
-      check('ToF STAGES has a "Survive p" column to mutate', survC >= 0);
+      // SLOT MODEL (2026-09-09): there is no 'Survive p' column any more. The equivalent mutation
+      // is to turn every PIG door into a reward door - same number of doors presented, zero pigs,
+      // so H = 1 - pigs/nonEmpty = 1 at every stage and every run must bank.
+      const survC = (vT[hr] || []).findIndex(x => String(x).trim() === 'card type');
+      check('ToF STAGES has a "card type" column to mutate', survC >= 0);
       if (survC >= 0) {
         const snap = [];
-        for (let r = hr + 1; r < vT.length && num(vT[r][0]) > 0; r++) { snap.push(vT[r][survC]); vT[r][survC] = 1; }
+        let pigsCleared = 0;
+        for (let r = hr + 1; r < vT.length && num(vT[r][0]) > 0; r++) {
+          snap.push(vT[r][survC]);
+          if (String(vT[r][survC]).trim().toLowerCase() === 'pig') { vT[r][survC] = 'reward'; pigsCleared++; }
+        }
+        check('the fixture found pigs to clear', pigsCleared > 0, pigsCleared + ' pig doors');
         _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; _tofIncomeCache = {};
         eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
         const preM = cardSeasonPre_('10-19', 'PAYER', Context.get());
