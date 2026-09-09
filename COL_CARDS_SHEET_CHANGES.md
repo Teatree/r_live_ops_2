@@ -356,6 +356,37 @@ Cloud sheet gained a block), which is harmless: everything is located by bar lab
 | Finishers in sample / Players simulated | so you can see whether a cell's numbers mean anything |
 | Population represented / 95% CI / Basis | the denominator, the Monte-Carlo error, and the stamp |
 
+**You choose where the % also lands.** Type `Album % output cell` into any cell on
+`Col_Cards_Totals`, and an A1 address in the cell to its right:
+
+```
+Album % output cell  |  Dashboard!B2
+Album % output cell  |  O3            ← no sheet name = Col_Cards_Totals
+```
+
+The run mirrors the headline rate there as a **raw fraction** (0.0276), so format that cell as a
+percentage — it is then a number you can chart or reference, not a string. Blank or missing means
+nothing extra is written; a typo is logged and skipped, never thrown, so a mistyped address cannot
+kill a run that already has its answer.
+
+**It also shows a result panel** when it finishes — the rate, the two finisher averages, the CI and
+the basis. If `B2` is under 200 the panel carries a red warning, because reading a ~3% rate off 50
+players is the one way to misread this badly.
+
+**How long it takes.** Measured: ~6.6s of fixed setup (the calendar + every config sheet, ten
+times) plus **10.5ms per player-season**.
+
+| `B2` | node | Apps Script (3× / 6× / 10×) |
+|---|---|---|
+| 100 | 11.4s | 34s / 1m09s / 1m54s |
+| **200** | 21.6s | **1m05s / 2m09s / 3m36s** |
+| 500 | 36.4s | 1m49s / 3m39s / **6m04s** |
+
+The menu limit is 6 minutes and the run self-stops at 5, writing what it has — so **500 can produce
+a partial sweep**. A partial run renormalises over the cells that actually ran and says
+`PARTIAL RUN — only N% of the player base` in the block, the panel and the toast; it never quietly
+reports a low rate as though it were complete. **200 is the setting I'd use.**
+
 **Why it is not a formula.** A custom function gets **30 seconds**. Walking the calendar and every
 config sheet for the ten cells costs 6.6s in Node alone — before a single player is simulated — and
 Apps Script is several times slower. The setup would blow the cap with nothing to show. A menu run
