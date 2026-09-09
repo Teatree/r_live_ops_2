@@ -14,6 +14,11 @@
 --   dau                                player_days / 33
 --   payer_rate_pct                     % of the segment that is PAYER (repeats across both payer rows)
 --   active_days_mean/p25/p50/p75/p90   active days per player over 33d (distribution)
+--   active_days_p95/p98                the top of that same curve, added 2026-09-09. Read ONLY by
+--                                      the card sim's per-player attendance model, which draws each
+--                                      simulated player's active-day target off the whole curve;
+--                                      p90 alone leaves the hardcore tail undescribed. Absent is
+--                                      tolerated - the model interpolates p90 -> the window length.
 --   weekday_active_rate                prob. a member is active on a given weekday date
 --   weekend_active_rate                prob. a member is active on a given weekend date
 --   mon..sun_active_rate               same probability, per day of week
@@ -391,6 +396,11 @@ agg_player AS (
         APPROX_PERCENTILE(pa.active_days, 0.50)             AS active_days_p50,
         APPROX_PERCENTILE(pa.active_days, 0.75)             AS active_days_p75,
         APPROX_PERCENTILE(pa.active_days, 0.90)             AS active_days_p90,
+        -- p95/p98 added 2026-09-09 for the card sim's per-player attendance model (D48): it draws
+        -- each simulated player's active-day target off this percentile curve, and the top of the
+        -- curve is exactly the part p90 leaves undescribed. Nothing else reads them.
+        APPROX_PERCENTILE(pa.active_days, 0.95)             AS active_days_p95,
+        APPROX_PERCENTILE(pa.active_days, 0.98)             AS active_days_p98,
         ROUND(AVG(CAST(pl.max_login_streak AS DOUBLE)), 2)  AS login_streak_mean,
         APPROX_PERCENTILE(pl.max_login_streak, 0.50)        AS login_streak_p50,
         APPROX_PERCENTILE(pl.max_login_streak, 0.75)        AS login_streak_p75,
@@ -458,6 +468,7 @@ SELECT
     -- 31-day retention overlay (player-level; modal segment)
     ap.active_days_mean,
     ap.active_days_p25, ap.active_days_p50, ap.active_days_p75, ap.active_days_p90,
+    ap.active_days_p95, ap.active_days_p98,
     wk.weekday_active_rate,
     wk.weekend_active_rate,
     dp.mon_active_rate, dp.tue_active_rate, dp.wed_active_rate, dp.thu_active_rate,
@@ -488,6 +499,7 @@ GROUP BY
     ad.segment, ad.payer_flag, ad.seg_rank,
     ap.unique_players, ad.player_days, sp.players_payer, sp.players_total,
     ap.active_days_mean, ap.active_days_p25, ap.active_days_p50, ap.active_days_p75, ap.active_days_p90,
+    ap.active_days_p95, ap.active_days_p98,
     wk.weekday_active_rate, wk.weekend_active_rate,
     dp.mon_active_rate, dp.tue_active_rate, dp.wed_active_rate, dp.thu_active_rate,
     dp.fri_active_rate, dp.sat_active_rate, dp.sun_active_rate,
