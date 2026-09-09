@@ -1319,8 +1319,14 @@ function tofConfig_(){
       });
       for (var res3 in rew) rew[res3] = rew[res3] / rewSlots.length;   // MEAN, given survival
     }
+    // `doors` is the slot list with the empties removed, in sheet order - EXACTLY what the player
+    // is shown. The gains model never needs it (it works in expectations), but the card sim walks a
+    // run door by door and has to pick a real one, so the structure is kept rather than collapsed
+    // into H and a mean. Both models then read the same rows: there is no second ladder to drift.
+    var doors = [];
+    s.slots.forEach(function(sl){ if (sl.kind !== 'empty') doors.push(sl); });
     stages.push({ n: s.n, type: s.type, H: H, I: 1, rew: rew,
-                  nonEmpty: nonEmpty, pigs: pigs });
+                  nonEmpty: nonEmpty, pigs: pigs, doors: doors });
   });
 
   if (!stages.length) return (_tofCfgCache = false);

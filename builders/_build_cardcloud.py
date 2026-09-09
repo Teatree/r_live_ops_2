@@ -33,9 +33,16 @@ BAR_BANDS = 'PER-PERMUTATION BANDS'                         # == CLOUD_BAR_BANDS
 BAND_STRIDE = 37                                            # == CLOUD_BAND_STRIDE
 SRC_ROWS = 30                                               # == CLOUD_SRC_ROWS
 
+# TOTALS gained six OUTCOME rows on 2026-09-09: one per authored star-chest tier (the end-of-season
+# spend-down), and three describing the ToF run the card sim now PLAYS door by door rather than
+# averaging. The engine builds those labels at run time from PackConfig's chest tiers, so this only
+# has to reserve the room; block() clamps and LOGS when the sheet is short, which is what an
+# un-reimported workbook does until this file is re-run and the sheet re-imported.
+TOTALS_ROWS = 10 + 3 + 3        # 10 metrics + 3 chest tiers + 3 ToF rows
+
 TB = [                                                       # == TB in the engine, in sheet order
-    ('TOTALS (mean per player)', 10),
-    ('TOTALS (p10-p90 across players)', 10),
+    ('TOTALS (mean per player)', TOTALS_ROWS),
+    ('TOTALS (p10-p90 across players)', TOTALS_ROWS),
     ('CADENCE (packs per day, three denominators)', 8),
     ('ECONOMY IMPACT - TOTAL (mean per player)', 21),
     ('ECONOMY IMPACT - FROM SET COMPLETIONS', 21),

@@ -1237,6 +1237,111 @@ function logCol(name){
     `${firstIsTarget}/${firstCards} first cards were the target`);
 }
 
+// ------------------------- 6d. the ToF run is PLAYED, not averaged (2026-09-09) ---------------
+// walkTofRun_ opens a real door at every stage instead of drawing one Bernoulli on the gains
+// model's P(run banks). These assert the walk's RULES against mutation fixtures on the ToF sheet,
+// not against any number this workbook happens to produce.
+{
+  const sheetT = data['ToF'] ? 'ToF' : 'MD';
+  // _tofIncomeCache is deliberately NOT cleared: ticket income is a walk over every category
+  // EXCEPT ToF, so mutating ToF's stage rows cannot change it. Clearing it made each of the five
+  // wOf() calls below re-run a 25-category daily series and pushed this gate past ten minutes.
+  const bustT = () => { _sheetValsCache = {}; _tofCfgCache = null; _tofBalCache = {}; };
+  const vT0 = JSON.stringify(data[sheetT].values);
+  const wOf = (seg, payer) => {
+    bustT();
+    const T = cardTofConfig_(seg, payer, Context.get());
+    return T && T.walk;
+  };
+  // A deterministic stream, so a gate never depends on a lucky seed.
+  const mkRand = (s) => mulberry32(s);
+
+  // NONPAYER for the survival gates: a PAYER gets TOF_PAYER_TOPUPS free continues per run (they buy
+  // coins), so even a zero wallet banks more often than the bare stage product. That top-up is
+  // correct - it is what the gains model does - and it is gated on its own below rather than
+  // quietly widening the tolerance here.
+  const W = wOf('20-39', 'NONPAYER');
+  check('ToF walk config reaches the card sim', !!W && W.stages.length > 0,
+    W ? W.stages.length + ' stages to the cash-out' : 'no walk config');
+
+  if (W) {
+    // (a) A ZERO WALLET buys no continue, so a pig always ends the run. Over many runs the banked
+    //     share must then equal the product of the stages' own survival probabilities.
+    let want = 1;
+    W.stages.forEach(s => { want *= s.H; });
+    let banked = 0, N = 4000;
+    const rnd = mkRand(20260909);
+    for (let i = 0; i < N; i++)
+      if (walkTofRun_(W, rnd, { coins: 0 }).banked) banked++;
+    const got = banked / N;
+    check('ToF walk: with no wallet, P(bank) is the product of the stage survivals',
+      Math.abs(got - want) < 0.02,
+      `walked ${(got * 100).toFixed(2)}% vs ${(want * 100).toFixed(2)}% over ${N} runs`);
+
+    // (b) A run that banks must have reached the LAST stage; one that does not must have stopped
+    //     on a stage that actually has a pig. Both are structural, not statistical.
+    let badStage = 0, badPig = 0, last = W.stages[W.stages.length - 1].n;
+    const byN = {};
+    W.stages.forEach(s => { byN[s.n] = s; });
+    const rnd2 = mkRand(777);
+    for (let i = 0; i < 2000; i++) {
+      const r = walkTofRun_(W, rnd2, { coins: 0 });
+      if (r.banked && r.stage !== last) badStage++;
+      if (!r.banked && !(byN[r.stage] && byN[r.stage].pigs > 0)) badPig++;
+    }
+    check('ToF walk: a banked run reached the cash-out stage, a lost one died on a stage with a pig',
+      badStage === 0 && badPig === 0, `${badStage} banked early, ${badPig} died where no pig is`);
+
+    // (c) A WALLET buys continues, so the same fixture banks strictly more often.
+    let bankedRich = 0;
+    const rnd3 = mkRand(20260909);
+    for (let i = 0; i < N; i++)
+      if (walkTofRun_(W, rnd3, { coins: 1e9 }).banked) bankedRich++;
+    check('ToF walk: a wallet buys continues, so more runs bank',
+      W.continueP > 0 ? bankedRich > banked : bankedRich === banked,
+      `${banked} -> ${bankedRich} of ${N} (continue take-up ${W.continueP})`);
+
+    // (d) THE RULE THE SLOT MODEL EXISTS FOR: make every door on one stage a pig and nothing can
+    //     ever bank. Mutation fixture on the sheet, restored after.
+    const vT = data[sheetT].values;
+    const sb = mdBlock_(vT, 'STAGES'), hr = mdHeaderRow_(vT, sb, 'Stage');
+    let ctC = -1;
+    (vT[hr] || []).forEach((h, i) => { if (String(h).trim() === 'card type') ctC = i; });
+    const firstStage = num(vT[hr + 1][0]);
+    let changed = 0;
+    for (let r = hr + 1; r < vT.length && num(vT[r][0]) === firstStage; r++) {
+      vT[r][ctC] = 'pig'; changed++;
+    }
+    check('all-pig fixture applied to stage ' + firstStage, changed > 0, changed + ' doors');
+    const Wp = wOf('20-39', 'NONPAYER');
+    let anyBank = 0;
+    const rnd4 = mkRand(4242);
+    for (let i = 0; i < 500; i++) if (walkTofRun_(Wp, rnd4, { coins: 0 }).banked) anyBank++;
+    check('ToF walk: a stage whose every door is a pig can never be survived without a continue',
+      anyBank === 0, anyBank + ' runs banked through an all-pig stage');
+
+    data[sheetT].values = JSON.parse(vT0);
+    bustT();
+
+    // (e) THE PAYER TOP-UP. A payer with an empty wallet still takes TOF_PAYER_TOPUPS continues -
+    //     they buy coins - so at zero coins a payer must bank strictly more often than a nonpayer
+    //     on the same ladder. This is the behaviour that made gate (a) look wrong.
+    const Wpay = wOf('20-39', 'PAYER');
+    let payBank = 0;
+    const rnd5 = mkRand(20260909);
+    for (let i = 0; i < N; i++) if (walkTofRun_(Wpay, rnd5, { coins: 0 }).banked) payBank++;
+    check('ToF walk: a payer with no coins still takes their top-up continue',
+      TOF_PAYER_TOPUPS > 0 ? payBank > banked : payBank === banked,
+      `nonpayer ${banked}, payer ${payBank} of ${N} (top-ups ${TOF_PAYER_TOPUPS})`);
+
+    const Wback = wOf('20-39', 'NONPAYER');
+    check('ToF walk fixture restored',
+      !!Wback && Wback.stages.length === W.stages.length &&
+      Math.abs(Wback.stages[0].H - W.stages[0].H) < 1e-12);
+  }
+  bustT();
+}
+
 // ------------------------------ 6c. per-pack guarantees (2026-09-09) -------------------------
 // GuaranteedMinRarity (PackConfig col C) and GuaranteedNewSnap (col D) are FLOORS ON THE FINISHED
 // PACK, not extra cards: a naturally-drawn card discharges them, one card can discharge both, and
@@ -1429,25 +1534,65 @@ function logCol(name){
     return { spent: data['Col_Cards_Daily'].values[46][1], chestRows };   // B47 = Stars Spent on Chests
   };
 
+  // These three gate the IN-SEASON purchase rules (Min Stars + the urgency ramp), so they run with
+  // the end-of-season spend-down OFF. The sweep is an explicit exception to both rules - it fires
+  // on the album's last day regardless - and is gated separately below. Without disabling it here
+  // the fixtures would be asserting "no chest is ever bought" against a run that deliberately buys
+  // chests, which is a different claim.
+  // NOT wrapped in a helper function: eval() inside a function declares the engine's `var`s into
+  // THAT function's scope, so `CHEST_SWEEP = false` would set a local copy and the engine would go
+  // on reading its own. Same trap that makes a reset() helper silently do nothing here.
   setPanel('CHEST PURCHASING', 'End-of-Season Buy Probability', 0);
-  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {}; CHEST_SWEEP = false;
   const off = runChests();
-  check('buy probability 0 -> no chests are ever bought',
+  check('buy probability 0 -> no chests are ever bought (sweep off)',
     off.chestRows === 0 && off.spent === 0, `rows ${off.chestRows}, spent ${off.spent}`);
 
   setPanel('CHEST PURCHASING', 'End-of-Season Buy Probability', 0.95);
   setPanel('CHEST PURCHASING', 'Urgency Start Day', 1);
   setPanel('CHEST PURCHASING', 'Min Stars to Consider Buying', 1);
-  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {}; CHEST_SWEEP = false;
   const on = runChests();
   check('urgency ramp from day 1 + min stars 1 -> chests are bought',
     on.chestRows > 0 && on.spent > 0, `rows ${on.chestRows}, spent ${on.spent}`);
 
   setPanel('CHEST PURCHASING', 'Min Stars to Consider Buying', 99999999);
-  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {}; CHEST_SWEEP = false;
   const gated = runChests();
-  check('min-stars gate blocks purchases even with p = 0.95',
+  check('min-stars gate blocks purchases even with p = 0.95 (sweep off)',
     gated.chestRows === 0 && gated.spent === 0, `rows ${gated.chestRows}, spent ${gated.spent}`);
+
+  // ---- END-OF-SEASON SPEND-DOWN (2026-09-09) ------------------------------------------------
+  // THE rule the user asked for: nothing spendable is left sitting at the end of the season. The
+  // fixture keeps Min Stars impossibly high and the buy probability at 0, so EVERY chest bought in
+  // this run can only have come from the sweep - the in-season path is provably shut.
+  {
+    const cheapest = Math.min.apply(null, loadPackConfig_().chests.map(c => c.cost));
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};   // CHEST_SWEEP back to true
+    setPanel('CHEST PURCHASING', 'End-of-Season Buy Probability', 0);
+    setPanel('CHEST PURCHASING', 'Min Stars to Consider Buying', 99999999);
+    _sheetValsCache = {};
+    const swept = runChests();
+    const finalBal = data['Col_Cards_Daily'].values[47][1];       // B48 = Final Star Balance
+    check('spend-down: the in-season path is shut, so every chest came from the sweep',
+      swept.chestRows > 0, `${swept.chestRows} chests, ${swept.spent} stars`);
+    check('spend-down: the leftover is below the cheapest chest',
+      finalBal < cheapest, `${finalBal} stars left, cheapest chest ${cheapest}`);
+    check('spend-down: stars earned = stars spent + what is left',
+      Math.abs(num(data['Col_Cards_Daily'].values[45][1]) - (num(swept.spent) + num(finalBal))) < 1e-9,
+      `earned ${data['Col_Cards_Daily'].values[45][1]}, spent ${swept.spent}, left ${finalBal}`);
+
+    // ...and with the sweep off, the same run leaves the stars sitting there. Without this the
+    // gate above could pass on a run that simply never earned much.
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {}; CHEST_SWEEP = false;
+    _sheetValsCache = {};
+    const unswept = runChests();
+    const unsweptBal = data['Col_Cards_Daily'].values[47][1];
+    check('spend-down: turning it off leaves the stars unspent (the fixture is live)',
+      unswept.chestRows === 0 && unsweptBal >= cheapest,
+      `${unswept.chestRows} chests, ${unsweptBal} stars left`);
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+  }
 }
 
 // ---------------------------- 7a2. the pack log's ToF_Ticket_gains column (2026-09-02)

@@ -161,6 +161,17 @@ var REWARD_COLUMNS = [
 // Dry-streak pity (mechanism (b) — the per-slot table is mechanism (a), read from the sheet).
 var PITY_CONFIG = { enabled: true, threshold: 3 };
 
+// Hard stop for the end-of-season chest spend-down. The cascade (buy -> open -> duplicates ->
+// stars -> buy) terminates whenever a chest costs more stars than its pack returns in duplicates,
+// which is true of every sane configuration; the guard exists so a configuration where it is NOT
+// true says so in the log instead of hanging the simulation.
+var CHEST_SWEEP_MAX = 200;
+// The end-of-season spend-down itself. false restores the pre-2026-09-09 behaviour exactly: chests
+// are bought only through the Min Stars + urgency-ramp rules, and whatever is left at the end stays
+// unspent. Kept as a switch because those two rules are still the IN-SEASON model and are gated as
+// such - the sweep is an explicit exception to both, not a replacement for them.
+var CHEST_SWEEP = true;
+
 // --- Chapter (set) weight multipliers ----------------------------------
 // Per-card draw multipliers indexed by set number (1-based: index 0 = Set 1). During each draw a
 // card's effective weight = poolCount x chapterMult. (The per-card rarity weight was REMOVED
@@ -620,6 +631,78 @@ function cardSeasonPre_(seg, payer, ctx){
   };
 }
 
+/**
+ * ONE ToF run, PLAYED (2026-09-09). The card sim used to draw a single Bernoulli on the gains
+ * model's P(run banks) and then hand over the average ladder; a player's log therefore showed an
+ * average, never an outcome. This walks the run the way the event is played:
+ *
+ *   at each stage: pick ONE of the doors actually presented, uniformly
+ *     pig    -> the run is over and the whole pot is LOST, unless a continue is bought, which
+ *               retries the SAME stage (paying it is what a continue buys - not a skip)
+ *     reward -> that door's OWN rewards go into the pot
+ *   bank only on reaching the segment's Cash-Out Stage, matching the gains model exactly
+ *
+ * Continues use the gains model's rule - willingness x affordability, tofAfford_ - against a REAL
+ * wallet that depletes across the season, so a player who spends their coins on run 3 cannot
+ * continue on run 12. Payers get TOF_PAYER_TOPUPS purchased continues per run, as they do there.
+ *
+ * ENVELOPES AND TICKETS ONLY (user decision). The pot also holds coins, boosters and SPT; those
+ * stay with the gains model's ToF row and are deliberately NOT recorded here, so the two models
+ * cannot be added together into a double-counted faucet.
+ *
+ * Returns { banked, stage, doors, envelopes:{tier:n}, tickets, coinsSpent, continues }.
+ * `wallet` is an object with a `coins` field so the caller's balance depletes by reference.
+ */
+function walkTofRun_(W, rand, wallet){
+  var out = { banked: false, stage: 0, doors: [], envelopes: {}, tickets: 0,
+              coinsSpent: 0, continues: 0 };
+  if (!W || !W.stages || !W.stages.length) return out;
+  var costs = W.costs || [];
+  var kMax = costs.length;
+  if (W.maxContinues > 0) kMax = Math.min(kMax, W.maxContinues);
+  var topMax = W.payer ? TOF_PAYER_TOPUPS : 0;
+  var k = 0, tops = 0;
+
+  for (var si = 0; si < W.stages.length; si++){
+    var st = W.stages[si];
+    out.stage = st.n;
+    var doors = st.doors || [];
+    // A stage with no door cannot be played. tofConfig_ already logs it and treats it as
+    // auto-survive paying nothing; do the same here so the two models agree on the ladder.
+    if (!doors.length) continue;
+    var survived = false;
+    while (!survived){
+      var d = doors[Math.floor(rand() * doors.length)] || doors[doors.length - 1];
+      out.doors.push(st.n + ':' + d.kind);
+      if (d.kind !== 'pig'){
+        survived = true;
+        // Only the two resources the card sim consumes. `d.rew` is the door's OWN payout, not the
+        // stage mean - which is the whole point of walking.
+        PACK_RES.forEach(function(r){
+          var n = num(d.rew[r]);
+          if (n > 0) out.envelopes[r] = num(out.envelopes[r]) + n;
+        });
+        out.tickets += num(d.rew[TOF_TICKET]);
+        break;
+      }
+      // A pig. Buy a continue, or the run ends here with nothing.
+      if (k >= kMax) return out;
+      var price = costs[k];
+      var a = tofAfford_(price > 0 ? wallet.coins / price : 0);
+      var usedTop = false;
+      if (a <= 0 && tops < topMax){ a = 1; usedTop = true; }   // payer buys coins, once per run
+      var pc = W.continueP * a;
+      if (!(pc > 0) || !(rand() < pc)) return out;
+      wallet.coins -= price;
+      out.coinsSpent += price;
+      out.continues++;
+      k++; if (usedTop) tops++;
+    }
+  }
+  out.banked = true;
+  return out;
+}
+
 /** What ONE ToF run is worth to this segment, plus the rules for buying runs.
  *  {pBank, packs, ticketsBack, perRun, runsPerDay, cashOut, live} or null when ToF is not wired.
  *
@@ -652,7 +735,26 @@ function cardTofConfig_(seg, payer, ctx){
     ((inst && inst.days) || []).forEach(function(d){ if (d >= 1 && d <= DAILY_DAYS) live[d] = 1; });
   });
   var beh = cfg.beh[seg];
+  // THE ACTUAL RUN (2026-09-09). Everything below `walk` is what the card sim needs to play a run
+  // door by door instead of drawing one Bernoulli on pBank and paying the average ladder: the
+  // stages with their real doors, the continue ladder, and the wallet percentiles a continue is
+  // afforded from. pBank and packs stay on the object beside it - they are still the GAINS model's
+  // view of the same run, and reporting both is how a drift between the two stays visible.
+  var walkStages = [];
+  for (var si = 0; si < cfg.stages.length; si++){
+    var st = cfg.stages[si];
+    if (st.n > cashOut) break;
+    walkStages.push(st);
+  }
   return { pBank: num(run.pBank), packs: packs, anyPacks: any,
+           walk: { stages: walkStages, costs: cfg.costs || [],
+                   continueP: num(beh.continueP),
+                   maxContinues: num(beh.maxContinues),
+                   // An authored 'Coin Balance override' replaces the measured percentiles, exactly
+                   // as it does in the gains model - that is how the MAX ceiling case gets a wallet
+                   // no real player has.
+                   balances: (beh.balance > 0) ? [beh.balance] : tofBalances_(seg, payer),
+                   payer: String(payer).toUpperCase() === 'PAYER' },
            ticketsBack: num(lad.row[TOF_TICKET]),   // fractional too; settled per banked run
            perRun: (cfg.ticketsPerRun > 0) ? cfg.ticketsPerRun : 1,
            runsPerDay: (beh.runsPerDay > 0) ? beh.runsPerDay : 0,
@@ -667,8 +769,14 @@ function spAttendedDay_(day, playedOn){
   if (playedOn[day]) return day;
   // DAILY_DAYS, not the caller's local SEASON_DAYS: this is top-level, and reading the alias here
   // would resolve to nothing.
+  // D26 (fixed 2026-09-09): the forward search must not walk PAST the album's last day. spPackTiers_
+  // has already pulled a late tier back to SEASON_LAST_DAY, and searching forward to day 33 put it
+  // straight back out again - a pass envelope opening after the album closed, which is the one thing
+  // the cutoff exists to prevent. Same defect as attendedDay_ had, in the one lane that is exempt
+  // from the instance filter, so it was the last place still doing it.
+  var cap = (SEASON_CUTOFF && day <= SEASON_LAST_DAY) ? SEASON_LAST_DAY : DAILY_DAYS;
   for (var d = 1; d < DAILY_DAYS; d++){
-    if (day + d <= DAILY_DAYS && playedOn[day + d]) return day + d;   // forward first: they collect
+    if (day + d <= cap && playedOn[day + d]) return day + d;          // forward first: they collect
     if (day - d >= 1 && playedOn[day - d]) return day - d;            // it next time they open up
   }
   return day;
@@ -682,13 +790,30 @@ function spAttendedDay_(day, playedOn){
 function attendedDay_(pl, day, playedOn){
   var d = pl.attDays || pl.days || [];
   if (playedOn[day]) return day;
-  var best = null, bestGap = Infinity;
-  for (var i = 0; i < d.length; i++){
+  // D26 (fixed 2026-09-09): the snap must not undo the season clamp. `days` is the landing axis and
+  // seasonDay_ has already pulled a late envelope back to SEASON_LAST_DAY, but the candidates here
+  // come from attDays - the instance's REAL, unclamped days - so a straddler could be snapped
+  // straight back past the cutoff and open a pack with no album left to file it in. Caught by the
+  // end-of-season spend-down gate: stars kept arriving after the sweep had emptied the balance.
+  // In-season days are preferred; the unrestricted search stays as the fallback so an instance with
+  // no attended day inside the season still places somewhere a player was actually present.
+  var inSeason = (SEASON_CUTOFF && day <= SEASON_LAST_DAY);
+  var best = null, bestGap = Infinity, i, gap;
+  if (inSeason){
+    for (i = 0; i < d.length; i++){
+      if (!playedOn[d[i]] || d[i] > SEASON_LAST_DAY) continue;
+      gap = Math.abs(d[i] - day);
+      if (gap < bestGap){ bestGap = gap; best = d[i]; }
+    }
+    if (best != null) return best;
+  }
+  for (i = 0; i < d.length; i++){
     if (!playedOn[d[i]]) continue;
-    var gap = Math.abs(d[i] - day);
+    gap = Math.abs(d[i] - day);
     if (gap < bestGap){ bestGap = gap; best = d[i]; }
   }
-  return (best == null) ? day : best;
+  if (best == null) return day;
+  return inSeason ? seasonDay_(best) : best;
 }
 
 /** The set of categories a grant plan covers, so their ticket income is not counted twice. */
@@ -735,6 +860,8 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   var balance              = 0;
   var starsEarned          = 0;
   var starsSpent           = 0;
+  var chestsByTier         = {};      // tier name -> chests bought, for the Totals block
+  var chestsBought         = 0;
   var totalCardsDrawn      = 0;
   var totalNew             = 0;
   var totalDupes           = 0;
@@ -1106,26 +1233,60 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     if (span <= 0) return endProb;
     return Math.max(0, Math.min(1, endProb * (day - startDay) / span));
   }
+  // Buy ONE chest: the most expensive the balance can afford, then fill down. cfg.chests is sorted
+  // by cost DESCENDING, so the first affordable entry is that chest - 380 stars becomes Gold + one
+  // Bronze rather than three Silvers, which is both how a player treats a premium chest and the
+  // choice that leaves the smallest remainder. Returns false when nothing is affordable.
+  function buyOneChest(day, output, why) {
+    var chest = null;
+    for (var i = 0; i < cfg.chests.length; i++)
+      if (balance >= cfg.chests[i].cost){ chest = cfg.chests[i]; break; }
+    if (!chest) return false;
+    balance    -= chest.cost;
+    starsSpent += chest.cost;
+    var row = openPack(chest.rewardPack, chest.tier + ' Chest Opened - ' + chest.rewardPack, day,
+                       'bought with ' + chest.cost + ' stars' + (why ? ' (' + why + ')' : ''));
+    if (!row){
+      Logger.log("Couldn't open " + chest.tier + ' chest reward "' + chest.rewardPack + '" - refunding');
+      balance    += chest.cost;
+      starsSpent -= chest.cost;
+      return false;
+    }
+    chestsByTier[chest.tier] = num(chestsByTier[chest.tier]) + 1;
+    chestsBought++;
+    output.push(row);
+    return true;
+  }
   function tryBuyChests(day, output) {
     if (!cfg.chests.length) return;
     var p = buyProbability(day);
     if (p <= 0) return;
     while (balance >= minStars && rand() < p){
-      var chest = null;
-      for (var i = 0; i < cfg.chests.length; i++)
-        if (balance >= cfg.chests[i].cost){ chest = cfg.chests[i]; break; }
-      if (!chest) break;
-      balance     -= chest.cost;
-      starsSpent  += chest.cost;
-      var row = openPack(chest.rewardPack, chest.tier + ' Chest Opened - ' + chest.rewardPack, day,
-                         'bought with ' + chest.cost + ' stars');
-      if (!row){
-        Logger.log("Couldn't open " + chest.tier + ' chest reward "' + chest.rewardPack + '" - refunding');
-        balance    += chest.cost;
-        starsSpent -= chest.cost;
+      if (!buyOneChest(day, output)) break;
+    }
+  }
+  // END-OF-SEASON SPEND-DOWN. Min Stars and the probability roll are both IGNORED here: this is not
+  // a purchase decision, it is the fact that an unspent star is worth nothing once the album closes.
+  // CASCADES on purpose - a chest's pack pays duplicates, duplicates pay stars, and those stars can
+  // buy another chest - so the balance genuinely empties instead of stopping one chest short. The
+  // only thing left afterwards is the remainder below the cheapest chest, which is unspendable.
+  // Bounded by a hard iteration guard: the cascade terminates on any sane config (a chest costs
+  // more stars than its pack's duplicates return), but a config where it did not would otherwise
+  // hang the whole simulation rather than say so.
+  function sweepChests(day, output) {
+    if (!cfg.chests.length) return;
+    var cheapest = Infinity;
+    cfg.chests.forEach(function(c){ if (c.cost < cheapest) cheapest = c.cost; });
+    var guard = 0;
+    while (balance >= cheapest){
+      if (++guard > CHEST_SWEEP_MAX){
+        Logger.log('Chest spend-down hit its ' + CHEST_SWEEP_MAX + '-chest guard on day ' + day +
+                   ' with ' + balance + ' stars left. A chest is returning more stars in ' +
+                   'duplicates than it costs, so the sweep would never end - check STAR CHEST ' +
+                   'COSTS & REWARDS.');
         break;
       }
-      output.push(row);
+      if (!buyOneChest(day, output, 'end-of-season spend-down')) break;
     }
   }
 
@@ -1299,6 +1460,8 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   //             counting them here as well would double them in any combined view.
   var tofIncome = pre.tofTickets || [];
   var tofCumByDay = [], tofRuns = 0, tofBanked = 0, tofBankedInSeason = 0;
+  var tofStageSum = 0, tofCoinsSpent = 0, tofContinues = 0, tofWallet0 = 0;
+  var tofRunRows = [];                 // one entry per run played; rendered into the day log below
   {
     var tofRand    = mulberry32((seed | 0) ^ 0x5bf03635);   // settles the trailing fraction
     var tofRunRand = mulberry32((seed | 0) ^ 0x1f83d9ab);   // its OWN stream: adding runs must not
@@ -1310,6 +1473,19 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     // unbiased over seeds - a ladder worth 0.4 envelopes pays one on 40% of banked runs instead of
     // rounding to nothing.
     var tofPayRand = mulberry32((seed | 0) ^ 0x94d049bb);
+    // A FOURTH stream, for the door picks and the continue decisions. Same reasoning again: the
+    // walk draws a variable number of times per run (a run that buys three continues draws far more
+    // than one that dies at stage 2), so putting it on any stream above would make the number of
+    // draws depend on the outcome and reshuffle everything downstream of it.
+    var tofWalkRand = mulberry32((seed | 0) ^ 0x2b3f7d19);
+    // ONE wallet for the season, drawn from the segment's measured coin-balance percentiles and
+    // depleted by every continue bought. Per-run redraws would give a player infinite coins across
+    // 25 runs, which is exactly the constraint that makes the deep continue rungs unreachable.
+    var tofW = (pre.tof && pre.tof.walk) ? pre.tof.walk : null;
+    var tofWallet = { coins: 0 };
+    if (tofW && tofW.balances && tofW.balances.length)
+      tofWallet.coins = num(tofW.balances[Math.floor(tofWalkRand() * tofW.balances.length)]);
+    tofWallet0 = tofWallet.coins;
     var whole = function(x){
       var n = Math.floor(num(x)), fr = num(x) - n;
       if (fr > 1e-12 && tofPayRand() < fr) n += 1;
@@ -1332,34 +1508,59 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
         var nRuns = Math.min(T.runsPerDay, Math.floor(bal / T.perRun));
         for (var rn = 0; rn < nRuns; rn++){
           bal -= T.perRun; tofRuns++;
-          // a-priori expectation for the tally's 'Expected Packs', conditional on the runs this
-          // player could afford - the same basis the rung expectations above are counted on
-          if (T.anyPacks)
-            for (var te in T.packs) expectedTotal += T.pBank * T.packs[te];
-          if (!(tofRunRand() < T.pBank)) continue;    // met a Pig and stopped: the pot is LOST
+          // THE RUN IS PLAYED, not drawn (2026-09-09). walkTofRun_ opens a real door at every
+          // stage; what it returns is an outcome, not an average, and the wallet it spends from
+          // carries over to the next run.
+          var wr = tofW ? walkTofRun_(tofW, tofWalkRand, tofWallet)
+                        : { banked: (tofRunRand() < T.pBank), stage: T.cashOut,
+                            envelopes: T.packs, tickets: T.ticketsBack, coinsSpent: 0,
+                            continues: 0, doors: [] };
+          tofStageSum   += num(wr.stage);
+          tofCoinsSpent += num(wr.coinsSpent);
+          tofContinues  += num(wr.continues);
+          // ONE LOG ROW PER RUN (user, 2026-09-09), whether it banked or not - a run that met a pig
+          // at stage 3 is the outcome most worth seeing, and it produces no pack row to carry it.
+          // Uses the existing columns, so LOG_COLS is unchanged.
+          tofRunRows.push({ day: d1, run: tofRuns, banked: wr.banked, stage: wr.stage,
+                            continues: wr.continues, coins: wr.coinsSpent,
+                            wallet: tofWallet.coins, tickets: wr.tickets,
+                            envelopes: wr.envelopes });
+          if (!wr.banked) continue;                   // met a Pig and stopped: the pot is LOST
           tofBanked++;
-          if (T.ticketsBack > 0){
-            var tb = whole(T.ticketsBack);
+          // The walk's OWN outcome is the expectation now (user decision): granted and expected
+          // are the same number for ToF, because the run was played rather than averaged.
+          var tkBack = num(wr.tickets);
+          if (tkBack > 0){
+            var tb = whole(tkBack);
             if (tb > 0){ bal += tb; cum += tb; }
           }
           // D26: after the album closes there is nowhere to put a card, so envelopes stop. The
           // TICKETS above do not - ToF is always-on and has no relationship to the album season.
           if (SEASON_CUTOFF && d1 > SEASON_LAST_DAY) continue;
           tofBankedInSeason++;
-          for (var tp in T.packs){
-            var nEnv = whole(T.packs[tp]);
+          for (var tp in wr.envelopes){
+            var nEnv = whole(wr.envelopes[tp]);
+            expectedTotal += num(wr.envelopes[tp]);
             for (var q = 0; q < nEnv; q++)
               packOpens.push({ day: d1, packName: tp, source: TOF_CAT,
-                               detail: 'run ' + tofRuns + ', banked at stage ' + T.cashOut });
+                               detail: 'run ' + tofRuns + ', banked at stage ' + wr.stage });
           }
         }
       }
       tofCumByDay.push(cum);
     }
+    // REPORT BOTH RATES (user decision: report, do not gate). The walk's realised bank rate and the
+    // gains model's P(run banks) price the same run two ways - one plays the doors with a wallet
+    // that depletes, the other integrates over wallet percentiles - so they will not match on one
+    // player's dice. A standing gap across many seasons is the thing worth noticing, and it can
+    // only be noticed if both numbers are printed side by side.
     if (T)
-      Logger.log('ToF: ' + tofRuns + ' runs, ' + tofBanked + ' banked (P ' +
-                 (T.pBank * 100).toFixed(2) + '%), ladder ' + JSON.stringify(T.packs) +
-                 ' for ' + seg + ' ' + payer);
+      Logger.log('ToF: ' + tofRuns + ' runs, ' + tofBanked + ' banked (walk ' +
+                 (tofRuns > 0 ? (100 * tofBanked / tofRuns).toFixed(1) : '0.0') + '%, model ' +
+                 (T.pBank * 100).toFixed(2) + '%), mean stage ' +
+                 (tofRuns > 0 ? (tofStageSum / tofRuns).toFixed(1) : '0') + ', ' +
+                 tofContinues + ' continues for ' + tofCoinsSpent + ' coins of a ' +
+                 tofWallet0 + '-coin wallet, for ' + seg + ' ' + payer);
   }
 
   packOpens.sort(function(a, b){ return a.day - b.day; });
@@ -1379,6 +1580,26 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     var rowsBefore = output.length;
     tofCum = num(tofCumByDay[day - 1]);
 
+    // THE RUNS THIS DAY PLAYED, one row each, BEFORE the envelopes they won are opened - so the
+    // log reads in the order it happened: the run, then the packs it paid for. A run that met a pig
+    // produces no pack row at all, and this is the only place it appears.
+    for (var tri = 0; tri < tofRunRows.length; tri++){
+      var tw = tofRunRows[tri];
+      if (tw.day !== day) continue;
+      var envTxt = [];
+      for (var ek in tw.envelopes) if (num(tw.envelopes[ek]) > 0)
+        envTxt.push(num(tw.envelopes[ek]) + ' x ' + ek);
+      output.push([day, '', TOF_CAT,
+                   'run ' + tw.run + (tw.banked ? ', BANKED at stage ' + tw.stage
+                                                : ', met a pig at stage ' + tw.stage),
+                   ALBUM_NAMES[albumIdx], '', '', '', balance,
+                   (tw.banked ? 'won ' + (envTxt.length ? envTxt.join(', ') : 'no envelope') +
+                                (num(tw.tickets) > 0 ? ' + ' + tw.tickets + ' tickets' : '')
+                              : 'pot lost') +
+                   (tw.continues > 0 ? ' | ' + tw.continues + ' continue(s) for ' + tw.coins +
+                                       ' coins, wallet left ' + Math.round(tw.wallet) : '')]);
+    }
+
     while (packIdx < packOpens.length && packOpens[packIdx].day === day){
       var open = packOpens[packIdx];
       var row = openPack(open.packName, open.source, day, open.detail);
@@ -1388,6 +1609,14 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
       }
       packIdx++;
     }
+
+    // SPEND-DOWN (user, 2026-09-09). Players were finishing the season sitting on stars they never
+    // spent: 'Min Stars to Consider Buying' is 250 while the mean earned is ~204, so the gate was
+    // rarely cleared at all and whatever was banked simply stayed banked. On the album's last day
+    // the threshold and the probability roll are both ignored and the balance is spent down until
+    // nothing is affordable. Deliberately AFTER the day's own pack opens, so the duplicates those
+    // packs paid are in the balance being swept.
+    if (CHEST_SWEEP && SEASON_CUTOFF && day === SEASON_LAST_DAY) sweepChests(day, output);
 
     if (output.length === rowsBefore){
       var played = playedOn[day];
@@ -1428,6 +1657,12 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     collection: collection, collectionSize: collectionSize,
     tofTickets: tofCum, tofExpected: num(pre.tofExpected),
     tofRuns: tofRuns, tofBanked: tofBanked, tofBankedInSeason: tofBankedInSeason,
+    // The played run, and the spend-down, as numbers the cloud sheet can average.
+    // tofStageMean is the mean stage REACHED across every run - the pig ones included, since a run
+    // that died at stage 3 is exactly what pulls this number down and is the reason to look at it.
+    tofStageMean: (tofRuns > 0) ? tofStageSum / tofRuns : 0,
+    tofCoinsSpent: tofCoinsSpent, tofContinues: tofContinues, tofWallet: tofWallet0,
+    chestsBought: chestsBought, chestsByTier: chestsByTier,
     // How many of the 33 days this player opened the game. Drawn once per day above (D32) and used
     // by every instance, so it is the same attendance the packs were granted against - not a
     // second estimate of it. The cloud sheet divides by this to answer "packs on a day I play".
@@ -1852,6 +2087,10 @@ var CADENCE_ROWS = ['Packs per calendar day (mean)', 'Packs per calendar day (p1
                     'Packs per ACTIVE day (mean)', 'Packs on a day that has one (mean)',
                     'Active days (mean, of 33)', 'Days with a pack (mean, of 33)',
                     'Sets per day (mean)',  'Sets per day (p10-p90)'];
+// The played ToF run and the spend-down, as TOTALS rows (2026-09-09). Kept as their own list so
+// the chest-tier rows can sit between them and TOTALS_ROWS without any index arithmetic.
+var TOF_TOTALS_ROWS = ['ToF Runs Played', 'ToF Runs Banked', 'ToF Mean Stage Reached'];
+
 var UL_ROWS = ['Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb'];
 
 // Rows reserved for the per-source blocks. The SOURCE SET IS DERIVED AT RUN TIME (which sources can
@@ -1962,6 +2201,20 @@ function cloudAggregate_(runs, perm){
     pick(function(r){ return r.albumIdx; })          // albums FINISHED, not the tier reached
   ];
 
+  // The 2026-09-09 outcome rows, keyed by the SAME label the totals block asks for. Per-tier chest
+  // counts are built from whatever tiers the runs actually bought, so a config with four tiers or
+  // renamed ones needs no change here either.
+  var extra = {};
+  extra['ToF Runs Played']        = pick(function(r){ return num(r.tofRuns); });
+  extra['ToF Runs Banked']        = pick(function(r){ return num(r.tofBanked); });
+  extra['ToF Mean Stage Reached'] = pick(function(r){ return num(r.tofStageMean); });
+  var tierSeen = {};
+  for (i = 0; i < runs.length; i++)
+    for (var ct in (runs[i].chestsByTier || {})) tierSeen[ct] = true;
+  Object.keys(tierSeen).forEach(function(t){
+    extra['Chests Bought - ' + t] = pick(function(r){ return num((r.chestsByTier || {})[t]); });
+  });
+
   var perDayPacks = pick(function(r){ return r.packsOpenedTotal / DAILY_DAYS; });
   var perDaySets  = pick(function(r){ return r.setsCompletedTotal / DAILY_DAYS; });
   // How many of the 33 days actually saw a pack. dailyCloud[].packs is CUMULATIVE, so a day counts
@@ -2029,7 +2282,7 @@ function cloudAggregate_(runs, perm){
     bySource[k].rarityMean = rMean;
   });
 
-  return { perm: perm, n: runs.length, series: series, totals: totals,
+  return { perm: perm, n: runs.length, series: series, totals: totals, extra: extra,
            perDayPacks: perDayPacks, perDaySets: perDaySets,
            perPackDays: perPackDays, packsPerPackDay: packsPerPackDay,
            perActiveDays: perActiveDays, packsPerActiveDay: packsPerActiveDay,
@@ -2244,10 +2497,24 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
     sh.getRange(r + 2, 1, grid.length, grid[0].length).setValues(grid);
   }
 
-  block(TB.totals, 'Metric', TOTALS_ROWS,
-        function(a, i){ return round_(stats_(a.totals[i]).MEAN, 2); });
-  block(TB.totalsBand, 'Metric', TOTALS_ROWS,
-        function(a, i){ return band_(a.totals[i], 1); });
+  // The TOTALS labels are TOTALS_ROWS plus the outcome rows added 2026-09-09: one per authored
+  // chest tier, and the three that describe the played ToF run. The chest tiers are read off
+  // PackConfig rather than hardcoded to Bronze/Silver/Gold - renaming a tier or adding a fourth
+  // then needs no code change, and a tier that is deleted stops producing a row instead of leaving
+  // a stale one. Extra rows are CLAMPED by block() until the sheet reserves them, and it logs which
+  // ones it dropped, so this is safe to ship before Col_Cards_Totals_v1.xlsx is re-imported.
+  var chestTiers = (cfg && cfg.chests ? cfg.chests : []).map(function(c){ return c.tier; });
+  var totalsRows = TOTALS_ROWS
+    .concat(chestTiers.map(function(t){ return 'Chests Bought - ' + t; }))
+    .concat(TOF_TOTALS_ROWS);
+  function totalsValue(a, i, lab){
+    if (i < TOTALS_ROWS.length) return round_(stats_(a.totals[i]).MEAN, 2);
+    return round_(stats_(a.extra[lab] || []).MEAN, 2);
+  }
+  block(TB.totals, 'Metric', totalsRows, totalsValue);
+  block(TB.totalsBand, 'Metric', totalsRows, function(a, i, lab){
+    return (i < TOTALS_ROWS.length) ? band_(a.totals[i], 1) : band_(a.extra[lab] || [], 1);
+  });
   // BY LABEL, not by row index: CADENCE_ROWS grew from four rows to six on 2026-09-07 and an
   // index-keyed writer would have silently kept filling the old positions with the wrong metric.
   block(TB.cadence, 'Metric', CADENCE_ROWS, function(a, i, lab){
