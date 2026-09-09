@@ -57,14 +57,14 @@ Each per-permutation band block went from `p10 p25 p50 p75 p90 MEAN` (6) to
 of 37 (A..AK). **No rows move** — the block height is unchanged, so `CLOUD_BAND_STRIDE` is still 37 and
 every block stays where it is.
 
-The engine writes the new cells whether or not they are formatted. To make them look right:
+The engine writes the new cells whether or not they are formatted, so **this step is cosmetic** — the
+numbers are correct either way.
 
-- select `AL6:AK…` → simplest is: select `B6:AK6` (a header row of one block), copy, paste into `AL6:AW6`,
-  then repeat the same copy for the data area, **or** just select columns `AL:AW` and match the fill/border
-  of `B:AK`.
-- do it once per block if you want them all styled; the numbers are correct either way.
+The quickest way to style them: select columns **B:AK**, copy, then paste-format-only into **AL:AW**
+(Edit ▸ Paste special ▸ Format only). One paste covers every block at once.
 
-The ten block label rows are at **43, 80, 117, 154, 191, 228, 265, 302, 339, 376** (header row = label + 2).
+The ten band-block label rows are at **43, 80, 117, 154, 191, 228, 265, 302, 339, 376**; each block's
+header row is its label row **+ 2**, and its 33 data rows follow.
 
 ### 2b. Add the `P98 - ALL PERMUTATIONS` block at the bottom
 
@@ -211,10 +211,12 @@ cohort mean active days is preserved exactly.
 
 ## p95 / p98 — read the sample size
 
-`p98` of 50 players is the interpolated 49th of 50 values. That is the **near-maximum of the cohort**, not
-an estimate of a population percentile, and it moves a lot between seeds. The run stamp on
-`Col_Cards_Cloud` now says so whenever `B2 < 200`; the warning disappears on its own once you raise it.
-200 × 10 permutations still fits inside the Apps Script time budget.
+`p98` of 50 players interpolates between the **49th and 50th** of 50 sorted values. That is the
+**near-maximum of the cohort**, not an estimate of a population percentile, and it moves a lot between
+seeds. The run stamp on `Col_Cards_Cloud` now says so whenever `B2 < 200`; the warning disappears on its
+own once you raise it. At 200 players the 98th percentile has four players above it and starts to mean
+what it says — and 200 × 11 permutations still fits inside the Apps Script time budget (the sweep stops
+early and says so if it ever doesn't).
 
 ## MAX — the ceiling column
 

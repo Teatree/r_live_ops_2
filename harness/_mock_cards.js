@@ -697,6 +697,58 @@ let firstRun = null;
     }
     check('the intensity curve preserves the cohort mean active days exactly',
       Math.abs(acc / M - target) < 0.01, `${(acc / M).toFixed(4)} vs ${target.toFixed(4)} expected`);
+
+    // (e) active_days_p95 / active_days_p98 ARE READ when the sheet carries them. No dump has them
+    //     yet - they were specified on 2026-09-09 and the columns are added by hand - so without
+    //     this fixture the whole reason the feature exists would be untested until someone edits a
+    //     workbook. Inject them, assert the curve's top MOVES to honour them, and restore.
+    //
+    //     The mean must NOT move: the level is anchored to the activity rates' sum-of-p_day, and a
+    //     new percentile anchor changes the SHAPE only. That pair - top moves, mean does not - is
+    //     the whole contract, and either half failing alone is a different bug.
+    {
+      const bv = data['data_seg_beh'].values;
+      const snapB = JSON.stringify(bv);
+      const H = {}; bv[0].forEach((c, i) => H[String(c)] = i);
+      const rowOf = (seg, pay) => {
+        for (let i = 1; i < bv.length; i++)
+          if (String(bv[i][H.segment]) === seg && String(bv[i][H.payer_flag]) === pay) return bv[i];
+        return null;
+      };
+      const before = attendanceCurve_(Context.get().ds.beh('10-19', 'NONPAYER'), DAILY_DAYS);
+      const meanBefore = curveMean_(before);
+      const topBefore = curveAt_(before, 0.97);
+
+      // append the two columns, and give this cohort a p95/p98 the p90->window line does not imply
+      const c95 = bv[0].length, c98 = c95 + 1;
+      bv[0][c95] = 'active_days_p95'; bv[0][c98] = 'active_days_p98';
+      for (let i = 1; i < bv.length; i++) {
+        if (!bv[i] || !bv[i][H.segment]) continue;
+        bv[i][c95] = 31; bv[i][c98] = 33;
+      }
+      _sheetValsCache = {}; Context.reset && Context.reset();
+      eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+
+      const after = attendanceCurve_(Context.get().ds.beh('10-19', 'NONPAYER'), DAILY_DAYS);
+      const anchored = after.some(pt => Math.abs(pt[0] - 0.95) < 1e-9) &&
+                       after.some(pt => Math.abs(pt[0] - 0.98) < 1e-9);
+      check('active_days_p95 / active_days_p98 become anchors on the intensity curve when present',
+        anchored && after.length === before.length + 2,
+        `${before.length} anchors -> ${after.length}: ` +
+        after.map(pt => pt[0].toFixed(2)).join(' '));
+      check('adding those two anchors changes the SHAPE of the curve, not its level',
+        Math.abs(curveMean_(after) - meanBefore) < 1e-6 &&
+        Math.abs(curveAt_(after, 0.97) - topBefore) > 1e-6,
+        `mean ${meanBefore.toFixed(4)} -> ${curveMean_(after).toFixed(4)}, ` +
+        `p97 ${topBefore.toFixed(2)} -> ${curveAt_(after, 0.97).toFixed(2)} days`);
+
+      data['data_seg_beh'].values = JSON.parse(snapB);
+      _sheetValsCache = {}; Context.reset && Context.reset();
+      eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+      check('data_seg_beh fixture restored',
+        JSON.stringify(data['data_seg_beh'].values) === snapB &&
+        attendanceCurve_(Context.get().ds.beh('10-19', 'NONPAYER'), DAILY_DAYS).length === before.length);
+    }
   }
   check('granted packs are within 1 per (source,tier) of the expectation (unbiased rounding)',
     Math.abs(tally['Total Packs Opened'] - expected) <= 18 + tofExp,
