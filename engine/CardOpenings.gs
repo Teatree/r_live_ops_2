@@ -1790,6 +1790,15 @@ var TB = {
 // the sheet is re-imported. Same idea as TOF_SHEET_NAMES accepting 'ToF' and 'MD'.
 var TB_ALIASES = {};
 TB_ALIASES[TB.cadence] = ['CADENCE (per calendar day, all 33)'];
+// 2026-09-09: the workbook renamed every "mean" bar to "avg" and left the "(p10-p90)" bars alone.
+// Four blocks then missed their lookup and were skipped while the range blocks beside them filled
+// normally, which reads on the sheet as "only the ranges update" - the averages were not stale,
+// they were never written. Both spellings are accepted from here; nothing needs renaming back.
+TB_ALIASES[TB.totals]   = ['TOTALS (avg across players)', 'TOTALS (avg per player)'];
+TB_ALIASES[TB.ecoTotal] = ['ECONOMY IMPACT - TOTAL (avg per player)',
+                           'ECONOMY IMPACT - TOTAL (avg across players)'];
+TB_ALIASES[TB.packsSrc] = ['PACKS PER SOURCE (avg)'];
+TB_ALIASES[TB.cardsSrc] = ['CARDS PER SOURCE (avg)'];
 
 // One block per permutation, at the BOTTOM of the sheet (user, 2026-09-07: "just add at the bottom
 // instead of changing any ordering"). Nothing above them moves by a single row. The label carries
@@ -2059,12 +2068,16 @@ function SimulateCardCloud(){
   }
 
   writeCloudSheet_(cloud, agg, nPlayers, seed);
-  writeTotalsSheet_(totals, tVals, agg, nPlayers, seed, cfg);
+  var skipped = writeTotalsSheet_(totals, tVals, agg, nPlayers, seed, cfg) || [];
 
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
   var msg = agg.length + ' of ' + perms.length + ' permutations x ' + nPlayers +
             ' players in ' + secs + 's (seed ' + seed + ')' +
-            (stoppedAt >= 0 ? '  -- STOPPED EARLY on the 6-minute limit, lower B2' : '');
+            (stoppedAt >= 0 ? '  -- STOPPED EARLY on the 6-minute limit, lower B2' : '') +
+            // A block whose bar was not found writes nothing and leaves its rows untouched, which
+            // on the sheet looks exactly like a block that ran. Say so where it will be seen.
+            (skipped.length ? '  --  ' + skipped.length + ' BLOCK(S) NOT WRITTEN (bar not found ' +
+                              'in column A): ' + skipped.join('; ') : '');
   Logger.log(msg + ' | ' + timings.join(', '));
   SpreadsheetApp.getActive().toast(msg, 'SimulateCardCloud', 10);
   return agg.length;
@@ -2139,6 +2152,7 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
 /** Col_Cards_Totals: label in column A, one column per permutation from B. */
 function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
   var perms = cloudPermutations_(), nCols = perms.length;
+  var skipped = [];                     // bars this sheet does not have; returned to the caller
 
   sh.getRange(CLOUD_TOTALS_STAMP_CELL).setValue(
     nPlayers + ' players per permutation | seed ' + seed + ' | ' + stamp_() +
@@ -2146,10 +2160,19 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
 
   // Rows available to a block: from its header row to the row before the NEXT bar. A bar is a row
   // with text in column A and nothing beside it, which is how the builder draws them.
-  function roomFor_(barRow){
+  // How many rows this block has before the next bar. A bar is recognised as "something in column A
+  // and nothing beside it" - which is ALSO what one of this block's own data rows looks like once
+  // its values have been cleared. That made the emptiness self-perpetuating: a block whose values
+  // were blank measured a room of 0, wrote nothing, and stayed blank on every subsequent run. It is
+  // how the renamed "avg" bars stayed broken even once the name was matched again (2026-09-09).
+  // `own` is the block's own label list, so its rows are never mistaken for the next bar.
+  function roomFor_(barRow, own){
+    var mine = {};
+    (own || []).forEach(function(l){ mine[String(l).trim()] = true; });
     for (var rr = barRow + 1; rr < tVals.length; rr++){
       var a = String((tVals[rr] || [])[0] == null ? '' : (tVals[rr] || [])[0]).trim();
       if (!a) continue;
+      if (mine[a]) continue;                             // ours, cleared values and all
       var rest = (tVals[rr] || []).slice(1).filter(function(x){ return x !== '' && x != null; });
       if (!rest.length) return rr - barRow - 1;          // -1 for the header row
     }
@@ -2162,7 +2185,17 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
       (TB_ALIASES[label] || []).forEach(function(alt){
         if (r < 0) r = findBlockRow_(tVals, alt);
       });
-    if (r < 0){ Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped."); return; }
+    if (r < 0){
+      // LOUD, not just logged. A skipped block leaves its rows exactly as they were, so on the
+      // sheet it is indistinguishable from a block that ran and produced the same numbers - and a
+      // renamed bar next to an unrenamed one produces the "only half the sheet updates" symptom
+      // that cost a real afternoon on 2026-09-09. The caller puts these in the toast.
+      skipped.push(label);
+      Logger.log("Col_Cards_Totals has no '" + label + "' bar - BLOCK SKIPPED, its rows are " +
+                 "whatever was there before. Rename the bar in column A back to '" + label +
+                 "', or add the sheet's spelling to TB_ALIASES.");
+      return;
+    }
     var hdr = [firstHdr];
     perms.forEach(function(p){ hdr.push(p.label); });
     sh.getRange(r + 1, 1, 1, hdr.length).setValues([hdr]);
@@ -2173,7 +2206,7 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
     // one row added to a *_ROWS constant could quietly delete a whole table. Write what fits and
     // say what did not, rather than corrupting the sheet. (2026-09-07, when CADENCE_ROWS went from
     // four rows to six.)
-    var room = roomFor_(r);
+    var room = roomFor_(r, labels);
     var use = labels;
     if (labels.length > room){
       use = labels.slice(0, Math.max(0, room));
@@ -2324,7 +2357,7 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
 
     // Clear to the reserved height first: a shorter source list must not leave last run's rows
     // sitting under the new ones, and the clamp below stops the write crossing the next bar.
-    var room = roomFor_(r);
+    var room = roomFor_(r, lines.map(function(l){ return l[0]; }));
     sh.getRange(r + 2, 1, Math.max(room, lines.length), hdr.length).clearContent();
     var use = lines;
     if (lines.length > room){
@@ -2334,6 +2367,8 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
     }
     if (use.length) sh.getRange(r + 2, 1, use.length, hdr.length).setValues(use);
   });
+
+  return skipped;
 }
 
 function zerosN_(n){ var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }

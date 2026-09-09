@@ -301,6 +301,63 @@ function GATES() {
     check('the CADENCE block is found by its label or a previous one', rCad > 0,
       'row ' + rCad + ' (aliases: ' + (TB_ALIASES[TB.cadence] || []).join(', ') + ')');
 
+    // A RENAMED BAR MUST NOT SILENTLY SKIP ITS BLOCK (2026-09-09). The workbook renamed every
+    // "mean" bar to "avg" and left the "(p10-p90)" bars alone; the four renamed blocks then missed
+    // their lookup and wrote nothing, while the range blocks beside them filled - which reads as
+    // "only the ranges update". Snapshot / rename / assert / restore: with the sheet using the
+    // "avg" spelling every block must still be found AND still be written.
+    {
+      const snap = JSON.stringify(data['Col_Cards_Totals'].values);
+      const RENAMES = [
+        [TB.totals,   'TOTALS (avg across players)'],
+        [TB.ecoTotal, 'ECONOMY IMPACT - TOTAL (avg per player)'],
+        [TB.packsSrc, 'PACKS PER SOURCE (avg)'],
+        [TB.cardsSrc, 'CARDS PER SOURCE (avg)']
+      ];
+      const tv = data['Col_Cards_Totals'].values;
+      let renamed = 0;
+      RENAMES.forEach(([canon, avg]) => {
+        const r = barRow(tv, canon);
+        if (r < 0) return;
+        tv[r - 1][0] = avg;
+        // BLANK the block's data columns. Without this the gate is vacuous: a skipped block leaves
+        // the values a previous run wrote, so "the rows carry numbers" passes whether or not the
+        // block ran. Blanking reproduces the workbook state that surfaced the bug in the first
+        // place - the averages there were not stale, they were empty.
+        for (let k = r + 1; k < tv.length && k < r + 30; k++) {
+          const a = String((tv[k] || [])[0] || '').trim();
+          if (a && a === a.toUpperCase() && a.length > 6) break;   // next bar
+          for (let c = 1; c <= perms.length; c++) if (tv[k]) tv[k][c] = '';
+        }
+        renamed++;
+      });
+      check('rename fixture applied to all four "mean" bars', renamed === RENAMES.length,
+        renamed + ' of ' + RENAMES.length);
+
+      setInputs(N, SEED);
+      SimulateCardCloud();
+      const after = data['Col_Cards_Totals'].values;
+      let unfound = [], unwritten = [];
+      RENAMES.forEach(([canon, avg]) => {
+        const r = barRow(after, avg);
+        if (r < 0) { unfound.push(avg); return; }
+        // the row under the header must carry numbers, not the blanks a skipped block leaves
+        const first = (after[r + 1] || []).slice(1, 1 + perms.length);
+        if (!first.some(x => x !== '' && x != null)) unwritten.push(avg);
+      });
+      check('every block is still FOUND when its bar uses the "avg" spelling',
+        unfound.length === 0, unfound.join('; '));
+      check('every block is still WRITTEN when its bar uses the "avg" spelling',
+        unwritten.length === 0, unwritten.join('; ') || 'all four carry values');
+
+      data['Col_Cards_Totals'].values = JSON.parse(snap);
+      check('rename fixture restored',
+        JSON.stringify(data['Col_Cards_Totals'].values) === snap);
+      reset();
+      setInputs(N, SEED);
+      SimulateCardCloud();
+    }
+
     const cadIdx = {};
     CADENCE_ROWS.forEach((lab, i) => { cadIdx[lab] = rCad + 1 + i; });
     // Only the rows the SHEET has room for: an older import of Col_Cards_Totals reserves four rows
