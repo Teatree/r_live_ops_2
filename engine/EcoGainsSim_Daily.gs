@@ -439,10 +439,14 @@ function dailyPacksFor_(seg, payer, ctx){
 //   everything else  -> proportional to p_day within the instance
 // Season Pass is NOT instance-shaped (its packs come from the whole reached track), so it is handled
 // separately in the card sim rather than here.
-function packGrantPlan_(seg, payer, ctx){
+function packGrantPlan_(seg, payer, ctx, prof){
   ctx = ctx || Context.get();
   var ds = ctx.ds, b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  // A synthetic profile (D49) can force attendance. Everything else on this row - the accrual
+  // curves, the day weights, the calendar - is still the real segment's, so an instance's SHAPE is
+  // unchanged and only the probability of being there for it moves.
+  if (prof && prof.attend != null){ pWd = num(prof.attend); pWe = num(prof.attend); }
   // NO 1/1 fallback here, unlike dailySeries_. That fallback exists so a segment without activity
   // rates still gets a DISTRIBUTION over days for a total it already has; this function decides
   // whether packs are earned at all. Handing a rate-less segment reach = 1 gave the 'A. 0' appendix
@@ -458,7 +462,7 @@ function packGrantPlan_(seg, payer, ctx){
     var insts = (ctx.calNew[label] || []).slice()
                   .sort(function(x, y){ return x.start - y.start; });   // RM keys its ladder off this
     insts.forEach(function(inst, i){
-      var rr = packRungs_(cat, seg, payer, ctx, i);
+      var rr = packRungs_(cat, seg, payer, ctx, i, prof);
       if (!rr) return;
       // D26: an instance wholly past the collection season grants no envelopes. The ordinal `i` is
       // still the UNFILTERED one, because Rainbow Maker keys RM_1st/RM_2nd off instance order —

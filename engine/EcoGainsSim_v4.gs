@@ -720,7 +720,32 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
 //   leaderboard  E = part x reach x SUM_i (1/n) x packs_i    == packLane_ (E IS the quantile mean)
 //   milestone    E = part x reach x SUM_k S(req_k) x packs_k == packLane_
 // so window totals still agree with the gains model cell for cell.
-function packRungs_(cat, seg, payer, ctx, instOrdinal){
+/************************************************************************************************
+ * SYNTHETIC PLAYER PROFILES (2026-09-09, D49)
+ * ---------------------------------------------------------------------------------------------
+ * `prof` is an optional overlay on top of a REAL (segment, payer) row: the data is still read from
+ * data_seg_beh and the _v2 config sheets exactly as it always was, and the profile forces only the
+ * OUTCOMES a measured curve gives a player some of the time. null - which is every existing caller
+ * - leaves both helpers below as identities, so nothing that does not ask for a profile changes.
+ *
+ * The one profile that exists is MAX (see PLAYER_PROFILES in CardOpenings.gs): the ceiling player,
+ * who attends every day, finishes first in every leaderboard, clears every milestone rung and owns
+ * the whole Season Pass track. He is a BOUND, not a forecast - nobody plays like that - and he is
+ * only ever run as an extra column beside the ten measured permutations, never mixed into them.
+ ************************************************************************************************/
+/** A milestone/collection/streak rung's probability, forced to certainty by an all-rungs profile. */
+function profP_(prof, p){ return (prof && prof.allRungs) ? 1 : num(p); }
+/** An event's opt-in rate, forced by a profile that takes part in everything. */
+function profPart_(prof, part){ return (prof && prof.optIn != null) ? num(prof.optIn) : part; }
+/** The top authored rank on a ladder - what a player who always finishes first is paid. Returns
+ *  null for an empty ladder, which the callers turn into "this source pays this profile nothing". */
+function topRankOf_(ladder){
+  var best = null;
+  for (var k in ladder) if (best === null || +k < best) best = +k;
+  return best;
+}
+
+function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
   var ds = ctx.ds;
   function packsOf(rew){
     var o = null;
@@ -766,7 +791,15 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
     // model's expectation reconcile by construction (see lbRankDist_).
     var rdk = lbRankDist_(lb.v2, lb, inst), ladder = rdk.ladder;
     var rungs;
-    if (LB_RANK_MODEL === 'cdf' && rdk.dist){
+    if (prof && prof.rankTop){
+      // FIRST PLACE, every time. The ladder's TOP AUTHORED rank at probability 1 - deliberately not
+      // the top PAYING rank: if rank 1 pays no envelope while rank 5 does, a player who always wins
+      // gets none from this source. That is a finding about the ladder, and papering over it here
+      // would hide it behind a number nobody could reproduce from the sheet.
+      var top = topRankOf_(ladder), tw = (top == null) ? {} : (ladder[top] || {});
+      rungs = [{ label: 'rank ' + (top == null ? 1 : top) + ' (always first)', p: 1,
+                 packs: packsOf(tw), tickets: tkOf(tw) }];
+    } else if (LB_RANK_MODEL === 'cdf' && rdk.dist){
       rungs = rdk.dist.map(function(d){
         var rw = ladder[d.rank] || {};
         return { label: 'rank ' + d.rank, p: d.p, packs: packsOf(rw), tickets: tkOf(rw) };
@@ -777,7 +810,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
         return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(rw2), tickets: tkOf(rw2) };
       });
     }
-    var part = packParticipation_(cat, inst);
+    var part = profPart_(prof, packParticipation_(cat, inst));
     var res = mk(part, true, rungs);    // EXCLUSIVE: one finishing rank per instance
 
     // Kite also pays a SCORE MILESTONE, which lbE_ folds into the same E the pack lane is priced
@@ -793,7 +826,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
           var mreq = num(v[mr] && v[mr][lb.ms.reqC]);
           if (!(mreq > 0)) continue;
           var mrw = rewRow_(v, mr, mCols);
-          msRungs.push({ label: 'score milestone (req ' + mreq + ')', p: Sk(mreq),
+          msRungs.push({ label: 'score milestone (req ' + mreq + ')', p: profP_(prof, Sk(mreq)),
                          req: mreq, packs: packsOf(mrw), tickets: tkOf(mrw) });
         }
         msRungs = msRungs.filter(function(x){ return x.packs && x.p > 0; });
@@ -824,14 +857,14 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       if (!(req > 0)) continue;
       lastReq = req;
       var crw = rewRow_(cv, coll.r0 + i, ccols);
-      crungs.push({ label: 'milestone #' + (i + 1) + ' (req ' + req + ')', p: S(req),
+      crungs.push({ label: 'milestone #' + (i + 1) + ' (req ' + req + ')', p: profP_(prof, S(req)),
                     req: req, packs: packsOf(crw), tickets: tkOf(crw) });
     }
     if (coll.completionRow != null && lastReq > 0)
-      crungs.push({ label: 'completion bonus (req ' + lastReq + ')', p: S(lastReq),
+      crungs.push({ label: 'completion bonus (req ' + lastReq + ')', p: profP_(prof, S(lastReq)),
                     req: lastReq, packs: packsOf(rewRow_(cv, coll.completionRow, ccols)),
                     tickets: tkOf(rewRow_(cv, coll.completionRow, ccols)) });
-    var cpart = packParticipation_(cat, ci);
+    var cpart = profPart_(prof, packParticipation_(cat, ci));
     return mk(cpart, false, crungs);   // cumulative ladder: rungs fire independently
   }
 
@@ -849,11 +882,11 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       ? nsInsts[Math.max(0, Math.min(instOrdinal || 0, nsInsts.length - 1))].start : 1;
     var nrungs = nsLadderForDay_(seg, nsDay).map(function(ms, k){
       return { label: 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')' +
-                      (isWeekend_(nsDay) ? ' [weekend]' : ' [weekday]'), p: Sn(ms.req),
+                      (isWeekend_(nsDay) ? ' [weekend]' : ' [weekday]'), p: profP_(prof, Sn(ms.req)),
                req: ms.req, packs: packsOf(ms.rew), tickets: tkOf(ms.rew) };
     });
     var ni = ds.eventInst('Night Sky', seg, payer);
-    var npart = packParticipation_(cat, ni);
+    var npart = profPart_(prof, packParticipation_(cat, ni));
     return mk(npart, false, nrungs);
   }
 
@@ -871,7 +904,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
                         [pct.p75*scale,.75],[pct.p90*scale,.90]]);
     if (!Sr) return null;
     var rrungs = cfg.ladder.map(function(ms, k){
-      return { label: 'milestone #' + (k + 1) + ' (req accum ' + ms.req + ')', p: Sr(ms.req),
+      return { label: 'milestone #' + (k + 1) + ' (req accum ' + ms.req + ')', p: profP_(prof, Sr(ms.req)),
                req: ms.req, packs: packsOf(ms.rew), tickets: tkOf(ms.rew) };
     });
     return mk(1, false, rrungs);                       // RM has no participation telemetry
@@ -893,7 +926,11 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
                             : (function(){ var a = []; for (var q = 1; q <= n; q++) a.push(q); return a; })();
       var suffix = ppos.length ? '' : ' (flat rank avg, no position data)';
       var bdist = (LB_RANK_MODEL === 'cdf' && ppos.length) ? rankDist_(pi, n) : null;   // matches packBlockE_
-      var g = bdist
+      var g = (prof && prof.rankTop)
+        ? [{ label: tag + 'rank 1 (always first)', p: 1,
+             packs: packsOf(byPos[1] || {}), tickets: tkOf(byPos[1] || {}) }]
+            .filter(function(x){ return x.packs || x.tickets > 0; })
+        : bdist
         ? bdist.map(function(d){
             var bw = byPos[d.rank] || {};
             return { label: tag + 'rank ' + d.rank, p: d.p, packs: packsOf(bw), tickets: tkOf(bw) };
@@ -907,7 +944,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal){
       if (g.length) groups.push({ exclusive: true, rungs: g });
     });
     if (!groups.length) return null;
-    var ppart = packParticipation_(cat, pi);
+    var ppart = profPart_(prof, packParticipation_(cat, pi));
     return { participation: ppart, groups: groups };
   }
   return null;
@@ -2750,7 +2787,7 @@ function measuredSptTotal_(seg, payer, ds){
 // log shows Season Pass packs arriving as the track is climbed rather than all on the final day.
 // The sum over entries equals cs x R_challenge x T exactly, so the card sim's total still matches
 // the Season Pass row in the gains model.
-function spPackTiers_(seg, payer, ctx){
+function spPackTiers_(seg, payer, ctx, prof){
   var out = [];
   // 'A. 0' is the appendix segment: no behaviour telemetry, so nothing can price its reach.
   // packGrantPlan_ already refuses it (zero activity rates -> empty plan) and colRewardRow_ below
@@ -2771,6 +2808,9 @@ function spPackTiers_(seg, payer, ctx){
   var daysV2 = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
   var t = sptTotals_(seg, payer, ctx);
   var Ts = spTier_(t.sim * daysV2 / 33, v2.cum);
+  // A full-pass profile owns the WHOLE track rather than the tier its SPT income reaches. Set from
+  // the ladder's own length, so a 30-tier pass and a 50-tier pass both work with no constant here.
+  if (prof && prof.fullPass) Ts = v2.free.length;
   if (!(Ts > 0)) return out;
   var Rlb = spChallengeR_();
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
