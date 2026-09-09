@@ -151,6 +151,24 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
 
 **Card sim (`CardOpenings.gs`, menu ▸ Simulate card pack openings).** Consumes that pack flow: `dailyPacksFor_(seg, payer)` in `EcoGainsSim_Daily.gs` returns a 33×6 per-day grid broken down by source, which the card sim turns into discrete pack opens (trailing fraction resolved by a **seeded Bernoulli** so the granted count is unbiased). Draws are **count-proportional over the `PackConfig` SNAP POOL, without replacement** — rarity is a property of the pool and drifts as it depletes; the old per-pack rarity-probability grid was deleted because it multiplied the pool counts and applied rarity twice. Pack tier now differs only by `Cards/Open` + the pity table. `EcoPackGains` and `PlayerBehavior` are **deleted** — segments/attendance come from `data_seg_beh`, the schedule from `cal_new`. See `source_docs/card-collection.md`.
 
+> ### ⚠ THE CARD SIM AND THE GAINS MODEL NO LONGER AGREE ON MULTI-DAY REACH (D48, 2026-09-09)
+>
+> **If a card-sim pack total sits a few percent below `packLane_`/`ECOGAINS_SIM`, this is why. It is the model working, not a plumbing failure.**
+>
+> Every simulated player used to share one pair of activity rates, so a cohort's active days were Binomial(33, p) — at 100+ PAYER, p25/p50/p75/p90 = 9/11/13/15 against a measured **4/5/18/33**. The model could not produce a hardcore player at all. Each player now draws `u ~ U(0,1)`, reads an active-day target off the segment's percentile curve (`active_days_p25/p50/p75/p90`, plus **`active_days_p95`/`active_days_p98`** when the sheet carries them — optional, the curve interpolates without them), and has their weekday/weekend rates scaled to hit it, keeping the measured weekday:weekend shape.
+>
+> **The level is anchored to the rates' own `Σ p_day`, NOT to `active_days_mean`.** `data_seg_beh` carries both and they disagree by ~4% (`sqls/data_seg_beh.sql` flags it as `[F2]`); everything downstream here is built on the rates, so anchoring to the mean would move expected active days *on top of* the shape change and the two effects could not be told apart. Shape from the percentiles, level from the rates — exactly one thing changes, the spread.
+>
+> **`reach = 1 − Π(1 − p_d)` is CONCAVE in intensity**, so by Jensen a mixed cohort clears a multi-day instance less often than a uniform one on the same mean (5 days: half-never/half-always gives 0.50, everyone-at-50% gives 0.97). Mean packs fall **4–14%**, p90 rises **~40%**. `packLane_` and `ECOGAINS_SIM` still use the homogeneous reach and therefore **overstate** multi-day reach. The two agree **exactly** on every 1-day instance, and everywhere when the model is off. `expectedTotal` is computed under whichever model is running (`reachHet_`), so the sim stays internally consistent.
+>
+> `SEG_ATTENDANCE_MODEL = 'homogeneous'` restores the pre-D48 numbers **bit for bit**, random stream included.
+>
+> Related trap: `expectedTotal` is a **per-player** number (it carries that player's own ToF runs and intensity). Averaging it across the cohort is the only way to compare it with a cohort mean — reading `runs[0]` reports one arbitrary season as the model's prediction.
+
+**MAX — the ceiling column (D49, 2026-09-09).** `Col_Cards_Totals` carries an **11th** column; `Col_Cards_Cloud` does **not** (its blocks are per-day distributions, and a bound on the same axis as a p10–p90 band reads as the band's top end). `PLAYER_PROFILES.MAX` in `CardOpenings.gs` is an overlay on real `40-99 PAYER` data that forces only: attendance 1.0, the top authored rank of every leaderboard (**not** the top *paying* rank — if rank 1 pays nothing, that is a finding about the ladder), every milestone rung, opt-in 1.0 (Kite's 0.35 included), and the whole Season Pass track. ToF comes from the **ToF sheet's own authored `MAX` segment row**, not from code. 205.7 packs vs 43.3. It is a bound, never a forecast, and never mixed into the ten measured columns. The gains engine stays profile-agnostic: `profP_`/`profPart_`/`topRankOf_` in `EcoGainsSim_v4.gs` are identities when no profile is passed, which is every pre-D49 caller.
+>
+> **MAX's ToF row reads 0, from one authored cell.** The ToF sheet's `MAX` row cashes out at **stage 60** against a **10-rung** continue ladder, so a run survives at most 10 pigs where ~15 are needed: MAX plays 165 runs a season and banks **0** (the `ToF Runs Played`/`Runs Banked` rows show it). Cash-out 6 → 322.9 ToF packs / 98.4% banked; 15 → 143.4 / 17.4%; 20 → 51.8 / 4.5%. Faithful to "goes for everything": maximum greed in this event returns nothing.
+
 **Data flow:** SQL queries → `data_*` sheets in the live workbook (headers on row 1, data from row 2) → `EcoGainsSim_v4.gs` reads them plus the visual calendar grids, all LIVE at recalc (decision D12: no numbers in code) → spills per segment block in `EcoGainsSim_HC`.
 
 **Calendar reader rule (subtle, verified):** in `cal_curr`/`cal_new` each MERGED range = one instance (duration = column width); each filled non-merged cell = one 1-day instance; neighbours are never collapsed. Day = column − 1; calendars start Wednesday, so weekend = `((day−1) % 7) ∈ {2,3,4}`.
@@ -184,7 +202,7 @@ The goal: a per-segment, per-resource simulation comparing the CURRENT calendar 
   Reason: the workbooks and .gs files are edited from more than one place, so an uncommitted
   working tree is what turns a routine `git pull` into a merge that can lose work.
 - Communication: terse, implementation-over-questions; make defensible choices and flag them.
-- **Before entering plan mode or writing any plan, ALWAYS ask exactly 15 clarifying questions**, in batches of 4 (4+4+4+3). This is not a ceiling to approach or a target to approximate — ask all 15 every time, even when the task looks clear. The questions must be split between:
+- **Before entering plan mode or writing any plan, ALWAYS ask exactly 4 clarifying questions**, ask all 4 every time, even when the task looks clear. The questions must be split between:
   - **things you did not immediately understand** from the request or the code (ambiguous scope, conflicting data, undefined semantics), and
   - **my intentions** — what I am trying to achieve and why — but only where a different intention would produce a *different implementation*. Don't ask about preferences that change nothing.
   - Ask more than 15 if genuine ambiguity remains after the first 15. Never assume a default for anything I haven't specified; prefer asking over guessing. If you spot an ambiguity mid-implementation, surface it rather than silently picking.
