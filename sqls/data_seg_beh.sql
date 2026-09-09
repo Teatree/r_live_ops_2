@@ -1,10 +1,10 @@
 -- =============================================================================
 -- Export refresh triggers: {{ refresh_all_request_id_input }} {{ refresh_data_seg_beh_request_id_input }}
--- SEGMENT BEHAVIOUR / RETENTION — 33-day activity profile per cohort
--- Grain: segment x payer  ·  Window: Apr 29–May 31 2026 (33d)
+-- SEGMENT BEHAVIOUR / RETENTION — 34-day activity profile per cohort
+-- Grain: segment x payer  ·  Window: inclusive shared Start date–End date inputs
 --
 -- OUTPUT  (sheet `data_seg_beh`)
--- Each row = one (segment, payer) cohort's activity & retention profile over the 33-day window: population, play frequency, day-of-week shape, streaks, and per-active-day rates.
+-- Each row = one (segment, payer) cohort's activity & retention profile over the Jun 3–Jul 6 window: population, play frequency, day-of-week shape, streaks, and per-active-day rates.
 --
 --   segment                            7d-saga-completion tier (this build: 0-9 / 10-19 / ... / 100+)
 --   payer_flag                         NONPAYER / PAYER (lifetime)
@@ -28,12 +28,8 @@
 --   daily_max_streak_mean/p50/p75/p90  in-day saga win-streak (distribution; NS/Kite input)
 --
 -- LOUD FLAGS
---  [F1] sessions_per_active_day = NULL PLACEHOLDER. player_daily exposes no
---       session column and no session event is confirmed in any project query.
---       Resolve with `SHOW COLUMNS FROM ...player_daily` (look for a sessions /
---       session_count / num_sessions field) OR a session-start event id, then
---       fill the commented `sessions` CTE. Until then this column is NULL by
---       design — no fabricated value. (Same treatment as the pending SPT id.)
+--  [F1] sessions_per_active_day uses Beacon reporting.active_players_daily.session_count,
+--       app-scoped and bounded to the selected inclusive event_date window.
 --  [F2] TWO GRAINS in one row (intentional, flagged):
 --        - per-active-day RATES (saga/levels/minutes/gift/daily_max_streak):
 --          pooled by the segment OF THAT ACTIVE PLAYER-DAY, ratio-of-sums,
@@ -63,17 +59,15 @@
 --       Daily-Gift cycle-reset driver, NOT the in-day saga win-streak.
 --       login_streak_mean is the per-player max-run mean; daily_max_streak_* is
 --       the in-day saga streak distribution used by NS/Kite.
---  [F7] Sheet labels say "30 days"; the measurement window is 33 days (Apr 29–May 31).
---       active_days_* are out of 33. dow_*_active_rate let the workbook rebuild
---       attendance strings for any horizon (PlayerBehavior currently 28-day).
+--  [F7] Window length is derived from the shared inclusive date inputs; no fixed horizon.
 --
 -- Athena/Trino, schema abgbproduction_174525b3_gdpr, runnable via pyathena.
 -- No FROM_UNIXTIME_NANOS / ARBITRARY / COUNT(DISTINCT)-in-window (schema gotchas).
 -- =============================================================================
 WITH params AS (
     SELECT
-        DATE '2026-04-29' AS start_date,        -- << editable: period start (inclusive)
-        DATE '2026-05-31' AS end_date,          -- << editable: period end   (inclusive)
+        CAST({{ gains_ab_start_date_input }} AS DATE) AS start_date,
+        CAST({{ gains_ab_end_date_input }} AS DATE) AS end_date,
         50   AS min_resource_earners,           -- << (unused here; kept verbatim from anchor)
         0.0  AS min_pct_of_pool                 -- << (unused here; kept verbatim from anchor)
 ),
@@ -85,6 +79,44 @@ date_bounds AS (
         CAST(date_format(start_date,                    '%Y%m%d') AS INTEGER) AS start_date_pd,
         CAST(date_format(end_date,                      '%Y%m%d') AS INTEGER) AS end_date_pd
     FROM params
+),
+
+-- A/B assignment (identical to data_gains_ab_summary) --------------------------
+ab_groups AS (
+    SELECT player_id, MAX(variant_name) AS ab_group, MIN(join_date) AS join_date
+    FROM experiment_results.player_aggregate_snapshot
+    WHERE app_id  = 'abgbproduction_174525b3'
+      AND rule_id = {{ gains_ab_rule_id_input }}
+      AND snapshot_date = (
+          SELECT MAX(event_date)
+          FROM experiment_results.metrics
+          WHERE app_id  = 'abgbproduction_174525b3'
+            AND rule_id = {{ gains_ab_rule_id_input }}
+      )
+      AND variant_name = {{ gains_ab_groups_input }}
+    GROUP BY player_id
+
+    UNION ALL
+
+    SELECT DISTINCT d.player_id, 'All players' AS ab_group, DATE '1970-01-01' AS join_date
+    FROM abgbproduction_174525b3_gdpr.player_daily d
+    CROSS JOIN date_bounds db
+    WHERE NULLIF(TRIM(CAST({{ gains_ab_rule_id_input }} AS VARCHAR)), '') IS NULL
+      AND d.event_date BETWEEN db.start_date AND db.end_date
+),
+-- Night Sky V3 contamination: same exclusion the A/B summary applies (sticky OFF)
+nightsky_variant AS (
+    SELECT DISTINCT player_id
+    FROM experiment_results.player_aggregate_snapshot
+    WHERE app_id  = 'abgbproduction_174525b3'
+      AND rule_id = '912013a5-f76b-49b1-87bb-1a2546bb5a73'
+      AND LOWER(variant_name) LIKE 'variant%'
+      AND snapshot_date = (
+          SELECT MAX(event_date)
+          FROM experiment_results.metrics
+          WHERE app_id  = 'abgbproduction_174525b3'
+            AND rule_id = '912013a5-f76b-49b1-87bb-1a2546bb5a73'
+      )
 ),
 
 -- Segmentation -----------------------------------------------------------------
@@ -123,24 +155,32 @@ active_player_days AS (
             ELSE                                                              'F. 100+'
         END AS engagement_segment
     FROM abgbproduction_174525b3_gdpr.player_daily d
-    LEFT JOIN abgbproduction_174525b3_reporting.orphans o
+    INNER JOIN ab_groups ab
+        ON d.player_id = ab.player_id
+       AND d.event_date >= ab.join_date
+    LEFT JOIN nightsky_variant ns
+        ON d.player_id = ns.player_id
+    LEFT JOIN reporting.orphans o
         ON d.player_id = o.player_id
+       AND o.app_id = 'abgbproduction_174525b3'
     LEFT JOIN rolling_7d r
         ON d.player_id = r.player_id AND d.event_date = r.event_date
     CROSS JOIN date_bounds db
     WHERE d.event_date BETWEEN db.start_date AND db.end_date
+      AND ns.player_id IS NULL
       AND o.player_id IS NULL
-      AND d.max_level IS NOT NULL
-      AND TRY_CAST(d.max_level AS INTEGER) > 200
       AND COALESCE(r.avg_completions_7d, 0) > 0
 ),
 
 -- Payer flag (lifetime payer; [F4]). For in-window payers instead, replace with
 -- a per-(player) money_spent>0 flag built off player_daily over the window.
 lifetime_payers AS (
-    SELECT DISTINCT player_id
-    FROM abgbproduction_174525b3_reporting.active_players_daily
-    WHERE cumulative_money_spent > 0
+    SELECT DISTINCT a.player_id
+    FROM reporting.active_players_daily a
+    CROSS JOIN date_bounds db
+    WHERE a.app_id = 'abgbproduction_174525b3'
+      AND a.event_date BETWEEN db.start_date AND db.end_date
+      AND a.cumulative_money_spent > 0
 ),
 
 -- Spine: one row per active player-day, excluding A.0 zero-completion days,
@@ -199,12 +239,20 @@ pd_metrics AS (
     SELECT
         d.player_id,
         d.event_date,
-        d.level_attempts      AS level_attempts,     -- [F5] all-mode levels played
+        d.level_attempts      AS level_attempts,
         d.level_completes     AS level_completes,
         d.time_spent_seconds  AS time_spent_seconds
     FROM abgbproduction_174525b3_gdpr.player_daily d
     CROSS JOIN date_bounds db
     WHERE d.event_date BETWEEN db.start_date AND db.end_date
+),
+sessions AS (
+    SELECT a.player_id, a.event_date, MAX(a.session_count) AS session_count
+    FROM reporting.active_players_daily a
+    CROSS JOIN date_bounds db
+    WHERE a.app_id = 'abgbproduction_174525b3'
+      AND a.event_date BETWEEN db.start_date AND db.end_date
+    GROUP BY 1, 2
 ),
 
 -- Daily-gift claim flag per player-day. Daily-gift source set matches the anchor;
@@ -226,21 +274,7 @@ daily_gift AS (
     GROUP BY 1, 2
 ),
 
--- ⚠ [F1] sessions_per_active_day source PENDING — placeholder, emits NULL.
--- Candidate A (if player_daily has a session count column):
---   sessions AS (
---     SELECT d.player_id, d.event_date, d.<<SET_SESSIONS_COL>> AS sessions
---     FROM abgbproduction_174525b3_gdpr.player_daily d CROSS JOIN date_bounds db
---     WHERE d.event_date BETWEEN db.start_date AND db.end_date ),
--- Candidate B (count distinct session ids / app_open events from client_events):
---   sessions AS (
---     SELECT ce.player_id,
---            CAST(date_parse(CAST(ce.processdate AS VARCHAR),'%Y%m%d') AS DATE) AS event_date,
---            COUNT(DISTINCT ce.<<SET_SESSION_ID>>) AS sessions
---     FROM abgbproduction_174525b3_gdpr.client_events ce CROSS JOIN date_bounds db
---     WHERE ce.processdate BETWEEN db.start_date_pd AND db.end_date_pd
---       AND ce.eventtype = '<<SET_SESSION_EVENT>>' AND ce.t_geo NOT IN ('FI','PL')
---     GROUP BY 1,2 ),
+-- Sessions are sourced from the verified Beacon daily player table.
 
 -- Enriched per active player-day (segment carried = the DAY's segment).
 pp AS (
@@ -251,12 +285,14 @@ pp AS (
         COALESCE(pm.level_attempts, 0)     AS levels_played,
         COALESCE(pm.level_completes, 0)    AS levels_completed,
         COALESCE(pm.time_spent_seconds, 0) AS time_spent_seconds,
+        COALESCE(se.session_count, 0)      AS session_count,
         COALESCE(dg.claimed_gift, 0)       AS claimed_gift,
         COALESCE(dg.gift_hc_free, 0)       AS gift_hc_free
     FROM spine s
     LEFT JOIN daily_completions dc ON dc.player_id = s.player_id AND dc.event_date = s.event_date
     LEFT JOIN daily_streak ds      ON ds.player_id = s.player_id AND ds.event_date = s.event_date
     LEFT JOIN pd_metrics pm        ON pm.player_id = s.player_id AND pm.event_date = s.event_date
+    LEFT JOIN sessions se          ON se.player_id = s.player_id AND se.event_date = s.event_date
     LEFT JOIN daily_gift dg        ON dg.player_id = s.player_id AND dg.event_date = s.event_date
 ),
 
@@ -340,7 +376,7 @@ agg_day AS (
         APPROX_PERCENTILE(pp.daily_max_streak, 0.50)                  AS daily_max_streak_p50,
         APPROX_PERCENTILE(pp.daily_max_streak, 0.75)                  AS daily_max_streak_p75,
         APPROX_PERCENTILE(pp.daily_max_streak, 0.90)                  AS daily_max_streak_p90,
-        CAST(NULL AS DOUBLE)                                          AS sessions_per_active_day  -- [F1]
+        ROUND(SUM(pp.session_count) * 1.0 / COUNT(*), 4)              AS sessions_per_active_day
     FROM pp
     GROUP BY 1, 2, 3
 ),
@@ -430,7 +466,7 @@ SELECT
     ap.login_streak_p50, ap.login_streak_p75, ap.login_streak_p90,
 
     -- per-active-day rates (day-segment pooled)
-    ad.sessions_per_active_day,                 -- [F1] NULL placeholder
+    ad.sessions_per_active_day,
     ad.saga_completes_per_active_day,
     ad.levels_played_per_active_day,
     ad.levels_completed_per_active_day,
