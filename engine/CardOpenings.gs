@@ -3038,6 +3038,49 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
 
 var TB_ALBUM = 'ALBUM COMPLETION (population-weighted)';
 
+// WHERE THE HEADLINE PERCENTAGE ALSO LANDS (user, 2026-09-10). The block always writes itself, but
+// the one number worth putting on a dashboard is the population rate, and it should not have to be
+// chased down inside a 12-column table. Type this label into ANY cell on Col_Cards_Totals and put
+// an A1 address in the cell to its right; the run mirrors the percentage there.
+//
+//     Album % output cell  |  Dashboard!B2
+//     Album % output cell  |  B5                 <- no sheet name = Col_Cards_Totals
+//
+// Blank, missing, or unparseable -> nothing extra is written and the run says so in the log. This
+// is the same authored-label-then-value resolution packParticipation_ uses for 'Participation':
+// an input on the sheet beats a constant in this file, and it means moving the output is an edit
+// rather than a paste.
+var ALBUM_OUT_LABEL = 'Album % output cell';
+
+/** The A1 address authored beside ALBUM_OUT_LABEL, or ''. Exact-match on the label, first hit. */
+function albumOutTarget_(tVals){
+  for (var r = 0; r < tVals.length; r++){
+    var row = tVals[r] || [];
+    for (var c = 0; c < row.length; c++){
+      if (String(row[c] == null ? '' : row[c]).trim() !== ALBUM_OUT_LABEL) continue;
+      return String((row[c + 1] == null) ? '' : row[c + 1]).trim();
+    }
+  }
+  return '';
+}
+
+/** Resolve 'Sheet!A1' / "'Sheet name'!A1" / 'A1' to a Range, or null. `dflt` is the sheet an
+ *  address with no sheet name belongs to. Returns null rather than throwing: a typo in an input
+ *  cell must not kill a six-minute run that has already produced its answer. */
+function albumOutRange_(ss, addr, dflt){
+  if (!addr) return null;
+  var shName = dflt, a1 = addr;
+  var bang = addr.lastIndexOf('!');
+  if (bang > 0){
+    shName = addr.slice(0, bang).replace(/^'|'$/g, '').replace(/''/g, "'");
+    a1     = addr.slice(bang + 1);
+  }
+  if (!/^\$?[A-Za-z]{1,3}\$?\d{1,7}$/.test(a1)) return null;   // ONE cell, not a range
+  var sh = ss.getSheetByName(shName);
+  if (!sh) return null;
+  try { return { sheet: shName, a1: a1, range: sh.getRange(a1) }; } catch (e) { return null; }
+}
+
 // The rows this block writes, in order. Kept as a list for the same reason CADENCE_ROWS is: the
 // writer keys off the LABEL, so inserting a row here cannot silently shift the others.
 var ALBUM_ROWS = [
@@ -3077,14 +3120,25 @@ function cellPopulations_(ctx){
   return { pop: out, total: total };
 }
 
-/** Roll the per-cell stats up to the population. See the header for why the two weightings differ. */
+/** Roll the per-cell stats up to the population. See the header for why the two weightings differ.
+ *
+ *  WEIGHTS ARE NORMALISED OVER THE CELLS THAT ACTUALLY RAN, not over the whole population. The run
+ *  stops early if it projects past its time budget, and dividing by the FULL population would then
+ *  let every unrun cell contribute a silent zero - a sweep that got through six of ten cells would
+ *  report a rate roughly 40% too low and look exactly like a real one. Renormalising answers the
+ *  question the sample can actually answer ("of the population we simulated"), and `covered` says
+ *  what share of the player base that was, so a partial run is visible instead of merely wrong. */
 function albumPopulationStats_(byCell, popInfo){
   var perms = cloudPermutations_();
-  var rate = 0, finW = 0, packs = 0, cards = 0, finishers = 0, players = 0;
+  var ranPop = 0;
+  perms.forEach(function(p){ if (byCell[p.label]) ranPop += num(popInfo.pop[p.label]); });
+
+  var rate = 0, finW = 0, packs = 0, cards = 0, finishers = 0, players = 0, cells = 0;
   perms.forEach(function(p){
     var c = byCell[p.label];
     if (!c) return;
-    var w = popInfo.total ? popInfo.pop[p.label] / popInfo.total : 0;
+    cells++;
+    var w = ranPop ? num(popInfo.pop[p.label]) / ranPop : 0;
     rate      += w * c.rate;
     var fw     = w * c.rate;                 // this cell's share of ALL finishers, before scaling
     finW      += fw;
@@ -3097,7 +3151,10 @@ function albumPopulationStats_(byCell, popInfo){
            packs: finW > 0 ? packs / finW : 0,
            cards: finW > 0 ? cards / finW : 0,
            finishers: finishers, players: players,
-           population: popInfo.total };
+           population: ranPop,                                  // what the rate is OF
+           fullPopulation: popInfo.total,
+           cells: cells, allCells: perms.length,
+           covered: popInfo.total ? ranPop / popInfo.total : 0 };
 }
 
 /**
@@ -3150,20 +3207,131 @@ function SimulateAlbumCompletion(){
 
   var popInfo = cellPopulations_(ctx);
   var pop = albumPopulationStats_(byCell, popInfo);
+  var half = albumCI_(byCell, popInfo);
   var wrote = writeAlbumBlock_(totals, tVals, byCell, pop, popInfo, nPlayers, seed);
 
+  // Mirror the headline percentage to wherever the sheet asks for it.
+  var mirrored = '';
+  var addr = albumOutTarget_(tVals);
+  if (addr){
+    var tgt = albumOutRange_(ss, addr, SHEET_TOTALS);
+    if (!tgt){
+      Logger.log("'" + ALBUM_OUT_LABEL + "' is set to " + JSON.stringify(addr) + ", which is not a " +
+                 'single cell this spreadsheet has. Nothing was mirrored. Expected forms: ' +
+                 "'Dashboard!B2', or 'B5' for " + SHEET_TOTALS + '.');
+    } else {
+      tgt.range.setValue(pop.rate);                    // the RAW fraction; format the cell as %
+      mirrored = tgt.sheet + '!' + tgt.a1;
+      Logger.log('Mirrored the completion rate to ' + mirrored + ' (raw fraction - format that ' +
+                 'cell as a percentage).');
+    }
+  }
+
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
-  var msg = (100 * pop.rate).toFixed(2) + '% of ' + popInfo.total.toLocaleString() +
+  var msg = (100 * pop.rate).toFixed(2) + '% of ' + pop.population.toLocaleString() +
             ' players finish album 1  |  a finisher opens ' + pop.packs.toFixed(1) +
             ' envelopes and draws ' + pop.cards.toFixed(0) + ' cards to do it  |  ' +
             pop.finishers + ' finishers in ' + pop.players + ' simulated (' + secs + 's, seed ' +
             seed + ')' +
-            (stoppedAt >= 0 ? '  --  STOPPED EARLY on the time budget, lower B2' : '') +
+            (mirrored ? '  |  rate also written to ' + mirrored : '') +
+            (stoppedAt >= 0 ? '  --  STOPPED EARLY on the time budget after ' + pop.cells +
+                              ' of ' + pop.allCells + ' cells (' + Math.round(100 * pop.covered) +
+                              '% of the player base). LOWER B2 and run it again.' : '') +
             (wrote ? '' : "  --  BLOCK NOT WRITTEN: no '" + TB_ALBUM + "' bar in column A of " +
                           SHEET_TOTALS);
   Logger.log(msg);
-  SpreadsheetApp.getActive().toast(msg, 'Album completion', 12);
+  showAlbumDialog_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote, msg);
   return pop.rate;
+}
+
+/**
+ * The result panel. Guarded end to end: getUi() does not exist when a function is run from the
+ * Apps Script editor rather than the sheet, and it does not exist at all in the offline harness -
+ * neither of which should cost a six-minute run its answer. Falls back to the toast, and the toast
+ * falls back to the log.
+ */
+function showAlbumDialog_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote, msg){
+  var html = albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote);
+  try {
+    if (typeof HtmlService !== 'undefined' && SpreadsheetApp.getUi){
+      var out = HtmlService.createHtmlOutput(html).setWidth(460).setHeight(430);
+      SpreadsheetApp.getUi().showModalDialog(out, 'Album completion');
+      return;
+    }
+  } catch (e) {
+    Logger.log('Could not show the dialog (' + e + ') - falling back to the toast.');
+  }
+  try { SpreadsheetApp.getActive().toast(msg, 'Album completion', 12); } catch (e2) {}
+}
+
+/** Escape anything that reaches the panel as text. The basis line carries a sheet name and a seed;
+ *  a sheet named with an angle bracket would otherwise break the markup. */
+function albumEsc_(x){
+  return String(x == null ? '' : x)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote){
+  var pct  = (100 * pop.rate).toFixed(2);
+  var ci   = (100 * half).toFixed(2);
+  var thin = nPlayers < 200;
+  function row(label, value, sub){
+    return '<tr><td class="l">' + albumEsc_(label) + '</td>' +
+           '<td class="v">' + albumEsc_(value) +
+           (sub ? ' <span class="u">' + albumEsc_(sub) + '</span>' : '') + '</td></tr>';
+  }
+  return '' +
+  '<style>' +
+  ' body{font:13px/1.45 Arial,Helvetica,sans-serif;color:#1f2430;margin:0;padding:18px 20px;' +
+  '      background:#fff}' +
+  ' h1{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#7a8290;margin:0 0 14px;' +
+  '     font-weight:700}' +
+  ' .big{font-size:44px;font-weight:700;line-height:1;color:#1a7f4b}' +
+  ' .of{font-size:13px;color:#5b6472;margin:7px 0 2px}' +
+  ' .ci{font-size:12px;color:#7a8290}' +
+  ' table{border-collapse:collapse;width:100%;margin:16px 0 4px}' +
+  ' td{padding:7px 0;border-top:1px solid #e6e9ee;vertical-align:baseline}' +
+  ' td.l{color:#5b6472}' +
+  ' td.v{text-align:right;font-weight:700;font-size:15px;white-space:nowrap}' +
+  ' .u{font-weight:400;font-size:12px;color:#7a8290}' +
+  ' .note{margin-top:14px;padding:10px 12px;background:#fbf7e8;border-left:3px solid #e0b93c;' +
+  '        font-size:12px;color:#5b5340}' +
+  ' .warn{margin-top:10px;padding:10px 12px;background:#fdeceb;border-left:3px solid #d0483c;' +
+  '        font-size:12px;color:#6b322d}' +
+  ' .basis{margin-top:14px;font-size:11px;color:#98a0ad}' +
+  '</style>' +
+  '<h1>Album 1 completion</h1>' +
+  '<div class="big">' + pct + '%</div>' +
+  '<div class="of">of ' + albumEsc_(pop.population.toLocaleString()) + ' players finish album 1</div>' +
+  '<div class="ci">95% confidence interval &plusmn; ' + ci + ' pp</div>' +
+  '<table>' +
+  row('A finisher opened', pop.finishers ? pop.packs.toFixed(1) : '-', 'envelopes') +
+  row('A finisher drew', pop.finishers ? pop.cards.toFixed(0) : '-', 'cards, duplicates included') +
+  row('Finishers in the sample', pop.finishers + ' of ' + pop.players, '') +
+  '</table>' +
+  (pop.covered < 0.999
+    ? '<div class="warn"><b>Partial run &mdash; ' + pop.cells + ' of ' + pop.allCells +
+      ' cells.</b> The sweep stopped on its time budget, so this rate is of the ' +
+      Math.round(100 * pop.covered) + '% of the player base that was simulated, not of all of it. ' +
+      'Lower B2 and run it again.</div>'
+    : '') +
+  (thin
+    ? '<div class="warn"><b>' + nPlayers + ' players per cell is too few for this number.</b> ' +
+      'At a rate this low the interval above spans a factor of several. Set B2 on ' +
+      albumEsc_(SHEET_TOTALS) + ' to 200 or more and run it again.</div>'
+    : '') +
+  '<div class="note"><b>This is a threshold outcome.</b> The population piles up just short of the ' +
+  'line, so a 10% cut in envelope volume does not cut this rate by 10% &mdash; it can halve it. ' +
+  'The number describes the current ladders, not the players.</div>' +
+  '<div class="basis">' +
+  albumEsc_(nPlayers + ' players \u00d7 ' + pop.cells + ' of ' + pop.allCells +
+            ' cells \u00b7 seed ' + seed + ' \u00b7 ' + secs + 's \u00b7 ' + stamp_()) +
+  '<br>' + (wrote ? 'Written to the ' + albumEsc_(TB_ALBUM) + ' block.'
+                  : 'The sheet has no ' + albumEsc_(TB_ALBUM) + ' bar, so no block was written.') +
+  (mirrored ? '<br>Rate also written to ' + albumEsc_(mirrored) + '.' : '') +
+  '<br>&ldquo;A. 0&rdquo; is not in this population &mdash; it has no behaviour telemetry.' +
+  '</div>';
 }
 
 /** The block: label column, POPULATION column, then one column per measured cell. */
@@ -3213,11 +3381,16 @@ function writeAlbumBlock_(sh, tVals, byCell, pop, popInfo, nPlayers, seed){
   // The basis, on the sheet rather than in a toast nobody keeps: what this number is OF, and the
   // Monte-Carlo error on it. A 3% rate read off 50 players a cell carries +/-1.7pp, which is the
   // difference between "3% finish" and "1% finish" - a conclusion, not a rounding detail.
-  var half = albumCI_(byCell, popInfo);
-  grid.push(['Population represented', popInfo.total]);
+  var half = albumCI_(byCell, popInfo);        // same number the dialog shows, one source
+  grid.push(['Population represented', pop.population]);
   grid.push(['95% CI on the rate', '+/- ' + round_(100 * half, 2) + ' pp']);
-  grid.push(['Basis', nPlayers + ' players x ' + perms.length + ' cells | seed ' + seed + ' | ' +
-             stamp_() + '  |  "A. 0" is NOT in this population (no behaviour telemetry). ' +
+  grid.push(['Basis', nPlayers + ' players x ' + pop.cells + ' of ' + pop.allCells + ' cells' +
+             (pop.covered < 0.999
+                ? '  --  PARTIAL RUN: only ' + Math.round(100 * pop.covered) + '% of the player ' +
+                  'base was simulated, and the rate above is of THAT share. Lower B2 and re-run.'
+                : '') +
+             ' | seed ' + seed + ' | ' + stamp_() +
+             '  |  "A. 0" is NOT in this population (no behaviour telemetry). ' +
              'Album completion is a THRESHOLD outcome - a 10% change in envelope volume can ' +
              'halve or double this rate.']);
 
@@ -3239,11 +3412,15 @@ function writeAlbumBlock_(sh, tVals, byCell, pop, popInfo, nPlayers, seed){
  *  of independent cell proportions, so the cells with the most population dominate the error - the
  *  reason a 100+ cell being noisy barely matters and a 0-9 cell being noisy matters a lot. */
 function albumCI_(byCell, popInfo){
+  var perms = cloudPermutations_(), ranPop = 0;
+  perms.forEach(function(p){ if (byCell[p.label]) ranPop += num(popInfo.pop[p.label]); });
   var v = 0;
-  cloudPermutations_().forEach(function(p){
+  perms.forEach(function(p){
     var c = byCell[p.label];
     if (!c || !c.n) return;
-    var w = popInfo.total ? popInfo.pop[p.label] / popInfo.total : 0;
+    // the SAME renormalised weights albumPopulationStats_ uses - a CI computed on different
+    // weights than the estimate is not that estimate's CI
+    var w = ranPop ? num(popInfo.pop[p.label]) / ranPop : 0;
     v += w * w * c.rate * (1 - c.rate) / c.n;
   });
   return 1.96 * Math.sqrt(v);

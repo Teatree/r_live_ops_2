@@ -926,6 +926,94 @@ function GATES() {
     check('pack-ladder fixture restored (the rate comes back)',
       Math.abs(rateBack - rate1) < 1e-12, `${(100 * rateBack).toFixed(2)}% vs ${(100 * rate1).toFixed(2)}%`);
 
+    // === THE OUTPUT CELL. 'Album % output cell' + an A1 address beside it mirrors the headline
+    //     rate to wherever the sheet asks for it. Three paths, all of which have to behave:
+    //     a real address writes, a typo writes NOTHING (and does not throw), and no label at all
+    //     leaves the sheet alone. The middle one is the point - a six-minute run must not die on a
+    //     mistyped input cell after it has already produced its answer.
+    {
+      const vT2 = data['Col_Cards_Totals'].values;
+      const snapM = JSON.stringify(vT2);
+
+      // (a) a real address on another sheet
+      while (vT2.length < 3) vT2.push([]);
+      vT2[2] = vT2[2] || [];
+      vT2[2][5] = ALBUM_OUT_LABEL;
+      vT2[2][6] = 'Col_Cards_Cloud!BZ1';
+      _sheetValsCache = {};
+      const rateM = SimulateAlbumCompletion();
+      const written = data['Col_Cards_Cloud'].values[0][77];      // BZ = column 78
+      check('the authored output cell receives the headline rate as a raw fraction',
+        Math.abs(Number(written) - rateM) < 1e-12 && rateM > 0,
+        `${JSON.stringify(written)} at Col_Cards_Cloud!BZ1 vs returned ${rateM}`);
+
+      // (b) a bare A1 with no sheet name means Col_Cards_Totals
+      vT2[2][6] = 'O3';
+      _sheetValsCache = {};
+      SimulateAlbumCompletion();
+      check('an address with no sheet name resolves to Col_Cards_Totals',
+        Math.abs(Number((data['Col_Cards_Totals'].values[2] || [])[14]) - rateM) < 1e-12,
+        JSON.stringify((data['Col_Cards_Totals'].values[2] || [])[14]) + ' at O3');
+
+      // (c) a typo must not throw, must not write, and must SAY so
+      vT2[2][6] = 'Nope!!ZZ';
+      _sheetValsCache = {};
+      logs.length = 0;
+      let threw = '';
+      let rateBad = 0;
+      try { rateBad = SimulateAlbumCompletion(); } catch (e) { threw = String(e); }
+      check('an unparseable output cell is logged and skipped, never thrown',
+        !threw && rateBad > 0 &&
+        logs.some(l => String(l).indexOf(ALBUM_OUT_LABEL) >= 0 &&
+                       String(l).indexOf('not a single cell') >= 0),
+        threw || 'ran clean, logged: ' +
+          (logs.filter(l => String(l).indexOf(ALBUM_OUT_LABEL) >= 0)[0] || '(nothing)').slice(0, 90));
+
+      data['Col_Cards_Totals'].values = JSON.parse(snapM);
+      _sheetValsCache = {};
+    }
+
+    // === THE PARTIAL RUN. The sweep stops early when it projects past its time budget, and that
+    //     path is the one nobody exercises by accident - so it is gated deliberately. Weighting the
+    //     cells that RAN by their share of the FULL population would let every unrun cell contribute
+    //     a silent zero: 6 of 10 cells reports a rate ~40% low and looks exactly like a finished
+    //     run. The rate must instead be renormalised over what was actually simulated.
+    {
+      const budgetWas = CLOUD_TIME_BUDGET_MS;
+      const full = SimulateAlbumCompletion();
+
+      // force a stop after the first cell: any positive budget is already exceeded by the time the
+      // projection is checked at pi = 1.
+      CLOUD_TIME_BUDGET_MS = 1;
+      const part = SimulateAlbumCompletion();
+      CLOUD_TIME_BUDGET_MS = budgetWas;
+
+      const T9 = totalsSheet();
+      const rowOf9 = lab => {
+        for (let i = 1; i <= ALBUM_ROWS.length + 4; i++)
+          if (String((T9[rBar + i] || [])[0] || '').trim() === lab) return T9[rBar + i];
+        return null;
+      };
+      const basis = String((rowOf9('Basis') || [])[1] || '');
+      const cellRate = parseFloat(String((rowOf9('Population finishing album 1') || [])[2]));
+
+      // The one cell that ran is 0-9 NONPAYER, so a correctly renormalised population rate IS that
+      // cell's rate. Under the old full-population weighting it would have been ~0.286 of it.
+      check('a PARTIAL run renormalises over the cells that ran, not the whole population',
+        isFinite(cellRate) && Math.abs(100 * part - cellRate) < 0.02,
+        `${(100 * part).toFixed(2)}% reported vs the single ran cell's ${cellRate}%` +
+        ` (full sweep was ${(100 * full).toFixed(2)}%)`);
+      check('a PARTIAL run says so on the sheet', /PARTIAL RUN/.test(basis),
+        basis.slice(0, 110));
+      check('"Population represented" drops to what was actually simulated',
+        Number((rowOf9('Population represented') || [])[1]) <
+        Number((rowOf9('Players simulated') || [])[1]) * 1e9 &&
+        Number((rowOf9('Population represented') || [])[1]) > 0,
+        String((rowOf9('Population represented') || [])[1]));
+
+      SimulateAlbumCompletion();                  // put the block back to the full-sweep numbers
+    }
+
     data['Col_Cards_Totals'].values = JSON.parse(snapT);
     reset2();
   }
