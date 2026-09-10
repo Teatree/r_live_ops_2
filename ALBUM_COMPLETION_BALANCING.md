@@ -167,3 +167,56 @@ bite: 1-star is 48% of the bottom cell's envelopes and 14% of the top's.
   actual authoring still has to land on specific rungs, and which rung matters (a leaderboard's top
   three rows are reached ~5% of the time by a mid segment).
 * Kite Festival runs at the assumed 0.35 opt-in, not its measured 1-3%. See CLAUDE.md D25.
+
+---
+
+## Appendix: why "305 of 2,000 finished" is not 15%, it is 6.15%
+
+The sample is **balanced on purpose**; the population is not balanced at all.
+
+B2 = 200 means **200 simulated players in every cell** — 2,000 in total, ten equal blocks. That is
+deliberate: it gives each of the ten groups the same statistical precision, so a small group's rate
+is measured as well as a big group's.
+
+But the real player base is nothing like ten equal blocks:
+
+| group | real players | simulated | **one simulated player stands for** |
+|---|---|---|---|
+| 0-9 NONPAYER | 15,595 | 200 | **78.0** real players |
+| 0-9 PAYER | 5,890 | 200 | 29.5 |
+| 10-19 NONPAYER | 10,289 | 200 | 51.4 |
+| 10-19 PAYER | 2,811 | 200 | 14.1 |
+| 20-39 NONPAYER | 9,423 | 200 | 47.1 |
+| 20-39 PAYER | 2,313 | 200 | 11.6 |
+| 40-99 NONPAYER | 5,750 | 200 | 28.8 |
+| 40-99 PAYER | 1,504 | 200 | 7.5 |
+| 100+ NONPAYER | 713 | 200 | 3.6 |
+| 100+ PAYER | 233 | 200 | **1.2** |
+
+A finisher in `0-9 NONPAYER` speaks for 78 real people. A finisher in `100+ PAYER` speaks for 1.2.
+**They are not worth the same, and 305/2,000 treats them as if they were.**
+
+The reported rate is the headcount-weighted one:
+
+```
+population rate = SUM(finishers in group x what one of them stands for) / 54,521
+```
+
+**Check it against your own run.** 6.15% of 54,521 is **3,353 real finishers**. Divide by the 305
+simulated ones and each stands for **11.0** real players — against **27.3** (54,521 / 2,000) for the
+sample as a whole. Those 305 came overwhelmingly from the small groups, which is exactly why the
+raw 15.25% collapses to 6.15%.
+
+The same thing said the other way round: **40-99 and 100+ are 40% of the sample and 15% of the
+player base**, and they supply nearly every finisher. `0-9` and `10-19` are 40% of the sample and
+**63% of the player base**, and they supply almost none.
+
+### Is it the right thing to do?
+
+Yes, and the alternative is worse. Sampling in proportion to population would put 573 players in
+`0-9 NONPAYER` and **9** in `100+ PAYER` — and a 9-player cell cannot measure a completion rate at
+all. Balanced sampling plus headcount weighting is the standard fix: measure each group well, then
+give each group its real weight when combining.
+
+It also means **B2 buys precision, not accuracy.** Doubling it halves the confidence interval and
+leaves the headline where it is.
