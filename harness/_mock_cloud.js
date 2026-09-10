@@ -1061,6 +1061,47 @@ function GATES() {
       check('the population shares in the table add to 100% of what was simulated',
         Math.abs(sumPop - 1) < 1e-9, (100 * sumPop).toFixed(6) + '%');
 
+      // === PACK VALUE (D51). The property that makes an attribution an attribution: every coin of
+      //     set and album reward the season paid is handed to exactly one pack, so the per-pack
+      //     values SUM BACK to the reward total. Checked per season, where it must be exact - the
+      //     population table is a ratio of sums and would hide a per-season leak.
+      {
+        const cfgV = loadPackConfig_();
+        const catV = loadCardCatalog_(cfgV, mkSheet(SHEET_ALBUM));
+        const ctxV = Context.get();
+        let worstGap = 0, seasons = 0, anyReward = 0, anyStars = 0;
+        cloudPermutations_().forEach((p, pi) => {
+          const pre = cardSeasonPre_(p.seg, p.payer, ctxV);
+          for (let k = 0; k < 6; k++) {
+            const r = runOneCardSeason_(p.seg, p.payer, playerSeed_(SEED, pi, k), cfgV, catV, pre);
+            const pv = r.packValue;
+            if (!pv) continue;
+            seasons++;
+            anyReward += pv.rewardValue;
+            anyStars += pv.starValue;
+            worstGap = Math.max(worstGap, Math.abs(pv.total - pv.rewardValue));
+          }
+        });
+        check('attributed pack value sums back to the set+album reward actually paid',
+          seasons > 0 && anyReward > 0 && worstGap < 1e-6,
+          `worst gap ${worstGap.toExponential(2)} coins over ${seasons} seasons ` +
+          `(${anyReward.toFixed(0)} coins of reward attributed)`);
+        check('the star chain is priced, so duplicates are not free',
+          anyStars > 0, `mean starValue ${(anyStars / Math.max(1, seasons)).toFixed(4)} coins/star`);
+
+        // A tier's only advantage is how many cards it holds, so coins-per-CARD should be roughly
+        // flat. Not gated tightly - the mix of new to duplicate cards genuinely differs by when a
+        // tier arrives - but a tier drifting far from the others is a finding, so it is reported.
+        const pvRows = st.packValue || [];
+        const perCard = pvRows.map(x => ({ t: x.tier.replace(' Pack', ''),
+          v: x.coins / (cfgV.cardsPerOpen[x.tier] || 1) }));
+        const mean = perCard.reduce((a, x) => a + x.v, 0) / Math.max(1, perCard.length);
+        check('every tier has a positive per-card value',
+          pvRows.length > 0 && perCard.every(x => x.v > 0),
+          perCard.map(x => x.t + ' ' + x.v.toFixed(2)).join(' | ') +
+          '   (mean ' + mean.toFixed(2) + ' coins/card)');
+      }
+
       // MAX is a ceiling, not a population: it must never appear in a composition of real players
       check('MAX is not one of the engagement groups',
         !comp.some(x => x.label === PLAYER_PROFILES.MAX.label),

@@ -379,6 +379,12 @@ kill a run that already has its answer.
 - **Where a finisher's cards came from** - cards, not envelopes, by source in CATEGORY_ORDER with a
   green colour scale on the share. Sums to the "Cards drawn to complete it" row exactly, because the
   per-source counts are frozen at the moment album 1 completes rather than read at season end.
+- **What an envelope is worth** - coins of set and album reward attributed to each pack tier. Every
+  reward is split across the NEW cards that unlocked it, each card's share going to the pack that
+  supplied it; duplicates carry the chest packs their stars funded. Attributed, NOT marginal: a
+  threshold reward has no value in isolation, so what can be stated is a share of value really paid.
+  **The 1-star tier delivers 39% of all collection reward value** on volume alone, while the premium
+  tiers are worth 2-3x each and arrive 12x less often.
 
 **It also shows a result panel** when it finishes — the rate, the two finisher averages, the CI and
 the basis. If `B2` is under 200 the panel carries a red warning, because reading a ~3% rate off 50

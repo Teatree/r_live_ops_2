@@ -1118,6 +1118,33 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // worse than no breakdown (the rule the PACK & CARD MIX blocks already follow). Measured gap on
   // the 9th-Sep workbook: 274 cards over the season against 249 to finish, so ~10%.
   var cardsBySrcAtAlbum1   = null;
+  // ---- PACK VALUE ATTRIBUTION (2026-09-10, D51) ----------------------------------------------
+  // What a pack is WORTH, measured as its share of the set and album rewards it actually helped
+  // pay out. Album and set rewards are THRESHOLD outcomes, so there is no such thing as the value
+  // of a pack in isolation - the 87th envelope completes the album and the 5th does not. The only
+  // honest per-pack number is therefore an ATTRIBUTION of value that was really paid (user choice,
+  // 2026-09-10): every reward is split across the NEW cards that unlocked it, and each card's
+  // share goes to the pack that supplied it.
+  //
+  //   credit(card) = V(set reward)/cardsPerSet   when its set completes
+  //                + V(album reward)/totalUnique when the album completes
+  //   direct(pack) = SUM of credit over the new cards that pack supplied
+  //   stars(pack)  = SUM of starsOnDupe over its DUPLICATE cards
+  //
+  // A duplicate is not worthless: it pays stars, stars buy chests, chests hold more packs. So a
+  // pack's value also carries the chest packs its duplicates funded. That is a fixed point (a
+  // chest pack pays duplicates too), and it closes in one step:
+  //
+  //   starValue = SUM direct(chest packs) / (starsEarned - stars(chest packs))
+  //   value(p)  = direct(p) + stars(p) x starValue          [calendar-source packs only]
+  //
+  // Chest packs contribute ZERO directly - their credit is pushed back through starValue to the
+  // duplicates that bought them - which is what makes the whole thing conserve exactly:
+  //   SUM value(p) over calendar packs == V_total, the reward value the season actually paid.
+  // Gated on that identity.
+  var packLedger           = [];      // one entry per pack opened, in open order
+  var cardPack             = {};      // cardKey -> index into packLedger (current album only)
+  var curPack              = null;    // the pack being opened right now
   var finalAlbumNoted      = false;
   var setsCompletedInAlbum = {};
   // seeded from the tiers PACK DEFINITIONS actually authors, so retiring a tier on the sheet
@@ -1149,6 +1176,38 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     REWARD_COLUMNS.forEach(function(rc){
       var v = num(rewards[rc.name]);
       if (v > 0) into[rc.name] = num(into[rc.name]) + v;
+    });
+  }
+
+  // Coin-equivalent of a reward bundle, through the item_vals table the ToF model already prices
+  // with. Set and album rewards pay coins, SPT and boosters, so a coins-only view would miss most
+  // of what the collection feature actually hands out. A resource item_vals does not price is worth
+  // 0 here - true of the packs themselves, which is correct: a pack inside a reward is valued by
+  // what it goes on to deliver, not by a price nobody set.
+  var _iv = (typeof itemVals_ === 'function') ? itemVals_() : {};
+  function colValue_(rewards){
+    if (!rewards) return 0;
+    var v = 0;
+    REWARD_COLUMNS.forEach(function(rc){
+      var amt = num(rewards[rc.name]);
+      if (!amt) return;
+      var res = RES_MAP[rc.name] || rc.name;
+      v += amt * num(_iv[res]);
+    });
+    return v;
+  }
+  // Split a reward's coin value equally across the cards that unlocked it, and hand each card's
+  // share to the pack that supplied it. EQUALLY on purpose: a set needs all nine cards and no one
+  // of them is more responsible than another, so any other split would be inventing a story about
+  // which card mattered. A card whose pack is unknown (impossible today - every card comes from a
+  // pack) silently drops rather than crediting the wrong pack.
+  function creditCards_(keys, totalValue){
+    if (!keys || !keys.length || !(totalValue > 0)) return;
+    var per = totalValue / keys.length;
+    keys.forEach(function(k){
+      var idx = cardPack[k];
+      if (idx == null || !packLedger[idx]) return;
+      packLedger[idx].direct += per;
     });
   }
 
@@ -1318,6 +1377,11 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
       packsOpenedByTier[tier] = (packsOpenedByTier[tier] || 0) + 1;
     }
     packsOpenedTotal++;
+    // A chest-bought pack is marked here, off the SAME string sourceKey_ normalises, so the two
+    // cannot disagree about what a chest is.
+    curPack = { tier: key, chest: (String(source).indexOf(' Chest Opened') > 0),
+                direct: 0, stars: 0, source: sourceKey_(source) };
+    packLedger.push(curPack);
 
     var dryPityActive = PITY_CONFIG.enabled && pityCounter >= PITY_CONFIG.threshold;
     var startAlbum = ALBUM_NAMES[albumIdx];
@@ -1401,6 +1465,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
       if (acquire(cardKey)){
         newCards.push(cardKey);
         totalNew++;
+        cardPack[cardKey] = packLedger.length - 1;      // this pack supplied it
 
         var setNum = setOf[cardKey];
         if (setNum !== undefined && !setsCompletedInAlbum[setNum]){
@@ -1410,6 +1475,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
             setsCompletedTotal++;
             var setId = 'Set ' + setNum;
             addRewardGains_(setRewardGains, cfg.setRewards.map[setId]);
+            creditCards_(setCards, colValue_(cfg.setRewards.map[setId]));
             setCompletionNotes.push(setId + ' completed | Rewards: ' +
               formatRewards_(cfg.setRewards.map[setId]) + ' | packs opened: ' +
               formatPacksOpened_(packsOpenedByTier));
@@ -1420,6 +1486,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
           var completedAlbumNum = albumIdx + 1;
           var albumReward = getAlbumReward_(cfg.albumRewards, completedAlbumNum);
           addRewardGains_(albumRewardGains, albumReward);
+          creditCards_(Object.keys(collection), colValue_(albumReward));
           var albumRewardStr = formatRewards_(albumReward);
           if (!dayAlbumCompleted){
             dayAlbumCompleted = day;
@@ -1444,6 +1511,10 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
             collectionSize       = 0;
             pityCounter          = 0;
             setsCompletedInAlbum = {};
+            // The next album's cards are drawn fresh, so a card key from the finished album must
+            // not still point at the pack that supplied it last time - that would credit album 2's
+            // rewards to album 1's packs.
+            cardPack             = {};
           } else if (!finalAlbumNoted){
             albumNote = ALBUM_NAMES[albumIdx] + ' completed (final album) | Album rewards: ' +
                         albumRewardStr + ' | Pool leftover: ' + poolBreakdown(pool);
@@ -1456,6 +1527,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
         var st = cfg.starsOnDupe[rarityOf[cardKey]] || 0;
         balance += st;
         starsEarned += st;
+        if (curPack) curPack.stars += st;
       }
     }
 
@@ -1922,6 +1994,34 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
                 totalUnique ? collectionSize / totalUnique : 0,
                 countKeys_(setsCompletedInAlbum), albumIdx + 1, packsOpenedTotal]);
   }
+  // ---- CLOSE THE STAR CHAIN, and roll the ledger up per tier --------------------------------
+  // See the block comment on packLedger. chestDirect is the reward credit that landed on packs
+  // bought with stars; chestStars is the stars those same packs paid back in duplicates. A star
+  // earned is therefore worth chestDirect / (starsEarned - chestStars) - the fixed point, closed.
+  //
+  // Dividing by starsEARNED, not stars SPENT, is deliberate: stars left unspent at the end of the
+  // season buy nothing, and a per-star value computed off spend alone would price them as if they
+  // had. The end-of-season sweep empties most of the balance, so the two are close - but "close"
+  // is not "equal", and the difference is exactly the leftover a player never converts.
+  var packValue = { byTier: {}, packsByTier: {}, total: 0, starValue: 0, rewardValue: 0 };
+  {
+    var chestDirect = 0, chestStars = 0, totalDirect = 0;
+    packLedger.forEach(function(pk){
+      totalDirect += pk.direct;
+      if (pk.chest){ chestDirect += pk.direct; chestStars += pk.stars; }
+    });
+    var denom = starsEarned - chestStars;
+    packValue.starValue = (denom > 1e-9) ? chestDirect / denom : 0;
+    packValue.rewardValue = totalDirect;
+    packLedger.forEach(function(pk){
+      if (pk.chest) return;                       // its credit flows back through starValue
+      var v = pk.direct + pk.stars * packValue.starValue;
+      packValue.byTier[pk.tier] = num(packValue.byTier[pk.tier]) + v;
+      packValue.packsByTier[pk.tier] = num(packValue.packsByTier[pk.tier]) + 1;
+      packValue.total += v;
+    });
+  }
+
   Logger.log('Stage 2: ' + output.length + ' output rows.');
   Logger.log('Collection ECO GAINS - set rewards: ' + formatRewards_(setRewardGains) +
              ' | album rewards: ' + formatRewards_(albumRewardGains));
@@ -1936,6 +2036,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     packsAtAlbum1: packsAtAlbum1, cardsAtAlbum1: cardsAtAlbum1,
     cardsBySrcAtAlbum1: cardsBySrcAtAlbum1,
     setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
+    packValue: packValue,
     collection: collection, collectionSize: collectionSize,
     tofTickets: tofCum, tofExpected: num(pre.tofExpected),
     tofRuns: tofRuns, tofBanked: tofBanked, tofBankedInSeason: tofBankedInSeason,
@@ -3119,11 +3220,25 @@ function albumCellStats_(runs){
     for (var k in src) bySrc[k] = num(bySrc[k]) + num(src[k]);
   }
   if (fin) for (var k2 in bySrc) bySrc[k2] = bySrc[k2] / fin;
+
+  // PACK VALUE is a whole-cohort number, not a finishers-only one: a pack opened by someone who
+  // never finished still completed SETS, and set rewards are most of what the feature pays. Summed
+  // rather than averaged, because the population rollup needs value and count separately - a ratio
+  // of means is the only correct way to combine per-pack values across cells of different sizes.
+  var pvValue = {}, pvPacks = {}, pvReward = 0;
+  for (var i2 = 0; i2 < n; i2++){
+    var pv = runs[i2].packValue;
+    if (!pv) continue;
+    pvReward += num(pv.rewardValue);
+    for (var t in pv.byTier)      pvValue[t] = num(pvValue[t]) + num(pv.byTier[t]);
+    for (var t2 in pv.packsByTier) pvPacks[t2] = num(pvPacks[t2]) + num(pv.packsByTier[t2]);
+  }
   return { n: n, finishers: fin,
            rate:  n   ? fin / n     : 0,
            packs: fin ? packs / fin : 0,      // finishers only; 0 finishers -> reported as '-'
            cards: fin ? cards / fin : 0,
-           cardsBySrc: bySrc };
+           cardsBySrc: bySrc,
+           pvValue: pvValue, pvPacks: pvPacks, pvReward: pvReward };
 }
 
 /** data_seg_beh's unique_players per cell, and the total they represent. A cell the sheet has no
@@ -3154,7 +3269,7 @@ function albumPopulationStats_(byCell, popInfo){
   perms.forEach(function(p){ if (byCell[p.label]) ranPop += num(popInfo.pop[p.label]); });
 
   var rate = 0, finW = 0, packs = 0, cards = 0, finishers = 0, players = 0, cells = 0;
-  var bySrc = {}, comp = [];
+  var bySrc = {}, comp = [], pvValue = {}, pvPacks = {}, pvReward = 0;
   perms.forEach(function(p){
     var c = byCell[p.label];
     if (!c) return;
@@ -3173,6 +3288,18 @@ function albumPopulationStats_(byCell, popInfo){
     // The source split rides the SAME finisher weights as the two averages above, so the table
     // describes the same "average finisher" those rows do and sums to the cards row exactly.
     for (var k in (c.cardsBySrc || {})) bySrc[k] = num(bySrc[k]) + fw * num(c.cardsBySrc[k]);
+    // PACK VALUE rolls up as a RATIO OF POPULATION-WEIGHTED SUMS - total attributed value from
+    // tier-T packs, over total tier-T packs - never a mean of the ten cell means. A cell that opens
+    // twice as many 3-star packs must carry twice the weight in what a 3-star pack is worth, and a
+    // mean of means would give every cell an equal say regardless of how many packs it opened.
+    // PER PLAYER: albumCellStats_ sums over its N runs, so both have to be divided by that N here
+    // or every absolute column comes out N times too large. The RATIO (coins per pack) survives
+    // either way, which is exactly why this was worth catching - the headline number would have
+    // looked right while 'per player' read 2,874 envelopes and the total read 88,000 coins.
+    var nc = c.n || 1;
+    for (var t in (c.pvValue || {})) pvValue[t] = num(pvValue[t]) + w * num(c.pvValue[t]) / nc;
+    for (var t2 in (c.pvPacks || {})) pvPacks[t2] = num(pvPacks[t2]) + w * num(c.pvPacks[t2]) / nc;
+    pvReward += w * num(c.pvReward) / (c.n || 1);
     finishers += c.finishers;
     players   += c.n;
   });
@@ -3185,7 +3312,18 @@ function albumPopulationStats_(byCell, popInfo){
     x.share = (finW > 0) ? x.fin / finW : 0;
     x.index = (x.popShare > 0) ? x.share / x.popShare : 0;
   });
+  // Per tier: coins of set/album reward attributed per pack of that tier, and that tier's share of
+  // all the reward value the collection paid. Both fall straight out of the two sums above.
+  var pvTotal = 0;
+  for (var tt in pvValue) pvTotal += num(pvValue[tt]);
+  var packValue = PACK_RES.map(function(t){
+    var v = num(pvValue[t]), np = num(pvPacks[t]);
+    return { tier: t, coins: (np > 0) ? v / np : 0, packs: np, value: v,
+             share: (pvTotal > 0) ? v / pvTotal : 0 };
+  }).filter(function(x){ return x.packs > 0.0005; });
+
   return { rate: rate, composition: comp,
+           packValue: packValue, packValueTotal: pvTotal, rewardPerPlayer: pvReward,
            packs: finW > 0 ? packs / finW : 0,
            cards: finW > 0 ? cards / finW : 0,
            finishers: finishers, players: players,
@@ -3296,7 +3434,7 @@ function showAlbumDialog_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
       // Taller since the card-source table landed (2026-09-10): ~16 category rows plus a chest
       // row and a total. Apps Script clamps to the viewport, so an over-tall panel scrolls rather
       // than being cut off - the failure that matters is too SHORT, which hides the total row.
-      var out = HtmlService.createHtmlOutput(html).setWidth(520).setHeight(900);
+      var out = HtmlService.createHtmlOutput(html).setWidth(520).setHeight(1000);
       SpreadsheetApp.getUi().showModalDialog(out, 'Album completion');
       return;
     }
@@ -3430,6 +3568,45 @@ function albumCardTableHtml_(pop){
          '</td><td class="p">100%</td></tr></table>';
 }
 
+/**
+ * WHAT AN ENVELOPE IS WORTH, per tier, in coins of set and album reward.
+ *
+ * ATTRIBUTED, not marginal (user, 2026-09-10). Album and set rewards are THRESHOLD outcomes, so
+ * there is no value of a pack in isolation - the envelope that completes the album is worth a
+ * thousand coins and the one before it is worth nothing. What CAN be stated honestly is a share of
+ * value that was really paid: every reward is split across the new cards that unlocked it, and each
+ * card's share goes to the pack that supplied it. Duplicates carry the chest packs they funded.
+ *
+ * SUM over tiers of (coins x packs) == the reward value the season paid. Gated.
+ *
+ * The per-card figure beside it is the one that ports: a tier's whole advantage is how many cards
+ * it holds, so coins-per-card should be nearly FLAT across tiers, and a tier that breaks that
+ * pattern is telling you something about the pool rather than about the tier.
+ */
+function albumPackValueHtml_(pop){
+  var pv = pop.packValue || [];
+  if (!pv.length) return '';
+  var maxV = 0;
+  pv.forEach(function(x){ if (x.coins > maxV) maxV = x.coins; });
+  var body = pv.map(function(x){
+    return '<tr><td class="s">' + albumEsc_(x.tier.replace(' Pack', '')) + '</td>' +
+           '<td class="n" style="background:' + albumHeat_(x.coins, maxV) + '">' +
+           x.coins.toFixed(1) + '</td>' +
+           '<td class="p">' + x.packs.toFixed(1) + '</td>' +
+           '<td class="p">' + (100 * x.share).toFixed(1) + '%</td></tr>';
+  }).join('');
+  var tot = pv.reduce(function(a, x){ return a + x.value; }, 0);
+  return '<h2>What an envelope is worth</h2>' +
+         '<table class="src"><tr><th>Tier</th><th>Coins each</th><th>Per player</th>' +
+         '<th>Of value</th></tr>' + body +
+         '<tr class="tot"><td class="s">TOTAL</td><td class="n">' + tot.toFixed(0) +
+         '</td><td class="p"></td><td class="p">100%</td></tr></table>' +
+         '<div class="basis">Coins of SET and ALBUM reward attributed to each envelope: every ' +
+         'reward split across the new cards that unlocked it, plus the chest packs its duplicates ' +
+         'paid for. Not what an EXTRA envelope would be worth - that is a threshold and depends ' +
+         'entirely on how close the player already is.</div>';
+}
+
 function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote){
   var pct  = (100 * pop.rate).toFixed(2);
   var ci   = (100 * half).toFixed(2);
@@ -3483,6 +3660,7 @@ function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
   '</table>' +
   albumCompositionHtml_(pop) +
   albumCardTableHtml_(pop) +
+  albumPackValueHtml_(pop) +
   (pop.covered < 0.999
     ? '<div class="warn"><b>Partial run: ' + pop.cells + ' of ' + pop.allCells +
       ' cells.</b> The sweep stopped on its time budget, so this rate is of the ' +
