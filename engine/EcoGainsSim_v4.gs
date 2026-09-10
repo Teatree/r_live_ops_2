@@ -3512,6 +3512,13 @@ function onOpen(){
     .addItem('Refresh simulations', 'refreshSims_')
     .addItem('Check code versions', 'checkCodeVersions')
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
+    // D52 (2026-09-10): the answer to "Exceeded maximum execution time (line 0)". A custom
+    // function gets 30 seconds and its OWN cold cache, so all 48 ECOGAINS_ formulas rebuild
+    // Context + DataStore + every sheet read independently (~2,060 getValues round trips for a
+    // full recalc). These two run the same functions once, in one six-minute execution that
+    // shares one cache, and write values. See SimFill.gs.
+    .addItem('Fill all sims (values, no formulas)', 'fillAllSims')   // SimFill.gs
+    .addItem('Restore sim formulas', 'restoreSimFormulas')           // SimFill.gs
     .addSeparator()
     .addItem('Simulate card pack openings', 'SimulatePackOpenings')   // CardOpenings.gs
     .addItem('Simulate card cloud (all segments)', 'SimulateCardCloud')   // CardOpenings.gs
