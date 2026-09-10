@@ -3556,20 +3556,7 @@ function albumCompositionHtml_(pop){
          '<tr class="tot"><td class="s">TOTAL</td>' +
          '<td class="p">' + Math.round(totN).toLocaleString() + '</td>' +
          '<td class="p">' + (totN > 0 ? (100 * totFin / totN).toFixed(1) : '0.0') + '%</td>' +
-         '<td class="n">' + (100 * tot).toFixed(0) + '%</td><td class="p"></td></tr></table>' +
-         '<div class="basis"><b>Players</b> is the headcount data_seg_beh carries for that ' +
-         'group, and ' +
-         '<b>Finish</b> is the share of THAT group who complete album 1. <b>Of finishers</b> is ' +
-         'headcount x finish rate, renormalised - which is why a group can finish at ' +
-         'a high rate and still be a small slice: ' +
-         (function(){
-            var best = null;
-            comp.forEach(function(x){ if (!best || x.rate > best.rate) best = x; });
-            if (!best || !(best.popN > 0)) return 'a small group cannot produce many people.';
-            return albumEsc_(best.label) + ' finishes at ' + (100 * best.rate).toFixed(1) +
-                   '% but is only ' + Math.round(best.popN).toLocaleString() + ' players, so it ' +
-                   'can never supply more than that many finishers however easy the album gets.';
-         })() + '</div>';
+         '<td class="n">' + (100 * tot).toFixed(0) + '%</td><td class="p"></td></tr></table>';
 }
 
 /** WHERE A FINISHER'S CARDS CAME FROM. Cards, not envelopes (user): a 6-star envelope carries seven
@@ -3594,46 +3581,49 @@ function albumCardTableHtml_(pop){
          '</td><td class="p">100%</td></tr></table>';
 }
 
+// The 'What an envelope is worth' panel was REMOVED here on 2026-09-10 (user). The attribution
+// behind it is still computed and still gated - runOneCardSeason_ returns packValue and
+// albumPopulationStats_ rolls it up - it is just not rendered: the per-tier price now lives on the
+// item_vals sheet, where every other coin-equivalent price already lives, and two places quoting
+// the same number is how they drift apart. See ITEM_VALS_PACK_TIERS.md.
+
 /**
- * WHAT AN ENVELOPE IS WORTH, per tier, in coins of set and album reward.
+ * COPY THE PANEL OUT (2026-09-10, user: "so I don't have to keep the pop-up open").
  *
- * ATTRIBUTED, not marginal (user, 2026-09-10). Album and set rewards are THRESHOLD outcomes, so
- * there is no value of a pack in isolation - the envelope that completes the album is worth a
- * thousand coins and the one before it is worth nothing. What CAN be stated honestly is a share of
- * value that was really paid: every reward is split across the new cards that unlocked it, and each
- * card's share goes to the pack that supplied it. Duplicates carry the chest packs they funded.
+ * The panel is a modal: close it and the run's answer is gone, and a six-minute sweep is not
+ * something to re-run because you wanted the table in a doc. This appends a collapsed block
+ * holding the panel's own markup as text, plus a button that copies it.
  *
- * SUM over tiers of (coins x packs) == the reward value the season paid. Gated.
+ * WHAT GETS COPIED IS THE PANEL WITHOUT THIS BLOCK - `inner` is built first and handed in, so the
+ * copied HTML has no textarea and no button in it. Paste it into a file and it renders as the
+ * panel you were looking at.
  *
- * The per-card figure beside it is the one that ports: a tier's whole advantage is how many cards
- * it holds, so coins-per-card should be nearly FLAT across tiers, and a tier that breaks that
- * pattern is telling you something about the pool rather than about the tier.
+ * execCommand('copy') rather than navigator.clipboard: an Apps Script modal is a sandboxed iframe
+ * and the async Clipboard API is blocked there often enough that the button would fail silently
+ * for some users. The selection-and-copy path works in that sandbox, and if it ever does not the
+ * textarea is already selected, so Ctrl+C finishes the job - which is what the fallback says.
  */
-function albumPackValueHtml_(pop){
-  var pv = pop.packValue || [];
-  if (!pv.length) return '';
-  var maxV = 0;
-  pv.forEach(function(x){ if (x.coins > maxV) maxV = x.coins; });
-  var body = pv.map(function(x){
-    return '<tr><td class="s">' + albumEsc_(x.tier.replace(' Pack', '')) + '</td>' +
-           '<td class="n" style="background:' + albumHeat_(x.coins, maxV) + '">' +
-           x.coins.toFixed(1) + '</td>' +
-           '<td class="p">' + x.packs.toFixed(1) + '</td>' +
-           '<td class="p">' + (100 * x.share).toFixed(1) + '%</td></tr>';
-  }).join('');
-  var tot = pv.reduce(function(a, x){ return a + x.value; }, 0);
-  return '<h2>What an envelope is worth</h2>' +
-         '<table class="src"><tr><th>Tier</th><th>Coins each</th><th>Per player</th>' +
-         '<th>Of value</th></tr>' + body +
-         '<tr class="tot"><td class="s">TOTAL</td><td class="n">' + tot.toFixed(0) +
-         '</td><td class="p"></td><td class="p">100%</td></tr></table>' +
-         '<div class="basis">Coins of SET and ALBUM reward attributed to each envelope: every ' +
-         'reward split across the new cards that unlocked it, plus the chest packs its duplicates ' +
-         'paid for. Not what an EXTRA envelope would be worth - that is a threshold and depends ' +
-         'entirely on how close the player already is.</div>';
+function albumCopyHtml_(inner){
+  return '<details class="copy"><summary>Copy this panel as HTML</summary>' +
+         '<textarea id="rawhtml" readonly onclick="this.select()">' + albumEsc_(inner) +
+         '</textarea>' +
+         '<div><button type="button" onclick="albumCopy()">Copy to clipboard</button>' +
+         '<span id="copyok"></span></div>' +
+         '<script>function albumCopy(){' +
+         'var t=document.getElementById("rawhtml");t.focus();t.select();' +
+         'var ok=false;try{ok=document.execCommand("copy");}catch(e){ok=false;}' +
+         'document.getElementById("copyok").textContent=' +
+         'ok?"  copied":"  select the box and press Ctrl+C";}<\/script></details>';
 }
 
 function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote){
+  var body = albumPanelHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote);
+  return body + albumCopyHtml_(body);
+}
+
+/** The panel itself. Split out from albumDialogHtml_ so the copy block can be handed the exact
+ *  markup it is offering to copy, rather than a re-rendered approximation of it. */
+function albumPanelHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote){
   var pct  = (100 * pop.rate).toFixed(2);
   var ci   = (100 * half).toFixed(2);
   var thin = nPlayers < 200;
@@ -3674,6 +3664,16 @@ function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
   ' table.src tr.chest td.s{color:#7a8290;font-style:italic}' +
   ' table.src tr.tot td{font-weight:700;border-top:1px solid #cfd4dc;border-bottom:0;' +
   '                      background:#fff}' +
+  ' details.copy{margin-top:18px;border-top:1px solid #e6e9ee;padding-top:10px}' +
+  ' details.copy summary{cursor:pointer;font-size:11px;letter-spacing:.08em;' +
+  '                       text-transform:uppercase;color:#7a8290;font-weight:700}' +
+  ' details.copy textarea{width:100%;height:150px;margin-top:8px;font:11px/1.35 Consolas,' +
+  '                        Menlo,monospace;color:#5b6472;border:1px solid #e6e9ee;' +
+  '                        border-radius:3px;padding:6px;resize:vertical;background:#fbfbfc}' +
+  ' details.copy button{margin-top:6px;font:12px Arial,Helvetica,sans-serif;padding:5px 12px;' +
+  '                      cursor:pointer;border:1px solid #cfd4dc;border-radius:3px;' +
+  '                      background:#f2f4f7;color:#1f2430}' +
+  ' details.copy span{font-size:12px;color:#1a7f4b}' +
   '</style>' +
   '<h1>Album 1 completion</h1>' +
   '<div class="big">' + pct + '%</div>' +
@@ -3686,7 +3686,6 @@ function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
   '</table>' +
   albumCompositionHtml_(pop) +
   albumCardTableHtml_(pop) +
-  albumPackValueHtml_(pop) +
   (pop.covered < 0.999
     ? '<div class="warn"><b>Partial run: ' + pop.cells + ' of ' + pop.allCells +
       ' cells.</b> The sweep stopped on its time budget, so this rate is of the ' +

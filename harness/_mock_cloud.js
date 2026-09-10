@@ -1146,6 +1146,46 @@ function GATES() {
           .map(p => p.label).join(', ') || 'all 10 present');
       check('the panel prints a headcount column and a per-group finish column',
         /<th>Players<\/th>/.test(html) && /<th>Finish<\/th>/.test(html));
+
+      // === THE PANEL AS A WHOLE (2026-09-10). Two user decisions gated so they cannot creep back.
+      {
+        const full = albumDialogHtml_(st, cellPopulations_(Context.get()), 0.01, 24, SEED, '1.0',
+                                      '', true);
+        check('the "What an envelope is worth" table is gone from the panel',
+          full.indexOf('What an envelope is worth') < 0 &&
+          typeof albumPackValueHtml_ === 'undefined',
+          'per-tier value lives on item_vals now');
+        // ... but the attribution BEHIND it must still be computed, or removing a table would have
+        // quietly removed the measurement and its conservation gate above with it.
+        check('the pack-value attribution is still computed, just not rendered',
+          Array.isArray(st.packValue) && st.packValue.length > 0 && st.packValueTotal > 0,
+          st.packValue.length + ' tiers, ' + st.packValueTotal.toFixed(0) + ' coins attributed');
+
+        check('the panel offers a copy-as-HTML control',
+          /<textarea id="rawhtml"/.test(full) && /albumCopy\(\)/.test(full));
+        // What the textarea holds must be the panel WITHOUT the copy widget - copying a box that
+        // contains itself is the obvious way to get this wrong, and it would not look wrong.
+        const body = albumPanelHtml_(st, cellPopulations_(Context.get()), 0.01, 24, SEED, '1.0',
+                                     '', true);
+        check('the copied markup is the panel itself, with no copy widget inside it',
+          full.indexOf(albumEsc_(body)) > 0 && body.indexOf('rawhtml') < 0,
+          body.length.toLocaleString() + ' chars offered');
+        // The copy block embeds a <script> INSIDE a JS string, so its closing tag has to be
+        // written <\/script> in the .gs source or the HTML parser ends the script early and the
+        // rest of the panel becomes loose text on the page. Gated on the RENDERED output rather
+        // than the source: exactly one balanced script, opening after the textarea it drives.
+        const opens = (full.match(/<script>/g) || []).length;
+        const closes = (full.match(/<\/script>/g) || []).length;
+        check('the panel renders exactly one balanced <script>, after the textarea it drives',
+          opens === 1 && closes === 1 &&
+          full.lastIndexOf('</textarea>') < full.indexOf('<script>') &&
+          full.indexOf('<script>') < full.indexOf('</script>'),
+          opens + ' open / ' + closes + ' close');
+        // The opposite slip: one backslash too many renders <\/script>, which does NOT close the
+        // tag, and the panel silently loses everything after it.
+        check('no literal backslash leaked into the rendered close tag',
+          full.indexOf('<\\/script>') < 0);
+      }
     }
     }
 

@@ -369,22 +369,23 @@ percentage — it is then a number you can chart or reference, not a string. Bla
 nothing extra is written; a typo is logged and skipped, never thrown, so a mistyped address cannot
 kill a run that already has its answer.
 
-**The result panel carries two breakdowns** below the headline numbers:
+**The result panel carries two breakdowns** below the headline numbers, and a control that
+copies the whole panel out as HTML (a modal loses its contents when you close it, and a six-minute
+sweep is not something to re-run because you wanted the table in a doc):
 
-- **Which players finished it** - each engagement group's share of all finishers, its share of the
-  player base, and the ratio between them. Both columns matter and they disagree: `100+` supplies
-  only **1.5%** of finishers (it is 1.7% of the base), while `40-99 PAYER` is **2.8x** more likely
-  to finish than an average player. Headcount alone would say the hardcore do not matter; the ratio
-  alone would say they dominate.
+- **Which players finished it** - for every engagement group: how many real players it holds
+  (`data_seg_beh.unique_players`), what share of THAT group finishes, its share of all finishers,
+  and the ratio of the last two. Every group is listed, zero-finisher ones included: a missing row
+  reads as "not simulated" where the truth is "simulated, and nobody there finishes". The headcount
+  column is what makes the rest legible - on workbook (9) `100+ PAYER` finishes at **30.8%** and is
+  still only **9.8%** of finishers, because there are 233 of them against 15,595 in `0-9 NONPAYER`.
 - **Where a finisher's cards came from** - cards, not envelopes, by source in CATEGORY_ORDER with a
   green colour scale on the share. Sums to the "Cards drawn to complete it" row exactly, because the
   per-source counts are frozen at the moment album 1 completes rather than read at season end.
-- **What an envelope is worth** - coins of set and album reward attributed to each pack tier. Every
-  reward is split across the NEW cards that unlocked it, each card's share going to the pack that
-  supplied it; duplicates carry the chest packs their stars funded. Attributed, NOT marginal: a
-  threshold reward has no value in isolation, so what can be stated is a share of value really paid.
-  **The 1-star tier delivers 39% of all collection reward value** on volume alone, while the premium
-  tiers are worth 2-3x each and arrive 12x less often.
+The **What an envelope is worth** table that shipped beside these was removed on 2026-09-10 (user).
+The attribution behind it is still computed and still gated; the per-tier price now lives on the
+`item_vals` sheet, where every other coin-equivalent price already lives. See
+`ITEM_VALS_PACK_TIERS.md`.
 
 **It also shows a result panel** when it finishes — the rate, the two finisher averages, the CI and
 the basis. If `B2` is under 200 the panel carries a red warning, because reading a ~3% rate off 50
