@@ -1106,6 +1106,46 @@ function GATES() {
       check('MAX is not one of the engagement groups',
         !comp.some(x => x.label === PLAYER_PROFILES.MAX.label),
         comp.map(x => x.label).join(', '));
+
+      // === HEADCOUNT AND PER-GROUP FINISH RATE (2026-09-10). The panel now prints "how many
+      //     players are in this group" beside "what share of THEM finish", because a 30% rate on
+      //     233 people and a 5% rate on 5,750 are the same table cell's worth of finishers and the
+      //     share column alone cannot show that. Both have to be the SAME numbers the headline is
+      //     built from, or the table becomes a second, disagreeing calculation.
+      check('every group carries its data_seg_beh headcount',
+        comp.length > 0 && comp.every(x => x.popN > 0),
+        comp.map(x => x.label.split(' ')[0] + ' ' + Math.round(x.popN)).slice(0, 4).join(' | '));
+
+      // popN must be the raw unique_players, not a re-derivation: its share of the total has to
+      // reproduce popShare exactly, which is the only thing tying the headcount column to the
+      // weights the rate is actually computed from.
+      const sumN = comp.reduce((a, x) => a + x.popN, 0);
+      check('the headcounts reproduce the population shares they are weighted by',
+        sumN > 0 && comp.every(x => Math.abs(x.popN / sumN - x.popShare) < 1e-9),
+        Math.round(sumN).toLocaleString() + ' players across ' + comp.length + ' groups');
+
+      check('the headcount total is the population the headline rate is OF',
+        Math.abs(sumN - st.population) < 1e-6,
+        Math.round(sumN).toLocaleString() + ' vs ' + Math.round(st.population).toLocaleString());
+
+      // THE IDENTITY THE TABLE IS FOR: headcount x that group's own finish rate, summed, is the
+      // headline rate applied to the whole population. If this drifts, the panel is telling two
+      // different stories about the same run.
+      const finishers = comp.reduce((a, x) => a + x.popN * x.rate, 0);
+      check('headcount x per-group finish rate reconstructs the headline rate',
+        sumN > 0 && Math.abs(finishers / sumN - st.rate) < 1e-9,
+        (100 * finishers / sumN).toFixed(6) + '% vs ' + (100 * st.rate).toFixed(6) + '%');
+
+      // EVERY group is rendered, including the ones nobody finishes in. A filtered table reads as
+      // "not simulated" where the truth is "simulated, and the answer is zero" - which is the
+      // actual finding for 0-9 and 10-19 on this workbook.
+      const html = albumCompositionHtml_(st);
+      check('the panel lists every engagement group, zero-finisher ones included',
+        cloudPermutations_().every(p => html.indexOf('>' + p.label + '<') >= 0),
+        cloudPermutations_().filter(p => html.indexOf('>' + p.label + '<') < 0)
+          .map(p => p.label).join(', ') || 'all 10 present');
+      check('the panel prints a headcount column and a per-group finish column',
+        /<th>Players<\/th>/.test(html) && /<th>Finish<\/th>/.test(html));
     }
     }
 

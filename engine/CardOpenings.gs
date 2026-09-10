@@ -3281,7 +3281,11 @@ function albumPopulationStats_(byCell, popInfo){
     // WHICH ENGAGEMENT GROUPS THE FINISHERS CAME FROM (2026-09-10). `fw` is already exactly that
     // - population share x completion rate - so the composition costs nothing extra here; it is
     // the same quantity the two finisher averages are weighted by, kept instead of discarded.
+    // popN is the HEADCOUNT, not the share: "1,504 players" answers a different question from
+    // "2.8% of the base", and the two together are what make a 30% completion rate legible - a
+    // high rate on 233 people is still 70 finishers (user, 2026-09-10).
     comp.push({ label: p.label, seg: p.seg, payer: p.payer, fin: fw, popShare: w,
+                popN: num(popInfo.pop[p.label]),
                 rate: c.rate, n: c.finishers, players: c.n });
     packs     += fw * c.packs;
     cards     += fw * c.cards;
@@ -3527,23 +3531,45 @@ function albumHeat_(share, maxShare){
  * "the hardcore dominate". Both are true of different questions.
  */
 function albumCompositionHtml_(pop){
-  var comp = (pop.composition || []).filter(function(x){ return x.share > 0.0005; });
-  if (!comp.length) return '';
+  var all = pop.composition || [];
+  if (!all.length) return '';
+  // EVERY group is listed, including the ones that finish 0% (user, 2026-09-10). A group missing
+  // from the table reads as "not simulated"; a group showing 0.0% reads as "simulated, and nobody
+  // there finishes", which is the actual finding for 0-9 and 10-19.
+  var comp = all.slice().sort(function(a, b){ return b.share - a.share; });
   var maxShare = 0;
   comp.forEach(function(x){ if (x.share > maxShare) maxShare = x.share; });
   var body = comp.map(function(x){
     return '<tr><td class="s">' + albumEsc_(x.label) + '</td>' +
+           '<td class="p">' + Math.round(x.popN).toLocaleString() + '</td>' +
+           '<td class="p">' + (100 * x.rate).toFixed(1) + '%</td>' +
            '<td class="n" style="background:' + albumHeat_(x.share, maxShare) + '">' +
            (100 * x.share).toFixed(1) + '%</td>' +
-           '<td class="p">' + (100 * x.popShare).toFixed(1) + '%</td>' +
            '<td class="p">' + x.index.toFixed(2) + 'x</td></tr>';
   }).join('');
   var tot = comp.reduce(function(a, x){ return a + x.share; }, 0);
+  var totN = comp.reduce(function(a, x){ return a + num(x.popN); }, 0);
+  var totFin = comp.reduce(function(a, x){ return a + num(x.popN) * num(x.rate); }, 0);
   return '<h2>Which players finished it</h2>' +
-         '<table class="src"><tr><th>Engagement group</th><th>Of finishers</th>' +
-         '<th>Of player base</th><th>vs base</th></tr>' + body +
-         '<tr class="tot"><td class="s">TOTAL</td><td class="n">' + (100 * tot).toFixed(0) +
-         '%</td><td class="p">100%</td><td class="p"></td></tr></table>';
+         '<table class="src"><tr><th>Engagement group</th><th>Players</th><th>Finish</th>' +
+         '<th>Of finishers</th><th>vs base</th></tr>' + body +
+         '<tr class="tot"><td class="s">TOTAL</td>' +
+         '<td class="p">' + Math.round(totN).toLocaleString() + '</td>' +
+         '<td class="p">' + (totN > 0 ? (100 * totFin / totN).toFixed(1) : '0.0') + '%</td>' +
+         '<td class="n">' + (100 * tot).toFixed(0) + '%</td><td class="p"></td></tr></table>' +
+         '<div class="basis"><b>Players</b> is the headcount data_seg_beh carries for that ' +
+         'group, and ' +
+         '<b>Finish</b> is the share of THAT group who complete album 1. <b>Of finishers</b> is ' +
+         'headcount x finish rate, renormalised - which is why a group can finish at ' +
+         'a high rate and still be a small slice: ' +
+         (function(){
+            var best = null;
+            comp.forEach(function(x){ if (!best || x.rate > best.rate) best = x; });
+            if (!best || !(best.popN > 0)) return 'a small group cannot produce many people.';
+            return albumEsc_(best.label) + ' finishes at ' + (100 * best.rate).toFixed(1) +
+                   '% but is only ' + Math.round(best.popN).toLocaleString() + ' players, so it ' +
+                   'can never supply more than that many finishers however easy the album gets.';
+         })() + '</div>';
 }
 
 /** WHERE A FINISHER'S CARDS CAME FROM. Cards, not envelopes (user): a 6-star envelope carries seven
