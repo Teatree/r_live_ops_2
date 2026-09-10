@@ -369,6 +369,17 @@ percentage — it is then a number you can chart or reference, not a string. Bla
 nothing extra is written; a typo is logged and skipped, never thrown, so a mistyped address cannot
 kill a run that already has its answer.
 
+**The result panel carries two breakdowns** below the headline numbers:
+
+- **Which players finished it** - each engagement group's share of all finishers, its share of the
+  player base, and the ratio between them. Both columns matter and they disagree: `100+` supplies
+  only **1.5%** of finishers (it is 1.7% of the base), while `40-99 PAYER` is **2.8x** more likely
+  to finish than an average player. Headcount alone would say the hardcore do not matter; the ratio
+  alone would say they dominate.
+- **Where a finisher's cards came from** - cards, not envelopes, by source in CATEGORY_ORDER with a
+  green colour scale on the share. Sums to the "Cards drawn to complete it" row exactly, because the
+  per-source counts are frozen at the moment album 1 completes rather than read at season end.
+
 **It also shows a result panel** when it finishes — the rate, the two finisher averages, the CI and
 the basis. If `B2` is under 200 the panel carries a red warning, because reading a ~3% rate off 50
 players is the one way to misread this badly.

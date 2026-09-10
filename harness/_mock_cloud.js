@@ -973,6 +973,101 @@ function GATES() {
       _sheetValsCache = {};
     }
 
+    // === THE CARD-SOURCE TABLE (2026-09-10). The property that makes it worth showing at all:
+    //     it must ADD UP to the 'Cards drawn to complete it' row directly above it. That is why the
+    //     per-source counts are snapshotted at album-1 completion rather than read off bySource at
+    //     the end of the season - the season figure is ~10% higher (274 vs 249), and a breakdown
+    //     that does not sum to the total it breaks down is worse than no breakdown.
+    {
+      reset2();
+      setInputs(N, SEED);
+      SimulateAlbumCompletion();
+      // rebuild the same stats the dialog is handed
+      const cfgA = loadPackConfig_();
+      const catA = loadCardCatalog_(cfgA, mkSheet(SHEET_ALBUM));
+      const ctxA = Context.get();
+      const byCell = {};
+      cloudPermutations_().forEach((p, pi) => {
+        const pre = cardSeasonPre_(p.seg, p.payer, ctxA);
+        const runs = [];
+        for (let k = 0; k < N; k++)
+          runs.push(runOneCardSeason_(p.seg, p.payer, playerSeed_(SEED, pi, k), cfgA, catA, pre));
+        byCell[p.label] = albumCellStats_(runs);
+      });
+      const popI = cellPopulations_(ctxA);
+      const st = albumPopulationStats_(byCell, popI);
+      const built = albumCardSourceRows_(st.cardsBySrc || {});
+      const sum = built.rows.reduce((a, r) => a + r.cards, 0);
+
+      check('the card-source table sums to the "cards to complete it" row it breaks down',
+        st.cards > 0 && Math.abs(sum - st.cards) < 0.05,
+        `${sum.toFixed(2)} across ${built.rows.length} rows vs ${st.cards.toFixed(2)} cards`);
+
+      // ORDER: CATEGORY_ORDER for the engine categories, star chests last.
+      const cats = built.rows.filter(r => !r.chest).map(r => r.label);
+      const inOrder = cats.every((c, i) =>
+        i === 0 || CATEGORY_ORDER.indexOf(cats[i - 1]) < CATEGORY_ORDER.indexOf(c));
+      check('card-source rows follow CATEGORY_ORDER, with star chests after them',
+        inOrder && cats.every(c => CATEGORY_ORDER.indexOf(c) >= 0) &&
+        built.rows.filter(r => r.chest).every((_, i, arr) =>
+          built.rows.indexOf(arr[i]) >= cats.length),
+        cats.slice(0, 6).join(' | ') + (cats.length > 6 ? ' | ...' : '') +
+        '  + ' + built.rows.filter(r => r.chest).map(r => r.label).join(', '));
+
+      // the three star-chest tiers must arrive as ONE row, not three
+      const chestRows = built.rows.filter(r => /Star Chest/.test(r.label));
+      const rawChests = Object.keys(st.cardsBySrc || {}).filter(k => /^Star Chest/.test(k));
+      check('the star-chest tiers are folded into a single row',
+        chestRows.length <= 1 && (rawChests.length === 0 || chestRows.length === 1),
+        `${rawChests.length} chest tiers in the data -> ${chestRows.length} row(s)`);
+
+      // no row that paid nothing, and shares add to 1
+      const shareSum = built.rows.reduce((a, r) => a + r.share, 0);
+      check('no zero rows, and the shares add to 100%',
+        built.rows.every(r => r.cards > 0) && Math.abs(shareSum - 1) < 1e-9,
+        `${built.rows.length} rows, shares sum ${(100 * shareSum).toFixed(4)}%`);
+
+      // the colour ramp has to be monotone in share, or it says the wrong thing
+      const h0 = albumHeat_(0, 0.35), hMid = albumHeat_(0.17, 0.35), hMax = albumHeat_(0.35, 0.35);
+      const lum = c => { const m = /rgb\((\d+),(\d+),(\d+)\)/.exec(c);
+                         return Number(m[1]) + Number(m[2]) + Number(m[3]); };
+      check('the colour scale darkens monotonically with share',
+        lum(h0) > lum(hMid) && lum(hMid) > lum(hMax) && h0 === 'rgb(255,255,255)',
+        `${h0} -> ${hMid} -> ${hMax}`);
+
+    // === THE COMPOSITION TABLE (2026-09-10). Its load-bearing identity: each group's raw finisher
+    //     weight is population-share x completion-rate, and those weights SUM TO THE HEADLINE RATE.
+    //     So the table is not a second calculation of who finished - it is the headline number
+    //     taken apart, and it cannot drift from it.
+    {
+      const comp = st.composition || [];
+      const sumFin = comp.reduce((a, x) => a + x.fin, 0);
+      check('the composition weights sum to the headline completion rate',
+        comp.length > 0 && Math.abs(sumFin - st.rate) < 1e-12,
+        `${(100 * sumFin).toFixed(4)}% across ${comp.length} groups vs ${(100 * st.rate).toFixed(4)}%`);
+
+      const sumShare = comp.reduce((a, x) => a + x.share, 0);
+      check('the composition shares add to 100%', Math.abs(sumShare - 1) < 1e-9,
+        (100 * sumShare).toFixed(6) + '%');
+
+      // index is share / population share, and BOTH sides of it must be present
+      const idxOk = comp.every(x =>
+        x.popShare > 0 && Math.abs(x.index - x.share / x.popShare) < 1e-9);
+      check('vs-base index is the finisher share divided by the population share', idxOk,
+        comp.map(x => x.label.split(' ')[0] + ' ' + x.index.toFixed(2) + 'x').slice(0, 5).join(' | '));
+
+      // the population shares are the RENORMALISED ones, so they add to 1 too
+      const sumPop = comp.reduce((a, x) => a + x.popShare, 0);
+      check('the population shares in the table add to 100% of what was simulated',
+        Math.abs(sumPop - 1) < 1e-9, (100 * sumPop).toFixed(6) + '%');
+
+      // MAX is a ceiling, not a population: it must never appear in a composition of real players
+      check('MAX is not one of the engagement groups',
+        !comp.some(x => x.label === PLAYER_PROFILES.MAX.label),
+        comp.map(x => x.label).join(', '));
+    }
+    }
+
     // === THE PARTIAL RUN. The sweep stops early when it projects past its time budget, and that
     //     path is the one nobody exercises by accident - so it is gated deliberately. Weighting the
     //     cells that RAN by their share of the FULL population would let every unrun cell contribute

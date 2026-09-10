@@ -1112,6 +1112,12 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // 0 means "never finished", which is why the reducer filters on albumIdx rather than on these.
   var packsAtAlbum1        = 0;
   var cardsAtAlbum1        = 0;
+  // Per-source card counts FROZEN at that same instant. `bySource` keeps accumulating for the rest
+  // of the season, so reading it at the end would answer a different question and, worse, would not
+  // add up to cardsAtAlbum1 above it - a breakdown that does not sum to the total it breaks down is
+  // worse than no breakdown (the rule the PACK & CARD MIX blocks already follow). Measured gap on
+  // the 9th-Sep workbook: 274 cards over the season against 249 to finish, so ~10%.
+  var cardsBySrcAtAlbum1   = null;
   var finalAlbumNoted      = false;
   var setsCompletedInAlbum = {};
   // seeded from the tiers PACK DEFINITIONS actually authors, so retiring a tier on the sheet
@@ -1419,6 +1425,15 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
             dayAlbumCompleted = day;
             packsAtAlbum1     = packsOpenedTotal;
             cardsAtAlbum1     = totalCardsDrawn;
+            cardsBySrcAtAlbum1 = {};
+            for (var bsk in bySource) cardsBySrcAtAlbum1[bsk] = num(bySource[bsk].cards);
+            // THE PACK BEING OPENED RIGHT NOW is not in bySource yet: `bs.cards += drawn.length`
+            // runs at the END of openPack, while this completion check sits inside its per-card
+            // loop. cardsAtAlbum1 already counts those cards, so without this the breakdown is
+            // short by exactly the completing pack - ~1% (252.78 against 255.41), which is small
+            // enough to look like rounding and is not. Caught by the sums-to-the-cards-row gate.
+            var inFlight = sourceKey_(source);
+            cardsBySrcAtAlbum1[inFlight] = num(cardsBySrcAtAlbum1[inFlight]) + drawn.length;
           }
           if (albumIdx < ALBUM_NAMES.length - 1){
             albumNote = ALBUM_NAMES[albumIdx] + ' -> ' + ALBUM_NAMES[albumIdx + 1] +
@@ -1919,6 +1934,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     setsCompletedTotal: setsCompletedTotal, albumIdx: albumIdx,
     dayAlbumCompleted: dayAlbumCompleted, expectedTotal: expectedTotal,
     packsAtAlbum1: packsAtAlbum1, cardsAtAlbum1: cardsAtAlbum1,
+    cardsBySrcAtAlbum1: cardsBySrcAtAlbum1,
     setRewardGains: setRewardGains, albumRewardGains: albumRewardGains,
     collection: collection, collectionSize: collectionSize,
     tofTickets: tofCum, tofExpected: num(pre.tofExpected),
@@ -3093,17 +3109,21 @@ var ALBUM_ROWS = [
 
 /** Per-cell album-completion stats from a cohort's runs. Pure - no sheet, no randomness. */
 function albumCellStats_(runs){
-  var n = runs.length, fin = 0, packs = 0, cards = 0;
+  var n = runs.length, fin = 0, packs = 0, cards = 0, bySrc = {};
   for (var i = 0; i < n; i++){
     if (!(num(runs[i].albumIdx) >= 1)) continue;
     fin++;
     packs += num(runs[i].packsAtAlbum1);
     cards += num(runs[i].cardsAtAlbum1);
+    var src = runs[i].cardsBySrcAtAlbum1 || {};
+    for (var k in src) bySrc[k] = num(bySrc[k]) + num(src[k]);
   }
+  if (fin) for (var k2 in bySrc) bySrc[k2] = bySrc[k2] / fin;
   return { n: n, finishers: fin,
            rate:  n   ? fin / n     : 0,
            packs: fin ? packs / fin : 0,      // finishers only; 0 finishers -> reported as '-'
-           cards: fin ? cards / fin : 0 };
+           cards: fin ? cards / fin : 0,
+           cardsBySrc: bySrc };
 }
 
 /** data_seg_beh's unique_players per cell, and the total they represent. A cell the sheet has no
@@ -3134,6 +3154,7 @@ function albumPopulationStats_(byCell, popInfo){
   perms.forEach(function(p){ if (byCell[p.label]) ranPop += num(popInfo.pop[p.label]); });
 
   var rate = 0, finW = 0, packs = 0, cards = 0, finishers = 0, players = 0, cells = 0;
+  var bySrc = {}, comp = [];
   perms.forEach(function(p){
     var c = byCell[p.label];
     if (!c) return;
@@ -3142,15 +3163,33 @@ function albumPopulationStats_(byCell, popInfo){
     rate      += w * c.rate;
     var fw     = w * c.rate;                 // this cell's share of ALL finishers, before scaling
     finW      += fw;
+    // WHICH ENGAGEMENT GROUPS THE FINISHERS CAME FROM (2026-09-10). `fw` is already exactly that
+    // - population share x completion rate - so the composition costs nothing extra here; it is
+    // the same quantity the two finisher averages are weighted by, kept instead of discarded.
+    comp.push({ label: p.label, seg: p.seg, payer: p.payer, fin: fw, popShare: w,
+                rate: c.rate, n: c.finishers, players: c.n });
     packs     += fw * c.packs;
     cards     += fw * c.cards;
+    // The source split rides the SAME finisher weights as the two averages above, so the table
+    // describes the same "average finisher" those rows do and sums to the cards row exactly.
+    for (var k in (c.cardsBySrc || {})) bySrc[k] = num(bySrc[k]) + fw * num(c.cardsBySrc[k]);
     finishers += c.finishers;
     players   += c.n;
   });
-  return { rate: rate,
+  if (finW > 0) for (var k2 in bySrc) bySrc[k2] = bySrc[k2] / finW;
+  // share = this group's slice of ALL finishers. index = that slice divided by its slice of the
+  // PLAYER BASE, so >1 means a group punches above its weight and <1 below it. The two answer
+  // different questions and are both worth having: one is headcount, the other is per-capita
+  // likelihood, and on this workbook they point in OPPOSITE directions.
+  comp.forEach(function(x){
+    x.share = (finW > 0) ? x.fin / finW : 0;
+    x.index = (x.popShare > 0) ? x.share / x.popShare : 0;
+  });
+  return { rate: rate, composition: comp,
            packs: finW > 0 ? packs / finW : 0,
            cards: finW > 0 ? cards / finW : 0,
            finishers: finishers, players: players,
+           cardsBySrc: bySrc,
            population: ranPop,                                  // what the rate is OF
            fullPopulation: popInfo.total,
            cells: cells, allCells: perms.length,
@@ -3254,7 +3293,10 @@ function showAlbumDialog_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
   var html = albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote);
   try {
     if (typeof HtmlService !== 'undefined' && SpreadsheetApp.getUi){
-      var out = HtmlService.createHtmlOutput(html).setWidth(460).setHeight(430);
+      // Taller since the card-source table landed (2026-09-10): ~16 category rows plus a chest
+      // row and a total. Apps Script clamps to the viewport, so an over-tall panel scrolls rather
+      // than being cut off - the failure that matters is too SHORT, which hides the total row.
+      var out = HtmlService.createHtmlOutput(html).setWidth(520).setHeight(900);
       SpreadsheetApp.getUi().showModalDialog(out, 'Album completion');
       return;
     }
@@ -3270,6 +3312,122 @@ function albumEsc_(x){
   return String(x == null ? '' : x)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * The finishers' card sources, as display rows.
+ *
+ * ORDER IS CATEGORY_ORDER, not by size (user, 2026-09-10): the canonical engine order is what every
+ * other source list in this project uses, so the table lines up with the EcoGainsSim grid row for
+ * row and two runs can be read side by side. Magnitude is carried by the colour scale instead, which
+ * is the job it is good at - a sorted table changes its own row order when the config changes, and
+ * then nothing can be compared.
+ *
+ * Sources that paid NOTHING are dropped rather than shown as 0.00: only ~16 of the 29 categories pay
+ * cards at all, and thirteen zero rows in a dialog panel is noise, not information.
+ *
+ * STAR CHESTS FOLD INTO ONE ROW, at the bottom, below the engine categories. They are real card
+ * sources (Silver alone is ~5% of a finisher's cards) but they are NOT engine categories: a chest is
+ * an envelope BOUGHT with duplicate stars, so those cards ultimately came from whichever sources
+ * paid the duplicates. Keeping them in the table keeps it summing to the cards row; keeping them
+ * separate stops them being mistaken for a calendar source.
+ */
+function albumCardSourceRows_(bySrc){
+  var rows = [], total = 0, chest = 0, k;
+  for (k in bySrc) total += num(bySrc[k]);
+  CATEGORY_ORDER.forEach(function(cat){
+    var v = num(bySrc[cat]);
+    if (v > 0.005) rows.push({ label: cat, cards: v, chest: false });
+  });
+  for (k in bySrc){
+    if (String(k).indexOf('Star Chest') === 0) chest += num(bySrc[k]);
+  }
+  if (chest > 0.005) rows.push({ label: 'Star Chest (bought with duplicates)', cards: chest,
+                                 chest: true });
+  // Anything that is neither a category nor a chest would silently vanish and break the sum, so it
+  // is surfaced rather than dropped. Nothing produces this today; it is here so that a new source
+  // added to the card sim shows up instead of quietly leaking out of the table.
+  var named = {};
+  rows.forEach(function(r){ named[r.label] = true; });
+  var accounted = 0;
+  rows.forEach(function(r){ accounted += r.cards; });
+  if (total - accounted > 0.005)
+    rows.push({ label: 'Other', cards: total - accounted, chest: true });
+  rows.forEach(function(r){ r.share = total > 0 ? r.cards / total : 0; });
+  return { rows: rows, total: total };
+}
+
+/** White -> green, keyed on a row's share of the biggest row. The project's 'simulated output'
+ *  family (#E2EFDA) is the top of the ramp, so the panel stays in the workbook's own palette.
+ *  Scaled against the MAX row rather than against 1.0: with a top share of ~34% a 0..1 ramp would
+ *  leave every row nearly white and the scale would say nothing. */
+function albumHeat_(share, maxShare){
+  var t = (maxShare > 0) ? Math.min(1, share / maxShare) : 0;
+  // STRONG easing, because the real distribution is brutally skewed: three sources carry ~71% of a
+  // finisher's cards, so a linear ramp leaves everything from 0.2% to 5% indistinguishable from
+  // white and the scale stops saying anything about the middle of the table. At 0.45 a 5% row
+  // reads at ~41% of full green instead of ~14%. Still strictly monotone, so it never misstates a
+  // ranking - and the exact numbers are in the cell beside it, which is what the colour is not for.
+  t = Math.pow(t, 0.45);
+  var r = Math.round(255 + (198 - 255) * t);
+  var g = Math.round(255 + (224 - 255) * t);
+  var b = Math.round(255 + (180 - 255) * t);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+/**
+ * WHICH ENGAGEMENT GROUPS THE FINISHERS CAME FROM.
+ *
+ * TWO COLUMNS THAT DISAGREE, ON PURPOSE. 'of finishers' is headcount: what share of everyone who
+ * completed album 1 came from this group. 'x vs base' is that share divided by the group's share of
+ * the player base, i.e. how much more likely a member of this group is to finish than an average
+ * player. On the shipped workbook they point in OPPOSITE directions, and the pair is the only way
+ * to see it: engaged players are far more likely to finish ONE BY ONE (40-99 PAYER indexes ~2.9x)
+ * while the largest BLOCK of finishers comes from the mid segments, simply because 100+ is 1.7% of
+ * the player base and a high rate on a tiny population is still a small number of people.
+ * Reporting only the first column would say "the hardcore barely matter"; only the second would say
+ * "the hardcore dominate". Both are true of different questions.
+ */
+function albumCompositionHtml_(pop){
+  var comp = (pop.composition || []).filter(function(x){ return x.share > 0.0005; });
+  if (!comp.length) return '';
+  var maxShare = 0;
+  comp.forEach(function(x){ if (x.share > maxShare) maxShare = x.share; });
+  var body = comp.map(function(x){
+    return '<tr><td class="s">' + albumEsc_(x.label) + '</td>' +
+           '<td class="n" style="background:' + albumHeat_(x.share, maxShare) + '">' +
+           (100 * x.share).toFixed(1) + '%</td>' +
+           '<td class="p">' + (100 * x.popShare).toFixed(1) + '%</td>' +
+           '<td class="p">' + x.index.toFixed(2) + 'x</td></tr>';
+  }).join('');
+  var tot = comp.reduce(function(a, x){ return a + x.share; }, 0);
+  return '<h2>Which players finished it</h2>' +
+         '<table class="src"><tr><th>Engagement group</th><th>Of finishers</th>' +
+         '<th>Of player base</th><th>vs base</th></tr>' + body +
+         '<tr class="tot"><td class="s">TOTAL</td><td class="n">' + (100 * tot).toFixed(0) +
+         '%</td><td class="p">100%</td><td class="p"></td></tr></table>';
+}
+
+/** WHERE A FINISHER'S CARDS CAME FROM. Cards, not envelopes (user): a 6-star envelope carries seven
+ *  cards and a 1-star carries two, so counting envelopes would rank the sources by a unit the album
+ *  does not care about. Sums to the 'Cards drawn to complete it' row above it by construction. */
+function albumCardTableHtml_(pop){
+  var built = albumCardSourceRows_(pop.cardsBySrc || {});
+  if (!built.rows.length) return '';
+  var maxShare = 0;
+  built.rows.forEach(function(r){ if (r.share > maxShare) maxShare = r.share; });
+  var body = built.rows.map(function(r){
+    return '<tr' + (r.chest ? ' class="chest"' : '') + '>' +
+           '<td class="s">' + albumEsc_(r.label) + '</td>' +
+           '<td class="n" style="background:' + albumHeat_(r.share, maxShare) + '">' +
+           r.cards.toFixed(1) + '</td>' +
+           '<td class="p" style="background:' + albumHeat_(r.share, maxShare) + '">' +
+           (100 * r.share).toFixed(1) + '%</td></tr>';
+  }).join('');
+  return '<h2>Where a finisher\'s cards came from</h2>' +
+         '<table class="src"><tr><th>Source</th><th>Cards</th><th>Share</th></tr>' + body +
+         '<tr class="tot"><td class="s">TOTAL</td><td class="n">' + built.total.toFixed(1) +
+         '</td><td class="p">100%</td></tr></table>';
 }
 
 function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote){
@@ -3300,6 +3458,19 @@ function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
   ' .warn{margin-top:10px;padding:10px 12px;background:#fdeceb;border-left:3px solid #d0483c;' +
   '        font-size:12px;color:#6b322d}' +
   ' .basis{margin-top:14px;font-size:11px;color:#98a0ad}' +
+  ' h2{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#7a8290;' +
+  '     margin:20px 0 6px;font-weight:700}' +
+  ' table.src{border-collapse:collapse;width:100%;margin:0}' +
+  ' table.src th{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#98a0ad;' +
+  '               text-align:right;padding:3px 6px;border:0;border-bottom:1px solid #e6e9ee}' +
+  ' table.src th:first-child{text-align:left}' +
+  ' table.src td{padding:3px 6px;border:0;font-size:12px;border-bottom:1px solid #f2f4f7}' +
+  ' table.src td.s{color:#1f2430;text-align:left}' +
+  ' table.src td.n,table.src td.p{text-align:right;font-variant-numeric:tabular-nums;' +
+  '                                white-space:nowrap}' +
+  ' table.src tr.chest td.s{color:#7a8290;font-style:italic}' +
+  ' table.src tr.tot td{font-weight:700;border-top:1px solid #cfd4dc;border-bottom:0;' +
+  '                      background:#fff}' +
   '</style>' +
   '<h1>Album 1 completion</h1>' +
   '<div class="big">' + pct + '%</div>' +
@@ -3310,8 +3481,10 @@ function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
   row('A finisher drew', pop.finishers ? pop.cards.toFixed(0) : '-', 'cards, duplicates included') +
   row('Finishers in the sample', pop.finishers + ' of ' + pop.players, '') +
   '</table>' +
+  albumCompositionHtml_(pop) +
+  albumCardTableHtml_(pop) +
   (pop.covered < 0.999
-    ? '<div class="warn"><b>Partial run &mdash; ' + pop.cells + ' of ' + pop.allCells +
+    ? '<div class="warn"><b>Partial run: ' + pop.cells + ' of ' + pop.allCells +
       ' cells.</b> The sweep stopped on its time budget, so this rate is of the ' +
       Math.round(100 * pop.covered) + '% of the player base that was simulated, not of all of it. ' +
       'Lower B2 and run it again.</div>'
@@ -3322,7 +3495,7 @@ function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
       albumEsc_(SHEET_TOTALS) + ' to 200 or more and run it again.</div>'
     : '') +
   '<div class="note"><b>This is a threshold outcome.</b> The population piles up just short of the ' +
-  'line, so a 10% cut in envelope volume does not cut this rate by 10% &mdash; it can halve it. ' +
+  'line, so a 10% cut in envelope volume does not cut this rate by 10%: it can halve it. ' +
   'The number describes the current ladders, not the players.</div>' +
   '<div class="basis">' +
   albumEsc_(nPlayers + ' players \u00d7 ' + pop.cells + ' of ' + pop.allCells +
@@ -3330,7 +3503,7 @@ function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wr
   '<br>' + (wrote ? 'Written to the ' + albumEsc_(TB_ALBUM) + ' block.'
                   : 'The sheet has no ' + albumEsc_(TB_ALBUM) + ' bar, so no block was written.') +
   (mirrored ? '<br>Rate also written to ' + albumEsc_(mirrored) + '.' : '') +
-  '<br>&ldquo;A. 0&rdquo; is not in this population &mdash; it has no behaviour telemetry.' +
+  '<br>&quot;A. 0&quot; is not in this population: it has no behaviour telemetry.' +
   '</div>';
 }
 
