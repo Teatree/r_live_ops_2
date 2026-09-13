@@ -165,12 +165,16 @@ RUN = {}
 #   Runs per Player       was derived from the recharge; runs now come from the ticket budget
 # Cash-Out Variant STAYS: it is a real design switch in the deck (A p9/p19, B p23) and the engine
 # reads it. Default A -- bank at any successful node.
+# ONE definition of the two stage constants the payer cash-out rule also needs. They are written
+# into RUN CONFIG below AND read by safe_above(), so the sheet and the rule cannot drift apart.
+SAFE_EVERY = 5
+LAST_STAGE = 60
 run_rows = [
     ('Choices per Stage (default)', 4, 'in', 'How many doors are shown at a node. Min 2, max 4.'),
     ('Failure Outcomes per Stage', 1, 'in', 'Base number of Pigs. The STAGES table raises this on later tiers.'),
-    ('Safe Stage Every N Stages', 5, 'in', 'Every Nth node carries no Pig at all.'),
+    ('Safe Stage Every N Stages', SAFE_EVERY, 'in', 'Every Nth node carries no Pig at all.'),
     ('Major Milestone Stage', 30, 'in', 'A safe node with a large bundle.'),
-    ('Aspirational Milestone Stage', 60, 'in', 'The final node. Reaching it auto claims everything.'),
+    ('Aspirational Milestone Stage', LAST_STAGE, 'in', 'The final node. Reaching it auto claims everything.'),
     ('Reward Tier Size (stages)', 10, 'in', 'Only used to label the Tier column.'),
     ('Starting Tickets', LAD['start_tickets'], 'in',
      'Tickets the player already holds when the event opens. Everything after this is EARNED.'),
@@ -192,41 +196,95 @@ RUNS_ROW = r
 r += 1
 
 # ---------------------------------------------------------------- SEGMENT BEHAVIOUR
+# TEN ROWS PLUS MAX since D53 (2026-09-14): one per (segment x payer flag), because every payer
+# difference in this event used to live in ONE hardcoded constant, TOF_PAYER_TOPUPS = 1.
+#
+# WHY THE PAYER ROWS DIFFER IN TAKE-UP AND CASH-OUT, not just in the top-up columns. Measured on
+# workbook (12), 40-99 PAYER, cash-out 10 - P(run banks) against coins available and willingness:
+#
+#           coins ->     87      500     2325    10000
+#     take-up 0.25     9.02%   12.98%   14.16%   14.41%     <- all the money in the world: +60%
+#     take-up 1.00    13.90%   44.26%   69.58%   85.97%     <- willingness alone: 6x
+#
+# A continue you DECLINE costs nothing and a continue you CANNOT AFFORD ends the run, so the two
+# gates are multiplicative and removing one does almost nothing while the other holds. A coin bag
+# on its own would not have produced the effect this work exists to produce.
+#
 # MAX is not a real engagement segment: it is the ceiling case -- a player with effectively
-# unlimited tickets and coins who never voluntarily stops. It exists to price the deep ladder, which
-# no real segment reaches (the deepest measured cash-out is stage 20, and 80% of the ladder's value
-# sits on stages 30 and 60). Cash-Out Stage 0 means "never cash out", which the engine already reads
-# as "run to the last stage".
-SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+', 'MAX']
-bar(r, 'SEGMENT BEHAVIOUR', 7); r += 1
-hdr(r, ['Segment', 'Continue Take-Up', 'Cash-Out Stage', 'Runs per Active Day',
+# unlimited tickets and coins who never voluntarily stops. Cash-Out Stage 0 means "never cash out",
+# which the engine already reads as "run to the last stage".
+#
+# THE ENGINE READS THIS BLOCK BY LABEL, NEVER BY POSITION (mdBlock_ / mdHeaderRow_ in
+# EcoGainsSim_v4.gs): the bar is found by its column-A text, the header row by the cell that starts
+# with 'Segment', and every column by its header NAME. So rows may move, columns may be re-ordered,
+# and notes may be inserted - only the label text is load-bearing.
+def safe_above(stage):
+    """The next SAFE stage strictly above `stage` (safe stages are every SAFE_EVERY-th).
+    Clamped to the last stage, so a deep non-payer cash-out cannot push its payer twin off the
+    end of the tower."""
+    nxt = (int(stage) // SAFE_EVERY + 1) * SAFE_EVERY
+    return min(nxt, LAST_STAGE)
+
+
+SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+', 'MAX']    # output-spill axis, unchanged
+REAL_SEGS = ['0-9', '10-19', '20-39', '40-99', '100+']
+# The INPUT block's own axis: every real segment twice, then the ceiling case.
+BEH_ROWS = [(seg, p) for seg in REAL_SEGS for p in ('NONPAYER', 'PAYER')] + [('MAX', 'PAYER')]
+bar(r, 'SEGMENT BEHAVIOUR', 12); r += 1
+hdr(r, ['Segment', 'Payer', 'Continue Take-Up', 'Cash-Out Stage', 'Runs per Active Day',
         'Max Continues per Run', 'Coin Balance override',
+        'Top-Ups per Run', 'Top-Up Take-Up', 'Coin Bag Size', 'Top-Ups per Season',
         'What this row says about this player type']); r += 1
 SEG_FIRST = r
 BEH_NOTE = {
-    '0-9': 'Rarely pays to revive, banks early at the first safe node.',
-    '10-19': 'Occasionally revives, pushes one safe node further.',
-    '20-39': 'Revives one time in five, comfortable going past the halfway safe node.',
-    '40-99': 'Often revives, pushes deep because the coins are affordable.',
-    '100+': 'Revives more often than not, so the Pig rarely stops the run.',
-    'MAX': 'CEILING CASE, not a real player: always revives, never banks early, and holds enough '
-           'coins that price never stops them. Shows what the deep ladder is worth to someone who '
-           'actually reaches it.',
+    ('0-9', 'NONPAYER'): 'Rarely pays to revive, banks early at the first safe node.',
+    ('0-9', 'PAYER'): 'Buys the odd small coin bag, but the ladder outruns them quickly.',
+    ('10-19', 'NONPAYER'): 'Occasionally revives, pushes one safe node further.',
+    ('10-19', 'PAYER'): 'Will buy a bag to save a run that is already going well.',
+    ('20-39', 'NONPAYER'): 'Revives one time in five, comfortable going past the halfway safe node.',
+    ('20-39', 'PAYER'): 'Buys twice a run and pushes one node deeper than their non-paying twin.',
+    ('40-99', 'NONPAYER'): 'Often revives, pushes deep because the coins are affordable.',
+    ('40-99', 'PAYER'): 'Reliably tops up; the bag remainder carries into later continues.',
+    ('100+', 'NONPAYER'): 'Revives more often than not, so the Pig rarely stops the run.',
+    ('100+', 'PAYER'): 'Tops up three times a run with the biggest bag, and banks deepest.',
+    ('MAX', 'PAYER'): 'CEILING CASE, not a real player: always revives, never banks early, and '
+                      'holds enough coins that price never stops them. Shows what the deep ladder '
+                      'is worth to someone who actually reaches it.',
 }
 # Runs per Active Day is a CAP, not the driver. The engine spends whatever tickets the calendar
-# paid, up to this many runs a day; 2 matches the old 12-hour recharge cadence.
+# paid, up to this many runs a day; 2 matches the old 12-hour recharge cadence. DELIBERATELY the
+# same for both payer flags (user, 2026-09-13): ticket income already differs by payer through
+# every other source, so splitting it here would count the same effect twice.
 RUNS_PER_DAY = {'0-9': 2, '10-19': 2, '20-39': 2, '40-99': 2, '100+': 2, 'MAX': 99}
-MAX_BEH = {'take': 1.0, 'stop': 0, 'balance': 100000}
-for seg in SEGMENTS:
+MAX_BEH = {'take': 1.0, 'stop': 0, 'balance': 100000,
+           'topups_run': 99, 'topup_take': 1.0, 'bag': 100000, 'topups_season': 999}
+PAY = LAD['payer']
+for seg, payer in BEH_ROWS:
+    is_max = (seg == 'MAX')
+    pay = (payer == 'PAYER') and not is_max
     put(r, 1, seg, 'data')
-    put(r, 2, MAX_BEH['take'] if seg == 'MAX' else LAD['take'][seg], 'in', '0%')
-    put(r, 3, MAX_BEH['stop'] if seg == 'MAX' else LAD['stop'][seg], 'in')
-    put(r, 4, RUNS_PER_DAY[seg], 'in', '0')
-    put(r, 5, 0, 'in')
-    put(r, 6, MAX_BEH['balance'] if seg == 'MAX' else '', 'in', '#,##0')
-    ws.cell(r, 7, BEH_NOTE[seg]).font = ARIAL(size=9, italic=True, color='FF666666')
+    put(r, 2, payer, 'data')
+    # DERIVED from the non-payer row, so a payer can never come out worse than their twin however
+    # the non-payer values are edited. safe_above() lands on the next Safe Stage (every 5th), which
+    # is where a real player banks - 'pushes one safe node further' in plain terms.
+    base_take, base_stop = LAD['take'][seg] if not is_max else 0, LAD['stop'][seg] if not is_max else 0
+    take = MAX_BEH['take'] if is_max else (min(PAY['take_cap'], round(base_take * PAY['take_mult'], 3))
+                                           if pay else base_take)
+    stop = MAX_BEH['stop'] if is_max else (safe_above(base_stop) if pay and PAY['stop_next_safe']
+                                           else base_stop)
+    put(r, 3, take, 'in', '0%')
+    put(r, 4, stop, 'in')
+    put(r, 5, RUNS_PER_DAY[seg], 'in', '0')
+    put(r, 6, 0, 'in')
+    put(r, 7, MAX_BEH['balance'] if is_max else '', 'in', '#,##0')
+    # --- the four D53 columns. A NONPAYER row is all zeros, which is exactly today's behaviour.
+    put(r, 8,  MAX_BEH['topups_run']    if is_max else (PAY['topups_run'][seg]    if pay else 0), 'in', '0')
+    put(r, 9,  MAX_BEH['topup_take']    if is_max else (PAY['topup_take'][seg]    if pay else 0), 'in', '0%')
+    put(r, 10, MAX_BEH['bag']           if is_max else (PAY['bag'][seg]           if pay else 0), 'in', '#,##0')
+    put(r, 11, MAX_BEH['topups_season'] if is_max else (PAY['topups_season'][seg] if pay else 0), 'in', '0')
+    ws.cell(r, 12, BEH_NOTE[(seg, payer)]).font = ARIAL(size=9, italic=True, color='FF666666')
     r += 1
-SEG_ROW = {seg: SEG_FIRST + i for i, seg in enumerate(SEGMENTS)}
+SEG_ROW = {sp: SEG_FIRST + i for i, sp in enumerate(BEH_ROWS)}
 # Column meanings, written once under the block so nobody has to guess.
 for txt in [
     'Continue Take-Up: the chance this player PAYS COINS to revive when a Pig ends their run. '
@@ -241,7 +299,30 @@ for txt in [
     'Coin Balance override: normally BLANK, and the sim reads the four hc_balance percentiles '
     '(p25/p50/p75/p90) for this segment straight from data_econ, walking the run at each and '
     'averaging. A number here replaces all four for this segment - which is how MAX gets a wallet '
-    'no real player has.',
+    'no real player has. NOTE: payers hold LESS coin than non-payers at every percentile of every '
+    'segment (40-99: 0.26x at p90), because a balance is a STOCK and payers spend theirs. That is '
+    'why the payer advantage is modelled as a purchase FLOW below, not as a bigger wallet.',
+    '',
+    'THE FOUR TOP-UP COLUMNS (D53). Together they replace TOF_PAYER_TOPUPS, which was one hardcoded '
+    '1 in EcoGainsSim_v4.gs and the ONLY thing that made a payer different from a non-payer.',
+    'Top-Ups per Run: how many times this player will buy coins inside ONE run. 0 = never, which is '
+    'every non-payer row and is exactly the pre-D53 behaviour.',
+    'Top-Up Take-Up: the chance they actually buy AT THE MOMENT the run would otherwise end - i.e. '
+    'a Pig has come up, they want to continue, and the wallet cannot cover the price. It is not a '
+    'conversion rate for the game; it is a willingness at one specific prompt. ASSUMPTION, not a '
+    'measurement: no data source here separates a coin purchase made during this event.',
+    'Coin Bag Size: the coins added by one purchase. NOT the price of the continue - a bag that '
+    'overshoots leaves the REMAINDER in the wallet, and that remainder is what makes a payer '
+    'progressively deeper rather than one rung better. Size it against the CONTINUE COST LADDER '
+    'below, not in round numbers.',
+    'Top-Ups per Season: the cap across the whole 33-day window. Without it a player buying twice a '
+    'run over ~12 runs makes 24 purchases, which would make this event the biggest coin faucet in '
+    'the game.',
+    '',
+    'TO MAKE THIS BLOCK INERT (reproduce the pre-D53 numbers exactly): set Top-Up Take-Up to 0 on '
+    'every row, and copy the Continue Take-Up and Cash-Out Stage of each PAYER row from the '
+    'NONPAYER '
+    'row above it. The engine then reads eleven rows that behave like the old six.',
 ]:
     ws.cell(r, 1, txt).font = ARIAL(size=9, italic=True, color='FF666666')
     r += 1
@@ -436,7 +517,8 @@ out = os.path.join(DISPLAY, 'ToF_v1.xlsx')
 wb.save(out)
 print('written ToF_v1.xlsx  (sheet "ToF")')
 print('  RUN CONFIG        rows %d..%d' % (RUN_FIRST, RUNS_ROW))
-print('  SEGMENT BEHAVIOUR rows %d..%d' % (SEG_FIRST, SEG_FIRST + len(SEGMENTS) - 1))
+print('  SEGMENT BEHAVIOUR rows %d..%d  (%d rows: %d segments x 2 payer flags + MAX)'
+      % (SEG_FIRST, SEG_FIRST + len(BEH_ROWS) - 1, len(BEH_ROWS), len(REAL_SEGS)))
 print('  CONTINUE COSTS    rows %d..%d   (INPUT, above the SIM PART divider)' % (CONT_FIRST, CONT_LAST))
 print('  STAGES            rows %d..%d' % (NODE_FIRST, NODE_LAST))
 print('  SIM PART          RUN row %d, REWARD row %d, GAIN VS SPEND row %d  (engine spills)'
