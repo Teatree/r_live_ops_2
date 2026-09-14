@@ -937,16 +937,26 @@ const SP_SEG = '10-19';        // headroom on both sides (Tm 23 -> Ts 18) — se
 }
 // ---------- Core SPT gates (D17: level-completion tokens priced off the SP / SP_v2 panel) -----
 console.log('\n================ CORE SPT GATES ================');
-// D18 model: data_gains has no Core SPT rows -> the anchor is SYNTHETIC (L x E_base) and the
-// sim side is L x E_v2 = meas x R. E is the difficulty-mix per-level SPT AVERAGED over the two
-// season-half columns of the SP / SP_v2 panel. All expectations recomputed via engine fns +
-// independent sheet reads — never hardcoded.
+// D18 model: data_gains has no Core SPT rows -> the base anchor is SYNTHETIC (L x E_base) and the
+// sim side prices the same L at E_v2. E is the difficulty-mix per-level SPT AVERAGED over the two
+// season-half columns of the SP / SP_v2 panel.
+//
+// D54 (2026-09-14) adds a SECOND term to the same row. SPTx2 is MINUTES of doubled
+// level-completion SPT (data_gains types it `minutes`, alongside Unlimited Lives), so every buff
+// minute granted anywhere in the season converts into extra completions worth one more E each:
+//
+//     Core SPT = L x E  +  (x2 minutes / minutesPerLevel) x utilization x E
+//
+// The gates below therefore assert a DECOMPOSITION, not a single product, and every one of them
+// is written so that it fails if either term goes missing. minutesPerLevel is recomputed here
+// straight from data_seg_beh so the engine helper is never checked against itself.
 {
   const c = Context.get();
-  const iSPT = RESOURCES.indexOf('SPT');
-  const rawCore = c.ds.gains('40-99', 'NONPAYER', 'Core', 'SPT');
-  const measCore = num(measuredRow_('Core', '40-99', 'NONPAYER', c.ds)['SPT']);
-  const coreSPT = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Core')][iSPT];
+  const iSPT = RESOURCES.indexOf('SPT'), iX2 = RESOURCES.indexOf('SPTx2');
+  const SEG = '40-99', PAY = 'NONPAYER';
+  const rawCore = c.ds.gains(SEG, PAY, 'Core', 'SPT');
+  const measCore = num(measuredRow_('Core', SEG, PAY, c.ds)['SPT']);
+  const coreSPT = ECOGAINS_SIM(PAY, SEG)[idx('Core')][iSPT];
   const R = coreSptR_(c);
   // independent E recompute straight off the sheet values (label row -> [2nd half, 1st half])
   const panelE = (sheet) => {
@@ -970,36 +980,197 @@ console.log('\n================ CORE SPT GATES ================');
        eBase > 0 && Math.abs(coreSptE_('SP', coreSptMix_('SP')) - eBase) < 1e-9,
        `E_base ${eBase.toFixed(2)}, E_v2 ${eV2.toFixed(2)}`);
   // independent L recompute: levels/active-day x Σ p_day over the 33-day window
-  const beh = c.ds.beh('40-99', 'NONPAYER');
+  const beh = c.ds.beh(SEG, PAY);
   let expDays = 0;
   for (let d = 1; d <= 33; d++) expDays += isWeekend_(d) ? num(beh.weekend_active_rate) : num(beh.weekday_active_rate);
   const Lexp = num(beh.levels_completed_per_active_day) * expDays;
-  // DATA-AWARE (D18): the synthetic anchor fires only while data_gains has no Core SPT rows.
-  // Workbook (14)'s re-pull DOES carry them, so the synthetic stands down and the raw value is
-  // the anchor — that is the designed takeover, not a regression. Gate whichever path is live.
+  // D54: minutes per completion, recomputed here from data_seg_beh rather than asked of the engine.
+  const mplExp = num(beh.minutes_per_active_day) / num(beh.levels_completed_per_active_day);
+  const util = sptx2Util_();
+  gate('minutesPerLevel_ == minutes_per_active_day / levels_completed_per_active_day (measured)',
+       mplExp > 0 && Math.abs(minutesPerLevel_(SEG, PAY, c.ds) - mplExp) < 1e-12,
+       `${SEG} ${PAY}: ${mplExp.toFixed(2)} min per completion, utilization ${util}`);
+  // DATA-AWARE (D18): the synthetic base fires only while data_gains has no Core SPT rows.
   const synthetic = (rawCore === 0);
-  const anchor = synthetic ? Lexp * eBase : rawCore;
-  gate(`Core SPT anchor ${synthetic ? 'SYNTHETIC (raw 0, meas = L x E_base)' : 'RAW (data_gains carries Core SPT)'}`,
-       measCore > 0 && Math.abs(measCore - anchor) < 1e-6,
-       `raw ${rawCore.toFixed(2)} · meas ${measCore.toFixed(2)} vs anchor ${anchor.toFixed(2)}` +
-       (synthetic ? ` (L ${Lexp.toFixed(1)} x E ${eBase.toFixed(2)})` : ''));
-  gate('Core SPT sim = meas x R' + (synthetic ? ' (= L x E_v2)' : ''),
-       Math.abs(coreSPT - measCore * R) < 1e-6 &&
-       (!synthetic || Math.abs(coreSPT - Lexp * eV2) < 1e-6),
-       `sim ${coreSPT.toFixed(2)} vs ${(measCore * R).toFixed(2)} (R=${R.toFixed(3)})`);
+  const base = synthetic ? Lexp * eBase : rawCore;
+  const x2m = sptx2MinutesMeas_(SEG, PAY, c.ds), x2s = sptx2MinutesSim_(SEG, PAY, c);
+  const bonusM = (x2m / mplExp) * util * eBase, bonusS = (x2s / mplExp) * util * eV2;
+  gate(`Core SPT measured = ${synthetic ? 'L x E_base' : 'raw'} + SPTx2 buff`,
+       measCore > 0 && Math.abs(measCore - (base + bonusM)) < 1e-6,
+       `meas ${measCore.toFixed(2)} = base ${base.toFixed(2)} + buff ${bonusM.toFixed(2)} ` +
+       `(${x2m.toFixed(1)} min / ${mplExp.toFixed(2)} = ${(x2m / mplExp).toFixed(2)} completions x ${eBase.toFixed(2)})`);
+  gate(`Core SPT sim = ${synthetic ? 'L x E_v2' : 'raw x R'} + SPTx2 buff at E_v2`,
+       Math.abs(coreSPT - (base * R + bonusS)) < 1e-6 &&
+       (!synthetic || Math.abs(base * R - Lexp * eV2) < 1e-6),
+       `sim ${coreSPT.toFixed(2)} = base ${(base * R).toFixed(2)} + buff ${bonusS.toFixed(2)} ` +
+       `(${x2s.toFixed(1)} min, R=${R.toFixed(3)})`);
+  // The buff has to be a REAL addition, not a rounding artefact, or every gate below is vacuous.
+  gate('the SPTx2 buff term is materially non-zero (otherwise these gates prove nothing)',
+       bonusM > 1e-6 && bonusS > 1e-6,
+       `measured +${(100 * bonusM / base).toFixed(2)}% of the Core faucet, simulated +${(100 * bonusS / (base * R)).toFixed(2)}%`);
   // both sides of the tier coupling must include the Core faucet, whichever anchor is live
-  const t = sptTotals_('40-99', 'NONPAYER', Context.get());
+  const t = sptTotals_(SEG, PAY, c);
   let rawMeasTotal = 0;
-  CATEGORY_ORDER.forEach((cat) => {
-    rawMeasTotal += c.ds.gains('40-99', 'NONPAYER', cat, 'SPT') + 2 * c.ds.gains('40-99', 'NONPAYER', cat, 'SPTx2');
-  });
-  const expectTotal = synthetic ? rawMeasTotal + Lexp * eBase : rawMeasTotal;
-  gate('sptTotals_ measured side includes the Core faucet',
-       Math.abs(t.meas - expectTotal) < 1e-6,
-       `meas ${t.meas.toFixed(2)} vs ${expectTotal.toFixed(2)}`);
+  CATEGORY_ORDER.forEach((cat) => { rawMeasTotal += c.ds.gains(SEG, PAY, cat, 'SPT'); });
+  gate('sptTotals_ measured side includes the Core faucet AND its buff, and scores SPTx2 ONCE',
+       Math.abs(t.meas - (rawMeasTotal + base + bonusM)) < 1e-6,
+       `meas ${t.meas.toFixed(2)} vs ${(rawMeasTotal + base + bonusM).toFixed(2)} ` +
+       `(raw SPT ${rawMeasTotal.toFixed(2)} + Core ${(base + bonusM).toFixed(2)})`);
 }
-// Real-data precedence: inject a data_gains Core SPT row -> the synthetic anchor must stand
-// down (measuredRow_ returns the raw value; sim = raw x R; no double count).
+// D54 mutation fixtures. Each one changes exactly one input and asserts the term it should move.
+{
+  const SEG = '40-99', PAY = 'NONPAYER';
+  const iSPT = RESOURCES.indexOf('SPT'), iX2 = RESOURCES.indexOf('SPTx2');
+  const coreOf = (grid) => grid[idx('Core')][iSPT];
+  const baseGrid = ECOGAINS_SIM(PAY, SEG);
+  const baseCore = coreOf(baseGrid);
+
+  // (a) MASTER SWITCH. SPTX2_AS_MINUTES = false must reproduce the pre-D54 model exactly:
+  //     Core SPT = L x E with no buff term, and sptTotals_ back to scoring SPT + 2 x SPTx2.
+  const engineX2Off = engineSrc.replace('var SPTX2_AS_MINUTES  = true;',
+                                        'var SPTX2_AS_MINUTES  = false;');
+  gate('SPTX2_AS_MINUTES variants are distinct (the flip actually rewrites the source)',
+       engineX2Off !== engineSrc);
+  eval(engineX2Off); resetSheetCache();
+  {
+    const c = Context.get();
+    const b = c.ds.beh(SEG, PAY);
+    let d2 = 0; for (let d = 1; d <= 33; d++) d2 += isWeekend_(d) ? num(b.weekend_active_rate) : num(b.weekday_active_rate);
+    const L = num(b.levels_completed_per_active_day) * d2;
+    const E = coreSptE_('SP', coreSptMix_('SP')), R = coreSptR_(c);
+    const m = num(measuredRow_('Core', SEG, PAY, c.ds)['SPT']);
+    const s = coreOf(ECOGAINS_SIM(PAY, SEG));
+    gate('SPTX2_AS_MINUTES = false -> the pre-D54 model, bit for bit (meas = L x E, sim = meas x R)',
+         Math.abs(m - L * E) < 1e-6 && Math.abs(s - m * R) < 1e-6,
+         `meas ${m.toFixed(2)} vs ${(L * E).toFixed(2)} · sim ${s.toFixed(2)} vs ${(m * R).toFixed(2)}`);
+    // and the old double-scoring is back in the tier total
+    const t = sptTotals_(SEG, PAY, c);
+    let old = 0;
+    CATEGORY_ORDER.forEach((cat) => {
+      const mr = measuredRow_(cat, SEG, PAY, c.ds);
+      old += num(mr['SPT']) + 2 * num(mr['SPTx2']);
+    });
+    gate('SPTX2_AS_MINUTES = false -> sptTotals_ scores SPT + 2 x SPTx2 again',
+         Math.abs(t.meas - old) < 1e-6, `meas ${t.meas.toFixed(2)} vs ${old.toFixed(2)}`);
+  }
+  eval(engineSrc); resetSheetCache();
+
+  // (b) UTILIZATION. An authored 'SPTx2 Utilization' of 0 on the SP panel must delete the buff
+  //     term and leave the base faucet untouched - the cleanest proof the two are separable.
+  {
+    const orig = JSON.parse(JSON.stringify(data['SP']));
+    data['SP'].values.push(['SPTx2 Utilization', 0]);
+    eval(engineSrc); resetSheetCache();
+    const c = Context.get();
+    const b = c.ds.beh(SEG, PAY);
+    let d2 = 0; for (let d = 1; d <= 33; d++) d2 += isWeekend_(d) ? num(b.weekend_active_rate) : num(b.weekday_active_rate);
+    const L = num(b.levels_completed_per_active_day) * d2, E = coreSptE_('SP', coreSptMix_('SP'));
+    const m = num(measuredRow_('Core', SEG, PAY, c.ds)['SPT']);
+    gate("SP panel 'SPTx2 Utilization' = 0 -> buff worth nothing, base faucet unchanged",
+         Math.abs(m - L * E) < 1e-6, `meas ${m.toFixed(2)} vs L x E ${(L * E).toFixed(2)}`);
+    data['SP'] = orig; eval(engineSrc); resetSheetCache();
+  }
+
+  // (c) MINUTES PER LEVEL. An authored override must replace the measured tempo for EVERY cell,
+  //     and a longer level must make the same buff minutes worth proportionally less.
+  {
+    const c0 = Context.get();
+    const mpl0 = minutesPerLevel_(SEG, PAY, c0.ds);
+    const b0 = coreBaseSpt_(SEG, PAY, c0.ds);
+    const meas0 = num(measuredRow_('Core', SEG, PAY, c0.ds)['SPT']);
+    const orig = JSON.parse(JSON.stringify(data['SP']));
+    data['SP'].values.push(['Minutes per Level', 10]);
+    eval(engineSrc); resetSheetCache();
+    const c = Context.get();
+    const every = ['0-9', '10-19', '20-39', '40-99', '100+'].every(
+      (sg) => Math.abs(minutesPerLevel_(sg, 'PAYER', c.ds) - 10) < 1e-12);
+    const meas1 = num(measuredRow_('Core', SEG, PAY, c.ds)['SPT']);
+    gate("SP panel 'Minutes per Level' overrides the measured tempo on every cell", every,
+         'all five segments read 10.00 min');
+    gate('a longer level makes the same buff minutes worth proportionally less',
+         (meas0 - b0) > 1e-6 && Math.abs((meas1 - b0) * 10 - (meas0 - b0) * mpl0) < 1e-4,
+         `buff ${(meas1 - b0).toFixed(2)} at 10.00 min vs ${(meas0 - b0).toFixed(2)} at ${mpl0.toFixed(2)} min`);
+    data['SP'] = orig; eval(engineSrc); resetSheetCache();
+  }
+
+  // (d) SUPPLY. Doubling every authored SPTx2 minute on the Rainbow Maker ladder the engine
+  //     actually reads must double the buff term, and - the attribution rule (user decision
+  //     2026-09-14) - move NOTHING except Core in the SPT column. Rainbow Maker keeps its minutes
+  //     in its own SPTx2 cell and its SPT cell does not budge. Which sheet carries the authored
+  //     column differs by workbook lineage (RM_2nd_v2 in the collections dump, RM_2nd in the ECO
+  //     one), so the fixture FINDS it rather than naming it - a hardcoded sheet name here would
+  //     be the same class of bug the RM split gates were rewritten to avoid.
+  {
+    const hdrOf = (sh) => {
+      if (!data[sh]) return null;
+      for (let r = 0; r < data[sh].values.length; r++)
+        for (let k = 0; k < data[sh].values[r].length; k++)
+          if (String(data[sh].values[r][k]).trim() === 'SPT x2') return { r, k };
+      return null;
+    };
+    const sumOf = (sh, h) => {
+      let t = 0;
+      for (let r = h.r + 1; r < data[sh].values.length; r++) {
+        const v = data[sh].values[r][h.k];
+        if (typeof v === 'number') t += v;
+      }
+      return t;
+    };
+    let SH = null, H0 = null;
+    for (const cand of ['RM_2nd_v2', 'RM_2nd', 'RM_1st_v2', 'RM_1st', 'RM']) {
+      const h = hdrOf(cand);
+      if (h && sumOf(cand, h) > 0) { SH = cand; H0 = h; break; }
+    }
+    gate('a Rainbow Maker ladder with authored SPTx2 minutes exists (the fixture below needs one)',
+         SH !== null, SH ? `${SH}, SPT x2 header at row ${H0.r + 1} col ${H0.k + 1}, ` +
+         `${sumOf(SH, H0)} min authored` : 'none of RM_2nd_v2 / RM_2nd / RM_1st_v2 / RM_1st / RM');
+    if (SH) {
+      const orig = JSON.parse(JSON.stringify(data[SH]));
+      const x2before = sptx2MinutesSim_(SEG, PAY, Context.get());
+      for (let r = H0.r + 1; r < data[SH].values.length; r++) {
+        const v = data[SH].values[r][H0.k];
+        if (typeof v === 'number' && v !== 0) data[SH].values[r][H0.k] = v * 2;
+      }
+      eval(engineSrc); resetSheetCache();
+      const c = Context.get();
+      const grid = ECOGAINS_SIM(PAY, SEG);
+      const b = coreBaseSpt_(SEG, PAY, c.ds), R = coreSptR_(c);
+      const buff2 = coreOf(grid) - b * R, buff1 = baseCore - b * R;
+      // NOT "the buff doubles": doubling ONE ladder doubles only that ladder's share of the
+      // minutes, and the rest of the season still supplies the others. The rule is that the buff
+      // moves by exactly the extra minutes, converted at the segment tempo and the v2 per-level
+      // price - which is a strictly tighter statement than a factor of two, and it is the one
+      // that catches a mis-scaled conversion.
+      const x2after = sptx2MinutesSim_(SEG, PAY, c);
+      const expDelta = ((x2after - x2before) / minutesPerLevel_(SEG, PAY, c.ds))
+                       * sptx2Util_() * coreSptEBase_() * R;
+      gate('extra authored SPTx2 minutes raise the Core buff by exactly their converted value',
+           (x2after - x2before) > 1e-6 && Math.abs((buff2 - buff1) - expDelta) < 1e-4,
+           `${x2before.toFixed(1)} -> ${x2after.toFixed(1)} min · buff ${buff1.toFixed(2)} -> ` +
+           `${buff2.toFixed(2)} (+${expDelta.toFixed(2)} expected, Core base ${(b * R).toFixed(2)} unchanged)`);
+      const moved = CATEGORY_ORDER.filter((cat, i) => Math.abs(grid[i][iSPT] - baseGrid[i][iSPT]) > 1e-9);
+      gate('ATTRIBUTION: the buff lands on Core alone - no other SPT row moves',
+           moved.length === 1 && moved[0] === 'Core', `moved: ${moved.join(', ') || 'none'}`);
+      const rmX2 = grid[idx('Rainbow Maker')][iX2], rmX2base = baseGrid[idx('Rainbow Maker')][iX2];
+      gate('the granting source keeps its SPTx2 MINUTES in its own column',
+           rmX2base > 1e-6 && Math.abs(rmX2 - 2 * rmX2base) < 1e-4,
+           `Rainbow Maker SPTx2 ${rmX2base.toFixed(1)} -> ${rmX2.toFixed(1)} min`);
+      data[SH] = orig; eval(engineSrc); resetSheetCache();
+    }
+  }
+
+  // (e) ORDERING. The buff is priced per cell precisely because the measured tempo differs; if
+  //     that ordering ever inverts, a flat constant would be the honest model instead.
+  {
+    const c = Context.get();
+    const slow = minutesPerLevel_('0-9', 'NONPAYER', c.ds), fast = minutesPerLevel_('100+', 'PAYER', c.ds);
+    gate('an engaged player converts a buff minute better than a beginner (measured tempo)',
+         slow > fast && fast > 0,
+         `0-9 NONPAYER ${slow.toFixed(2)} min per completion vs 100+ PAYER ${fast.toFixed(2)}`);
+  }
+}
+// Real-data precedence: inject a data_gains Core SPT row -> the synthetic BASE must stand down
+// (raw value takes over) while the D54 buff term stays on top of it, unchanged.
 {
   const orig = JSON.parse(JSON.stringify(data['data_gains']));
   const hdr = data['data_gains'].values[0];
@@ -1012,10 +1183,14 @@ console.log('\n================ CORE SPT GATES ================');
   const c = Context.get(), iSPT = RESOURCES.indexOf('SPT');
   const measCore = num(measuredRow_('Core', '40-99', 'NONPAYER', c.ds)['SPT']);
   const coreSPT = ECOGAINS_SIM('NONPAYER', '40-99')[idx('Core')][iSPT];
-  const R = coreSptR_(c);
-  gate('real Core SPT data present -> synthetic stands down (meas = raw, sim = raw x R)',
-       Math.abs(measCore - 123.45) < 1e-9 && Math.abs(coreSPT - 123.45 * R) < 1e-6,
-       `meas ${measCore.toFixed(2)}, sim ${coreSPT.toFixed(2)}, R ${R.toFixed(3)}`);
+  const R = coreSptR_(c), eB = coreSptEBase_(), util = sptx2Util_();
+  const mpl = minutesPerLevel_('40-99', 'NONPAYER', c.ds);
+  const bM = (sptx2MinutesMeas_('40-99', 'NONPAYER', c.ds) / mpl) * util * eB;
+  const bS = (sptx2MinutesSim_('40-99', 'NONPAYER', c) / mpl) * util * eB * R;
+  gate('real Core SPT data present -> synthetic base stands down, buff term survives on top',
+       Math.abs(measCore - (123.45 + bM)) < 1e-6 && Math.abs(coreSPT - (123.45 * R + bS)) < 1e-6,
+       `meas ${measCore.toFixed(2)} = 123.45 + ${bM.toFixed(2)}, sim ${coreSPT.toFixed(2)} = ` +
+       `${(123.45 * R).toFixed(2)} + ${bS.toFixed(2)}`);
   data['data_gains'] = orig;
   eval(engineSrc); resetSheetCache();
   const again = ECOGAINS_SIM('NONPAYER', '40-99');

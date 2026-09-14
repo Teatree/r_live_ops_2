@@ -77,6 +77,10 @@
  *      ARE tracked (since D16): event payouts land per claim, and Core level-completion SPT (D17)
  *      is one aggregate day-end claim = (wins x E_SPT), E_SPT = Σ mix x per-level reward priced off
  *      SP (cal_curr) / SP_v2 (cal_new). Season-pass TIER claims remain window-sim only (note 18).
+ *  11. SPTx2 is MINUTES of doubled level-completion SPT, not a token count (D54, 2026-09-14), so
+ *      the day's granted minutes cash out as a SECOND day-end Core claim: minutes divided by the
+ *      segment measured minutes-per-completion, capped at the day's actual wins. Unlike the window
+ *      views this one can run out of levels to double, and says so on the ledger row.
  ************************************************************************************************/
 
 var PBP_SHEET = 'EcoGainsSim_PlybyPly';
@@ -319,7 +323,8 @@ function pbpSimulate_(a){
   // SP_v2 (redesign), so editing the per-level SPT rewards moves this. ONE aggregate day-end claim
   // (the per-win value is an expectation over the difficulty mix, not a per-level draw — we do not
   // model which levels are Normal/Hard/Extreme). Panel absent / E=0 -> nothing emitted (Core stays
-  // unmodeled, exactly as before). Core pays no SPTx2 (measured 0). Reuses the v4 helpers.
+  // unmodeled, exactly as before). Core GRANTS no SPTx2 (measured 0) but it is where every other
+  // source's SPTx2 minutes are CASHED - see the buff claim below. Reuses the v4 helpers.
   var coreSheet = (a.cal === CAL_NEW) ? spV2Sheet_('SP') : 'SP';
   var eSPT = coreSptE_(coreSheet, coreSptMix_('SP')), winCount = 0;
   plays.forEach(function(pl){ if (pl.win) winCount++; });
@@ -327,6 +332,35 @@ function pbpSimulate_(a){
     grantsE.push({ cat: 'Core', rew: { 'SPT': Math.round(eSPT * winCount * 100) / 100 },
                    note: winCount + ' level completions x ' + (Math.round(eSPT * 100) / 100) +
                          ' SPT (difficulty mix)' });
+
+  // --- SPTx2: MINUTES of doubled level-completion SPT (D54) -----------------------------------
+  // Every buff minute granted today - at session start, on a play, or at day end - converts into
+  // extra completions at this segment's own MEASURED tempo (minutes_per_active_day divided by
+  // levels_completed_per_active_day), each worth one more E_SPT. Same conversion the window sim
+  // uses, so the two views agree on what a minute is worth.
+  //
+  // What the session view can see that the window sim cannot: a buff cannot double more
+  // completions than the player actually made. The claim is therefore CAPPED at the day's wins
+  // and any surplus is reported as expiring rather than quietly paid - which means a buff handed
+  // over at day end, when the session is already finished, shows as expiring in full. That is the
+  // honest reading of the ledger, and it is exactly the timing the 33-day view averages away.
+  var x2min = 0;
+  grantsS.forEach(function(g){ x2min += num((g.rew || {})['SPTx2']); });
+  plays.forEach(function(pl){
+    (pl.grants || []).forEach(function(g){ x2min += num((g.rew || {})['SPTx2']); });
+  });
+  grantsE.forEach(function(g){ x2min += num((g.rew || {})['SPTx2']); });
+  var mpl = minutesPerLevel_(a.seg, a.payer, ctx.ds);
+  if (SPTX2_AS_MINUTES && x2min > 0 && eSPT > 1e-9 && mpl > 0){
+    var want = (x2min / mpl) * sptx2Util_(), got = Math.min(want, winCount);
+    var r2 = function(x){ return Math.round(x * 100) / 100; };
+    grantsE.push({ cat: 'Core', rew: got > 0 ? { 'SPT': r2(eSPT * got) } : {},
+                   note: r2(x2min) + ' min SPTx2 / ' + r2(mpl) + ' min per completion = ' +
+                         r2(want) + ' doubled completions' +
+                         (got > 0 ? ' x ' + r2(eSPT) + ' SPT' : '') +
+                         (want > got + 1e-9 ? ' (' + r2(want - got) + ' expired unused - only ' +
+                          winCount + ' completions today)' : '') });
+  }
 
   return { N: N, p: p, q: q, startLevel: startLevel, plays: plays, active: active,
            progress: progress, grantsS: grantsS, grantsE: grantsE, beh: beh, st: st };

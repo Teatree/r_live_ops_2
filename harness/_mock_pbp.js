@@ -383,6 +383,99 @@ check('NS Expected: some segment reaches a milestone (ladder/streak read sane)',
         Math.abs(nsHCday('cal_new', WD) - beforeWd) < 1e-9);
 }
 
+// ---------- D54: SPTx2 is MINUTES of doubled level-completion SPT ----------------------------
+// The session view is the only one that can see the buff run out of levels to double, so it gates
+// two things the window sim cannot: the conversion itself, and the cap at the day's actual wins.
+// The day is FOUND, never named - which days grant SPTx2 depends on where the Rainbow Maker
+// instances land, and a hardcoded day would silently stop testing anything when the calendar moves.
+{
+  const X2_DAYS = [];
+  for (const seg of ['0-9', '10-19', '20-39', '40-99', '100+'])
+    for (const pay of ['NONPAYER', 'PAYER'])
+      for (let d = 1; d <= 33; d++) {
+        let L;
+        try { L = ECOGAINS_PBP('cal_new', d, seg, pay, 'Sampled', 'p50', 42); } catch (e) { continue; }
+        if (L.some(r => String(r[CLAIMS_COL] || '').includes('SPT x2'))) { X2_DAYS.push([seg, pay, d]); break; }
+      }
+  check('a cal_new day that grants SPTx2 exists (the fixture below needs one)',
+        X2_DAYS.length > 0, `${X2_DAYS.length} segment/payer cells have one`);
+
+  if (X2_DAYS.length) {
+    const [SEG, PAY, DAY] = X2_DAYS[0];
+    const L2 = ECOGAINS_PBP('cal_new', DAY, SEG, PAY, 'Sampled', 'p50', 42);
+    const claims = ledgerBody(L2).map(r => String(r[CLAIMS_COL] || ''));
+    const baseRow = claims.find(c => /level completions x [\d.]+ SPT/.test(c));
+    const buffRow = claims.find(c => /min SPTx2/.test(c));
+    check('the SPTx2 buff cashes out as its own Core ledger row',
+          !!buffRow, `${SEG} ${PAY} day ${DAY}: ${(buffRow || 'NO BUFF ROW').slice(0, 90)}`);
+    if (baseRow && buffRow) {
+      const bm = baseRow.match(/(\d+) level completions x ([\d.]+) SPT/);
+      const wins = +bm[1], eSPT = +bm[2];
+      const xm = buffRow.match(/([\d.]+) min SPTx2 \/ ([\d.]+) min per completion = ([\d.]+) doubled completions/);
+      check('the buff row states minutes, tempo and completions', !!xm, buffRow.slice(0, 110));
+      if (xm) {
+        const mins = +xm[1], mpl = +xm[2], want = +xm[3];
+        // tempo comes from the engine helper, which _mock_run gates against data_seg_beh directly
+        check('PBP prices the buff at the same measured tempo as the window sim',
+              Math.abs(mpl - minutesPerLevel_(SEG, PAY, Context.get().ds)) < 0.005,
+              `ledger ${mpl} vs engine ${minutesPerLevel_(SEG, PAY, Context.get().ds).toFixed(2)}`);
+        check('doubled completions == minutes / tempo x utilization',
+              Math.abs(want - (mins / mpl) * sptx2Util_()) < 0.02,
+              `${mins} / ${mpl} x ${sptx2Util_()} = ${((mins / mpl) * sptx2Util_()).toFixed(2)} vs ${want}`);
+        // the minutes on the row must be the minutes the day actually granted, not a constant
+        const granted = parseBundles(L2)['SPT x2'] || 0;
+        check('the minutes converted are the minutes the day actually granted',
+              granted > 0 && Math.abs(mins - granted) < 0.02, `row ${mins} vs bundles ${granted}`);
+        const paid = (buffRow.match(/\{SPT: ([\d.]+)\}/) || [0, 0])[1];
+        // RELATIVE tolerance, deliberately: every number in the note is printed to 2dp, so
+        // rebuilding the product from them cannot land closer than the rounding allows. An
+        // absolute epsilon here would be asserting the display precision, not the model.
+        const expect = Math.min(want, wins) * eSPT;
+        check('the buff pays min(doubled completions, the day wins) x E_SPT',
+              Math.abs(+paid - expect) / Math.max(1, expect) < 0.002,
+              `paid ${paid} vs ${expect.toFixed(2)} (want ${want}, wins ${wins}, E ${eSPT})`);
+      }
+    }
+
+    // MASTER SWITCH: with SPTX2_AS_MINUTES off the buff row must not exist at all, and the base
+    // Core claim must be untouched - i.e. the whole D54 term is behind the flag here too.
+    const pbpSrc = fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8');
+    const v4Off = fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')
+                    .replace('var SPTX2_AS_MINUTES  = true;', 'var SPTX2_AS_MINUTES  = false;');
+    eval(v4Off); eval(pbpSrc); _sheetValsCache = {};
+    const LOff = ECOGAINS_PBP('cal_new', DAY, SEG, PAY, 'Sampled', 'p50', 42);
+    const offClaims = ledgerBody(LOff).map(r => String(r[CLAIMS_COL] || ''));
+    check('SPTX2_AS_MINUTES = false -> no buff row, base Core claim unchanged',
+          !offClaims.some(c => /min SPTx2/.test(c)) &&
+          offClaims.some(c => /level completions x [\d.]+ SPT/.test(c)),
+          offClaims.filter(c => /SPTx2|level completions/.test(c)).join(' | ').slice(0, 110));
+    eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')); eval(pbpSrc); _sheetValsCache = {};
+
+    // THE CAP. Force the tempo to 0.01 min per completion so the buff wants vastly more
+    // completions than the day produced: the claim has to stop at the day wins and SAY so.
+    const orig = JSON.parse(JSON.stringify(data['SP']));
+    data['SP'].values.push(['Minutes per Level', 0.01]);
+    eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')); eval(pbpSrc); _sheetValsCache = {};
+    const LCap = ECOGAINS_PBP('cal_new', DAY, SEG, PAY, 'Sampled', 'p50', 42);
+    const capClaims = ledgerBody(LCap).map(r => String(r[CLAIMS_COL] || ''));
+    const capBase = capClaims.find(c => /level completions x [\d.]+ SPT/.test(c));
+    const capBuff = capClaims.find(c => /min SPTx2/.test(c));
+    const cbm = capBase && capBase.match(/(\d+) level completions x ([\d.]+) SPT/);
+    const capPaid = capBuff && (capBuff.match(/\{SPT: ([\d.]+)\}/) || [0, 0])[1];
+    const capExpect = cbm ? (+cbm[1]) * (+cbm[2]) : NaN;
+    check('a buff longer than the session is capped at the day wins and reports the surplus',
+          !!capBuff && /expired unused/.test(capBuff) && !!cbm &&
+          Math.abs(+capPaid - capExpect) / Math.max(1, capExpect) < 0.002,
+          (capBuff || 'NO BUFF ROW').slice(0, 150) +
+          ` [paid ${capPaid} vs wins x E ${isNaN(capExpect) ? '?' : capExpect.toFixed(2)}]`);
+    data['SP'] = orig;
+    eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8')); eval(pbpSrc); _sheetValsCache = {};
+    const LBack = ECOGAINS_PBP('cal_new', DAY, SEG, PAY, 'Sampled', 'p50', 42);
+    check('SPTx2 fixtures restored (baseline ledger reproduces)',
+          JSON.stringify(LBack) === JSON.stringify(L2));
+  }
+}
+
 // back to the shipped defaults for the smoke tests
 eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
 eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));

@@ -217,12 +217,16 @@ function resultRow_(cat, seg, payer, ctx){
 // A. 0 stays raw (appendix — no behaviour telemetry, §3).
 function measuredRow_(cat, seg, payer, ds){
   var row = ds.dataRow(cat, seg, payer);
-  if (cat === 'Core' && seg !== 'A. 0' && seg !== 'A.0' && !(num(row['SPT']) > 0)){
-    var syn = coreSptSynth_(seg, payer, ds);
-    if (syn){
+  // Core SPT = the level-completion faucet, plus the SPTx2 buff minutes every OTHER source paid
+  // out (D54). Returns the row untouched when neither half moves, so a workbook with no SP panel
+  // stays bit-identical to before.
+  if (cat === 'Core' && seg !== 'A. 0' && seg !== 'A.0'){
+    var base = coreBaseSpt_(seg, payer, ds);
+    var bonus = sptx2ToSpt_(sptx2MinutesMeas_(seg, payer, ds), seg, payer, ds, coreSptEBase_());
+    if (base !== num(row['SPT']) || bonus !== 0){
       var o = {};
       RESOURCES.forEach(function(r){ o[r] = num(row[r]); });
-      o['SPT'] = syn.meas;
+      o['SPT'] = base + bonus;
       return o;
     }
   }
@@ -273,12 +277,14 @@ function appendixRow_(cat, payer, ctx){
 // SP_v2 is edited, then Core SPT AND the Season Pass tier (sptTotals_ sums resultRow_ per
 // category) both move off the same edit.
 function simCore(seg, payer, ctx){
-  var meas = measuredRow_('Core', seg, payer, ctx.ds);
-  var R = coreSptR_(ctx);
-  if (R === 1) return meas;                               // panel absent / SP_v2 unedited -> carried
+  var ds = ctx.ds, meas = measuredRow_('Core', seg, payer, ds);
+  var R = coreSptR_(ctx), eBase = coreSptEBase_();
+  // Both halves re-priced on the v2 panel rather than scaling the finished measured row (D54);
+  // building up from coreBaseSpt_ is what stops the measured buff bonus being scaled twice.
   var out = {};
   RESOURCES.forEach(function(r){ out[r] = num(meas[r]); });
-  out['SPT'] = num(meas['SPT']) * R;
+  out['SPT'] = coreBaseSpt_(seg, payer, ds) * R
+             + sptx2ToSpt_(sptx2MinutesSim_(seg, payer, ctx), seg, payer, ds, eBase * R);
   return out;
 }
 
@@ -939,11 +945,11 @@ function sptTotals_(seg, payer, ctx){
       // measuredRow_ (not raw ds.gains) so the D18 synthetic Core SPT anchor enters the
       // measured total too — both sides then price the same level-completion faucet.
       var mrow = measuredRow_(cat, seg, payer, ds);
-      var mSPT = num(mrow['SPT']), mX2 = num(mrow['SPTx2']);
-      meas += mSPT + 2 * mX2;
-      if (cat === 'Season Pass (Free)'){ sim += mSPT + 2 * mX2; return; }
+      var mScore = sptScore_(mrow);
+      meas += mScore;
+      if (cat === 'Season Pass (Free)'){ sim += mScore; return; }
       var row = resultRow_(cat, seg, payer, ctx);
-      sim += num(row['SPT']) + 2 * num(row['SPTx2']);
+      sim += sptScore_(row);
     });
   } finally { ctx._sptBusy = false; }
   return (ctx._spt[key] = { meas: meas, sim: sim });
@@ -1078,6 +1084,97 @@ function coreSptMix_(sheetName){
     mix[d] = (raw == null || raw === '') ? CORE_SPT_MIX[d] : num(raw);
   });
   return mix;
+}
+
+
+// ---- SPTx2 = MINUTES OF DOUBLED LEVEL-COMPLETION SPT (D54, 2026-09-14) ----------------------
+// Mirror of the same block in engine/EcoGainsSim_v4.gs, minus the three collection-era categories
+// this variant does not have. SPTx2 is a BUFF TIMER, not a token count - data_gains types it
+// "minutes", alongside Unlimited Lives / UL Red / UL Bomb / UL Chuck. While it runs, every level
+// the player COMPLETES pays twice the SPT it normally would:
+//
+//     extra SPT = (m / minutesPerLevel) x utilization x E_SPT
+//
+// sptTotals_ used to score the column as "SPT + 2 x SPTx2", multiplying MINUTES by two and adding
+// them to a token count. The conversion now happens once and lands on CORE, where the doubled
+// completions actually happen. SPTX2_AS_MINUTES = false restores the old scoring exactly.
+var SPTX2_AS_MINUTES  = true;
+var SPTX2_UTILIZATION = 1.0;   // fallback when the SP panel carries no 'SPTx2 Utilization' cell
+
+// Minutes one level completion takes, per segment x payer - MEASURED, not assumed:
+//     minutes_per_active_day / levels_completed_per_active_day        (data_seg_beh)
+// An authored 'Minutes per Level' cell on the SP panel overrides every cell when it is > 0.
+// No behaviour telemetry (A. 0) -> 0, and the caller then converts nothing.
+function minutesPerLevel_(seg, payer, ds){
+  var ov = num(readSPLabel_('SP', 'Minutes per Level'));
+  if (ov > 0) return ov;
+  var b = ds.beh(seg, payer);
+  var m = num(b.minutes_per_active_day), l = num(b.levels_completed_per_active_day);
+  return (m > 0 && l > 0) ? m / l : 0;
+}
+
+// Share of granted buff minutes actually spent completing levels. ASSUMPTION, flagged: nothing in
+// the export measures abandonment. Authored on the SP panel as 'SPTx2 Utilization'.
+function sptx2Util_(){
+  var raw = readSPLabel_('SP', 'SPTx2 Utilization');
+  return (raw == null || raw === '') ? SPTX2_UTILIZATION : num(raw);
+}
+
+// minutes -> extra SPT at a given per-level price E (E_base measured side, E_v2 simulated side).
+function sptx2ToSpt_(minutes, seg, payer, ds, E){
+  if (!SPTX2_AS_MINUTES || !(minutes > 0) || !(E > 1e-9)) return 0;
+  var mpl = minutesPerLevel_(seg, payer, ds);
+  if (!(mpl > 0)) return 0;
+  return (minutes / mpl) * sptx2Util_() * E;
+}
+
+function coreSptEBase_(){ return coreSptE_('SP', coreSptMix_('SP')); }
+
+// Core SPT BEFORE any buff conversion: raw data_gains when a re-pull delivers it, else the D18
+// synthetic anchor. ONE definition shared by measuredRow_ and simCore, so neither has to subtract
+// a bonus back out of a finished row.
+function coreBaseSpt_(seg, payer, ds){
+  var raw = num(ds.dataRow('Core', seg, payer)['SPT']);
+  if (raw > 0) return raw;
+  var syn = coreSptSynth_(seg, payer, ds);
+  return syn ? syn.meas : 0;
+}
+
+// Every SPTx2 MINUTE granted over the window. Season Pass (Free) contributes MEASURED to both
+// sides (the standing recursion guard), and CORE is read raw rather than through the choke points
+// because Core is the row this total is about to be added to.
+var _x2MinCache = {}, _x2MinBusy = false;
+function sptx2MinutesMeas_(seg, payer, ds){
+  var key = seg + '|' + payer;
+  if (_x2MinCache[key] != null) return _x2MinCache[key];
+  if (_x2MinBusy) return 0;                              // defensive backstop; no cycle by design
+  var total = 0;
+  _x2MinBusy = true;
+  try {
+    CATEGORY_ORDER.forEach(function(cat){
+      if (cat === 'Core'){ total += num(ds.dataRow('Core', seg, payer)['SPTx2']); return; }
+      total += num(measuredRow_(cat, seg, payer, ds)['SPTx2']);
+    });
+  } finally { _x2MinBusy = false; }
+  return (_x2MinCache[key] = total);
+}
+function sptx2MinutesSim_(seg, payer, ctx){
+  ctx._x2min = ctx._x2min || {};
+  var key = seg + '|' + payer;
+  if (ctx._x2min[key] != null) return ctx._x2min[key];
+  var ds = ctx.ds, total = 0;
+  CATEGORY_ORDER.forEach(function(cat){
+    if (cat === 'Core'){ total += num(ds.dataRow('Core', seg, payer)['SPTx2']); return; }
+    if (cat === 'Season Pass (Free)'){ total += num(measuredRow_(cat, seg, payer, ds)['SPTx2']); return; }
+    total += num(resultRow_(cat, seg, payer, ctx)['SPTx2']);
+  });
+  return (ctx._x2min[key] = total);
+}
+
+// What one category row contributes to the season-pass point total. D54: the SPT value of every
+// buff minute is already inside Core's SPT row, so scoring SPTx2 again here would count it twice.
+function sptScore_(row){
+  return num(row['SPT']) + (SPTX2_AS_MINUTES ? 0 : 2 * num(row['SPTx2']));
 }
 
 // Highest 1-based tier whose cumulative points requirement is met; 0 below tier 1, capped at
