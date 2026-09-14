@@ -104,7 +104,8 @@ players barely play and are excluded from behaviour queries. **A. 0** is a separ
 
 **The 13-resource universe (fixed order, append-only):** HC (coins ONLY), Slingshot, Shuffle,
 Comet, Red, Chuck, Bomb, UL Bomb, UL Chuck, UL Red, Unlimited Lives, **SPT, SPTx2** (season pass
-tokens, appended 2026-07-10 per decision D16; SPTx2 is the double-value token — displayed as its
+tokens, appended 2026-07-10 per decision D16; SPTx2 is MINUTES of a doubled-SPT buff, not a token
+count at all (D54 — see §6.11a) — displayed as its
 own column, weighted ×2 in season-pass tier progression). COOP Token / Avatar / star-daily items
 remain out of scope. Before D16 the universe was 11 resources and Flash Race showed ≈0 because its
 SPT payout was untracked; its SPT column is live now (HC stays ≈0 — it genuinely pays none).
@@ -1469,7 +1470,7 @@ sides and every ratio degrades to 1.
 **Flow.**
 ```mermaid
 flowchart TD
-  G["SPT totals/earner: meas = Σ cats SPT+2×SPTx2 (📊 data_gains); sim = same after each source's R·D·T"] --> PTS["points = SPT_total × seasonDays/33 (⚙️ SP / SP_v2 config)"]
+  G["SPT totals/earner: meas = Σ cats SPT (📊 data_gains; SPTx2 minutes already folded into Core); sim = same after each source's R·D·T"] --> PTS["points = SPT_total × seasonDays/33 (⚙️ SP / SP_v2 config)"]
   PTS --> TIER["T_meas = tier(points_meas, ⚙️ SP Cumul); T_sim = tier(points_sim, ⚙️ SP_v2 Cumul); cap 30"]
   TIER --> CUM["cum(T)[res] = Σ tier rewards 1..T — FREE for NONPAYER, FREE+PAID for PAYER"]
   CUM --> OUT["anchored: SIM[res] = measured[res] × cum_v2(T_sim)/cum_base(T_meas) × R_chal[res] × T_cal"]
@@ -1480,7 +1481,8 @@ flowchart TD
 1. Branch discipline as `timedCore_`: calendars unparsed → carry; no `Season Pass` lane in
    `cal_new` → 0 (removal); none in `cal_curr` → carry; `SP` sheet unreadable → carry.
 2. **SPT totals** (`sptTotals_`, cached on the execution context): per earner,
-   `meas = Σ over every category of [SPT + 2×SPTx2]` via `measuredRow_` (the additive-projection
+   `meas = Σ over every category of [SPT]` via `measuredRow_` — SPTx2 is minutes and its SPT
+   value is already inside the Core row (D54, §6.11a) — (the additive-projection
    convention — same as the NET blocks; since **D18** the Core term is the SYNTHETIC anchor
    `L × E_base` — see [§6.2](#62-core--saga-always-on) — because 📊 `data_gains` has no Core SPT
    rows, and Core dominates the token faucet); `sim` = the same sum using each category's
@@ -1538,7 +1540,7 @@ with the composite terms expanding to:
 
 > **T_x = tier( SPT_x × seasonDays_x ÷ 33 , Cumul ladder )** — the highest tier whose cumulative points requirement is met, capped at 30
 >
-> **SPT_meas = Σ over all categories of ( SPT + 2×SPTx2 ) per earner** (📊 `data_gains`; the Core term = the D18 synthetic anchor L × E_base) · **SPT_sim = the same sum after each category's own simulation** (Core = L × E_v2; Season Pass itself measured on both sides)
+> **SPT_meas = Σ over all categories of ( SPT ) per earner** (SPTx2 is minutes; its SPT value is inside the Core term — D54) (📊 `data_gains`; the Core term = the D18 synthetic anchor L × E_base) · **SPT_sim = the same sum after each category's own simulation** (Core = L × E_v2; Season Pass itself measured on both sides)
 >
 > **cum(T)\[res] = Σ tiers 1..T of track reward\[res]** — FREE track for NONPAYER, FREE+PAID for PAYER
 >
@@ -1546,7 +1548,9 @@ with the composite terms expanding to:
 
 - **[measured](#measured)\[res]** — what players actually earned from the season pass (📊 `data_gains`).
 - **SPT_meas / SPT_sim** — the per-earner season-pass-token totals over the 33-day window, before vs
-  after the redesign; the double token (SPTx2) counts twice. Summing per-earner amounts across
+  after the redesign. (SPTx2 used to be counted as two tokens here; since D54 it is read as
+  minutes of a doubled-SPT buff and converted into extra completions on the Core row instead.)
+  Summing per-earner amounts across
   categories is the project's additive-projection convention (an average player is assumed to touch
   each source at its per-earner rate).
 - **tier / Cumul** — the track's points ladder: tier 1 costs 10 points, tier 30 cumulatively 3,557.
@@ -1559,7 +1563,8 @@ with the composite terms expanding to:
 
 **How did you simulate this?** This source is a coupling, not an event: the pass pays by TIER, and
 tiers are bought with season-pass tokens earned everywhere else in the game. So first I total, per
-earner, SPT + 2×SPTx2 across every category in 📊 `data_gains` — the measured token income. Then I
+earner, SPT across every category in 📊 `data_gains` — the measured token income, with SPTx2
+minutes already converted into extra Core completions (D54). Then I
 total the same thing AFTER simulation, i.e. with each category's own R·D·T already applied (River
 Rush contributes 0, Kite's nerfed ladder less, rescheduled races more or less; the Season Pass row
 itself enters as measured on both sides — that is the recursion guard). Each total × seasonDays/33
@@ -1597,6 +1602,68 @@ model with **no measured anchor at all**. `data_gains` emits no pack rows — th
 them — so `measured x R x D x T` is identically 0 for every pack column on every source. Unlike
 Core SPT (D18), we do NOT synthesize a measured anchor: the user's decision is that packs are
 **simulated-side only**, so the CURRENT column reads 0 and **DIFF equals the simulated value**.
+
+
+### 6.11a  SPTx2 is MINUTES of a doubled-SPT buff  (D54, 2026-09-14)
+
+**The unit is in the data.** 📊 `data_gains` carries a `unit` column, and it says `SPT` is `count`
+while **`SPTx2` is `minutes`** — filed with `Unlimited Lives`, `UL Red`, `UL Bomb` and `UL Chuck`,
+the other duration resources. It is a buff timer: while it runs, every level the player
+**completes** pays twice the SPT it normally would.
+
+Before D54 the engine scored the column as `SPT + 2 × SPTx2` inside `sptTotals_` — multiplying
+*minutes* by two and adding them to a *token count*. That is dimensionally wrong rather than
+mis-tuned, and no amount of re-tuning the constant would have fixed it.
+
+**The conversion, once:**
+
+> `extra SPT = (minutes / minutesPerLevel) × utilization × E_SPT`
+
+| term | source | value |
+|---|---|---|
+| `minutesPerLevel` | **MEASURED**, 📊 `data_seg_beh`: `minutes_per_active_day / levels_completed_per_active_day` | 5.38 min at `0-9` NONPAYER → 1.88 at `100+` PAYER |
+| | authored override: **`Minutes per Level`** on the ⚙️ `SP` panel (wins for every cell when > 0) | — |
+| `utilization` | **ASSUMPTION, flagged** — nothing in the export measures a buff claimed and then abandoned | default 1.0; authored as **`SPTx2 Utilization`** on ⚙️ `SP` |
+| `E_SPT` | the same per-completion price the D18 Core anchor uses (`coreSptE_`, halves-averaged) | `E_base` measured side, `E_v2` simulated side |
+
+Pricing the tempo per cell is the point: engaged players complete levels **2.9× faster**, so the
+same 5-minute buff buys 0.9 extra completions for a beginner and 2.7 for a whale. A flat constant
+would hand both the same conversion when the measurement says they are nearly 3× apart.
+
+**Where it lands — CORE, not the granting source** (user decision, 2026-09-14). Core is where the
+doubled completions actually happen; a buff handed out by Rainbow Maker does not pay Rainbow Maker
+tokens. Consequences, all deliberate:
+
+* the granting source keeps its **minutes** in its own `SPTx2` column, and its `SPT` column does
+  not move at all;
+* Core `SPT` carries every buff in the season pooled together, on top of the D18 `L × E` faucet;
+* `sptTotals_` scores **`SPT` alone** — the buff value is already inside the Core row, so scoring
+  `SPTx2` a second time would double-count it.
+
+**Plumbing.** `measuredRow_` (Core branch) and `simCore` are the two choke points, exactly as for
+the D18 anchor, so the Daily view, the 7-day window and `Sim per Segment` all inherit it without
+their own copy of the rule. `coreBaseSpt_` is the single shared definition of the pre-buff base, so
+neither side has to subtract a bonus back out of a finished row. The minute totals come from
+`sptx2MinutesMeas_` / `sptx2MinutesSim_`, whose exclusions mirror `sptTotals_` for the same reason
+(`Season Pass (Paid)`, `Col - Sets` and `Col - Albums` are priced *off* the tier this feeds;
+`Season Pass (Free)` contributes measured to both sides; **Core is read raw**, because Core is the
+row the total is about to be added to).
+
+**The PBP session view models it properly.** The day's granted minutes — session start, per-play
+claims and day end alike — cash out as a **second day-end Core claim**, `minutes / minutesPerLevel`
+extra completions, **capped at the day's actual wins**, with any surplus printed on the ledger row
+as *expired unused*. This is the only view that can see a buff run out of levels to double, and a
+buff handed over at day end therefore shows as expiring in full. The window views average that
+timing away.
+
+**Measured effect (workbook 15).** The buff is worth **+4.0% to +7.3%** of the Core SPT faucet.
+Net of dropping the old `2 × minutes` scoring, the season-pass point total rises **0.4–2.9%**, and
+**no tier moves**: 6 of the 10 segment × payer cells are already capped at tier 30 and the other 4
+do not cross a rung. The progression half of the model is wired and gated, but invisible at today's
+numbers — worth re-checking whenever the tier-30 cap is lifted.
+
+`SPTX2_AS_MINUTES = false` restores the pre-D54 scoring exactly, and is gated in both directions.
+
 
 ### The formula
 
