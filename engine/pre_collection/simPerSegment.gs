@@ -36,14 +36,18 @@ var SPS_SEGMENTS = ['0-9','10-19','20-39','40-99','100+'];
 var SPS_NET_C0 = 21;                                   // NET block first column (U)
 var SPS_ECON_SHEET = 'data_econ';                      // seg | payer_flag | currency -> per-EARNER gain/spend
 
+// 'Daily Night Sky Prize' moved CORE -> META on 2026-09-14 (user's call). CORE is the always-on
+// baseline a player gets for simply playing - level completions, the saga ladder, the login gift -
+// and Night Sky is a scheduled LiveOps event with its own calendar lane and config sheets, so a
+// calendar edit was moving the CORE column. Pure reclassification, no number changes.
 var SPS_GROUPS = {
   'PAID': ['IAPs'],
   'ADS' : ['Ads'],
-  'CORE': ['Core','Saga','Daily Gift','Daily Night Sky Prize'],
-  'META': ['Bomb Challenge',"Bomb's Ballet",'Chuck Challenge','Flock Flurry','Hatchling Hideaway',
-           'Jigsaw','Kite Festival','Level Race','Other','Photoshoot','Red Challenge','River Rush',
-           'Season Pass (Free)','Target Day','Team Event','Team Race','Flash Race','FlowerCoop',
-           'Rainbow Maker']
+  'CORE': ['Core','Saga','Daily Gift'],
+  'META': ['Bomb Challenge',"Bomb's Ballet",'Chuck Challenge','Daily Night Sky Prize','Flock Flurry',
+           'Hatchling Hideaway','Jigsaw','Kite Festival','Level Race','Other','Photoshoot',
+           'Red Challenge','River Rush','Season Pass (Free)','Target Day','Team Event','Team Race',
+           'Flash Race','FlowerCoop','Rainbow Maker']
 };
 var SPS_GROUP_ORDER = ['PAID','ADS','CORE','META'];
 

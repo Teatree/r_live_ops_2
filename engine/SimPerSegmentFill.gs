@@ -53,14 +53,21 @@ var SPS_ECON_SHEET = 'data_econ';                      // seg | payer_flag | cur
 // 'Season Pass (Paid)' sits in PAID on the user's call (2026-09-03): that column reads as "what
 // only purchasers get". ToF and the two collection rows are ordinary calendar/feature payouts, so
 // they join META.
+//
+// 'Daily Night Sky Prize' moved CORE -> META on 2026-09-14 (user's call). CORE is the always-on
+// baseline a player gets for simply playing the game - level completions, the saga ladder, the
+// login gift - and Night Sky is none of those: it is a scheduled LiveOps event with its own
+// calendar lane, its own config sheets and its own cadence, so a calendar edit moved the CORE
+// column. It belongs with the other events. Effect is a pure reclassification, no number changes:
+// at 100+ PAYER it carries 168 -> 203 HC out of CORE and into META.
 var SPS_GROUPS = {
   'PAID': ['IAPs','Season Pass (Paid)'],
   'ADS' : ['Ads'],
-  'CORE': ['Core','Saga','Daily Gift','Daily Night Sky Prize'],
-  'META': ['Bomb Challenge',"Bomb's Ballet",'Chuck Challenge','Flock Flurry','Hatchling Hideaway',
-           'Jigsaw','Kite Festival','Level Race','Other','Photoshoot','Red Challenge','River Rush',
-           'Season Pass (Free)','Target Day','Team Event','Team Race','Flash Race','FlowerCoop',
-           'Rainbow Maker','ToF','Col - Sets','Col - Albums']
+  'CORE': ['Core','Saga','Daily Gift'],
+  'META': ['Bomb Challenge',"Bomb's Ballet",'Chuck Challenge','Daily Night Sky Prize','Flock Flurry',
+           'Hatchling Hideaway','Jigsaw','Kite Festival','Level Race','Other','Photoshoot',
+           'Red Challenge','River Rush','Season Pass (Free)','Target Day','Team Event','Team Race',
+           'Flash Race','FlowerCoop','Rainbow Maker','ToF','Col - Sets','Col - Albums']
 };
 var SPS_GROUP_ORDER = ['PAID','ADS','CORE','META'];
 // Which group any category NOT named above falls into. A partition that has to be maintained by
