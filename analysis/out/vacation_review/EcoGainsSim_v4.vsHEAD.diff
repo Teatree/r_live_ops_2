@@ -1,0 +1,11 @@
+--- engine/EcoGainsSim_v4.gs	2026-09-14 12:38:05.036620200 +0300
++++ engine/vacation_changes/EcoGainsSim_v4.gs	2026-09-30 10:39:01.207260000 +0300
+@@ -660,7 +660,7 @@
+ //     pack after the album has closed.
+ // Season Pass is exempt: its track is climbed during the season, so it pays its whole reached
+ // ladder even though the calendar draws a second pass instance past the cutoff.
+-var SEASON_LAST_DAY = 29;     // last day the collection season is live (calendar window is 33)
++var SEASON_LAST_DAY = 28;     // last day the collection season is live (calendar window is 33) -- VILLE - UPDATED TO 28
+ var SEASON_CUTOFF   = true;   // false -> pre-D26 behaviour: envelopes on all 33 days
+ var SEASON_EXEMPT_LANES = { 'Season Pass': 1 };
+ 

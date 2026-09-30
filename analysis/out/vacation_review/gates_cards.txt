@@ -1,0 +1,52 @@
+=== VACATION engine + VACATION data ===
+PASS CardOpenings.gs declares no globals that collide with the engine files — none
+PASS CardOpenings.gs does not define onOpen (it would kill the EcoGainsSim menu)
+PASS the project has exactly one onOpen
+FAIL PackConfig: 6 pack definitions with cards/open 2..7 — [2,3,4,5,6,null]
+PASS PackConfig: pity table round-trips the sheet (probs + forceHighest) — 1-star=[0] 2-star=[0] 3-star=[0] 4-star=[0,0.33,0.66,1] 5-star*=[0,0.8,0.8,1]   (* = forces highest rarity)
+PASS PackConfig: every pity row names a defined pack tier — 5 rows
+FAIL PackConfig: chest purchasing panel read — min 150 start 14 p 1
+PASS tally: cards drawn == new + dupes — 144 vs 59 + 85
+FAIL tally: under the homogeneous model expected packs IS the gains flow (non-ToF exact, ToF within 25%) — 46.78 vs 49.4 (non-ToF 46.52, ToF 2.88 arithmetic vs 0.26 played)
+FAIL active_days_p95 / active_days_p98 become anchors on the intensity curve when present — 8 anchors -> 8: 0.00 0.25 0.50 0.75 0.90 0.95 0.98 1.00
+PASS sim-run fixtures restored before the determinism check
+PASS same seed + same inputs -> byte-identical Col_Cards_Daily (deterministic)
+PASS with skew and both pity mechanisms off, 1★ is the most-drawn rarity (pool decides) — 144 skew weights + 5 pity rows flattened -> {"1★":386,"4★":266,"2★":376,"3★":288,"5★":139,"6★":46}
+FAIL pity fixture applied to all 6 pack tiers — 5 rows
+FAIL pity: after 3 consecutive misses the next pull is the target rarity (p = 1.0) — 23 violations, 5 honoured
+PASS pity: counter does not carry between packs (first card is never forced) — 4/93 first cards were the target
+FAIL guarantees: fixture reaches all 6 pack tiers — 5 rows patched
+FAIL guarantees: 0/0 reproduces the untouched run byte for byte
+FAIL GuaranteedMinRarity: no pack misses the floor while the pool can still supply it — 29 of 104 packs missed with stock left (45 total misses)
+FAIL GuaranteedNewSnap: every pack delivers 2 new cards (capped at its size) — 12 of 105 packs fell short
+FAIL guarantees: both set, neither floor is dropped while the pool can pay it — 29 missed the rarity floor with stock left, 0 had no new card
+PASS cutoff leaves every non-pack window total bit-identical — max drift 0.00e+0 over 3 segment/payer pairs
+FAIL every banked ToF run pays its WHOLE ladder into the log — off by 6.000000000000001 at seed 1604638
+FAIL Runs per Active Day = 0 -> no ToF runs and no ToF envelopes — 594 runs, 155 envelopes
+PASS a stale duplicate overriding the namespace IS caught — caught: Col - Sets runs real seasons (D41), cadence rows (D39)
+
+=== HEAD engine + VACATION data ===
+FAIL PackConfig: 6 pack definitions with cards/open 2..7 — [2,3,4,5,6,null]
+FAIL PackConfig: chest purchasing panel read — min 150 start 14 p 1
+FAIL tally: under the homogeneous model expected packs IS the gains flow (non-ToF exact, ToF within 25%) — 47.05 vs 49.78 (non-ToF 46.79, ToF 2.99 arithmetic vs 0.26 played)
+FAIL active_days_p95 / active_days_p98 become anchors on the intensity curve when present — 8 anchors -> 8: 0.00 0.25 0.50 0.75 0.90 0.95 0.98 1.00
+FAIL pity fixture applied to all 6 pack tiers — 5 rows
+FAIL pity: after 3 consecutive misses the next pull is the target rarity (p = 1.0) — 27 violations, 13 honoured
+FAIL guarantees: fixture reaches all 6 pack tiers — 5 rows patched
+FAIL guarantees: 0/0 reproduces the untouched run byte for byte
+FAIL GuaranteedNewSnap: every pack delivers 2 new cards (capped at its size) — 6 of 100 packs fell short
+FAIL every banked ToF run pays its WHOLE ladder into the log — off by 6.000000000000001 at seed 1604638
+FAIL Runs per Active Day = 0 -> no ToF runs and no ToF envelopes — 594 runs, 155 envelopes
+FAIL +1000 coins on Set 1 raises Col - Sets by 1000 x its completion rate — row 152.5 -> 1232.5 (delta 1080.0), Set 1 completed in 100% of seasons
+
+=== HEAD engine + latest_1 data ===
+FAIL tally: under the homogeneous model expected packs IS the gains flow (non-ToF exact, ToF within 25%) — 49.4 vs 46.8 (non-ToF 44.14, ToF 2.66 arithmetic vs 5.26 played)
+FAIL a 1-day instance reaches the same cohort under both attendance models — 0.457438 vs 0.459372
+FAIL the intensity curve preserves the cohort mean active days exactly — 15.4438 vs 15.5101 expected
+FAIL active_days_p95 / active_days_p98 become anchors on the intensity curve when present — 8 anchors -> 8: 0.00 0.25 0.50 0.75 0.90 0.95 0.98 1.00
+FAIL adding those two anchors changes the SHAPE of the curve, not its level — mean 15.5101 -> 15.5101, p97 33.00 -> 33.00 days
+FAIL pity: after 3 consecutive misses the next pull is the target rarity (p = 1.0) — 9 violations, 54 honoured
+FAIL guarantees: 0/0 reproduces the untouched run byte for byte
+FAIL GuaranteedNewSnap: every pack delivers 2 new cards (capped at its size) — 16 of 110 packs fell short
+FAIL every banked ToF run pays its WHOLE ladder into the log — off by 3.5 at seed 733548
+FAIL Runs per Active Day = 0 -> no ToF runs and no ToF envelopes — 579 runs, 132 envelopes

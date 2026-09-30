@@ -1,0 +1,24 @@
+#### _mock_run (v4 gates): VACATION engine + VACATION data (stale cal)
+
+#### _mock_run (v4 gates): VACATION engine + VACATION data (LIVE cal)
+
+#### _mock_run (v4 gates): HEAD engine + latest_1 (control)
+
+#### _mock_cloud: VACATION engine + VACATION data
+FAIL a filled minutes-per-unit input survives the run and converts — input kept at 30, 18.33 units x 30 = 550
+FAIL the PACK & CARD MIX - MAX block fills, and its tier columns sum to its Packs column — 0 rows written, 0 that do not add up
+FAIL the album block writes a label column, a POPULATION column and the 10 measured cells
+FAIL every album row landed on its own label — NO Population finishing album 1 NO Envelopes opened to complete it (finishers) NO Cards drawn to complete it (finishers) NO Finishers in sample NO Players simulated
+FAIL a PARTIAL run renormalises over the cells that ran, not the whole population — 0.00% reported vs the single ran cell's NaN% (full sweep was 22.42%)
+FAIL a PARTIAL run says so on the sheet
+FAIL "Population represented" drops to what was actually simulated — undefined
+
+#### _mock_cloud: HEAD engine + VACATION data (control)
+FAIL a filled minutes-per-unit input survives the run and converts — input kept at 30, 18.33 units x 30 = 550
+FAIL the PACK & CARD MIX - MAX block fills, and its tier columns sum to its Packs column — 0 rows written, 0 that do not add up
+FAIL the album block writes a label column, a POPULATION column and the 10 measured cells
+FAIL every album row landed on its own label — NO Population finishing album 1 NO Envelopes opened to complete it (finishers) NO Cards drawn to complete it (finishers) NO Finishers in sample NO Players simulated
+FAIL a PARTIAL run renormalises over the cells that ran, not the whole population — 0.00% reported vs the single ran cell's NaN% (full sweep was 22.42%)
+FAIL a PARTIAL run says so on the sheet
+FAIL "Population represented" drops to what was actually simulated — undefined
+GATES DONE
