@@ -99,7 +99,7 @@ footer{margin-top:3rem;color:var(--ink2);font-size:.82rem;border-top:1px solid v
   <p class="meta">Compared: <code>engine/vacation_changes/*.gs</code> (6 files) against the <code>engine/</code> HEAD of 14 Sep, and <code>VACATION_CHANGES_COLLECTIONS_UNDER_NEW_CALENDAR.xlsx</code> against <code>COLLECTIONS_UNDER_NEW_CALENDAR (latest_1).xlsx</code>, cell by cell. Every number below was produced offline by running the relevant engine on a dump of the relevant workbook (<code>harness/_probe_album_matrix.js</code>, paired seeds); the evidence files are in <code>analysis/out/vacation_review/</code>. The colleagues' own summary was used as a checklist, not as the source of truth.</p>
 </header>
 
-<p class="lede">The colleagues rebuilt how envelopes hand out cards (rarity picked first, per-envelope weights, no repeated card in one envelope), re-configured the pool and the album, re-priced envelopes, and started a Tower of Fortune rework. The card-sim code change is sound in its core idea and is what keeps album completion in the intended range; around it sit one dead code path, one silent fallback, a calendar that was edited but not re-precomputed, and an envelope valuation that does not describe what the simulation actually pays.</p>
+<p class="lede">The colleagues rebuilt how envelopes hand out cards (rarity picked first, per-envelope weights, no repeated card in one envelope), re-configured the pool and the album, re-priced envelopes, and started a Tower of Fortune rework. The card-sim code change is sound in its core idea and is what keeps album completion in the intended range; around it sit one dead code path, one missing guard, a calendar that was edited but not re-precomputed, and an envelope valuation that does not describe what the simulation actually pays.</p>
 
 <div class="verdict">
   <h3>The verdict in six lines</h3>
@@ -108,7 +108,7 @@ footer{margin-top:3rem;color:var(--ink2);font-size:.82rem;border-top:1px solid v
     <li><b>Their 5.15 % headline is real but ran on a stale calendar.</b> <code>cal_new</code> was edited (Kite 5 → 4 instances, Photoshoot removed, Bomb's Ballet doubled, Hatchling shifted) but <code>cal_parsed</code> was never re-precomputed, so every number they produced used the old schedule. On the intended calendar the same state reads 4.5 %.</li>
     <li><b>The new draw logic is the load-bearing change.</b> The new pool and album config under the <em>old</em> draw would have pushed completion to 19–21 %; the rarity-weighted two-stage draw brings it back to 5 %. The two must ship together.</li>
     <li><b>One pity path is dead code.</b> For envelopes with <code>PityForceHighestRarity = FALSE</code> (the 4-star pack, table <code>[0, 0.33, 0.66, 1.0]</code>) the pity never fires: targets are keyed by rank number and looked up by rarity name. Runtime-confirmed.</li>
-    <li><b>The 298-copy pool is smaller than heavy players draw.</b> 26–30 % of 40-99 / 100+ players exhaust it; the new code then silently switches to an infinite, rarity-blind pool. Whether that matches the client is the question to ask.</li>
+    <li><b>A sheet without the new <code>RarityWeights</code> column makes every card the lowest rarity.</b> Album completion then reads 0 % in 8 of 10 cells and looks like a balancing result. One guard line. (An earlier draft of this review claimed heavy players exhaust the 298-copy pool and run on a silent infinite pool; that was wrong — the pool is rebuilt when the album completes, see C4.)</li>
     <li><b>The envelope prices in <code>item_vals</code> (25 / 45 / 110 / 220 / 335) assume odds the sim does not produce.</b> Recomputed on their own unit scale with the odds the engine actually uses, the 3★–5★ envelopes are worth ~60 % of the authored figures. Those prices are what the coin cuts were anchored against.</li>
   </ol>
 </div>
@@ -173,12 +173,12 @@ footer{margin-top:3rem;color:var(--ink2);font-size:.82rem;border-top:1px solid v
   </dl>
 </article>
 
-<article class="f warn">
-  <div class="head"><span class="id">C4 · lines 1345–1400, 1650–1660</span><h3>Pool exhaustion: first a higher rarity, then an infinite rarity-blind pool</h3><span class="chip warn">Needs a decision</span></div>
+<article class="f note">
+  <div class="head"><span class="id">C4 · lines 1345–1400, 1650–1660</span><h3>Pool exhaustion fallbacks: a higher rarity, then an unlimited pool</h3><span class="chip note">Low impact — corrected finding</span></div>
   <dl>
-    <dt>What</dt><dd>When an envelope's weighted rarities have no copies left, the fallback scans <em>upward</em> from the envelope's highest weighted rarity and hands out whatever is above (a 1-star envelope can pay a 5★ or 6★). When nothing is left at all, <code>unlimitedPool = true</code> treats every card as having one copy: draws become uniform over the 72 cards (chapter weight only), rarity weights ignored, forever. The old engine ended the envelope short and logged it.</dd>
-    <dt>How often</dt><dd>With the new 298-copy pool, the share of players who draw more cards than the pool holds — a conservative marker for hitting this path — is <b>30 % at 40-99 PAYER, 28 % at 100+ PAYER, 26 % at 100+ NONPAYER, 15 % at 40-99 NONPAYER</b> (4 % at 20-39 PAYER). Under the old 411-copy pool it was ≤ 2 %. The MAX ceiling draws 1,080 cards from a 298 pool.</dd>
-    <dt>Assessment</dt><dd>A quarter of the top players spend the back half of their season in a regime the config does not describe: no rarity weighting, and more 6★ per draw than the weights intend. It may well be what the client does; it is not something the sheet says. Either the pool is too small for the intended draw volume, or the exhaustion rule needs to be an authored, visible choice.</dd>
+    <dt>What</dt><dd>When an envelope's weighted rarities have no copies left, the fallback scans <em>upward</em> and hands out whatever rarity still has stock (a 1-star envelope can pay a 5★ or 6★). When nothing is left at all, <code>unlimitedPool = true</code> treats every card as having one copy.</dd>
+    <dt>Correction</dt><dd>The first version of this review read "players who drew more than 298 cards" as players running on the unlimited pool. That was wrong: the pool is rebuilt the moment the album completes (line 1757), so drawing every copy means owning every card, which is completion, which resets the pool. Checked directly: of the 400 simulated 40-99 PAYERS, 125 drew more than 298 cards and <b>all 125 had completed album 1</b> — they were in album 2. Same at 100+ (150 of 400, all completers). The unlimited-pool branch is effectively unreachable.</dd>
+    <dt>What remains</dt><dd>The upward fallback is real but narrow: it fires only when every rarity an envelope is weighted for is exhausted, i.e. a player missing only rare cards opens a small envelope near the end of the album, and it then pays them a rare. The old engine did the same in substance (it drew whatever copies remained). Worth a line in the sheet's notes so nobody is surprised by a 6★ out of a 1-star envelope; nothing to decide.</dd>
   </dl>
 </article>
 
@@ -238,10 +238,10 @@ footer{margin-top:3rem;color:var(--ink2);font-size:.82rem;border-top:1px solid v
 <h2 id="config">3. Config and sheet changes</h2>
 
 <article class="f good">
-  <div class="head"><span class="id">K1 · PackConfig rows 12–28</span><h3>Pool 411 → 298 copies; copies per card 5/5/4/4/3/2; Gold renamed 6★; stars on duplicate 5★ 5 → 6, 6★ 6 → 10</h3><span class="chip good">Coherent</span><span class="chip warn">small for the draw volume</span></div>
+  <div class="head"><span class="id">K1 · PackConfig rows 12–28</span><h3>Pool 411 → 298 copies; copies per card 5/5/4/4/3/2; Gold renamed 6★; stars on duplicate 5★ 5 → 6, 6★ 6 → 10</h3><span class="chip good">Coherent</span></div>
   <dl>
     <dt>Check</dt><dd>Copies × catalog counts (18/15/12/11/9/7) = 90/75/48/44/27/14 = 298. The rarity name now matches <code>AlbumConfig</code>, which used 6★ already. More stars for rare duplicates feeds the chest loop.</dd>
-    <dt>But</dt><dd>A mid-to-heavy player draws 190–230 cards a season, the p95 of 100+ draws ~390: the pool is smaller than the demand it has to serve, which is what makes C4 live for a quarter of the top cells.</dd>
+    <dt>Scale</dt><dd>A mid-to-heavy player draws 190–230 cards a season against 298 copies, so a completer typically finishes with a third of the pool left; a 100+ player who completes early starts album 2 on a fresh pool (C4). The pool size is not a constraint on completion in this config.</dd>
   </dl>
 </article>
 
@@ -466,7 +466,7 @@ footer{margin-top:3rem;color:var(--ink2);font-size:.82rem;border-top:1px solid v
 </div>
 
 <div class="wide"><table>
-<tr><th class="l">Cell</th><th>Population</th><th>Pre-vacation</th><th>As intended</th><th>As they ran it</th><th>Their sheet</th><th>Draws past the pool (intended)</th></tr>
+<tr><th class="l">Cell</th><th>Population</th><th>Pre-vacation</th><th>As intended</th><th>As they ran it</th><th>Their sheet</th><th>Finished album 1 and drew into album 2 (intended)</th></tr>
 <tr><td class="l">0-9 NONPAYER</td><td>107,126</td><td>0.0 %</td><td>0.0 %</td><td>0.0 %</td><td>0 %</td><td>0 %</td></tr>
 <tr><td class="l">0-9 PAYER</td><td>64,267</td><td>0.0 %</td><td>0.0 %</td><td>0.0 %</td><td>0 %</td><td>0 %</td></tr>
 <tr><td class="l">10-19 NONPAYER</td><td>54,334</td><td>0.5 %</td><td>0.0 %</td><td>0.1 %</td><td>0 %</td><td>0 %</td></tr>
@@ -491,6 +491,7 @@ footer{margin-top:3rem;color:var(--ink2);font-size:.82rem;border-top:1px solid v
 <h3>What changed for a player, old → intended</h3>
 <div class="wide"><table>
 <tr><th class="l">Cell</th><th>Envelopes</th><th>Cards</th><th>New cards</th><th>Duplicates</th><th>Stars</th><th>Chests</th><th>ToF runs / banked</th></tr>
+<!-- the "pool exhausted" column that was here was removed: it counted album-2 draws by completers, not an exhausted pool (C4) -->
 <tr><td class="l">0-9 NONPAYER</td><td>25.3 → 26.4</td><td>74 → 76</td><td>35.5 → 39.9</td><td>38.5 → 35.8</td><td>79 → 73</td><td>0.8 → 0.8</td><td>11.7 / 0.8 → 11.2 / 1.6</td></tr>
 <tr><td class="l">20-39 PAYER</td><td>51.0 → 51.8</td><td>189 → 184</td><td>64.1 → 64.6</td><td>125 → 119</td><td>288 → 299</td><td>2.8 → 3.5</td><td>15.6 / 1.6 → 15.0 / 2.8</td></tr>
 <tr><td class="l">40-99 PAYER</td><td>59.5 → 61.5</td><td>227 → 226</td><td>75.3 → 78.9</td><td>151 → 147</td><td>356 → 381</td><td>3.3 → 4.2</td><td>13.0 / 1.9 → 13.1 / 3.1</td></tr>
@@ -503,7 +504,7 @@ footer{margin-top:3rem;color:var(--ink2);font-size:.82rem;border-top:1px solid v
   <li><b>Precompute calendars and re-run</b> everything (K14). Their headline drops from 5.15 % to about 4.5 %.</li>
   <li><b>Fix <code>pityTargets</code></b> to key the <code>FALSE</code> branch by rarity name (C3), then decide with Ville and Janne which pity the client actually runs — the 3 Aug within-envelope rule or the new cross-envelope one — and re-author the gate to match. Until then the 4-star table is decoration.</li>
   <li><b>Guard the missing <code>RarityWeights</code> column</b> (C5): absent → flat weights, with a log line.</li>
-  <li><b>Decide the pool-exhaustion rule against the client</b> (C4). If the client also goes rarity-blind and infinite, author it on the sheet so it is visible; if not, either the pool grows or envelopes run short as they did before. A quarter of top payers are in this regime.</li>
+  <li><b>Note the upward exhaustion fallback on the sheet</b> (C4): a small envelope can pay a rare once every rarity it is weighted for is gone. No decision needed; it should just not be a surprise.</li>
   <li><b>Revert the six base <code>NS</code> HC cells</b> — or re-pull <code>data_gains</code> if live Control changed (K11). Confirm the <code>HH</code> base edits against live.</li>
   <li><b>Re-derive the envelope prices</b> (K3) from the odds the engine uses — 21 / 38 / 68 / 121 / 207 on their scale — and keep the perceived-value premium as its own column rather than inside <code>item_vals</code>. Drop the negative <code>ToF_Value</code> (K4) until the ticket has an agreed value.</li>
   <li><b>ToF sheet vs reader</b> (K16): restore <code>Tickets per Run</code>, make <code>Last Stage</code> agree with the 35 authored stages, give MAX a reachable cash-out, and reconcile <code>ToF_model</code> with <code>tofRunOnce_</code>.</li>
