@@ -25,21 +25,30 @@
  *            the trailing fraction is resolved by a SEEDED Bernoulli so the granted count is
  *            unbiased (the old code always rounded the remainder UP, inflating every source).
  *  Stage 2 — opening: draw cards per pack (without replacement), classify new/dupe, accrue stars.
- *  Pity:     two independent mechanisms chasing DIFFERENT things.
- *            (a) RARITY pity — PackConfig PACK PITY CONFIG. `PityProbabilities` is indexed by the
- *                number of CONSECUTIVE MISSES of the target rarity, not by card slot:
- *                [0, 0.8, 0.8, 1.0] = "no help at first; miss once and the next pull has an 80%
- *                chance of the target; miss again, 80% again; miss a third time and the next pull
- *                is GUARANTEED". Entries past the end reuse the last value. The counter resets on
- *                any hit (forced or natural) and starts at 0 on every pack — it does NOT carry
- *                between packs. Target = the highest rarity that STILL HAS COPIES when
- *                PityForceHighestRarity is TRUE (so the empty Gold tier falls back to 5-star
- *                rather than making the pity unsatisfiable), else any rarity above the pool's
- *                most-stocked one.
- *            (b) DRY-STREAK pity — chases a NEW card, not a rare one: after
- *                PITY_CONFIG.threshold consecutive packs with zero new cards, the next pack
- *                forces its last card to be an unowned type. Reset on any new card (forced or
- *                natural) and on album advance.
+ *  Pity:     ONE mechanism, counted ACROSS envelopes of the same tier (Ville, Sep 2026; confirmed
+ *            as the client's rule by the user 2026-10-06 — "the pity system applies not within the
+ *            envelope"). The two earlier mechanisms (a per-slot rarity counter that reset on every
+ *            pack open, and a code-side dry-streak counter) are GONE, not disabled: the client has
+ *            no equivalent of either.
+ *              * ONE COUNTER PER PACK TIER, surviving between opens. It escalates each time an
+ *                envelope of that tier yields ZERO new cards, and resets to 0 the moment one yields
+ *                any new card (also on album advance, for the tier being opened).
+ *              * `PityProbabilities` from PACK PITY CONFIG is indexed BY THAT COUNTER:
+ *                [0, 0.33, 0.66, 1.0] = "no help on the first blank envelope of this tier; 33%
+ *                after one, 66% after two, GUARANTEED after three". Entries past the end reuse the
+ *                last value, so a table can be shorter than a dry streak.
+ *              * The roll happens on the LAST SLOT ONLY, and only if the envelope has produced no
+ *                new card yet — or, with PityForceHighestRarity TRUE, no new card of the highest
+ *                rarity the envelope is weighted for. On success the slot draws a NEW card of a
+ *                target rarity, excluding cards already in this envelope.
+ *              * Targets: TRUE  -> the highest rarity that the envelope is weighted for AND still
+ *                                  has copies (an exhausted top tier falls back a step rather than
+ *                                  making the pity unsatisfiable).
+ *                         FALSE -> every rarity the envelope is weighted for that still has copies,
+ *                                  so the pity is "a new card" rather than "a rare card".
+ *                Keyed by rarity NAME, which is what the draw filter looks up (the received code
+ *                keyed the FALSE branch by rank NUMBER, so the 4-star table — the only non-trivial
+ *                FALSE table — could never match and the whole branch was dead; fixed 2026-10-06).
  *  Chests:   once day >= Urgency Start Day and balance >= Min Stars, each triggering pack rolls
  *            the urgency probability (linear ramp from 0 at Urgency Start Day to End-of-Season
  *            Buy Probability on the final day); on success the player buys the most expensive
@@ -62,12 +71,9 @@
  *                    G2 = seed (blank -> generated and written back, so a run is reproducible)
  ************************************************************************************************/
 
-//Logger = { log: function(){} };
-
-
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var CARDSIM_BUILD = 'CardOpenings.gs     D41  2026-09-07';
+var CARDSIM_BUILD = 'CardOpenings.gs     D55  2026-10-06';
 
 
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
@@ -161,8 +167,18 @@ var REWARD_COLUMNS = [
   { col: 21, name: '6-star Dly' }
 ];
 
-// Dry-streak pity (mechanism (b) — the per-slot table is mechanism (a), read from the sheet).
-var PITY_CONFIG = { enabled: true, threshold: 3 };
+// How many rarity slots a RarityWeights row carries: one per rarity in the catalog (1★..6★).
+// The two-stage draw indexes weights by rarityRank, so this is also the width of the override
+// vector drawOneDualRandom builds and the ceiling its upward exhaustion scan stops at.
+var RARITY_WEIGHT_SLOTS = 6;
+
+// A RarityWeights row that means "no preference" - every rarity weighted 1, so the draw is decided
+// by the pool composition alone. The fallback when the sheet has no RarityWeights column at all.
+function flatRarityWeights_(){
+  var w = [];
+  for (var i = 0; i < RARITY_WEIGHT_SLOTS; i++) w.push(1);
+  return w;
+}
 
 // Hard stop for the end-of-season chest spend-down. The cascade (buy -> open -> duplicates ->
 // stars -> buy) terminates whenever a chest costs more stars than its pack returns in duplicates,
@@ -236,7 +252,7 @@ function loadPackConfig_(){
   // file still looked for exactly 'CHEST PURCHASING'. Three things then broke at once, silently:
   //   * the panel was never found, so buyMinStars/buyStartDay/buyEndProb came back undefined and
   //     degraded to minStars=Infinity / endProb=0 - NO CHEST WAS EVER BOUGHT in a live run, so
-  //     'Stars Spent on Chests' and the star balance were structurally wrong, not merely zero;pity
+  //     'Stars Spent on Chests' and the star balance were structurally wrong, not merely zero;
   //   * with no label to bound it, the STAR CHEST block ran on past its own rows and swallowed the
   //     three purchasing parameters as if they were chests ('Min Stars to Consider Buying' priced
   //     at 250 stars, reward pack 'no purchase below this star balance');
@@ -341,7 +357,18 @@ function loadPackConfig_(){
     });
 
   // VILLE - RarityWeights, read from the pack definitions part of the sheet
-  var tierRarityWeights = [];
+  //
+  // GUARD (2026-10-06, review finding C5). A sheet with no RarityWeights column - every PackConfig
+  // before 2026-09-15, and anything builders/_build_packconfig.py emits until it learns the column -
+  // yields an EMPTY weights array here. An empty array is not "no preference": drawOneDualRandom
+  // multiplies every rarity by `weights[rank] || 0`, finds nothing drawable, and the exhaustion
+  // fallback then hands out the lowest rarity that still has stock. Album completion reads 0% in 8
+  // of the 10 cells and looks like a balancing result rather than a missing column (measured:
+  // 33 unique cards per 100+ PAYER against 79 with the weights).
+  // Absent/blank -> FLAT weights, which is exactly the pre-weights behaviour (rarity is then a pool
+  // property alone), and say so in the log. A sheet that authors a zero row still gets the zero row:
+  // only a MISSING number is replaced.
+  var tierRarityWeights = [], flatWeightTiers = [];
 
   blockRows('PACK DEFINITIONS', isPackRow).forEach(function(row){
     var weights = String(row[4] || '').replace(/[\[\]]/g, '').split(',')
@@ -349,8 +376,17 @@ function loadPackConfig_(){
       .filter(function(x){ return isFinite(x); });
 
     var tier = getTier(row[0]);
+    if (!weights.length){
+      weights = flatRarityWeights_();
+      flatWeightTiers.push(tier);
+    }
     tierRarityWeights[tier] = weights;
   });
+  if (flatWeightTiers.length)
+    Logger.log('PackConfig PACK DEFINITIONS has no RarityWeights for tier(s) ' +
+               flatWeightTiers.join(', ') + ' - falling back to FLAT weights (' +
+               flatRarityWeights_().join(', ') + '), i.e. rarity decided by the pool alone, as it ' +
+               'was before 2026-09-15. Author column E to weight rarity per envelope tier.');
 
 
   // PACK PITY CONFIG: 'PityProbabilities' is a bracketed list, one entry per card slot.
@@ -452,7 +488,11 @@ function loadPackConfig_(){
     setRewards:   rewardTable('SET REWARDS'),
     albumRewards: rewardTable('ALBUM REWARDS'),
     albumSetSkew: albumSetSkew,
-    tierRarityWeights: tierRarityWeights
+    tierRarityWeights: tierRarityWeights,
+    // Pack tiers that got FLAT weights because the sheet has no RarityWeights for them. Surfaced
+    // in both menu runs' toasts: a silent fallback here multiplies album completion by 2-4x
+    // (measured 2026-10-06: 20-39 PAYER 17% -> 46%), which on the sheet looks like a config result.
+    flatWeightTiers: flatWeightTiers
   };
 }
 
@@ -583,7 +623,7 @@ function loadCardCatalog_(cfg, album){
 
   // The pool: SNAP POOL quantities spread evenly across the catalog cards of each rarity
   // (remainder to the lowest indices). Rarity probability is therefore purely a pool property.
-  
+
   function buildFreshPool() {
     var byRarity = {};
     catalog.forEach(function(c){ (byRarity[c.rarity] = byRarity[c.rarity] || []).push(c); });
@@ -1116,7 +1156,6 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
       totalUnique    = cat.totalUnique,
       buildFreshPool = cat.buildFreshPool,
       poolBreakdown  = cat.poolBreakdown;
-      tierRarityWeights = cat.tierRarityWeights;
 
   var simCtx = pre.ctx;
 
@@ -1297,38 +1336,14 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     var r = rand() * total;
     for (var i = 0; i < keys.length; i++){
       r -= wts[i];
-      if (r < 0){ 
+      if (r < 0){
           var card = keys[i];
-          var rarity = rarityRank[rarityOf[card]]; 
+          var rarity = rarityRank[rarityOf[card]];
           return rarity;
         }
     }
     var last = keys[keys.length - 1];
     return rarityRank[rarityOf[last]];
-  }
-
-
-
-  function drawOneSingleRandom(filter, rarityWeights, includeAllRarities) {
-    var keys = [], wts = [], total = 0;
-    for (var key in pool){
-      var cnt = pool[key]
-      if (cnt <= 0) continue;
-      if (filter && !filter(key)) continue;
-      var w = cnt * chapterMultFor(setOf[key]) * ((rarityWeights && !includeAllRarities) ? (rarityWeights[rarityRank[rarityOf[key]]] || 0) : 1);
-      if (w <= 0) continue;
-      keys.push(key); wts.push(w); total += w;
-    }
-    if (total <= 0) return null;
-    var r = rand() * total;
-    for (var i = 0; i < keys.length; i++){
-      r -= wts[i];
-      if (r < 0){ 
-          return keys[i]; 
-        }
-    }
-    var last = keys[keys.length - 1];
-    return last;
   }
 
   function drawOneDualRandom(filter, rarityWeights, includeAllRarities, unlimitedPool) {
@@ -1357,7 +1372,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     if (rarityIndex >= 0) {
       rarityOverrides[rarityIndex] = 1.0;
     }
-    
+
     if (unlimitedPool == true) {
       for (var i = 0; i < rarityOverrides.length; ++i) {
         rarityOverrides[i] = 1.0;
@@ -1397,8 +1412,8 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     var r = rand() * total;
     for (var i = 0; i < keys.length; i++){
       r -= wts[i];
-      if (r < 0){ 
-          return keys[i]; 
+      if (r < 0){
+          return keys[i];
         }
     }
     var last = keys[keys.length - 1];
@@ -1409,53 +1424,52 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // One draw from the pool. Count-proportional (weight = copies x chapter multiplier) — the
   // rarity odds fall out of the pool composition and drift as copies are removed.
   // `filter` optionally restricts the eligible keys (pity). Returns null if nothing is eligible.
-  // VILLE - Added the rarity weights
+  // VILLE - Added the rarity weights. TWO STAGES: pick the rarity (copies x the envelope's
+  // RarityWeights entry), then the card inside it (copies x chapter weight). The single-stage
+  // variant Ville left beside this one - weights folded into one draw - was never called and is
+  // gone: two draw models in one file is two answers to "what are this envelope's odds".
   function drawOne(filter, rarityWeights, includeAllRarities, unlimitedPool) {
-    //return drawOneSingleRandom(filter, rarityWeights, includeAllRarities);
     return drawOneDualRandom(filter, rarityWeights, includeAllRarities, unlimitedPool);
   }
 
 
-  // The rarities a pity pull is CHASING — i.e. what counts as a "hit" and what a forced draw is
-  // restricted to. Recomputed per draw because the pool depletes as the season runs.
-  //   forceHighest TRUE  -> exactly the highest rarity that STILL HAS COPIES. This is also the
-  //                         empty-tier fallback (user decision): Gold ships at Qty 0, so a 6-star
-  //                         pack's pity resolves to 5★ until Gold has stock, instead of never
-  //                         being satisfiable.
-  //   forceHighest FALSE -> any rarity strictly ABOVE the most-stocked rarity in the pool
-  //                         ("better than what the pack usually gives" — a softer pity).
-  // Returns a {rarity: true} set, or null when nothing qualifies (pity then does nothing).
+  // The rarities a pity pull is CHASING — i.e. what a forced draw is restricted to. Recomputed per
+  // roll because the pool depletes as the season runs, and restricted to what this ENVELOPE can
+  // even pay: a rarity the envelope's RarityWeights give 0 is not a target, or the pity would hand
+  // out a card the tier is defined never to produce.
+  //   forceHighest TRUE  -> exactly the highest WEIGHTED rarity that STILL HAS COPIES. That also
+  //                         makes it the empty-tier fallback: a top tier at Qty 0 drops the target
+  //                         one step instead of making the pity unsatisfiable.
+  //   forceHighest FALSE -> every weighted rarity that still has copies, so the forced draw is
+  //                         constrained only by "new card", not by rarity (the roll already only
+  //                         happens on an envelope that has produced no new card).
+  // Returns a {RARITY NAME: true} set, or null when nothing qualifies (pity then does nothing).
+  // The key must be the rarity NAME: the only consumer is the draw filter `targets[rarityOf[k]]`.
+  // The received code keyed this branch by rank NUMBER (out[rk]), which that lookup can never
+  // match — so the FALSE branch was dead, and with it the 4-star envelope's [0, 0.33, 0.66, 1.0],
+  // the only non-trivial FALSE table in the workbook. Runtime-confirmed before the fix: forcing
+  // that table to [1,1,1,1] moved the share of 4-star envelopes with zero new cards by 0.3 pp.
   function pityTargets(forceHighest, rarityWeights) {
-    var counts = poolRarityCounts(), out = {}, any = false, r;
+    var counts = poolRarityCounts(), out = {}, any = false, r, rk;
+    // No weights row at all (a tier PACK DEFINITIONS does not define) -> weight nothing out.
+    var weighted = function(rank){ return !rarityWeights || rarityWeights[rank] > 0; };
     if (forceHighest){
       var best = null, bestRank = -1;
       for (r in counts){
-        var rk = rarityRank[r];
-        if (rk > bestRank && rarityWeights[rk] > 0.0){ 
-          bestRank = rk; 
-          best = r; 
+        rk = rarityRank[r];
+        if (rk > bestRank && weighted(rk)){
+          bestRank = rk;
+          best = r;
         }
       }
       if (best == null) return null;
       out[best] = true;
       return out;
-    } else {
-      for (r in counts){
-        var rk = rarityRank[r];
-        if (rarityWeights[rk] > 0.0){ 
-          out[rk] = true;
-        }
-      }
-      return out;
     }
-
-    /*
-    var modal = null, modalCnt = -1;
-    for (r in counts) if (counts[r] > modalCnt){ modalCnt = counts[r]; modal = r; }
-    if (modal == null) return null;
-    for (r in counts) if (rarityRank[r] > rarityRank[modal]){ out[r] = true; any = true; }
+    for (r in counts){
+      if (weighted(rarityRank[r])){ out[r] = true; any = true; }
+    }
     return any ? out : null;
-    */
   }
 
   // ---- PER-PACK GUARANTEES (GuaranteedMinRarity / GuaranteedNewSnap, 2026-09-09) --------------
@@ -1556,7 +1570,10 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     return highest;
   }
 
-  function openPack(packName, source, day, detail, tierRarityWeights) {
+  // The weights are read off cfg, NOT passed in: an envelope opened through a call site that forgot
+  // the argument would draw with `undefined` weights, which is the C5 degradation (every card the
+  // lowest stocked rarity) reintroduced one call site at a time. One source, no argument to forget.
+  function openPack(packName, source, day, detail) {
     var key   = normalizePackKey(packName);
     var nCard = cfg.cardsPerOpen[key];
     if (!nCard) { Logger.log('No PACK DEFINITIONS row for "' + packName + '", skipping'); return null; }
@@ -1565,19 +1582,8 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     var tier = getTier(key);
     packsOpenedByTier[tier] = (packsOpenedByTier[tier] || 0) + 1;
 
-    // VILLE - added rarity weights
-    /*
-    tierRarityWeights = [
-      [0.45, 0.28, 0.15, 0.12, 0.00, 0.00],
-      [0.30, 0.35, 0.20, 0.15, 0.00, 0.00],
-      [0.20, 0.40, 0.30, 0.20, 0.10, 0.00],
-      [0.10, 0.20, 0.40, 0.35, 0.20, 0.05],
-      [0.05, 0.05, 0.10, 0.25, 0.35, 0.25],
-      [0.05, 0.05, 0.10, 0.25, 0.35, 0.25]
-    ]
-    */
-
-    var rarityWeights = tierRarityWeights[tier]
+    // VILLE - added rarity weights (PACK DEFINITIONS column E; absent -> flat, see loadPackConfig_)
+    var rarityWeights = cfg.tierRarityWeights[tier];
 
     packsOpenedTotal++;
     // A chest-bought pack is marked here, off the SAME string sourceKey_ normalises, so the two
@@ -1586,22 +1592,14 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
                 direct: 0, stars: 0, source: sourceKey_(source) };
     packLedger.push(curPack);
 
-    // VILLE - This type of pity is not used
-    // var dryPityActive = PITY_CONFIG.enabled && pityCounter >= PITY_CONFIG.threshold;
     var startAlbum = ALBUM_NAMES[albumIdx];
     var drawn = [], newCards = [], dupes = [];
     var setCompletionNotes = [];
     var albumNote = '';
 
-    // (a) RARITY PITY — `PityProbabilities` is indexed by the number of CONSECUTIVE MISSES so far,
-    // not by card slot: probs[0] applies to a pull with no misses behind it, probs[1] after one
-    // miss, probs[2] after two, and so on; entries past the end reuse the last value. So
-    // [0, 0.8, 0.8, 1.0] reads "no help at first; miss once and the next pull has an 80% chance;
-    // miss again, another 80%; miss a third time and the next pull is GUARANTEED".
-    // The counter RESETS to 0 the moment a pull lands on the target rarity — whether pity forced
-    // it or the player got there naturally — and starts at 0 on every pack open (it does NOT
-    // carry between packs).
-    // var pityMiss = 0;
+    // (a) PITY is counted ACROSS ENVELOPES of this tier, in pityCounter[tier] - see the file
+    // header. Nothing about it is per-slot, so there is no counter to initialise here: the roll
+    // happens once, on the last slot, inside the loop below.
 
     // (c) PER-PACK GUARANTEES. Both are FLOORS ON THE FINISHED PACK, not extra forced cards: a
     // card that arrives naturally (or through pity (a)) discharges them just as well, so the only
@@ -1626,34 +1624,42 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     if (guar.newSnap > nCard)
       Logger.log('PackConfig GuaranteedNewSnap ' + guar.newSnap + ' on "' + key + '" exceeds its ' +
                  nCard + ' Cards/Open - capped at ' + nCard + '.');
-    
-    // VILLE - Fixed outstanding, need rarity does not add on top of needNew unless needNew is 0
-    var outstanding = function(){ return Math.max(needNew, (needRarity ? 1 : 0)); };
-    // var outstanding = function(){ return needNew + (needRarity ? 1 : 0); };
 
-    // var hasMaxRarityHack = false;
+    // VILLE - Fixed outstanding, need rarity does not add on top of needNew unless needNew is 0.
+    // Reads max(), not the sum the paragraph above argues for: one card can discharge both floors,
+    // so reserving two slots over-reserves. INERT at today's config (GuaranteedNewSnap is 0 on
+    // every tier, so needNew is 0 and max() == sum == 1); the gate that caught the under-reserving
+    // case is in harness/_mock_cards.js if GuaranteedNewSnap is ever authored above 0.
+    var outstanding = function(){ return Math.max(needNew, (needRarity ? 1 : 0)); };
 
     for (var i = 0; i < nCard; i++){
       var isLast = (i === nCard - 1);
-      // VILLE - This comment is not valid...
-      // Computed BEFORE any draw in this slot, as it always was: `targets` is also the yardstick
-      // the pityMiss counter is scored against below, and reading it off the post-draw pool would
-      // quietly change that bookkeeping on reserved slots.
       var cardKey = null;
 
       if (guaranteeOn && (nCard - i) <= outstanding()){
-        // A reserved slot answers to the guarantee alone - pity (a) and (b) are skipped here, and
-        // so is pity's rand() call. With both parameters at 0 nothing is ever reserved, so the
-        // random stream, and every number downstream of it, is byte-identical to before.
+        // A reserved slot answers to the guarantee alone - the pity roll below is skipped on it,
+        // and so is its rand() call. With both guarantee parameters at 0 nothing is ever reserved.
         cardKey = guaranteedDraw(needNew > 0, needRarity ? gMinRank : -1, rarityWeights, drawn);
       }
 
+      // THE PITY ROLL. Last slot only, and only when this envelope has not already produced what
+      // the pity exists to deliver: a new card - or, with forceHighest, a new card of the highest
+      // rarity the envelope is weighted for. `newCardsCopy` is newCards plus whatever a reserved
+      // guarantee slot just put in this slot, so a guarantee that already delivered stands the
+      // pity down instead of stacking a second forced card on top of it.
+      //
+      // ASYMMETRY, LEFT AS RECEIVED (user decision 2026-10-06: the client works this way): the
+      // counter escalates on "zero new cards in the envelope" while a forceHighest tier ATTEMPTS
+      // on "no new card of the top weighted rarity". A 6-card envelope nearly always contains some
+      // new card, so the 5-star counter sits at 0 and its probs[0] = 0 makes the attempt a no-op -
+      // the 5-star pity is therefore close to inert at today's tables, by construction and not by
+      // accident. See the vacation review, C3.
       var newCardsCopy = newCards.slice();
       if (cardKey != null && !owned(cardKey)) {
         newCardsCopy.push(cardKey);
       }
 
-      if (i == nCard - 1 && (newCardsCopy.length == 0 || (pityCfg.forceHighest && highestCardRarity(newCardsCopy) < highestRarityAvailable(rarityWeights)))) {
+      if (isLast && (newCardsCopy.length == 0 || (pityCfg.forceHighest && highestCardRarity(newCardsCopy) < highestRarityAvailable(rarityWeights)))) {
         var targets = pityTargets(pityCfg.forceHighest, rarityWeights);
         var p = pityCfg.probs[Math.min(pityCounter[tier], pityCfg.probs.length - 1)];
 
@@ -1661,14 +1667,10 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
           cardKey = drawOne(function(k){ return targets[rarityOf[k]] === true && !owned(k) && !drawn.includes(k); }, rarityWeights);
       }
 
-      // (b) dry-streak pity on the last card (independent mechanism: chases a NEW card, not a rare
-      // one). Stands down whenever the pack authors its own guarantee: GuaranteedNewSnap is the
-      // same promise made explicitly, and running both would force two new cards where one was
-      // asked for. Packs with no guarantee keep this exactly as it was.
-      // VILLE - commmented out, this type of pity is not used
-      // if (!cardKey && !guaranteeOn && dryPityActive && isLast && newCards.length === 0) 
-      //  cardKey = drawOne(function(k){ return !owned(k) && !drawn.includes(k) }, rarityWeights);
-      
+      // NORMAL DRAW, then two widenings: first allowing rarities this envelope is not weighted for
+      // (its own tiers are exhausted), then an unlimited pool. The second is effectively
+      // unreachable - the pool is rebuilt the moment the album completes, so owning every copy IS
+      // completion - and is kept as a guard against a hang, not as a model.
       if (!cardKey) {
         cardKey = drawOne(function(k){ return !drawn.includes(k) }, rarityWeights);
       }
@@ -1680,9 +1682,8 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
         cardKey = drawOne(function(k){ return !drawn.includes(k) }, rarityWeights, true, true);
       }
 
-      if (!cardKey) { 
-        drawOne(function(k){ return !drawn.includes(k) }, rarityWeights, true, true);
-        Logger.log('Pool exhausted mid-pack on day ' + day); break; 
+      if (!cardKey) {
+        Logger.log('Pool exhausted mid-pack on day ' + day); break;
       }
 
       // Discharge the guarantees against whatever actually landed, however it was drawn. The
@@ -1690,13 +1691,11 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
       if (needRarity && rarityRank[rarityOf[cardKey]] >= gMinRank) needRarity = false;
       if (needNew > 0 && !owned(cardKey)) needNew--;
 
-      // hit -> reset, miss -> escalate. `targets` is recomputed each draw off the live pool, so a
-      // rarity that runs out mid-pack stops counting as the thing being chased.
-      // pityMiss = (targets && targets[rarityOf[cardKey]] === true) ? 0 : pityMiss + 1;
-
-      // Remove the card from pool as the last step,to avoid accidentally removed more than one -VILLE-
+      // Remove the card from pool as the last step, to avoid accidentally removing more than one
+      // -VILLE- (the draw helpers no longer decrement: they only pick, so a widening that picks a
+      // card and is then discarded cannot take a copy with it).
       if (pool[cardKey] > 0) {
-        pool[cardKey] -= 1; 
+        pool[cardKey] -= 1;
       }
 
 
@@ -1818,9 +1817,9 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   var minStars  = isFinite(cfg.buyMinStars) ? cfg.buyMinStars : Infinity;
   var startDay  = isFinite(cfg.buyStartDay) ? cfg.buyStartDay : Infinity;
   var endProb   = isFinite(cfg.buyEndProb)  ? cfg.buyEndProb  : 0;
-  
-  
-  
+
+
+
   function buyProbability(day){
     if (!(day >= startDay) || !(endProb > 0)) return 0;
     var span = SEASON_DAYS - startDay;
@@ -1842,7 +1841,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     balance    -= chest.cost;
     starsSpent += chest.cost;
     var row = openPack(chest.rewardPack, chest.tier + ' Chest Opened - ' + chest.rewardPack, day,
-                       'bought with ' + chest.cost + ' stars' + (why ? ' (' + why + ')' : ''), cfg.tierRarityWeights);
+                       'bought with ' + chest.cost + ' stars' + (why ? ' (' + why + ')' : ''));
     if (!row){
       Logger.log("Couldn't open " + chest.tier + ' chest reward "' + chest.rewardPack + '" - refunding');
       balance    += chest.cost;
@@ -1861,7 +1860,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     if (!cfg.chests.length) return;
     var p = buyProbability(day);
     if (p <= 0) return;
-    // One day before the end of Season, buy chest also with low balance 
+    // One day before the end of Season, buy chest also with low balance
     // (player may not be on the last day for the sweepChests) - VILLE -
     while ((balance >= minStars || day >= SEASON_LAST_DAY - 1) && rand() < p){
       if (!buyOneChest(day, output)) break;
@@ -2239,7 +2238,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
 
     while (packIdx < packOpens.length && packOpens[packIdx].day === day){
       var open = packOpens[packIdx];
-      var row = openPack(open.packName, open.source, day, open.detail, cfg.tierRarityWeights);
+      var row = openPack(open.packName, open.source, day, open.detail);
       if (row){
         output.push(row);
         tryBuyChests(day, output);
@@ -2281,7 +2280,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   }
 
 
-  
+
   // ---- CLOSE THE STAR CHAIN, and roll the ledger up per tier --------------------------------
   // See the block comment on packLedger. chestDirect is the reward credit that landed on packs
   // bought with stars; chestStars is the stars those same packs paid back in duplicates. A star
@@ -2450,6 +2449,7 @@ function SimulatePackOpenings() {
   // writes the OLD number of columns and nothing anywhere says so. If this reads 10 / "Note" while
   // the repo says 11 / "ToF_Ticket_gains", the project is running someone else's LOG_COLS.
   SpreadsheetApp.getActive().toast(
+    flatWeightWarning_(cfg) +
     'log ' + outCols + ' cols, last "' + LOG_COLS[LOG_COLS.length - 1] + '" | ' +
     'Opened ' + packsOpenedTotal + ' packs (expected ' + expectedTotal.toFixed(1) + '), ' +
     num(res.tofTickets) + ' ToF tickets (expected ' + num(res.tofExpected).toFixed(1) + '), ' +
@@ -2461,6 +2461,16 @@ function SimulatePackOpenings() {
 }
 
 function countKeys_(o){ var n = 0; for (var k in o) if (o[k]) n++; return n; }
+
+// Prefix for a run's toast when PACK DEFINITIONS had no RarityWeights for some tier and the draw
+// fell back to flat weights. Empty string when the sheet is complete, so a healthy run reads
+// exactly as it did before.
+function flatWeightWarning_(cfg){
+  var t = (cfg && cfg.flatWeightTiers) || [];
+  if (!t.length) return '';
+  return 'NO RarityWeights (col E) for tier(s) ' + t.join(', ') + ' -> FLAT weights, rarity by ' +
+         'pool alone. Completion reads FAR too high. | ';
+}
 
 // Tally key for a pack's source. A chest's log Source names the reward pack too
 // ('Gold Chest Opened - 5-star Pack'), which in a per-source table would spread the chests across
@@ -2686,8 +2696,12 @@ var CLOUD_TAIL_MIN_PLAYERS = 200;
 
 var CLOUD_DEFAULT_PLAYERS = 50;
 var CLOUD_MAX_PLAYERS     = 2000;
-// Apps Script kills a menu run at 10 minutes. Stop early and write what we have rather than dying
-// mid-write and leaving half a sheet that looks like a finished result.
+// Apps Script kills a menu run at SIX minutes on a consumer/legacy account and thirty on a
+// Workspace one - not ten, whatever the comment said when the budget was raised. The 10-minute
+// budget is therefore safe only on a Workspace account (this one is: a 1,000-player run finished).
+// On a 6-minute account the early stop could never fire before the kill and the sheet would be
+// left half-written, which is the one outcome this budget exists to prevent - lower it to 240000
+// if the project is ever moved to a consumer account.
 var CLOUD_TIME_BUDGET_MS  = 600000;
 
 // Input + stamp cells on the two sheets (builders/_build_cardcloud.py writes their labels).
@@ -2736,6 +2750,14 @@ TB_ALIASES[TB.ecoTotal] = ['ECONOMY IMPACT - TOTAL (avg per player)',
                            'ECONOMY IMPACT - TOTAL (avg across players)'];
 TB_ALIASES[TB.packsSrc] = ['PACKS PER SOURCE (avg)'];
 TB_ALIASES[TB.cardsSrc] = ['CARDS PER SOURCE (avg)'];
+// 2026-09-xx: the three band bars were renamed p10-p90 -> p10-p95 in TB (band_ reports p95 now),
+// but builders/_build_cardcloud.py still writes "(p10-p90)" and the live sheets were built by it.
+// Both spellings are accepted, in the only direction that matters: the engine's label is the new
+// one, so the OLD one is the alias. Without this the three blocks miss their lookup and are
+// skipped, which on the sheet is indistinguishable from "they ran and produced the same numbers".
+TB_ALIASES[TB.totalsBand]   = ['TOTALS (p10-p90 across players)'];
+TB_ALIASES[TB.packsSrcBand] = ['PACKS PER SOURCE (p10-p90)'];
+TB_ALIASES[TB.cardsSrcBand] = ['CARDS PER SOURCE (p10-p90)'];
 
 // One block per permutation, at the BOTTOM of the sheet (user, 2026-09-07: "just add at the bottom
 // instead of changing any ordering"). Nothing above them moves by a single row. The label carries
@@ -2831,7 +2853,7 @@ function stats_(values){
            MEAN: v.length ? s / v.length : 0 };
 }
 
-/** A p10-p90 band as display text. */
+/** A p10-p95 band as display text (p95, not p90, since 2026-09-xx - Ville). */
 function band_(values, dp){
   var st = stats_(values), d = (dp == null) ? 1 : dp;
   return round_(st.p10, d) + ' - ' + round_(st.p95, d);
@@ -3055,9 +3077,9 @@ function SimulateCardCloud(){
   var skipped = writeTotalsSheet_(totals, tVals, agg, nPlayers, seed, cfg) || [];
 
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
-  var msg = agg.length + ' of ' + perms.length + ' permutations x ' + nPlayers +
+  var msg = flatWeightWarning_(cfg) + agg.length + ' of ' + perms.length + ' permutations x ' + nPlayers +
             ' players in ' + secs + 's (seed ' + seed + ')' +
-            (stoppedAt >= 0 ? '  -- STOPPED EARLY on the 6-minute limit, lower B2' : '') +
+            (stoppedAt >= 0 ? '  -- STOPPED EARLY on the time budget, lower B2' : '') +
             // A block whose bar was not found writes nothing and leaves its rows untouched, which
             // on the sheet looks exactly like a block that ran. Say so where it will be seen.
             (skipped.length ? '  --  ' + skipped.length + ' BLOCK(S) NOT WRITTEN (bar not found ' +
