@@ -660,7 +660,7 @@ function packParticipation_(cat, inst){
 //     pack after the album has closed.
 // Season Pass is exempt: its track is climbed during the season, so it pays its whole reached
 // ladder even though the calendar draws a second pass instance past the cutoff.
-var SEASON_LAST_DAY = 29;     // last day the collection season is live (calendar window is 33)
+var SEASON_LAST_DAY = 28;     // last day the collection season is live (calendar window is 33) -- VILLE - UPDATED TO 28
 var SEASON_CUTOFF   = true;   // false -> pre-D26 behaviour: envelopes on all 33 days
 var SEASON_EXEMPT_LANES = { 'Season Pass': 1 };
 
