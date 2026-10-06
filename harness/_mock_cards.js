@@ -14,7 +14,11 @@ const ENGINE = (f) => path.join(__dirname, '..', 'engine', f);
 // loadPackConfig_ dies on it before a single gate runs. Default is therefore the
 // collections dump; pass --data main to force the ECO dump.
 const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockdata.json',
-                       wb14: '_mockdata_wb14.json' };
+                       wb14: '_mockdata_wb14.json',
+                       // the 15-30 Sep vacation workbook: the first PackConfig with a RarityWeights
+                       // column, so the only dump that exercises the D55 two-stage draw as authored
+                       vacation: '_mockdata_vacation.json',
+                       latest1: '_mockdata_latest1.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
@@ -1201,13 +1205,17 @@ function logCol(name){
 
   // (a) THREE things bend the mix away from raw pool shares, and all three must be switched off
   // before "rarity is a property of the pool" is a testable statement:
-  //     * ALBUM SET SKEW    - multiplies a card's weight by its set;
-  //     * rarity pity       - forceHighest drags pulls onto the rarest stocked tier;
-  //     * dry-streak pity   - forces an UNOWNED card, and 1-star is the tier a player completes
-  //                           first, so "give them something new" systematically steers away from
-  //                           it. This one is why 2-star out-drew 1-star even with the skew off.
+  //     * ALBUM SET SKEW   - multiplies a card's weight by its set;
+  //     * RarityWeights    - per-envelope rarity weights (D55). Since the two-stage draw these are
+  //                          the LOUDEST of the three: a 1-star envelope weights 1 star at 0.45 and
+  //                          5 star at 0, so "the pool decides" is simply false until they are
+  //                          flattened. Flattening them to 1 IS the pre-D55 engine.
+  //     * pity             - forces an UNOWNED card on the last slot, and 1-star is the tier a
+  //                          player completes first, so "give them something new" systematically
+  //                          steers away from it. This is why 2-star out-drew 1-star with the
+  //                          skew off alone.
   const skewSnap = JSON.stringify(data);
-  let skewCells = 0, pityCells = 0;
+  let skewCells = 0, pityCells = 0, weightCells = 0;
   {
     const v = data['PackConfig'].values;
     const flatten = (label, fn) => {
@@ -1224,9 +1232,12 @@ function logCol(name){
       if (!String(row[0]).trim() || String(row[0]).trim().toUpperCase() === 'PACK TYPE') return;
       row[1] = '[0]'; row[2] = 'FALSE'; pityCells++;
     });
+    flatten('PACK DEFINITIONS', row => {
+      if (!/^\d+[-\s]*star/i.test(String(row[0]).trim())) return;
+      row[4] = '[1, 1, 1, 1, 1, 1]'; weightCells++;
+    });
   }
   eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
-  PITY_CONFIG.enabled = false;                       // dry-streak pity lives in code, not the sheet
   // ONE seed cannot decide this. 1-star leads 2-star by only 281:214 in the pool, and a season is
   // ~220 draws, so the sd on each count is ~6 and the two overlap constantly - the old single-seed
   // gate was a coin-flip dressed as an assertion. Aggregate several seeds so the pool ratio is
@@ -1239,7 +1250,6 @@ function logCol(name){
     Object.keys(m.bySet).forEach(k => { neutral.bySet[k] = (neutral.bySet[k] || 0) + m.bySet[k]; });
     neutral.total += m.total;
   });
-  PITY_CONFIG.enabled = true;
   const poolN = Object.values(cfg.qtyByRarity).reduce((a, b) => a + b, 0);
   console.log('  neutral mix (no skew, no pity), ' + SEEDS.length + ' seeds, ' + neutral.total +
               ' draws  [observed vs pool-proportional]:');
@@ -1247,11 +1257,11 @@ function logCol(name){
     const exp = neutral.total * cfg.qtyByRarity[r] / poolN;
     return r + ' ' + (neutral.rar[r] || 0) + '/' + exp.toFixed(0);
   }).join('   '));
-  check('with skew and both pity mechanisms off, 1★ is the most-drawn rarity (pool decides)',
-    skewCells > 0 && pityCells > 0 && neutral.total > 0 &&
+  check('with skew, rarity weights and pity off, 1★ is the most-drawn rarity (pool decides)',
+    skewCells > 0 && pityCells > 0 && weightCells > 0 && neutral.total > 0 &&
     Object.keys(neutral.rar).every(k => k === '1★' || neutral.rar['1★'] >= neutral.rar[k]),
-    skewCells + ' skew weights + ' + pityCells + ' pity rows flattened -> ' +
-    JSON.stringify(neutral.rar));
+    skewCells + ' skew weights + ' + pityCells + ' pity rows + ' + weightCells +
+    ' weight rows flattened -> ' + JSON.stringify(neutral.rar));
 
   // (b) restore the authored skew: the set it favours most must be drawn harder than when neutral.
   data = JSON.parse(skewSnap);
@@ -1281,79 +1291,125 @@ function logCol(name){
     !logs.some(l => /Pool unexpectedly exhausted/.test(l)));
 }
 
-// ---------------------------------------------------------------- 6b. rarity pity semantics
-// The PACK PITY CONFIG array is indexed by CONSECUTIVE MISSES of the target rarity (NOT by card
-// slot — that was a wrong reading, corrected 2026-08-03). [0, 0.8, 0.8, 1.0] means: no help on a
-// pull with no misses behind it; 80% after one miss; 80% after two; GUARANTEED after three.
-// Counter resets on any hit and starts at 0 every pack.
+// ------------------------------------------------------------- 6b. pity semantics (D55)
+// ONE counter PER PACK TIER, carried ACROSS envelopes (Ville, Sep 2026; ruled the client's
+// behaviour by the user 2026-10-06). It escalates on an envelope of that tier with ZERO new cards,
+// resets on one with any new card, and indexes PityProbabilities; the roll happens on the LAST SLOT
+// only, and chases a NEW card of a target rarity. The pre-D55 reading - a per-slot counter of
+// consecutive rarity misses, reset on every pack open - is gone from the engine, so the gate that
+// encoded it is gone from here: it was asserting a rule the code no longer claims.
 //
-// Test: give every pack tier a hard [0, 0, 0, 1.0] pity with forceHighest. With 5★ as the top
-// stocked rarity, every run of 3 consecutive non-5★ cards inside one pack MUST be followed by a
-// 5★. That is a deterministic consequence of the rule, independent of the seed.
+// Four assertions, each a consequence of the rule and each false under the old reading:
+//   A  [0, 1.0]: no two CONSECUTIVE envelopes OF THE SAME TIER are both blank (the first escalates
+//      the counter to 1, so the second forces a new card). This is the carry.
+//   B  blanks occur at all under [0, 1.0] - without this, A is vacuous.
+//   C  [1.0]: NO envelope anywhere is blank (the roll fires from counter 0 on every envelope).
+//      This is also the regression gate for the rank-vs-name keying bug: with the FALSE branch
+//      keyed by rank number the forced draw could never match and blanks stayed at the B rate.
+//   D  [0, 1.0]: a blank envelope DOES follow a non-blank one - so the counter RESETS, rather than
+//      latching on for the rest of the season.
+//
+// Run on a 20-39 NONPAYER, deliberately: that cell draws ~100 cards from a 298-copy pool and
+// completes no album, so "an unowned card with copies left exists" is true at every open and the
+// pity has no legitimate excuse to fail. In a 100+ cell, late-season exhaustion is a real reason
+// for a blank envelope and A/C would be asserting something the rule does not promise.
 {
+  const pitySeeds = [7, 11, 23, 101, 555, 900];
+  // One fixture, two tables. Returns the per-envelope log: tier + whether any card was new.
+  // The fixture also FLATTENS RarityWeights, which is what makes the assertions exact rather than
+  // approximate: a pity target must be a rarity the envelope is WEIGHTED for, so as authored a
+  // 1-star envelope whose remaining unowned cards are all 5★/6★ comes out blank legitimately and
+  // the gate would be asserting something the rule does not promise. With flat weights every
+  // stocked rarity is a target, and an unowned card ALWAYS has all its copies left (drawing a copy
+  // is what makes a card owned), so the forced draw can never fail to find one.
+  const runPity = (probsText, seeds) => {
+    data = JSON.parse(RAW);
+    authorLadders();
+    const pc = data['PackConfig'].values;
+    let b = -1, d = -1;
+    for (let r = 0; r < pc.length; r++) {
+      if (String(pc[r][0]).trim() === 'PACK PITY CONFIG') b = r;
+      if (String(pc[r][0]).trim() === 'PACK DEFINITIONS') d = r;
+    }
+    let patched = 0, tiers = 0;
+    for (let r = d + 2; r < pc.length; r++) {
+      if (!/^\d+[-\s]*star/i.test(String(pc[r][0]).trim())) break;
+      while (pc[r].length < 5) pc[r].push('');
+      pc[r][4] = '[1, 1, 1, 1, 1, 1]';
+      tiers++;
+    }
+    for (let r = b + 2; r < pc.length; r++) {
+      if (!/^\d+[-\s]*star/i.test(String(pc[r][0]).trim())) break;
+      pc[r][1] = probsText;
+      pc[r][2] = false;                 // FALSE branch: target = any weighted stocked rarity
+      patched++;
+    }
+    eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
+    const envs = [];
+    seeds.forEach(sd => {
+      const sh = mkSheet('Col_Cards_Daily');
+      sh.getRange('B2').setValue('20-39');
+      sh.getRange('D2').setValue('NONPAYER');
+      sh.getRange('G2').setValue(sd);
+      SimulatePackOpenings();
+      const run = [];
+      for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
+        const row = data['Col_Cards_Daily'].values[r];
+        if (!row || row[0] === '' || row[0] == null) break;
+        if (!row[logCol('Cards Drawn')]) continue;
+        run.push({ tier: String(row[logCol('Pack')]).trim(),
+                   cards: String(row[logCol('Cards Drawn')]).split(', ').filter(Boolean).length,
+                   newCards: String(row[logCol('New')] || '').split(', ').filter(Boolean).length });
+      }
+      envs.push(run);                   // one array per season: tiers carry WITHIN a season only
+    });
+    return { patched: patched, tiers: tiers, seasons: envs,
+             total: envs.reduce((n, r) => n + r.length, 0),
+             blanks: envs.reduce((n, r) => n + r.filter(e => e.newCards === 0).length, 0) };
+  };
+
+  const esc = runPity('[0, 1.0]', pitySeeds);
+  // Not "6 tiers": the 6-star tier was retired in Sep 2026 and a gate naming a number froze the
+  // old sheet. The rule is that the fixture reached every tier PACK DEFINITIONS defines.
+  check('pity fixture [0, 1.0] applied to every pack tier the sheet defines',
+    esc.patched > 0 && esc.patched === esc.tiers,
+    esc.patched + ' pity rows for ' + esc.tiers + ' defined tiers');
+  console.log('  ' + esc.total + ' envelopes over ' + pitySeeds.length + ' seasons, ' +
+              esc.blanks + ' with no new card');
+
+  // A + D: walk each season in order, per tier.
+  let pairs = 0, carryViolations = 0, resetsSeen = 0;
+  esc.seasons.forEach(run => {
+    const prevBlank = {};
+    run.forEach(e => {
+      if (prevBlank[e.tier] !== undefined) {
+        pairs++;
+        if (prevBlank[e.tier] && e.newCards === 0) carryViolations++;
+        if (!prevBlank[e.tier] && e.newCards === 0) resetsSeen++;
+      }
+      prevBlank[e.tier] = (e.newCards === 0);
+    });
+  });
+  check('pity: the counter CARRIES - after a blank envelope the next of that tier is not blank',
+    esc.blanks > 0 && pairs > 0 && carryViolations === 0,
+    carryViolations + ' violations over ' + pairs + ' same-tier consecutive pairs');
+  check('pity: blank envelopes occur at all under [0, 1.0] (so the gate above is not vacuous)',
+    esc.blanks > 0, esc.blanks + ' of ' + esc.total + ' envelopes had no new card');
+  check('pity: the counter RESETS on a new card (a blank still follows a non-blank)',
+    resetsSeen > 0, resetsSeen + ' blank-after-non-blank transitions');
+
+  // C: fire from counter 0 and nothing is blank. This is the keying regression gate.
+  const always = runPity('[1.0]', pitySeeds);
+  console.log('  with [1.0]: ' + always.total + ' envelopes, ' + always.blanks + ' with no new card');
+  check('pity: with probs [1.0] NO envelope is blank (forced draw chases a new card)',
+    always.total > 0 && always.blanks === 0,
+    always.blanks + ' blank of ' + always.total + ' (was ' + esc.blanks + ' of ' + esc.total +
+    ' at [0, 1.0]) - a FALSE table keyed by rank instead of rarity name leaves this unchanged');
+
   data = JSON.parse(RAW);
   authorLadders();
-  const pc = data['PackConfig'].values;
-  let b = -1;
-  for (let r = 0; r < pc.length; r++)
-    if (String(pc[r][0]).trim() === 'PACK PITY CONFIG') { b = r; break; }
-  let patched = 0;
-  for (let r = b + 2; r < pc.length; r++) {
-    if (!/^\d+[-\s]*star/i.test(String(pc[r][0]).trim())) break;
-    pc[r][1] = '[0, 0, 0, 1.0]';
-    pc[r][2] = true;
-    patched++;
-  }
-  check('pity fixture applied to all 6 pack tiers', patched === 6, patched + ' rows');
   eval(v4Src); eval(dailySrc); eval(cardSrc); _sheetValsCache = {};
-  const sh = mkSheet('Col_Cards_Daily');
-  sh.getRange('B2').setValue('100+');
-  sh.getRange('D2').setValue('PAYER');
-  sh.getRange('G2').setValue(2024);
-  SimulatePackOpenings();
-
-  const rarityOfCard = (s) => { const m = String(s).match(/(\d★|Gold)$/); return m ? m[1] : null; };
-  // PityForceHighestRarity targets "the highest rarity that STILL has copies" — which rarity that
-  // is depends on the snap pool, not on a constant: it was 5★ while Gold shipped at Qty 0, and is
-  // Gold from workbook (14) on. Derive it, and since the pool depletes mid-run (the target can
-  // fall back one step), accept the top two stocked rarities.
-  const RARITY_ORDER = ['1★', '2★', '3★', '4★', '5★', 'Gold'];
-  const stocked = RARITY_ORDER.filter(r => (cfg.qtyByRarity[r] || 0) > 0);
-  const acceptable = new Set(stocked.slice(-2));
-  console.log('  pity target rarities (top stocked):', [...acceptable].join('/'));
-  let packs = 0, violations = 0, guaranteedHits = 0, streak = 0;
-  for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
-    const row = data['Col_Cards_Daily'].values[r];
-    if (!row || row[0] === '' || row[0] == null) break;
-    if (!row[logCol('Cards Drawn')]) continue;
-    packs++;
-    streak = 0;                                   // counter starts at 0 on every pack
-    for (const card of String(row[logCol('Cards Drawn')]).split(', ')) {
-      const rar = rarityOfCard(card);
-      if (!rar) continue;
-      if (streak >= 3) {                          // probs[3] == 1.0 -> this pull MUST be the target
-        if (acceptable.has(rar)) guaranteedHits++; else violations++;
-      }
-      streak = acceptable.has(rar) ? 0 : streak + 1;
-    }
-  }
-  console.log(`  ${packs} packs scanned · ${guaranteedHits} guaranteed pulls honoured`);
-  check('pity: after 3 consecutive misses the next pull is the target rarity (p = 1.0)',
-    violations === 0 && guaranteedHits > 0, `${violations} violations, ${guaranteedHits} honoured`);
-
-  // and the counter must NOT carry between packs: with [0,0,0,1.0] the FIRST card of a pack can
-  // never be forced, so across many packs the first card is sometimes not the target.
-  let firstCards = 0, firstIsTarget = 0;
-  for (let r = 56; r < data['Col_Cards_Daily'].values.length; r++) {
-    const row = data['Col_Cards_Daily'].values[r];
-    if (!row || row[0] === '' || row[0] == null) break;
-    if (!row[logCol('Cards Drawn')]) continue;
-    const rar = rarityOfCard(String(row[logCol('Cards Drawn')]).split(', ')[0]);
-    if (rar) { firstCards++; if (rar === '5★') firstIsTarget++; }
-  }
-  check('pity: counter does not carry between packs (first card is never forced)',
-    firstCards > 5 && firstIsTarget < firstCards,
-    `${firstIsTarget}/${firstCards} first cards were the target`);
+  check('pity fixture restored', JSON.stringify(data['PackConfig'].values).indexOf('[0, 1.0]') < 0);
 }
 
 // ------------------------- 6d. the ToF run is PLAYED, not averaged (2026-09-09) ---------------
