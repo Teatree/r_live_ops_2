@@ -21,6 +21,15 @@
 #
 # Style: Ph config-sheet rules — no merged cells, everything starts at column A, 0 (not blank) for
 # empty numeric cells (punch-card: every in-game currency column present even when unused).
+#
+# ============================ STALE AGAINST THE LIVE SHEET (2026-10-06) =========================
+# The live PackConfig was hand-reconfigured between 15 and 30 Sep (pool 411 -> 298 copies with
+# 5/5/4/4/3/2 per card, Gold renamed 6*, the 6-star pack tier retired, set rewards re-priced,
+# album-1 skew flattened, Min Stars 250 -> 150). THIS FILE STILL CARRIES THE PRE-VACATION NUMBERS.
+# Re-running it and importing the result would revert all of that. The RarityWeights column below
+# is kept in step with the live sheet because the ENGINE reads it by position; the rest is not.
+# Resync the constants here against the live sheet BEFORE using this builder again.
+# ===============================================================================================
 import os
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -48,6 +57,20 @@ GUARANTEED_MIN_RARITY = [0, 0, 0, 0, 0, 0]
 GUARANTEED_NEW_SNAP   = [0, 0, 0, 0, 0, 0]
 PITY_PROBS = ['[0]', '[0]', '[0]', '[0]', '[0, 0.33, 0.66, 1.0]', '[0, 0.8, 0.8, 1.0]']
 PITY_FORCE = [False, False, False, False, False, True]
+# RarityWeights (D55, 2026-10-06), one bracketed list per PACKS row, one entry per RARITIES entry.
+# THE ENGINE READS COLUMN E OF PACK DEFINITIONS AS THIS. It used to be 'Notes', so a sheet this
+# builder wrote before today put a notes header exactly where CardOpenings.gs now looks for the
+# weights - the column would read as absent and every envelope would degrade to flat weights (and
+# say so in the log). Notes moved to column F.
+# The weights are NOT odds: the draw multiplies each by the COPIES of that rarity still in the pool,
+# so the 5-star envelope's 0.15 on 6 stars pays a 6-star card ~5% of the time, not 15%. Values below
+# are the ones authored in the live workbook on 2026-09-15 (design inputs, not measurements).
+RARITY_WEIGHTS = ['[0.45, 0.28, 0.15, 0.05, 0.00, 0.00]',
+                  '[0.30, 0.35, 0.20, 0.15, 0.00, 0.00]',
+                  '[0.20, 0.30, 0.40, 0.20, 0.10, 0.025]',
+                  '[0.05, 0.20, 0.35, 0.40, 0.20, 0.10]',
+                  '[0.00, 0.025, 0.25, 0.40, 0.35, 0.15]',
+                  '[0.00, 0.025, 0.25, 0.40, 0.35, 0.15]']
 
 CHESTS = [('Bronze', 250, '1-star Pack'), ('Silver', 500, '4-star Pack'),
           ('Gold', 1000, '5-star Pack')]
@@ -179,9 +202,17 @@ gap()
 
 # ---- 4. PACK DEFINITIONS ----------------------------------------------------------------------
 bar('PACK DEFINITIONS', 5)
-header(['Pack Type', 'Cards/Open', 'GuaranteedMinRarity', 'GuaranteedNewSnap', 'Notes'])
-for p, n, gr, gn in zip(PACKS, CARDS_PER_OPEN, GUARANTEED_MIN_RARITY, GUARANTEED_NEW_SNAP):
-    row([p, n, gr, gn, ''])
+header(['Pack Type', 'Cards/Open', 'GuaranteedMinRarity', 'GuaranteedNewSnap', 'RarityWeights',
+        'Notes'])
+for p, n, gr, gn, rw in zip(PACKS, CARDS_PER_OPEN, GUARANTEED_MIN_RARITY, GUARANTEED_NEW_SNAP,
+                            RARITY_WEIGHTS):
+    row([p, n, gr, gn, rw, ''])
+note('RarityWeights: one weight per RARITY DEFINITIONS row, in order. The draw picks the RARITY '
+     'first, with weight = (copies of that rarity left in the pool) x this number, then the card '
+     'inside it. So these are NOT the odds: a weight of 0.15 on a rarity holding 14 of 298 copies '
+     'pays that rarity ~5% of the time. A weight of 0 means the envelope never pays that rarity '
+     '(and its pity will not chase it). An EMPTY column means flat weights - rarity decided by the '
+     'pool alone, as before 2026-09-15 - and the engine logs that it fell back.')
 note('GuaranteedMinRarity: the pack contains at least one card of AT LEAST this rarity, given as '
      'the 1-based ROW NUMBER in RARITY DEFINITIONS above (1 = the first row, 6 = the last). '
      '0 = no guarantee.')
