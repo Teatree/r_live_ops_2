@@ -75,31 +75,74 @@ measured world already paid. For `TE`/`F` there is only one sheet, so it serves 
 (remainder to the lowest indices). The sheet shows an `Initial Probability` column computed by
 formula off the quantities — a readout, never a typed input.
 
-**Draw.** Count-proportional, **without replacement**: `weight = copies × chapterMult`. Rarity is a
-property of the pool and drifts as it depletes. The pool is rebuilt fresh only when an album
-completes.
+**Draw — TWO STAGES since D55 (Ville, 15–30 Sep 2026; merged into `engine/` 2026-10-06).** The
+rarity is picked first, then the card inside it, both **without replacement**:
+
+```
+P(rarity r)        ∝ copies of r still in the pool × RarityWeights[r] of THIS envelope tier
+P(card k | r)      ∝ copies of k × chapterMult(set of k)
+```
+
+`RarityWeights` is **column E of `PACK DEFINITIONS`**, one bracketed list per tier, one entry per
+`RARITY DEFINITIONS` row. **The weights are not the odds**: the copies multiplier means the 5-star
+envelope's `0.15` on 6★ pays a 6★ card ~5 % of the time (14 copies against 44 for 4★). Effective
+odds at a fresh pool, as authored:
+
+| Envelope | Cards | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
+|---|---|---|---|---|---|---|---|
+| 1-star | 2 | 57 % | 30 % | 10 % | 3 % | 0 | 0 |
+| 2-star | 3 | 39 % | 38 % | 14 % | 10 % | 0 | 0 |
+| 3-star | 4 | 25 % | 31 % | 27 % | 12 % | 4 % | 0.5 % |
+| 4-star | 5 | 7 % | 25 % | 28 % | 29 % | 9 % | 2 % |
+| 5-star | 6 | 0 | 4 % | 28 % | 41 % | 22 % | 5 % |
+
+Before D55 every tier drew from the SAME distribution (34/26/18/11/6/5 %) and differed only by
+`Cards/Open` — "a 1-star envelope should not have the same odds of a golden card as a 5-star one"
+is exactly what this fixes. A tier's weight of 0 means it never pays that rarity. **A sheet with no
+RarityWeights column falls back to FLAT weights** (= the pre-D55 pool-only draw) and says so in the
+log and in the run's toast; it does NOT mean "no rarity preference is possible", and it is not a
+small difference — flat weights on today's pool and album read 15.2 % album completion against
+5.2 % as authored.
+
+No card repeats inside one envelope, and the pool copy is removed as the LAST step of a slot, so a
+widened draw that is then discarded cannot take a copy with it. Two widenings sit behind the normal
+draw: rarities the envelope is not weighted for (its own are exhausted), then an unlimited pool —
+the latter is effectively unreachable, because the pool is rebuilt the moment the album completes,
+so owning every copy IS completion.
 
 > **Removed 2026-08-03:** the per-pack `PACK RARITY PROBABILITIES` grid. It multiplied the pool
 > counts (`rarityWeight × poolCount × chapterMult`), so rarity was applied twice — the clash that
 > triggered this rework. Also dropped: `CardPoolConfig`'s per-card `Weight` column, for the same
-> reason.
+> reason. D55 brings per-tier rarity weighting BACK, deliberately, as the first of two stages
+> instead of a second multiplier on one.
 
-**What still differentiates a pack tier:** `Cards/Open` (2/3/4/5/6/7) and the pity table. Nothing
-else — a 6-star pack and a 1-star pack draw from an identical distribution.
+**What differentiates a pack tier:** `Cards/Open`, the `RarityWeights` row, and the pity table.
 
-**Pity — two independent mechanisms:**
-1. *Rarity pity* (`PACK PITY CONFIG`, implemented 2026-08-03; the table existed but was never
-   read). `PityProbabilities` is indexed by the number of **consecutive misses of the target
-   rarity** — not by card slot. `[0, 0.8, 0.8, 1.0]` reads: no help at first; miss once and the
-   next pull has an 80% chance of the target; miss again, another 80%; miss a third time and the
-   next pull is **guaranteed**. Entries past the end reuse the last value.
-   The counter **resets on any hit** (forced or natural) and **starts at 0 on every pack** — it
-   does not carry between packs.
-   Target = the highest rarity that **still has copies** when `PityForceHighestRarity` is TRUE
-   (so the empty Gold tier falls back to 5★ instead of making the pity unsatisfiable); otherwise
-   any rarity above the pool's most-stocked one.
-2. *Dry-streak* (unchanged): after 3 consecutive packs with no new card, the last card of the next
-   pack is forced to be an unowned type.
+**Pity — ONE mechanism, counted ACROSS envelopes (D55).** `PityProbabilities` is indexed by a
+counter held **per pack tier**, which survives between opens:
+
+* it **escalates** each time an envelope of that tier yields **zero new cards**, and **resets to 0**
+  the moment one yields any new card (also on album advance, for the tier being opened);
+* `[0, 0.33, 0.66, 1.0]` therefore reads: no help on the first blank envelope of this tier, 33 %
+  after one, 66 % after two, guaranteed after three. Entries past the end reuse the last value;
+* the roll happens on the **last slot only**, and only if the envelope has produced no new card yet
+  — or, with `PityForceHighestRarity` TRUE, no new card of the highest rarity the envelope is
+  weighted for. On success the slot draws a **new** card of a target rarity;
+* targets: TRUE → the highest **weighted** rarity that still has copies (an exhausted top tier
+  drops the target a step rather than making the pity unsatisfiable); FALSE → every weighted rarity
+  with copies, so the pity chases "a new card" rather than "a rare card".
+
+Ruled the client's behaviour by the user 2026-10-06 ("the pity system applies not within the
+envelope"). The two pre-D55 mechanisms — a per-slot consecutive-rarity-miss counter that reset on
+every pack open, and a code-side `PITY_CONFIG` dry-streak counter — are **gone from the engine**,
+and the gate that encoded the per-slot reading is gone from `_mock_cards.js` with them.
+
+⚠ **Both shipped tables are close to inert, by construction.** The escalation condition (zero new
+cards in the envelope) does not match the attempt condition for a `forceHighest` tier (no new card
+of the top weighted rarity): a 6-card envelope nearly always contains *some* new card, so the
+5-star counter sits at 0 and its `probs[0] = 0` makes the attempt a no-op. The 4-star table only
+bites after consecutive blank 4-star envelopes. Fixing the asymmetry is a design decision, not a
+bug fix — left as received.
 
 **Chests.** `STAR CHEST COSTS & REWARDS` (Bronze 250 → 1-star, Silver 500 → 4-star, Gold 1000 →
 5-star) gated by the `CHEST PURCHASING` panel: no purchase below `Min Stars to Consider Buying`, 0%
@@ -157,7 +200,10 @@ SIMULATION_METHODOLOGY §6.14.
      ~5% above the best outcome the pack flow can produce, so the whole chest lane is inert.
    Both are real model outputs, not plumbing failures. Either the pack flow is short, or the album
    size / chest costs are set for a longer season than 33 days. **Open design question.**
-2. **`PACK PITY CONFIG` semantics — RESOLVED 2026-08-03** (user): consecutive-miss counter, resets
+2. **`PACK PITY CONFIG` semantics — SUPERSEDED 2026-10-06 by D55** (cross-envelope counter, see
+   §5). The 2026-08-03 ruling below is kept for the record only; neither the engine nor the harness
+   implements it any more.
+   **RESOLVED 2026-08-03** (user): consecutive-miss counter, resets
    on a hit, per-pack (no carry-over), target = highest rarity with stock. Gated in
    `_mock_cards.js`. Remaining sub-question: `PityForceHighestRarity = FALSE` (the 5-star pack)
    currently targets "any rarity above the pool's most-stocked one" — a reasonable reading of
