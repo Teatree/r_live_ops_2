@@ -2786,10 +2786,16 @@ var TOTALS_ROWS = [
 //                      Hatchling instance can drop three at once - so this is what the
 //                      Col_Cards_Daily log reads like, and it is the biggest of the three.
 // Both denominators are printed beside them so the arithmetic can be checked on the sheet.
-var CADENCE_ROWS = ['Packs per calendar day (mean)', 'Packs per calendar day (p10-p90)',
+// THESE LABELS ARE ALSO THE SWITCH KEYS in the cadence block below - block() passes each one to
+// valueFn, and an unmatched label falls through to ''. The vacation changes renamed the two band
+// cases to (p10-p95) (band_ reports p95 now) but NOT this list, so both rows were written with
+// their label intact and every permutation column EMPTY on every cloud run - a blank that reads as
+// "no band" rather than as a broken lookup. Renamed here to match; the engine writes column A
+// itself, so the sheet's text updates on the next run with no re-import. (2026-10-07)
+var CADENCE_ROWS = ['Packs per calendar day (mean)', 'Packs per calendar day (p10-p95)',
                     'Packs per ACTIVE day (mean)', 'Packs on a day that has one (mean)',
                     'Active days (mean, of 33)', 'Days with a pack (mean, of 33)',
-                    'Sets per day (mean)',  'Sets per day (p10-p90)'];
+                    'Sets per day (mean)',  'Sets per day (p10-p95)'];
 // The played ToF run and the spend-down, as TOTALS rows (2026-09-09). Kept as their own list so
 // the chest-tier rows can sit between them and TOTALS_ROWS without any index arithmetic.
 var TOF_TOTALS_ROWS = ['ToF Runs Played', 'ToF Runs Banked', 'ToF Mean Stage Reached'];
