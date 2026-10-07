@@ -18,7 +18,11 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // the 15-30 Sep vacation workbook: the first PackConfig with a RarityWeights
                        // column, so the only dump that exercises the D55 two-stage draw as authored
                        vacation: '_mockdata_vacation.json',
-                       latest1: '_mockdata_latest1.json' };
+                       latest1: '_mockdata_latest1.json',
+                       // D56: the ADJUSTMENT CHECKER lineage - the only workbook carrying
+                       // AlbumConfig_v2 / PackConfig_v2 / ToF_v2 and the four data_col_*/data_tof_*
+                       // telemetry sheets the collection change simulation anchors on.
+                       adjust: '_mockdata_adjust.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';

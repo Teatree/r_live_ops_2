@@ -91,6 +91,10 @@ SHEETS = [
     # Card collection (D19, 2026-08-03). TE feeds the Team Event pack overlay (PACK_ONLY_SPECS);
     # the rest feed CardOpenings.gs / _mock_cards.js. EcoPackGains and PlayerBehavior are GONE.
     'TE', 'PackConfig', 'AlbumConfig', 'CardPoolConfig', 'Col_Cards_Daily',
+    # D56 (2026-10-07): the _v2 twins of the three collection configs, added to the
+    # COLLECTIONS_AFTER_RELEASE_ADJUSTMENT_CHECKER workbook. Expected MISSING in every older
+    # lineage - the readers fall back to the base sheet, which means R = 1 and a diff of exactly 0.
+    'AlbumConfig_v2', 'PackConfig_v2', 'ToF_v2',
     # D24 stochastic card sheets. They used to reach the dump ONLY through PENDING_IMPORT,
     # so emptying that map (once the workbook shipped them for real) silently removed them
     # and _mock_cloud died on `data['Col_Cards_Totals'].values` before a single gate ran.
@@ -102,6 +106,11 @@ SHEETS = [
     # 'ToF' is the sheet's final name; 'MD' is what it was called while it was being built.
     # Both listed so the dump works either side of the rename.
     'ToF', 'MD', 'item_vals',
+    # D56 (2026-10-07) collection + ToF telemetry: the measured ANCHOR for the three new _v2
+    # config sheets, which are the first with no data_gains anchor at all. Listed here as well as
+    # in PENDING_IMPORT so they keep reaching the dump once the workbook ships them for real -
+    # the Col_Cards_* lesson (emptying PENDING_IMPORT silently removed them and the harness died).
+    'data_col_season', 'data_col_envelopes', 'data_tof_runs', 'data_tof_stages',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The
@@ -131,7 +140,18 @@ SHEETS = [
 # untested. The overlay lets the harness see the layout the engine writes into. DROP THIS ENTRY once
 # display/Col_Cards_Totals_v1.xlsx has been imported - leaving it in makes the overlay replace the
 # real sheet, and anything typed into it (the 'Minutes per unit' column), with a builder artefact.
-PENDING_IMPORT = {'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
+# 2026-10-07 (D56): the four collection-telemetry sheets the AlbumConfig_v2 / PackConfig_v2 /
+# ToF_v2 change simulation anchors on. Freshly built by builders/_build_coldata.py and not yet
+# imported into any workbook, so the overlay is the ONLY way the harness sees the layout the new
+# readers target. EVERY ROW IN THEM CARRIES status = FAKE, and the readers treat FAKE as absent, so
+# the overlay cannot move a simulated number - it only exercises the schema. DROP EACH ENTRY once
+# the sheet is imported, or the overlay will replace the real sheet (and the real data) with a
+# builder artefact.
+PENDING_IMPORT = {'Col_Cards_Totals':  'Col_Cards_Totals_v1.xlsx',
+                  'data_col_season':   'data_col_season_v1.xlsx',
+                  'data_col_envelopes':'data_col_envelopes_v1.xlsx',
+                  'data_tof_runs':     'data_tof_runs_v1.xlsx',
+                  'data_tof_stages':   'data_tof_stages_v1.xlsx'}
 
 
 def dump_sheet(ws):
