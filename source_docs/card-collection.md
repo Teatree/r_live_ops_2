@@ -158,7 +158,7 @@ red line ends on the last day that has data and the chart simply shows less of i
 | `segment`, `payer_flag` | `0-9`…`100+`, `NONPAYER`/`PAYER` |
 | `day` | 1..33, the calendar day of the window |
 | `metric` | `packs`, `cards`, `unique`, `sets`, `albumPct`, `balance` — the human labels (`Packs Opened` …) are accepted too, because the analytics pull may return either |
-| `actual_mean`, `actual_p10`, `actual_p90` | **cumulative** through that day, per player over the whole cell (the same denominator the simulated series uses) |
+| `actual_p10` … `actual_p98`, `actual_mean` | **cumulative** through that day, per player over the whole cell (the same denominator the simulated series uses). **All eight statistics**, the same set and order as the simulated side — every simulated column has an actual to be compared against. Each is OPTIONAL: a column the pull cannot produce is written blank rather than 0, so a partial pull still draws everything it did bring |
 | `status` | `FAKE` or `MEASURED` |
 
 **`FAKE` is READ here — the one deliberate exception.** The four anchor sheets
@@ -169,13 +169,19 @@ red line never appears while data is still arriving. Fake rows are plotted and t
 reads `ACTUAL <metric> - FAKE (to day 14)`; a real pull drops the `- FAKE` tag by itself.
 `CLOUD_ACTUALS_READ_FAKE = false` restores the hide-it behaviour.
 
-**What the engine writes.** Three columns per metric, appended to the **rightmost** side of every
-per-permutation band block (user: "the real player data will be added into `Col_Cards_Cloud` to the
-rightmost side of the table"):
+**What the engine writes.** Eight columns per metric — `CLOUD_ACTUAL_STATS` is derived from
+`CLOUD_STATS`, so the two halves of the block are the same shape in the same order — appended to the
+**rightmost** side of every per-permutation band block (user: "the real player data will be added
+into `Col_Cards_Cloud` to the rightmost side of the table"):
 
 ```
-block = 1 Day + 6 metrics x 8 CLOUD_STATS (48) + 6 metrics x 3 CLOUD_ACTUAL_STATS (18) = 67 columns
+block = 1 Day + 6 metrics x 8 CLOUD_STATS (48) + 6 metrics x 8 CLOUD_ACTUAL_STATS (48) = 97 columns
 ```
+
+The mirroring is load-bearing and gated: the actual column for (metric *m*, stat *s*) sits at
+`1 + 6*|CLOUD_STATS| + m*|CLOUD_ACTUAL_STATS| + s` with the **same** `s` index as its simulated
+twin, so a chart series can be derived rather than looked up. If the two lists ever diverge every
+actual column lines up against the wrong statistic and the chart compares p50 against p90.
 
 Row height is untouched — `CLOUD_BAND_STRIDE` stays 37 and no block moves. Cells past the last
 measured day are left **BLANK, never 0**: a zero draws the line diving to the axis, which reads as a
@@ -198,29 +204,33 @@ overlay replace the real sheet with a builder artefact).
 **2. Widen the one formula.** `Col_Charts!AA2` carries the block width as a **literal**:
 
 ```
-=OFFSET(Col_Cards_Cloud!A1, MATCH(B2, Col_Cards_Cloud!A:A, 0) + 1, 0, 34, 67)
-                                                                         ^^ was 49
+=OFFSET(Col_Cards_Cloud!A1, MATCH(B2, Col_Cards_Cloud!A:A, 0) + 1, 0, 34, 97)
+                                                                         ^^ was 49, briefly 67
 ```
 
-It was `37` before p95/p98 and `49` after, so this is the second time the number has moved. The
-`_mock_cloud` gate prints the width the chart must carry on every run, derived from the stat lists,
-so it cannot rot silently.
+It was `37` before p95/p98, `49` after, and `67` while the actuals were a three-column band — so
+this is the third time the number has moved. The `_mock_cloud` gate prints the width the chart must
+carry on every run, derived from the stat lists, so it cannot rot silently.
 
-**3. Add three series to each chart.** The spill now reaches column **CO**. Categories stay
+**3. Add the red series to each chart.** The spill now reaches column **DS**. Categories stay
 `Col_Charts!$AA$3:$AA$35` for every series; data rows are `3:35`.
 
-| Chart | sim p10 | sim p90 | **ACT MEAN** | **ACT p10** | **ACT p90** |
-|---|---|---|---|---|---|
-| Packs Opened | AB | AF | **BX** | BY | BZ |
-| Cards Drawn | AJ | AN | **CA** | CB | CC |
-| Unique Cards | AR | AV | **CD** | CE | CF |
-| Sets Completed | AZ | BD | **CG** | CH | CI |
-| Album % | BH | BL | **CJ** | CK | CL |
-| Star Balance | BP | BT | **CM** | CN | CO |
+Each metric's eight actual columns sit in one contiguous run, in `p10, p25, p50, p75, p90, p95,
+p98, MEAN` order — the same order as its simulated block:
 
-Style: `ACT MEAN` solid red, `ACT p10` / `ACT p90` thin dashed red, all three as **line** series on
-top of the existing area band (a combo chart). The real band against the simulated band is the
-like-for-like comparison; the red mean is the headline.
+| Chart | sim block | **actual block** | ACT p10 | p25 | p50 | p75 | p90 | p95 | p98 | **MEAN** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Packs Opened | AB–AI | **BX–CE** | BX | BY | BZ | CA | CB | CC | CD | **CE** |
+| Cards Drawn | AJ–AQ | **CF–CM** | CF | CG | CH | CI | CJ | CK | CL | **CM** |
+| Unique Cards | AR–AY | **CN–CU** | CN | CO | CP | CQ | CR | CS | CT | **CU** |
+| Sets Completed | AZ–BG | **CV–DC** | CV | CW | CX | CY | CZ | DA | DB | **DC** |
+| Album % | BH–BO | **DD–DK** | DD | DE | DF | DG | DH | DI | DJ | **DK** |
+| Star Balance | BP–BW | **DL–DS** | DL | DM | DN | DO | DP | DQ | DR | **DS** |
+
+Style: **MEAN** solid red (the headline), and whichever band you want around it — `p10`/`p90` to
+match the simulated band the chart already draws, or `p25`/`p75` for a tighter one — as thin dashed
+red lines on top of the existing area band (a combo chart). All eight are written, so which ones to
+plot is a chart decision, not a re-run.
 
 **4. Nothing to do for the permutation picker.** `Col_Charts!B2` already drives the whole block
 through `MATCH`, and the actuals are written per permutation, so the red line follows the selected

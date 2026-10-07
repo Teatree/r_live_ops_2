@@ -150,7 +150,7 @@ last day you have.
 | `day` | 1-based day of the collection season (day 1 = first day of the season, not a calendar date) |
 | `metric` | one of `packs`, `cards`, `unique`, `sets`, `albumPct`, `balance` — or the labels `Packs Opened`, `Cards Drawn`, `Unique Cards`, `Sets Completed`, `Album %`, `Star Balance`. Either spelling is accepted |
 | `actual_mean` | **cumulative through that day**, mean per player across **every** player in the cell — including players who never engaged with the feature. Same denominator as the model, which is what makes the two curves comparable |
-| `actual_p10`, `actual_p90` | the same cumulative quantity at the 10th and 90th percentile across players, so we can compare the real spread against the predicted spread |
+| `actual_p10`, `actual_p25`, `actual_p50`, `actual_p75`, `actual_p90`, `actual_p95`, `actual_p98` | the same cumulative quantity at each percentile across players. **We want all seven plus the mean** — our simulation reports exactly this set, so every one of its columns has a real counterpart to be compared against. Send whichever you can: a column you omit is left blank rather than zero, and the rest still plot. If p95/p98 are unstable at your sample size, say so rather than dropping them silently |
 | `status` | `MEASURED` |
 
 What each metric means, precisely:
