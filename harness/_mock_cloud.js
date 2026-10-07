@@ -1289,6 +1289,16 @@ function GATES() {
       filled === FULLW, filled + ' header cells, expected ' + FULLW +
       '  <- Col_Charts!AA2 OFFSET width MUST read ' + FULLW);
 
+    // (1b) The actual stats MIRROR the simulated stats, same set and same order. Gated because the
+    // writer's offset arithmetic assumes it: actual column for (metric m, stat s) sits at
+    // 1 + 6*|CLOUD_STATS| + m*|CLOUD_ACTUAL_STATS| + s, with the SAME s index as the sim column.
+    // If the two lists ever diverge, every actual column silently lines up against the wrong
+    // simulated statistic and the chart compares p50 against p90.
+    check('ACT stats mirror CLOUD_STATS, same set and same order',
+      CLOUD_ACTUAL_STATS.length === CLOUD_STATS.length &&
+      CLOUD_ACTUAL_STATS.every((st, i) => st === 'ACT ' + CLOUD_STATS[i]),
+      CLOUD_ACTUAL_STATS.join(', '));
+
     // (2) ACTUALS are the RIGHTMOST columns - that is the whole contract with point 4 of the ask.
     const firstAct = hdr.findIndex(x => String(x).indexOf('ACT ') === 0);
     const lastSim = hdr.reduce((acc, x, i) =>
@@ -1316,30 +1326,84 @@ function GATES() {
       DAILY_DAYS + ' blank across all ' + (CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length) +
       ' columns');
 
-    // (4) The overlay follows the CELL. Multiply one permutation's day-5 packs actual and nothing
+    // (3b) EVERY statistic is written, not just the three the first cut shipped. A blank column
+    // here would mean a simulated statistic with nothing to compare against, which is the whole
+    // reason the list was widened.
+    const missingStats = CLOUD_ACTUAL_STATS
+      .map((st, sIdx) => (actCell(lastDay, 0, sIdx) === '' ? st : null))
+      .filter(Boolean);
+    check('all ' + CLOUD_ACTUAL_STATS.length + ' actual statistics are written on a measured day',
+      missingStats.length === 0,
+      missingStats.length ? 'blank: ' + missingStats.join(', ')
+                          : CLOUD_ACTUAL_STATS.map((st, i) =>
+                              st + '=' + actCell(lastDay, 0, i)).join('  '));
+
+    // (4) The overlay follows the CELL. Multiply one permutation's day-5 packs MEAN and nothing
     // else may move - this is what makes "the red line respects the chosen permutation" a rule
-    // rather than a hope.
-    const before = actCell(5, 0, 0);
+    // rather than a hope. The column is found by HEADER and the assertion reads the MEAN's own
+    // index: 'ACT MEAN' is the LAST of the eight now, not the first, and an index-0 assumption
+    // would have silently started testing p10 instead.
+    const MEANI = CLOUD_ACTUAL_STATS.indexOf('ACT MEAN');
+    const before = actCell(5, 0, MEANI);
     const otherLabel = '0-9 NONPAYER';
-    const beforeOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW];
+    const beforeOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW + MEANI];
     {
       const v = data[SHEET_COL_DAILY].values;
+      const mc = v[0].findIndex(h => String(h).trim().toLowerCase() === 'actual_mean');
+      check('data_col_daily carries an actual_mean column', mc >= 0, 'index ' + mc);
       let hits = 0;
       for (let i = 1; i < v.length; i++)
         if (String(v[i][0]).trim() === SEG && String(v[i][1]).trim() === PAY &&
             Math.round(Number(v[i][2])) === 5 && String(v[i][3]).trim() === 'packs') {
-          v[i][4] = Number(v[i][4]) * 7; hits++;
+          v[i][mc] = Number(v[i][mc]) * 7; hits++;
         }
       check('actuals fixture patched exactly one row', hits === 1, hits + ' rows');
     }
     runCloud();
     r0 = blockRow(LABEL);
-    const after = actCell(5, 0, 0);
-    const afterOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW];
+    const after = actCell(5, 0, MEANI);
+    const afterOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW + MEANI];
+    // TOLERANCE IS DERIVED, not picked. The sheet carries values rounded to 2 dp, so `before` is
+    // already +/-0.005 of the truth and multiplying it by 7 carries that error up with it, while
+    // `after` adds its own 0.005: the bound is 7*0.005 + 0.005 = 0.04. The old 0.02 was simply too
+    // tight and had been passing on luck (71.87 vs 71.89 squeaked through at exactly the limit);
+    // it failed the moment the ACT MEAN column moved and the numbers changed slightly.
+    // The supremum is EXACTLY MULT*0.005 + 0.005 (0.04 at MULT 7): `before` is already +/-0.005 of
+    // the truth and multiplying carries that up, while `after` adds its own 0.005. That bound is
+    // ATTAINED here - 10.41 -> 72.83 against an expected 72.87 - and at the bound binary floating
+    // point decides the comparison (the difference evaluates to 0.040000000000006). So allow one
+    // more rounding unit rather than sitting on the boundary. Still a very tight gate: a leak
+    // across cells would not land within a hundredth of 7x, it would not be 7x at all.
+    var MULT = 7, TOL = MULT * 0.005 + 0.005 + 0.005;
     check('an actual belongs to its own segment x payer cell only',
-      Math.abs(after - before * 7) < 0.02 && afterOther === beforeOther,
-      LABEL + ' day5 ' + before + ' -> ' + after + ' (x7), ' + otherLabel + ' unchanged at ' +
-      afterOther);
+      Math.abs(after - before * MULT) <= TOL && afterOther === beforeOther,
+      LABEL + ' day5 MEAN ' + before + ' -> ' + after + ' (x' + MULT + ', expected ' +
+      round_(before * MULT, 2) + ' +/-' + TOL + '), ' + otherLabel +
+      ' unchanged at ' + afterOther);
+
+    // (4b) A PULL THAT BRINGS ONLY SOME STATISTICS. Delete the actual_p98 column outright: that
+    // statistic must come out BLANK, every other one must still be written, and nothing may be
+    // written as 0. round_('') returns 0, so this is the case where a missing column would have
+    // drawn a p98 series pinned to the axis - "the top of the cohort got nothing" - instead of
+    // drawing no p98 series at all.
+    {
+      const v = JSON.parse(dailySnap);
+      const drop = v[0].findIndex(h => String(h).trim().toLowerCase() === 'actual_p98');
+      check('data_col_daily carries an actual_p98 column to drop', drop >= 0, 'index ' + drop);
+      data[SHEET_COL_DAILY].values = v.map(r => r.filter((_, i) => i !== drop));
+      runCloud();
+      r0 = blockRow(LABEL);
+      const p98i = CLOUD_ACTUAL_STATS.indexOf('ACT p98');
+      const others = CLOUD_ACTUAL_STATS
+        .map((st, i) => (i !== p98i && actCell(lastDay, 0, i) === '') ? st : null)
+        .filter(Boolean);
+      check('a statistic the pull omits is BLANK, not 0 - and the others still fill',
+        actCell(lastDay, 0, p98i) === '' && others.length === 0,
+        'p98 = ' + JSON.stringify(actCell(lastDay, 0, p98i)) +
+        (others.length ? ', but also blank: ' + others.join(', ')
+                       : ', other 7 all written'));
+      data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+    }
 
     // (5) ABSENCE. Strip every row for one cell: its actual columns go entirely blank, the block
     // KEEPS its headers (one shape for every permutation, so the chart's fixed window still fits),
