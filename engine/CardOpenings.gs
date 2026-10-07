@@ -2690,6 +2690,31 @@ var CLOUD_METRICS = [
 // p95/p98 added 2026-09-09 (user). Each band block therefore goes from 1 + 6x6 = 37 columns to
 // 1 + 6x8 = 49; its ROW height is unchanged, so CLOUD_BAND_STRIDE stays 37 and no block moves.
 var CLOUD_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'p98', 'MEAN'];
+
+// ---- THE ACTUALS OVERLAY (D57, 2026-10-07) ---------------------------------------------------
+// Real measured per-day numbers from data_col_daily, written to the RIGHTMOST side of every band
+// block (user, 2026-10-07: "the real player data will be added into Col_Cards_Cloud to the
+// rightmost side of the table") so Col_Charts can plot them as a red line over the simulated band.
+//
+// GEOMETRY, AND WHY IT MATTERS OUTSIDE THIS FILE. A band block is now
+//     1 + 6 x CLOUD_STATS (48) + 6 x CLOUD_ACTUAL_STATS (18) = 67 columns
+// and Col_Charts!AA2 carries that width as a LITERAL inside its OFFSET:
+//     OFFSET(Col_Cards_Cloud!A1, MATCH(B2, Col_Cards_Cloud!A:A, 0) + 1, 0, 34, 67)
+// It was 37 before p95/p98 and 49 after, so this is the second time the number has had to move.
+// Change the stat lists here and that literal MUST change with them, or the chart silently reads a
+// narrower window and the rightmost series vanish. Row height is untouched: CLOUD_BAND_STRIDE
+// stays 37 and no block moves.
+var CLOUD_ACTUAL_STATS = ['ACT MEAN', 'ACT p10', 'ACT p90'];
+var SHEET_COL_DAILY = 'data_col_daily';
+// The sheet may name a metric by the engine key ('packs') or by the human label ('Packs Opened').
+// The analytics pull is as likely to produce one as the other and the join should not be the thing
+// that breaks, so both are accepted.
+var CLOUD_ACTUALS_READ_FAKE = true;
+// Deliberate, and the opposite of the rule the four ANCHOR sheets follow (where status = FAKE is
+// treated as absent so a placeholder cannot move a balancing number). This lane feeds NO simulated
+// value - it is drawn next to one - so hiding fake rows would only mean the red line never appears
+// while the data is still arriving. Fake rows are read, and the block's group label says
+// 'ACTUALS - FAKE' so a placeholder line can never be mistaken for telemetry.
 // Below which sample size p98 is the near-max of the cohort rather than a percentile of anything.
 // Not enforced - it only decides whether the run stamp carries the warning.
 var CLOUD_TAIL_MIN_PLAYERS = 200;
@@ -3101,10 +3126,78 @@ function SimulateCardCloud(){
 // the BAR LABELS this file searches for. One shared string per block instead of a whole layout
 // duplicated across two files, which is the drift this project keeps paying for.
 
+// data_col_daily -> { 'seg|payer': { metricKey: { day: {mean, p10, p90} } }, ... } plus, per cell,
+// the LAST DAY that carries any row and whether anything read was FAKE.
+//
+// Actuals arrive GRADUALLY (user, 2026-10-07), so this reader is built around absence:
+//   * a cell with no rows at all  -> no entry, every ACTUAL column written blank, no red line;
+//   * a day with no row           -> blank, NOT zero. A zero would draw the line diving to the
+//                                    axis, which reads as "players lost everything" rather than
+//                                    "we have no data yet";
+//   * the line ends on `lastDay`  -> the last day present for that cell, which is what makes the
+//                                    red line cut off partway through the season by itself.
+var _colDailyCache = null;
+function colDailyActuals_(){
+  if (_colDailyCache !== null) return _colDailyCache;
+  var v = sheetVals_(SHEET_COL_DAILY);
+  var out = {};
+  if (!v || v.length < 2) return (_colDailyCache = out);
+  var hdr = {}, c;
+  for (c = 0; c < (v[0] || []).length; c++){
+    var h = String(v[0][c] == null ? '' : v[0][c]).trim().toLowerCase();
+    if (h) hdr[h] = c;
+  }
+  var need = ['segment', 'payer_flag', 'day', 'metric', 'actual_mean'];
+  for (c = 0; c < need.length; c++){
+    if (hdr[need[c]] == null){
+      Logger.log(SHEET_COL_DAILY + " has no '" + need[c] + "' column - the actuals overlay is OFF. " +
+                 'Columns seen: ' + Object.keys(hdr).join(', '));
+      return (_colDailyCache = out);
+    }
+  }
+  // metric label -> engine key, so the sheet can say either
+  var keyOf = {};
+  CLOUD_METRICS.forEach(function(met){
+    keyOf[met.key.toLowerCase()] = met.key;
+    keyOf[String(met.label).toLowerCase()] = met.key;
+  });
+  var unknown = {};
+  for (var r = 1; r < v.length; r++){
+    var row = v[r] || [];
+    var seg = String(row[hdr['segment']] == null ? '' : row[hdr['segment']]).trim();
+    var pay = String(row[hdr['payer_flag']] == null ? '' : row[hdr['payer_flag']]).trim().toUpperCase();
+    if (!seg || !pay) continue;
+    var day = Math.round(num(row[hdr['day']]));
+    if (!(day >= 1 && day <= DAILY_DAYS)) continue;
+    var mRaw = String(row[hdr['metric']] == null ? '' : row[hdr['metric']]).trim();
+    var key = keyOf[mRaw.toLowerCase()];
+    if (!key){ if (mRaw) unknown[mRaw] = true; continue; }
+    var status = String(row[hdr['status']] == null ? '' : row[hdr['status']]).trim().toUpperCase();
+    var isFake = (status === 'FAKE');
+    if (isFake && !CLOUD_ACTUALS_READ_FAKE) continue;
+    var cell = seg + '|' + pay;
+    var bucket = out[cell] || (out[cell] = { metrics: {}, lastDay: 0, anyFake: false });
+    var series = bucket.metrics[key] || (bucket.metrics[key] = {});
+    series[day] = {
+      'ACT MEAN': num(row[hdr['actual_mean']]),
+      'ACT p10':  (hdr['actual_p10'] != null) ? num(row[hdr['actual_p10']]) : '',
+      'ACT p90':  (hdr['actual_p90'] != null) ? num(row[hdr['actual_p90']]) : ''
+    };
+    if (day > bucket.lastDay) bucket.lastDay = day;
+    if (isFake) bucket.anyFake = true;
+  }
+  if (countKeys_(unknown))
+    Logger.log(SHEET_COL_DAILY + ' has metric names this engine does not know: ' +
+               Object.keys(unknown).join(', ') + '. Expected one of: ' +
+               CLOUD_METRICS.map(function(m){ return m.key + ' / ' + m.label; }).join(', '));
+  return (_colDailyCache = out);
+}
+
 /** Col_Cards_Cloud: the MEANS comparison block, then one p10-p90 band block per permutation. */
 function writeCloudSheet_(sh, agg, nPlayers, seed){
   var vals = sh.getDataRange().getValues();
   var perms = cloudPermutations_();
+  var actuals = colDailyActuals_();
   var d, m, j, s, row, rows, grp, hdr;
 
   sh.getRange(CLOUD_STAMP_CELL).setValue(
@@ -3164,10 +3257,25 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
   for (j = 0; j < perms.length; j++){
     var r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
     var a = agg[j];
+    // The label row is NOT decorated with anything beyond the existing '(not run)': Col_Charts
+    // finds a block with MATCH(B2, A:A, 0), an EXACT match, so appending "actuals through day 14"
+    // here would break the chart's lookup outright. The actuals' provenance goes on the group row.
     sh.getRange(r0, 1).setValue(perms[j].label + (a ? '' : '   (not run)'));
+    var act = actuals[perms[j].seg + '|' + String(perms[j].payer).toUpperCase()] || null;
     grp = ['']; hdr = ['Day'];
     CLOUD_METRICS.forEach(function(met){
       CLOUD_STATS.forEach(function(st, i){ grp.push(i === 0 ? met.label : ''); hdr.push(st); });
+    });
+    // ACTUALS, to the RIGHT of every simulated column. A cell with no data at all still gets its
+    // headers - the block keeps one shape for every permutation, so Col_Charts' fixed-width window
+    // does not have to care which cells have data yet.
+    var actTag = act ? (act.anyFake ? ' - FAKE' : '') : ' - none yet';
+    CLOUD_METRICS.forEach(function(met){
+      CLOUD_ACTUAL_STATS.forEach(function(st, i){
+        grp.push(i === 0 ? ('ACTUAL ' + met.label + actTag +
+                            (act && act.lastDay ? ' (to day ' + act.lastDay + ')' : '')) : '');
+        hdr.push(st);
+      });
     });
     sh.getRange(r0 + 1, 1, 1, grp.length).setValues([grp]);
     sh.getRange(r0 + 2, 1, 1, hdr.length).setValues([hdr]);
@@ -3178,6 +3286,13 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
         var st = a ? a.series[CLOUD_METRICS[m].key][d] : null;
         for (s = 0; s < CLOUD_STATS.length; s++)
           row.push(st ? round_(st[CLOUD_STATS[s]], 2) : '');
+      }
+      // BLANK past the last measured day, never 0: a zero draws the red line diving to the axis,
+      // which reads as a collapse rather than as "no data yet".
+      for (m = 0; m < CLOUD_METRICS.length; m++){
+        var av = (act && act.metrics[CLOUD_METRICS[m].key]) ? act.metrics[CLOUD_METRICS[m].key][d + 1] : null;
+        for (s = 0; s < CLOUD_ACTUAL_STATS.length; s++)
+          row.push(av ? round_(av[CLOUD_ACTUAL_STATS[s]], 2) : '');
       }
       rows.push(row);
     }
