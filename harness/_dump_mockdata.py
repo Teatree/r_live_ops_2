@@ -111,6 +111,10 @@ SHEETS = [
     # in PENDING_IMPORT so they keep reaching the dump once the workbook ships them for real -
     # the Col_Cards_* lesson (emptying PENDING_IMPORT silently removed them and the harness died).
     'data_col_season', 'data_col_envelopes', 'data_tof_runs', 'data_tof_stages',
+    # D57 (2026-10-07): the per-day ACTUALS overlay Col_Charts plots as a red line. Unlike the four
+    # anchor sheets above, FAKE rows here are READ (the lane feeds no simulated value), so the
+    # overlay can be seen working before real data lands.
+    'data_col_daily',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The
@@ -151,7 +155,8 @@ PENDING_IMPORT = {'Col_Cards_Totals':  'Col_Cards_Totals_v1.xlsx',
                   'data_col_season':   'data_col_season_v1.xlsx',
                   'data_col_envelopes':'data_col_envelopes_v1.xlsx',
                   'data_tof_runs':     'data_tof_runs_v1.xlsx',
-                  'data_tof_stages':   'data_tof_stages_v1.xlsx'}
+                  'data_tof_stages':   'data_tof_stages_v1.xlsx',
+                  'data_col_daily':    'data_col_daily_v1.xlsx'}
 
 
 def dump_sheet(ws):

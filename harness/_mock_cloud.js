@@ -1259,6 +1259,135 @@ function GATES() {
       v4.indexOf("'SimulateCardCloud'") >= 0);
   }
 
+  // ---------------------------------------------- the ACTUALS overlay (D57, 2026-10-07) --------
+  // Real per-day numbers from data_col_daily are written to the RIGHTMOST columns of every band
+  // block, and Col_Charts plots them as a red line over the simulated band. The data arrives
+  // gradually, so most of what matters here is behaviour under ABSENCE.
+  {
+    const SEG = '100+', PAY = 'PAYER', LABEL = SEG + ' ' + PAY;
+    const dailySnap = JSON.stringify(data[SHEET_COL_DAILY].values);
+    const cloudRows = () => data['Col_Cards_Cloud'].values;
+    const blockRow = (label) => cloudRows().findIndex(
+      r => String((r || [''])[0]).trim() === label);
+    const runCloud = () => {
+      _sheetValsCache = {}; _colDailyCache = null;
+      mkSheet('Col_Cards_Totals').getRange('B2').setValue(2);
+      mkSheet('Col_Cards_Totals').getRange('G2').setValue(4242);
+      SimulateCardCloud();
+    };
+    const SIMW = 1 + CLOUD_METRICS.length * CLOUD_STATS.length;          // 49 today
+    const FULLW = SIMW + CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length;  // 67 today
+
+    runCloud();
+    let r0 = blockRow(LABEL);
+    const hdr = cloudRows()[r0 + 2];
+    const filled = hdr.filter(x => String(x).trim() !== '').length;
+
+    // (1) The width is the number Col_Charts!AA2 carries as a LITERAL inside its OFFSET. Derived
+    // from the stat lists, never frozen: the literal was 37, then 49, and is 67 from today.
+    check('band block width == 1 + metrics x stats + metrics x actual stats',
+      filled === FULLW, filled + ' header cells, expected ' + FULLW +
+      '  <- Col_Charts!AA2 OFFSET width MUST read ' + FULLW);
+
+    // (2) ACTUALS are the RIGHTMOST columns - that is the whole contract with point 4 of the ask.
+    const firstAct = hdr.findIndex(x => String(x).indexOf('ACT ') === 0);
+    const lastSim = hdr.reduce((acc, x, i) =>
+      (CLOUD_STATS.indexOf(String(x).trim()) >= 0 ? i : acc), -1);
+    check('every ACTUAL column sits to the RIGHT of every simulated column',
+      firstAct > lastSim && firstAct === SIMW,
+      'first ACT at index ' + firstAct + ', last sim stat at ' + lastSim);
+
+    // (3) The red line STOPS on the last measured day, and the cells past it are BLANK, not 0.
+    // A zero would draw the line diving to the axis - a collapse, not "no data yet".
+    const act = colDailyActuals_();
+    const lastDay = act[SEG + '|' + PAY].lastDay;
+    const dayRow = (d) => cloudRows()[r0 + 2 + d];
+    const actCell = (d, mIdx, sIdx) => dayRow(d)[SIMW + mIdx * CLOUD_ACTUAL_STATS.length + sIdx];
+    check('actuals are present on the last measured day', lastDay > 0 && actCell(lastDay, 0, 0) !== '',
+      'day ' + lastDay + ' ACT MEAN = ' + actCell(lastDay, 0, 0));
+    let pastCutoff = [];
+    for (let d = lastDay + 1; d <= DAILY_DAYS; d++)
+      for (let m = 0; m < CLOUD_METRICS.length; m++)
+        for (let sIdx = 0; sIdx < CLOUD_ACTUAL_STATS.length; sIdx++)
+          if (actCell(d, m, sIdx) !== '') pastCutoff.push('d' + d);
+    check('every actual cell past the last measured day is BLANK, never 0',
+      pastCutoff.length === 0,
+      pastCutoff.length ? pastCutoff.slice(0, 6).join(', ') : 'days ' + (lastDay + 1) + '..' +
+      DAILY_DAYS + ' blank across all ' + (CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length) +
+      ' columns');
+
+    // (4) The overlay follows the CELL. Multiply one permutation's day-5 packs actual and nothing
+    // else may move - this is what makes "the red line respects the chosen permutation" a rule
+    // rather than a hope.
+    const before = actCell(5, 0, 0);
+    const otherLabel = '0-9 NONPAYER';
+    const beforeOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW];
+    {
+      const v = data[SHEET_COL_DAILY].values;
+      let hits = 0;
+      for (let i = 1; i < v.length; i++)
+        if (String(v[i][0]).trim() === SEG && String(v[i][1]).trim() === PAY &&
+            Math.round(Number(v[i][2])) === 5 && String(v[i][3]).trim() === 'packs') {
+          v[i][4] = Number(v[i][4]) * 7; hits++;
+        }
+      check('actuals fixture patched exactly one row', hits === 1, hits + ' rows');
+    }
+    runCloud();
+    r0 = blockRow(LABEL);
+    const after = actCell(5, 0, 0);
+    const afterOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW];
+    check('an actual belongs to its own segment x payer cell only',
+      Math.abs(after - before * 7) < 0.02 && afterOther === beforeOther,
+      LABEL + ' day5 ' + before + ' -> ' + after + ' (x7), ' + otherLabel + ' unchanged at ' +
+      afterOther);
+
+    // (5) ABSENCE. Strip every row for one cell: its actual columns go entirely blank, the block
+    // KEEPS its headers (one shape for every permutation, so the chart's fixed window still fits),
+    // and the group label says so instead of pretending.
+    data[SHEET_COL_DAILY].values = JSON.parse(dailySnap).filter(
+      (r, i) => i === 0 || !(String(r[0]).trim() === SEG && String(r[1]).trim() === PAY));
+    runCloud();
+    r0 = blockRow(LABEL);
+    let anyAct = false;
+    for (let d = 1; d <= DAILY_DAYS; d++)
+      for (let m = 0; m < CLOUD_METRICS.length; m++)
+        if (actCell(d, m, 0) !== '') anyAct = true;
+    const hdrNow = cloudRows()[r0 + 2].filter(x => String(x).trim() !== '').length;
+    const grpNow = cloudRows()[r0 + 1].join(' ');
+    check('a cell with NO actuals draws nothing, and does not break the block shape',
+      !anyAct && hdrNow === FULLW, 'actual cells written: ' + (anyAct ? 'some' : 'none') +
+      ', header cells still ' + hdrNow);
+    check('a cell with no actuals says so on the group row',
+      grpNow.indexOf('none yet') >= 0, grpNow.indexOf('none yet') >= 0 ? 'labelled "none yet"' :
+      'NOT labelled');
+
+    // (6) FAKE is READ here, deliberately - the opposite of the four anchor sheets - and is
+    // LABELLED. Flipping status to MEASURED must drop the tag, which is how a real pull announces
+    // itself on the sheet.
+    data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+    runCloud();
+    r0 = blockRow(LABEL);
+    const fakeLabelled = cloudRows()[r0 + 1].join(' ').indexOf('FAKE') >= 0;
+    check('FAKE actuals are read AND labelled FAKE on the group row', fakeLabelled,
+      fakeLabelled ? 'tagged' : 'not tagged - a placeholder would read as telemetry');
+    {
+      const v = data[SHEET_COL_DAILY].values;
+      const st = v[0].findIndex(h => String(h).trim().toLowerCase() === 'status');
+      for (let i = 1; i < v.length; i++) v[i][st] = 'MEASURED';
+    }
+    runCloud();
+    r0 = blockRow(LABEL);
+    const grpMeasured = cloudRows()[r0 + 1].join(' ');
+    check('status = MEASURED drops the FAKE tag but keeps the day stamp',
+      grpMeasured.indexOf('FAKE') < 0 && grpMeasured.indexOf('to day') >= 0,
+      grpMeasured.split(/\s{2,}/).filter(Boolean)[1] || grpMeasured.slice(0, 60));
+
+    data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+    _sheetValsCache = {}; _colDailyCache = null;
+    check('actuals fixture restored',
+      JSON.stringify(data[SHEET_COL_DAILY].values) === dailySnap);
+  }
+
   console.log('');
   console.log(failures ? failures + ' CHECK(S) FAILED' : 'ALL CHECKS PASSED');
   process.exitCode = failures ? 1 : 0;
