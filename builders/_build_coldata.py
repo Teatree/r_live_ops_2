@@ -5,6 +5,8 @@
 #   data_col_envelopes  display/data_col_envelopes_v1.xlsx  long: segment x payer x source x tier
 #   data_tof_runs       display/data_tof_runs_v1.xlsx       10 rows, one per segment x payer
 #   data_tof_stages     display/data_tof_stages_v1.xlsx     long: stage x door outcome
+#   data_col_daily      display/data_col_daily_v1.xlsx      long: segment x payer x day x metric
+#                                                           (D57 - the ACTUALS overlay, see below)
 #
 # WHY THESE EXIST
 #   The three new _v2 config sheets are the first ones with NO measured anchor in data_gains: it
@@ -18,6 +20,12 @@
 #   and fall back to the modelled assumption, logging that they did - so a placeholder can never
 #   quietly drive a balancing number. The analytics LLM is asked to return status = MEASURED.
 #   See PROMPT_collection_data_request.md for the column dictionary handed to it.
+#
+#   ONE DELIBERATE EXCEPTION: data_col_daily (D57). It is an OVERLAY - it is plotted against the
+#   simulated curves in Col_Charts and feeds no simulated number at all, so hiding a FAKE row would
+#   only mean the red line never appears while the data is still arriving. The engine therefore
+#   READS fake rows here and labels the written block 'ACTUALS - FAKE' instead, so a placeholder
+#   line can be seen working but can never be mistaken for telemetry. User decision 2026-10-07.
 #
 # WHY THE PLACEHOLDERS ARE THE SIM'S OWN OUTPUT
 #   The per-cell numbers below are what the D55 engine actually produced - 1000 players x 10 cells
@@ -264,5 +272,84 @@ wb, ws = new_sheet('data_tof_stages')
 write(ws, H4, rows4)
 save(wb, 'data_tof_stages_v1.xlsx')
 
-print('\nAll four sheets carry status = FAKE on every row. The engine readers treat FAKE as absent')
-print('and fall back to the modelled assumption, so these cannot move a balancing number.')
+# ---- 5. data_col_daily: the ACTUALS overlay (D57) ---------------------------------------------
+# Per-day CUMULATIVE actuals per segment x payer x metric, which Col_Charts plots as a red line
+# over the simulated p10/p90 band. Long format, because the data arrives GRADUALLY: a day with no
+# row simply has no red line, and the line ends on the last day present rather than diving to zero.
+#
+# `metric` uses the engine's own CLOUD_METRICS keys so the join cannot drift. The reader also
+# accepts the human labels ('Packs Opened' etc.) because the analytics pull may well come back with
+# those - the structure is still an unknown and the join should not be the thing that breaks.
+#
+# THE PLACEHOLDER CURVES ARE THE SIM'S OWN PER-DAY MEANS, read straight out of the dump's
+# Col_Cards_Cloud band blocks and scaled by ACT_SCALE. That gives curves with exactly the right
+# shape (including the day-28 envelope plateau and the star-balance spend-down cliff) without
+# inventing anything, and it puts the red line slightly UNDER the model, which is the interesting
+# case to look at. If the dump is not on disk, a linear ramp to the season total is used instead and
+# the script says which path it took.
+ACT_CUTOFF_DAY = 14          # fake data covers the first half of the 28-day season, nothing after
+ACT_SCALE = dict(mean=0.92, p10=0.62, p90=1.33)
+METRIC_KEYS = [('packs', 'Packs Opened'), ('cards', 'Cards Drawn'), ('unique', 'Unique Cards'),
+               ('sets', 'Sets Completed'), ('albumPct', 'Album %'), ('balance', 'Star Balance')]
+DUMP = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'harness',
+                    '_mockdata_adjust.json')
+
+
+def sim_day_means():
+    """{(seg,payer): {metric_key: [33 cumulative means]}} from the dump, or None."""
+    import json
+    if not os.path.exists(DUMP):
+        return None
+    # Deliberately NOT wrapped in a bare except: a typo in here used to be indistinguishable from
+    # "the dump is not on disk", and the script then silently shipped the linear-ramp fallback.
+    with open(DUMP, encoding='utf-8') as fh:
+        v = json.load(fh)['Col_Cards_Cloud']['values']
+    out = {}
+    for seg in SEGMENTS:
+        for pay in PAYERS:
+            label = seg + ' ' + pay
+            r0 = next((i for i, r in enumerate(v)
+                       if str((r or [''])[0]).strip() == label), None)
+            if r0 is None:
+                return None
+            cur = {}
+            for m, (key, _lab) in enumerate(METRIC_KEYS):
+                col = 8 + 8 * m                      # the MEAN of the m-th metric's 8 stats
+                cur[key] = [float(v[r0 + 3 + d][col] or 0) for d in range(33)]
+            out[(seg, pay)] = cur
+    return out
+
+
+H5 = ['segment', 'payer_flag', 'day', 'metric', 'actual_mean', 'actual_p10', 'actual_p90', 'status']
+curves = sim_day_means()
+print('data_col_daily placeholder source:',
+      "the sim's own per-day means (harness/_mockdata_adjust.json)" if curves else
+      'linear ramp fallback - dump not found')
+rows5 = []
+for seg in SEGMENTS:
+    for pay in PAYERS:
+        d = CELL[(seg, pay)]
+        season_total = dict(packs=d['packs'], cards=d['cards'], unique=d['new'], sets=d['sets'],
+                            albumPct=d['album'] * 100.0, balance=d['stars_e'] - d['stars_s'])
+        for key, _lab in METRIC_KEYS:
+            for day in range(1, ACT_CUTOFF_DAY + 1):
+                if curves:
+                    base = curves[(seg, pay)][key][day - 1]
+                else:
+                    base = season_total[key] * day / float(SEASON_DAYS)
+                if base <= 0:
+                    continue                 # no row = nothing measured on that day for that metric
+                rows5.append([seg, pay, day, key,
+                              round(base * ACT_SCALE['mean'], 3),
+                              round(base * ACT_SCALE['p10'], 3),
+                              round(base * ACT_SCALE['p90'], 3),
+                              STATUS_FAKE])
+wb, ws = new_sheet('data_col_daily')
+write(ws, H5, rows5)
+save(wb, 'data_col_daily_v1.xlsx')
+
+print('\nFour of the five sheets carry status = FAKE and are treated as ABSENT by the readers, so')
+print('they cannot move a balancing number. data_col_daily is the exception: it is an OVERLAY that')
+print('feeds no simulated value, so it IS read and the written block is labelled ACTUALS - FAKE.')
+print('Fake actuals stop on day %d of the %d-day season, so the red line ends there.'
+      % (ACT_CUTOFF_DAY, SEASON_DAYS))
