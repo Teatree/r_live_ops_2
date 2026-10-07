@@ -144,19 +144,13 @@ SHEETS = [
 # untested. The overlay lets the harness see the layout the engine writes into. DROP THIS ENTRY once
 # display/Col_Cards_Totals_v1.xlsx has been imported - leaving it in makes the overlay replace the
 # real sheet, and anything typed into it (the 'Minutes per unit' column), with a builder artefact.
-# 2026-10-07 (D56): the four collection-telemetry sheets the AlbumConfig_v2 / PackConfig_v2 /
-# ToF_v2 change simulation anchors on. Freshly built by builders/_build_coldata.py and not yet
-# imported into any workbook, so the overlay is the ONLY way the harness sees the layout the new
-# readers target. EVERY ROW IN THEM CARRIES status = FAKE, and the readers treat FAKE as absent, so
-# the overlay cannot move a simulated number - it only exercises the schema. DROP EACH ENTRY once
-# the sheet is imported, or the overlay will replace the real sheet (and the real data) with a
-# builder artefact.
-PENDING_IMPORT = {'Col_Cards_Totals':  'Col_Cards_Totals_v1.xlsx',
-                  'data_col_season':   'data_col_season_v1.xlsx',
-                  'data_col_envelopes':'data_col_envelopes_v1.xlsx',
-                  'data_tof_runs':     'data_tof_runs_v1.xlsx',
-                  'data_tof_stages':   'data_tof_stages_v1.xlsx',
-                  'data_col_daily':    'data_col_daily_v1.xlsx'}
+# 2026-10-07: the five collection/ToF telemetry sheets were IMPORTED into
+# COLLECTIONS_AFTER_RELEASE_ADJUSTMENT_CHECKER, so their entries are gone from here. Leaving them
+# would have made every later dump overlay the builder's FAKE artefact on top of the real sheets -
+# and on data_col_daily that silently replaces whatever real per-day actuals have landed. They stay
+# in SHEETS above, which is where an imported sheet belongs; PENDING_IMPORT is only ever for a
+# freshly built sheet that no workbook carries yet.
+PENDING_IMPORT = {'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
 
 
 def dump_sheet(ws):
