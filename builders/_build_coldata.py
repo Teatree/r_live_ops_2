@@ -288,7 +288,14 @@ save(wb, 'data_tof_stages_v1.xlsx')
 # case to look at. If the dump is not on disk, a linear ramp to the season total is used instead and
 # the script says which path it took.
 ACT_CUTOFF_DAY = 14          # fake data covers the first half of the 28-day season, nothing after
-ACT_SCALE = dict(mean=0.92, p10=0.62, p90=1.33)
+# ALL EIGHT statistics, the same set and the same order as the engine's CLOUD_STATS (user,
+# 2026-10-07: "I wanted all of them"). It shipped as mean/p10/p90 only, which is a band rather than
+# a distribution - and it left five of the simulated columns with nothing to be compared against.
+# Multipliers on the sim's own per-day MEAN, chosen to be a plausible spread around it rather than
+# measured anything: they widen monotonically and straddle 1.0 at the median.
+ACT_SCALE = {'p10': 0.62, 'p25': 0.78, 'p50': 0.94, 'p75': 1.12,
+             'p90': 1.33, 'p95': 1.48, 'p98': 1.71, 'mean': 0.92}
+ACT_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'p98', 'mean']
 METRIC_KEYS = [('packs', 'Packs Opened'), ('cards', 'Cards Drawn'), ('unique', 'Unique Cards'),
                ('sets', 'Sets Completed'), ('albumPct', 'Album %'), ('balance', 'Star Balance')]
 DUMP = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'harness',
@@ -320,7 +327,8 @@ def sim_day_means():
     return out
 
 
-H5 = ['segment', 'payer_flag', 'day', 'metric', 'actual_mean', 'actual_p10', 'actual_p90', 'status']
+H5 = (['segment', 'payer_flag', 'day', 'metric'] +
+      ['actual_' + st for st in ACT_STATS] + ['status'])
 curves = sim_day_means()
 print('data_col_daily placeholder source:',
       "the sim's own per-day means (harness/_mockdata_adjust.json)" if curves else
@@ -339,11 +347,9 @@ for seg in SEGMENTS:
                     base = season_total[key] * day / float(SEASON_DAYS)
                 if base <= 0:
                     continue                 # no row = nothing measured on that day for that metric
-                rows5.append([seg, pay, day, key,
-                              round(base * ACT_SCALE['mean'], 3),
-                              round(base * ACT_SCALE['p10'], 3),
-                              round(base * ACT_SCALE['p90'], 3),
-                              STATUS_FAKE])
+                rows5.append([seg, pay, day, key] +
+                             [round(base * ACT_SCALE[st], 3) for st in ACT_STATS] +
+                             [STATUS_FAKE])
 wb, ws = new_sheet('data_col_daily')
 write(ws, H5, rows5)
 save(wb, 'data_col_daily_v1.xlsx')

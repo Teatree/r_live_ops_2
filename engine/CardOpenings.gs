@@ -2696,15 +2696,24 @@ var CLOUD_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'p98', 'MEAN'];
 // block (user, 2026-10-07: "the real player data will be added into Col_Cards_Cloud to the
 // rightmost side of the table") so Col_Charts can plot them as a red line over the simulated band.
 //
+// THE SAME EIGHT STATISTICS AS THE SIMULATED SIDE, IN THE SAME ORDER (user, 2026-10-07: "I wanted
+// all of them"). It shipped as mean + p10 + p90 only - that was the "mean plus its own band"
+// option, and a band is not a distribution. Mirroring CLOUD_STATS exactly buys three things:
+// every simulated statistic has an actual to be compared against, the offset arithmetic is
+// IDENTICAL on both halves of the block (actual column for metric m stat s is at
+// 1 + 6*|CLOUD_STATS| + m*|CLOUD_ACTUAL_STATS| + s, with the same s index as the sim column), and
+// the two lists can be gated against each other rather than kept in step by hand.
+//
 // GEOMETRY, AND WHY IT MATTERS OUTSIDE THIS FILE. A band block is now
-//     1 + 6 x CLOUD_STATS (48) + 6 x CLOUD_ACTUAL_STATS (18) = 67 columns
+//     1 + 6 x CLOUD_STATS (48) + 6 x CLOUD_ACTUAL_STATS (48) = 97 columns
 // and Col_Charts!AA2 carries that width as a LITERAL inside its OFFSET:
-//     OFFSET(Col_Cards_Cloud!A1, MATCH(B2, Col_Cards_Cloud!A:A, 0) + 1, 0, 34, 67)
-// It was 37 before p95/p98 and 49 after, so this is the second time the number has had to move.
-// Change the stat lists here and that literal MUST change with them, or the chart silently reads a
-// narrower window and the rightmost series vanish. Row height is untouched: CLOUD_BAND_STRIDE
-// stays 37 and no block moves.
-var CLOUD_ACTUAL_STATS = ['ACT MEAN', 'ACT p10', 'ACT p90'];
+//     OFFSET(Col_Cards_Cloud!A1, MATCH(B2, Col_Cards_Cloud!A:A, 0) + 1, 0, 34, 97)
+// It was 37 before p95/p98, 49 after, and 67 while the actuals were a three-column band - so this
+// is the third time the number has had to move. Change either stat list here and that literal MUST
+// change with it, or the chart silently reads a narrower window and the rightmost series vanish
+// (_mock_cloud prints the width the chart needs on every run). Row height is untouched:
+// CLOUD_BAND_STRIDE stays 37 and no block moves.
+var CLOUD_ACTUAL_STATS = CLOUD_STATS.map(function(st){ return 'ACT ' + st; });
 var SHEET_COL_DAILY = 'data_col_daily';
 // The sheet may name a metric by the engine key ('packs') or by the human label ('Packs Opened').
 // The analytics pull is as likely to produce one as the other and the join should not be the thing
@@ -3147,7 +3156,10 @@ function colDailyActuals_(){
     var h = String(v[0][c] == null ? '' : v[0][c]).trim().toLowerCase();
     if (h) hdr[h] = c;
   }
-  var need = ['segment', 'payer_flag', 'day', 'metric', 'actual_mean'];
+  // Only the KEYS and at least one statistic are required. Which statistic columns a pull can
+  // produce is not something to insist on: a warehouse that can give a mean and a median but not a
+  // p98 should still draw three quarters of the overlay rather than none of it.
+  var need = ['segment', 'payer_flag', 'day', 'metric'];
   for (c = 0; c < need.length; c++){
     if (hdr[need[c]] == null){
       Logger.log(SHEET_COL_DAILY + " has no '" + need[c] + "' column - the actuals overlay is OFF. " +
@@ -3155,6 +3167,25 @@ function colDailyActuals_(){
       return (_colDailyCache = out);
     }
   }
+  // 'ACT p10' -> the sheet column that carries it. 'ACT MEAN' reads actual_mean; the percentiles
+  // read actual_p10 .. actual_p98. A column the sheet does not have is simply absent and its cells
+  // are written blank, which is why a partial pull still draws every statistic it did bring.
+  var statCol = {}, haveAny = false;
+  CLOUD_ACTUAL_STATS.forEach(function(st){
+    var tail = st.replace(/^ACT\s+/, '');
+    var name = 'actual_' + (tail === 'MEAN' ? 'mean' : tail.toLowerCase());
+    if (hdr[name] != null){ statCol[st] = hdr[name]; haveAny = true; }
+  });
+  if (!haveAny){
+    Logger.log(SHEET_COL_DAILY + ' has none of the actual_* value columns (expected ' +
+               CLOUD_ACTUAL_STATS.map(function(st){
+                 var t = st.replace(/^ACT\s+/, '');
+                 return 'actual_' + (t === 'MEAN' ? 'mean' : t.toLowerCase());
+               }).join(', ') + ') - the actuals overlay is OFF. Columns seen: ' +
+               Object.keys(hdr).join(', '));
+    return (_colDailyCache = out);
+  }
+
   // metric label -> engine key, so the sheet can say either
   var keyOf = {};
   CLOUD_METRICS.forEach(function(met){
@@ -3178,11 +3209,13 @@ function colDailyActuals_(){
     var cell = seg + '|' + pay;
     var bucket = out[cell] || (out[cell] = { metrics: {}, lastDay: 0, anyFake: false });
     var series = bucket.metrics[key] || (bucket.metrics[key] = {});
-    series[day] = {
-      'ACT MEAN': num(row[hdr['actual_mean']]),
-      'ACT p10':  (hdr['actual_p10'] != null) ? num(row[hdr['actual_p10']]) : '',
-      'ACT p90':  (hdr['actual_p90'] != null) ? num(row[hdr['actual_p90']]) : ''
-    };
+    var rec = {};
+    CLOUD_ACTUAL_STATS.forEach(function(st){
+      // '' not 0 for a statistic this sheet does not carry: the writer passes it straight through,
+      // and a 0 would draw that series diving to the axis.
+      rec[st] = (statCol[st] != null) ? num(row[statCol[st]]) : '';
+    });
+    series[day] = rec;
     if (day > bucket.lastDay) bucket.lastDay = day;
     if (isFake) bucket.anyFake = true;
   }
@@ -3291,8 +3324,15 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
       // which reads as a collapse rather than as "no data yet".
       for (m = 0; m < CLOUD_METRICS.length; m++){
         var av = (act && act.metrics[CLOUD_METRICS[m].key]) ? act.metrics[CLOUD_METRICS[m].key][d + 1] : null;
-        for (s = 0; s < CLOUD_ACTUAL_STATS.length; s++)
-          row.push(av ? round_(av[CLOUD_ACTUAL_STATS[s]], 2) : '');
+        for (s = 0; s < CLOUD_ACTUAL_STATS.length; s++){
+          // The '' check is NOT redundant with the `av` check beside it. A statistic the sheet has
+          // no column for is stored as '' on a row that otherwise exists, and round_('') returns
+          // 0 - so without this a pull missing p98 would draw a p98 series pinned to the axis,
+          // which is the exact misreading ("players at the top got nothing") that blanking exists
+          // to prevent. One guard per level: no row at all, and no value on the row.
+          var raw = av ? av[CLOUD_ACTUAL_STATS[s]] : '';
+          row.push((raw === '' || raw == null) ? '' : round_(raw, 2));
+        }
       }
       rows.push(row);
     }
