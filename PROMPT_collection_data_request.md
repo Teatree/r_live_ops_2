@@ -1,6 +1,6 @@
 # Data request — card collection, envelopes and Tower of Fortune (2026-10-07)
 
-Hand this whole file to the analytics LLM. It asks for **four tables**. Each one becomes a
+Hand this whole file to the analytics LLM. It asks for **five tables**. Each one becomes a
 `data_*` sheet in the collection workbook and is read live by the simulation engine, so the
 **column names and key spellings below are a contract**, not a suggestion.
 
@@ -136,11 +136,48 @@ nobody reached them (a zero `picks` is information; a missing stage is a hole).
 Not segmented on purpose — if the door distribution differs by segment, that is a finding worth a
 note, but we model it as a property of the event.
 
+## Table 5 — `data_col_daily`  ⟵ *the one we want first, and repeatedly*
+**Grain:** one row per `segment` × `payer_flag` × `day` × `metric`. **Long format.**
+
+This is the only table we want **re-pulled as the season runs**, not once at the end. It is plotted
+as a red line directly over the model's own predicted band, so we can see the model being right or
+wrong while there is still time to act. Partial is fine and expected: the line simply ends on the
+last day you have.
+
+| Column | Meaning |
+|---|---|
+| `segment`, `payer_flag` | keys, spelled as above |
+| `day` | 1-based day of the collection season (day 1 = first day of the season, not a calendar date) |
+| `metric` | one of `packs`, `cards`, `unique`, `sets`, `albumPct`, `balance` — or the labels `Packs Opened`, `Cards Drawn`, `Unique Cards`, `Sets Completed`, `Album %`, `Star Balance`. Either spelling is accepted |
+| `actual_mean` | **cumulative through that day**, mean per player across **every** player in the cell — including players who never engaged with the feature. Same denominator as the model, which is what makes the two curves comparable |
+| `actual_p10`, `actual_p90` | the same cumulative quantity at the 10th and 90th percentile across players, so we can compare the real spread against the predicted spread |
+| `status` | `MEASURED` |
+
+What each metric means, precisely:
+
+| `metric` | Cumulative count, per player, through day *d* |
+|---|---|
+| `packs` | envelopes **opened** |
+| `cards` | cards received |
+| `unique` | distinct cards owned (so it plateaus as the album fills) |
+| `sets` | sets completed |
+| `albumPct` | album completion %, where a finished album counts 100 and progress into the next one keeps climbing past 100 (so album 2 at 30% reads 130) |
+| `balance` | star balance **held** at end of day — this one goes DOWN when chests are bought, so it is not monotone |
+
+Two notes that matter more here than anywhere else in this request:
+
+- **Cumulative, not daily.** Every series is a running total through that day. If it is easier to
+  produce daily deltas, send those and say so — we would rather accumulate them ourselves than
+  receive a mislabelled column.
+- **A missing day means "no data yet", not zero.** Please omit rows you cannot fill rather than
+  sending zeros; a zero makes the red line dive to the axis and reads as a collapse.
+
+
 ---
 
 ## Deliverable
 
-For each table: the SQL, the row count, and the table as CSV. Plus a short notes block covering
+For each table: the SQL, the row count, and the table as CSV. Table 5 is the one to set up as a repeatable pull — we will ask for it again every few days. Plus a short notes block covering
 
 - the exact source tables and date window used;
 - any column you could not produce, and why;

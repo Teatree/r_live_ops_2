@@ -144,6 +144,90 @@ of the top weighted rarity): a 6-card envelope nearly always contains *some* new
 bites after consecutive blank 4-star envelopes. Fixing the asymmetry is a design decision, not a
 bug fix — left as received.
 
+## 5a. The ACTUALS overlay — `Col_Cards_Cloud` and `Col_Charts` (D57, 2026-10-07)
+
+Real measured per-day numbers are plotted as a **red line over the simulated band**, so the model
+can be checked against the game while a season is still running. Data arrives **gradually**, so the
+red line ends on the last day that has data and the chart simply shows less of it early on.
+
+**Where the numbers come from.** `data_col_daily`, long format, one row per
+`segment × payer_flag × day × metric`:
+
+| Column | Notes |
+|---|---|
+| `segment`, `payer_flag` | `0-9`…`100+`, `NONPAYER`/`PAYER` |
+| `day` | 1..33, the calendar day of the window |
+| `metric` | `packs`, `cards`, `unique`, `sets`, `albumPct`, `balance` — the human labels (`Packs Opened` …) are accepted too, because the analytics pull may return either |
+| `actual_mean`, `actual_p10`, `actual_p90` | **cumulative** through that day, per player over the whole cell (the same denominator the simulated series uses) |
+| `status` | `FAKE` or `MEASURED` |
+
+**`FAKE` is READ here — the one deliberate exception.** The four anchor sheets
+(`data_col_season`, `data_col_envelopes`, `data_tof_runs`, `data_tof_stages`) treat a `FAKE` row as
+absent, because they feed simulated numbers and a placeholder must never move a balancing figure.
+This lane feeds nothing — it is drawn *next to* the model — so hiding fake rows would only mean the
+red line never appears while data is still arriving. Fake rows are plotted and the block's group row
+reads `ACTUAL <metric> - FAKE (to day 14)`; a real pull drops the `- FAKE` tag by itself.
+`CLOUD_ACTUALS_READ_FAKE = false` restores the hide-it behaviour.
+
+**What the engine writes.** Three columns per metric, appended to the **rightmost** side of every
+per-permutation band block (user: "the real player data will be added into `Col_Cards_Cloud` to the
+rightmost side of the table"):
+
+```
+block = 1 Day + 6 metrics x 8 CLOUD_STATS (48) + 6 metrics x 3 CLOUD_ACTUAL_STATS (18) = 67 columns
+```
+
+Row height is untouched — `CLOUD_BAND_STRIDE` stays 37 and no block moves. Cells past the last
+measured day are left **BLANK, never 0**: a zero draws the line diving to the axis, which reads as a
+collapse rather than as "no data yet". A cell with no rows at all still gets its headers, so every
+permutation keeps one shape and the chart's fixed-width window always fits.
+
+> ⚠ **The block label row must never be decorated.** `Col_Charts` finds a block with
+> `MATCH(B2, Col_Cards_Cloud!A:A, 0)` — an EXACT match — so appending anything to
+> `100+ PAYER` in column A breaks the chart's lookup outright. That is why the actuals'
+> provenance and cutoff day go on the GROUP row, not the label. The existing `(not run)` suffix has
+> the same effect by design: an un-run permutation makes the chart go blank rather than show stale
+> numbers.
+
+### Workbook-side changes (must be done by hand, once)
+
+**1. Import the sheet.** `display/data_col_daily_v1.xlsx` → a sheet named `data_col_daily`, then
+drop its entry from `PENDING_IMPORT` in `harness/_dump_mockdata.py` (leaving it there makes the
+overlay replace the real sheet with a builder artefact).
+
+**2. Widen the one formula.** `Col_Charts!AA2` carries the block width as a **literal**:
+
+```
+=OFFSET(Col_Cards_Cloud!A1, MATCH(B2, Col_Cards_Cloud!A:A, 0) + 1, 0, 34, 67)
+                                                                         ^^ was 49
+```
+
+It was `37` before p95/p98 and `49` after, so this is the second time the number has moved. The
+`_mock_cloud` gate prints the width the chart must carry on every run, derived from the stat lists,
+so it cannot rot silently.
+
+**3. Add three series to each chart.** The spill now reaches column **CO**. Categories stay
+`Col_Charts!$AA$3:$AA$35` for every series; data rows are `3:35`.
+
+| Chart | sim p10 | sim p90 | **ACT MEAN** | **ACT p10** | **ACT p90** |
+|---|---|---|---|---|---|
+| Packs Opened | AB | AF | **BX** | BY | BZ |
+| Cards Drawn | AJ | AN | **CA** | CB | CC |
+| Unique Cards | AR | AV | **CD** | CE | CF |
+| Sets Completed | AZ | BD | **CG** | CH | CI |
+| Album % | BH | BL | **CJ** | CK | CL |
+| Star Balance | BP | BT | **CM** | CN | CO |
+
+Style: `ACT MEAN` solid red, `ACT p10` / `ACT p90` thin dashed red, all three as **line** series on
+top of the existing area band (a combo chart). The real band against the simulated band is the
+like-for-like comparison; the red mean is the headline.
+
+**4. Nothing to do for the permutation picker.** `Col_Charts!B2` already drives the whole block
+through `MATCH`, and the actuals are written per permutation, so the red line follows the selected
+cell for free. A gate asserts this by multiplying one cell's day-5 actual by 7 and checking that no
+other cell moves.
+
+
 **Chests.** `STAR CHEST COSTS & REWARDS` (Bronze 250 → 1-star, Silver 500 → 4-star, Gold 1000 →
 5-star) gated by the `CHEST PURCHASING` panel: no purchase below `Min Stars to Consider Buying`, 0%
 probability before `Urgency Start Day`, ramping linearly to `End-of-Season Buy Probability` on the
