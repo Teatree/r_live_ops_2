@@ -118,10 +118,23 @@ Our simulation runs a fixed cohort for the whole window — every simulated play
 and is simply inactive on some days — so a growing denominator makes our comparison drift, and a
 cumulative mean that *falls* on re-run reads as the data going backwards.
 
-**Decision: fix the cohort at day 1, and fix each player's segment to their first day seen** (the
-production rule, which is simpler than modal and stable from day 1). Please state in the notes that
-this makes our tables **not** directly comparable to the production album dashboards, because the
-denominators differ — that is a known, accepted cost, not something to reconcile.
+**Decision (corrected 2026-10-13): fix the cohort at day 1, and use the MODAL segment** — the tier
+holding the most of that player's active days in the window, ties going to the higher tier.
+
+An earlier version of this document said first-day-seen, on the grounds that it matches production.
+That was the wrong trade. Our own population table, `data_seg_beh`, assigns each player their modal
+segment (`ORDER BY seg_days DESC, seg_rank DESC`), and our engine cross-checks your
+`players_in_cell` against **its** `unique_players` on every run — so first-day-seen would leave a
+permanent residual mismatch in the one check we use to tell whether your data lines up with ours.
+Modal is what makes that check go quiet.
+
+**Please send both if it is cheap:** `segment` (modal, the join key) and `segment_first_day`
+(first-day-seen) as an extra column. Then we can measure how much the two rules actually differ
+rather than arguing about it, and we keep a column that matches the production dashboards.
+
+Either way, state in the notes that fixing the cohort at day 1 makes our tables **not** directly
+comparable to the production album dashboards, because their cohort grows through the season — a
+known, accepted cost, not something to reconcile.
 
 ---
 
