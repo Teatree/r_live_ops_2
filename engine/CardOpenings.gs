@@ -3117,7 +3117,7 @@ function SimulateCardCloud(){
     Logger.log('  ' + p.label + ': ' + nPlayers + ' players in ' + (ms / 1000).toFixed(1) + 's');
   }
 
-  writeCloudSheet_(cloud, agg, nPlayers, seed);
+  var popFlagged = writeCloudSheet_(cloud, agg, nPlayers, seed) || [];
   var skipped = writeTotalsSheet_(totals, tVals, agg, nPlayers, seed, cfg) || [];
 
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
@@ -3127,7 +3127,11 @@ function SimulateCardCloud(){
             // A block whose bar was not found writes nothing and leaves its rows untouched, which
             // on the sheet looks exactly like a block that ran. Say so where it will be seen.
             (skipped.length ? '  --  ' + skipped.length + ' BLOCK(S) NOT WRITTEN (bar not found ' +
-                              'in column A): ' + skipped.join('; ') : '');
+                              'in column A): ' + skipped.join('; ') : '') +
+            // Loud, because the numbers themselves look fine when this is wrong.
+            (popFlagged.length ? '  --  ' + popFlagged.length + ' CELL(S) DISAGREE WITH ' +
+                                 'data_seg_beh ON POPULATION (' + popFlagged.join(', ') +
+                                 '): the actuals may be segmented on a DIFFERENT AXIS' : '');
   Logger.log(msg + ' | ' + timings.join(', '));
   SpreadsheetApp.getActive().toast(msg, 'SimulateCardCloud', 10);
   return agg.length;
@@ -3211,7 +3215,14 @@ function colDailyActuals_(){
     var isFake = (status === 'FAKE');
     if (isFake && !CLOUD_ACTUALS_READ_FAKE) continue;
     var cell = seg + '|' + pay;
-    var bucket = out[cell] || (out[cell] = { metrics: {}, lastDay: 0, anyFake: false });
+    var bucket = out[cell] || (out[cell] = { metrics: {}, lastDay: 0, anyFake: false, pop: 0 });
+    // players_in_cell, when the pull sends it. This is the DENOMINATOR the actuals were averaged
+    // over, and comparing it against data_seg_beh is the only cheap way to catch the two sheets
+    // being segmented on different axes - see popWarning_.
+    if (hdr['players_in_cell'] != null){
+      var pc = num(row[hdr['players_in_cell']]);
+      if (pc > bucket.pop) bucket.pop = pc;
+    }
     var series = bucket.metrics[key] || (bucket.metrics[key] = {});
     var rec = {};
     CLOUD_ACTUAL_STATS.forEach(function(st){
@@ -3260,6 +3271,45 @@ function colDailyCols_(){
   }
   return { seg: at['segment'], pay: at['payer_flag'], day: at['day'], met: at['metric'],
            stats: stats };
+}
+
+// ---- POPULATION CROSS-CHECK (2026-10-13) ----------------------------------------------------
+// THE TRAP THIS EXISTS FOR. data_col_daily's `segment` and data_seg_beh's `segment` are both
+// spelled '0-9'..'100+', so they pair up silently - but they need not MEAN the same thing. The
+// first real pull was bucketed on `player_profile_level` while data_seg_beh buckets on a
+// 7-DAY SAGA-COMPLETION TIER (sqls/data_seg_beh.sql line 9). Both are legitimate axes; they are
+// not the same axis, and the populations gave it away:
+//
+//     0-9 NONPAYER   107,126 vs    221   (0.00x)
+//     40-99 PAYER     10,805 vs 14,362   (1.33x)
+//     100+ PAYER       1,362 vs 44,259   (32.50x)
+//
+// A different WINDOW or filter set would shift every cell by roughly the same factor. A monotone
+// gradient from 0 to 32x is a different axis, and plotting a red line against it compares our
+// heaviest-weekly-players band to everyone past profile level 100. Nothing in the numbers
+// themselves looks wrong, which is exactly why this is checked rather than left to be noticed.
+//
+// Reported, never enforced: the band is wide (2x either way covers honest window and filter
+// differences) and a flagged cell still draws. The warning goes on the group row and in the
+// toast, because a silent mismatch is the failure mode.
+var POP_CHECK_FACTOR = 2.0;
+
+/** {ratio, ours, theirs} for one cell, or null when either side has no population to compare. */
+function popCompare_(act, seg, payer){
+  if (!act || !(act.pop > 0)) return null;
+  var b = null;
+  try { b = Context.get().ds.beh(seg, payer); } catch (e) { return null; }
+  var ours = b ? num(b.unique_players) : 0;
+  if (!(ours > 0)) return null;
+  return { ratio: act.pop / ours, ours: ours, theirs: act.pop };
+}
+
+/** The group-row suffix for a cell whose actuals population disagrees with data_seg_beh. */
+function popWarning_(cmp){
+  if (!cmp) return '';
+  if (cmp.ratio >= 1 / POP_CHECK_FACTOR && cmp.ratio <= POP_CHECK_FACTOR) return '';
+  return ' [POP ' + round_(cmp.ratio, 2) + 'x data_seg_beh (' + Math.round(cmp.theirs) +
+         ' vs ' + Math.round(cmp.ours) + ') - SAME SEGMENT SPELLING, DIFFERENT AXIS?]';
 }
 
 // One spilling formula per ACTUAL column (user, 2026-10-13: "it should be that the data is
@@ -3316,6 +3366,7 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
   // data, how far it runs, whether it is FAKE). The numbers themselves are formulas now.
   var actuals = colDailyActuals_();
   var cdCols  = colDailyCols_();
+  var popFlagged = [];              // cells whose actuals population disagrees with data_seg_beh
   if (!cdCols)
     Logger.log('No usable ' + SHEET_COL_DAILY + ' header - the ACTUAL columns are left EMPTY ' +
                'rather than filled with a formula that cannot resolve.');
@@ -3378,6 +3429,7 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
   for (j = 0; j < perms.length; j++){
     var r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
     var a = agg[j];
+    // (popFlagged is filled below and reported after the loop)
     // The label row is NOT decorated with anything beyond the existing '(not run)': Col_Charts
     // finds a block with MATCH(B2, A:A, 0), an EXACT match, so appending "actuals through day 14"
     // here would break the chart's lookup outright. The actuals' provenance goes on the group row.
@@ -3391,10 +3443,14 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
     // headers - the block keeps one shape for every permutation, so Col_Charts' fixed-width window
     // does not have to care which cells have data yet.
     var actTag = act ? (act.anyFake ? ' - FAKE' : '') : ' - none yet';
+    var popCmp = popCompare_(act, perms[j].seg, perms[j].payer);
+    var popTag = popWarning_(popCmp);
+    if (popTag) popFlagged.push(perms[j].label + ' ' + round_(popCmp.ratio, 2) + 'x');
     CLOUD_METRICS.forEach(function(met){
       CLOUD_ACTUAL_STATS.forEach(function(st, i){
         grp.push(i === 0 ? ('ACTUAL ' + met.label + actTag +
-                            (act && act.lastDay ? ' (to day ' + act.lastDay + ')' : '')) : '');
+                            (act && act.lastDay ? ' (to day ' + act.lastDay + ')' : '') +
+                            popTag) : '');
         hdr.push(st);
       });
     });
@@ -3414,6 +3470,7 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
     }
     sh.getRange(r0 + 3, 1, DAILY_DAYS, SIM_BAND_W).setValues(rows);
 
+
     // ACTUAL columns: FORMULAS into data_col_daily, one per column, spilling all 33 days. The
     // whole area is cleared first - an ARRAYFORMULA will not spill into occupied cells, and the
     // cells below are exactly where this writer used to put static values.
@@ -3423,6 +3480,14 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
       sh.getRange(r0 + 3, SIM_BAND_W + 1, 1, actW)
         .setFormulas([actFormulaRow_(perms[j], r0 + 3, r0 + 2 + DAILY_DAYS, cdCols)]);
   }
+
+  if (popFlagged.length)
+    Logger.log('ACTUALS POPULATION MISMATCH in ' + popFlagged.length + ' of ' + perms.length +
+               ' cells: ' + popFlagged.join(', ') + '. ' + SHEET_COL_DAILY + ' and data_seg_beh ' +
+               'spell their segments the same way but may not MEAN the same thing - ours is a ' +
+               '7-day saga-completion tier (sqls/data_seg_beh.sql), so a pull bucketed on profile ' +
+               'level pairs the wrong cohorts while every number still looks plausible.');
+  return popFlagged;
 }
 
 /** Col_Cards_Totals: label in column A, one column per permutation from B. */
