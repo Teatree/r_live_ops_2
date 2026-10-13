@@ -82,7 +82,7 @@ hole in the schema.
 | Column | Meaning |
 |---|---|
 | `stage_n` | 1-based stage number |
-| `stage_type` | `Safe (Start)`, `Standard`, `Safe`, `Major Milestone` — or your own labels, listed in the notes |
+| `stage_type` | `Safe (Start)`, `Standard`, `Safe`, `Milestone` — exactly as the ToF sheet spells them — or your own labels, listed in the notes |
 | `doors_shown` | how many doors were presented at that stage |
 | `door_outcome` | `reward`, `pig`, `empty` |
 | `picks` | times a door of that outcome was chosen |
@@ -92,6 +92,10 @@ hole in the schema.
 
 Not segmented, on purpose: we model the door distribution as a property of the event, not of the
 player. If it does differ by segment, that is a finding worth a note.
+
+Our authored ladder has **no `empty` doors at all** — 140 doors over 35 stages, 113 `reward` and 27
+`pig`. So if the logs only ever show those two outcomes that is agreement, not a gap; an `empty`
+appearing would be a config change worth flagging.
 
 > **What we are checking with this table.** Our model derives survival from the authored door
 > layout — `survive = 1 − pigs / non-empty doors` — so a stage with one pig behind four doors is a
