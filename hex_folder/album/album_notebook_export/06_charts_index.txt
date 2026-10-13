@@ -1,0 +1,39 @@
+Chart cells (run after 04/05). Source: album_bands_vs_actual (Star Balance charts: album_bands).
+Line charts: x=day, y=p10/mean/p90/actual_mean, facet by payer_type (and level_bucket for overview charts).
+
+06. Packs Opened bands (P10 / Mean / P90) by Segment
+07. Cards Drawn bands (P10 / Mean / P90) by Segment
+08. Unique Cards bands (P10 / Mean / P90) by Segment
+09. Sets Completed bands (P10 / Mean / P90) by Segment
+10. Album % bands (P10 / Mean / P90) by Segment
+11. Star Balance bands (P10 / Mean / P90) by Segment
+12. Level bucket 0-9 - Packs Opened
+13. Level bucket 0-9 - Cards Drawn
+14. Level bucket 0-9 - Unique Cards
+15. Level bucket 0-9 - Sets Completed
+16. Level bucket 0-9 - Album %
+17. Level bucket 0-9 - Star Balance
+18. Level bucket 10-19 - Packs Opened
+19. Level bucket 10-19 - Cards Drawn
+20. Level bucket 10-19 - Unique Cards
+21. Level bucket 10-19 - Sets Completed
+22. Level bucket 10-19 - Album %
+23. Level bucket 10-19 - Star Balance
+24. Level bucket 20-39 - Packs Opened
+25. Level bucket 20-39 - Cards Drawn
+26. Level bucket 20-39 - Unique Cards
+27. Level bucket 20-39 - Sets Completed
+28. Level bucket 20-39 - Album %
+29. Level bucket 20-39 - Star Balance
+30. Level bucket 40-99 - Packs Opened
+31. Level bucket 40-99 - Cards Drawn
+32. Level bucket 40-99 - Unique Cards
+33. Level bucket 40-99 - Sets Completed
+34. Level bucket 40-99 - Album %
+35. Level bucket 40-99 - Star Balance
+36. Level bucket 100+ - Packs Opened
+37. Level bucket 100+ - Cards Drawn
+38. Level bucket 100+ - Unique Cards
+39. Level bucket 100+ - Sets Completed
+40. Level bucket 100+ - Album %
+41. Level bucket 100+ - Star Balance

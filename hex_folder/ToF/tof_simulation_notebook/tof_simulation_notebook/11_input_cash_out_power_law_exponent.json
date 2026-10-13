@@ -1,0 +1,6 @@
+{
+  "cell": "Cash-out power-law exponent",
+  "type": "number",
+  "variable": "in_cashout_alpha",
+  "value": 1.1
+}

@@ -1,0 +1,11 @@
+{
+  "cell": "Ready to lose vs cash-out correlation",
+  "type": "slider",
+  "range": [
+    0,
+    1
+  ],
+  "step": 0.05,
+  "variable": "in_budget_cashout_corr",
+  "value": 0.5
+}

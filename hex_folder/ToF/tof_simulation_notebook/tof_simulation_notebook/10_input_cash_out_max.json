@@ -1,0 +1,6 @@
+{
+  "cell": "Cash-out max",
+  "type": "number",
+  "variable": "in_cashout_max",
+  "value": 10000
+}

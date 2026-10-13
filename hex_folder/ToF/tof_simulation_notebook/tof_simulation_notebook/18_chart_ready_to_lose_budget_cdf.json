@@ -1,0 +1,8 @@
+{
+  "cell": "Ready to lose budget - Cumulative Distribution Function",
+  "source": "budget_cdf",
+  "chart": "line",
+  "x": "meaningless_budget",
+  "y": "max(percentile)",
+  "y_format": "percent"
+}

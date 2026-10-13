@@ -1,0 +1,6 @@
+{
+  "cell": "Cash-out min",
+  "type": "number",
+  "variable": "in_cashout_min",
+  "value": 20
+}

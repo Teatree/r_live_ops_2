@@ -1,0 +1,8 @@
+{
+  "cell": "Cash-out target distribution",
+  "source": "sim_results",
+  "chart": "histogram",
+  "x": "cashout_level",
+  "bin_size": 100,
+  "x_title": "Cash-out target (coins)"
+}

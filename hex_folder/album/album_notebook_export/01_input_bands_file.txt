@@ -1,0 +1,2 @@
+Input cell: file upload -> variable `bands_file`
+Label: Upload percentile bands file (tab-separated "Col_Cards_Cloud" sheet from the simulation)
