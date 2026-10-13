@@ -1,5 +1,13 @@
 # Hex notebook to build: **ALBUM / card collection actuals**
 
+> ### ⚠ PARTLY SUPERSEDED by `PROMPT_hex_album_v2.md` (2026-10-13)
+> The production album SQL (`sqls/album_*.sql`) turned up eleven mismatches against this
+> document. In particular: `album_metrics_daily` DOES exist, the segment we need is already a
+> column (`album_segmentation_daily.level_completes_7d`) and must not be rebuilt by hand, the
+> payer flag should come from `spend_group`, and `albumPct` should use
+> `hex_abgbproduction_174525b3.album_snaps` rather than a hardcoded 72. **Send v2 instead of
+> this file**; it lists what here is still correct.
+
 Hand this whole file to the analytics LLM. It describes one Hex notebook whose job is to produce
 **three output tables, named exactly as written here**, which get exported to three sheets of the
 same name in our simulation workbook.

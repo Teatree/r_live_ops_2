@@ -1,5 +1,13 @@
 # Follow-up: build all three album tables NOW, thin
 
+> ### ⚠ PARTLY SUPERSEDED by `PROMPT_hex_album_v2.md` (2026-10-13)
+> The production album SQL (`sqls/album_*.sql`) turned up eleven mismatches against this
+> document. In particular: `album_metrics_daily` DOES exist, the segment we need is already a
+> column (`album_segmentation_daily.level_completes_7d`) and must not be rebuilt by hand, the
+> payer flag should come from `spend_group`, and `albumPct` should use
+> `hex_abgbproduction_174525b3.album_snaps` rather than a hardcoded 72. **Send v2 instead of
+> this file**; it lists what here is still correct.
+
 Answers to your questions, in your order. **Short version: build all three tables today, even if
 most of them are zeros or blanks.** A table that exists with zeros in it is useful to us — it proves
 the plumbing and lets us wire the workbook — and a table that does not exist blocks work. Do not

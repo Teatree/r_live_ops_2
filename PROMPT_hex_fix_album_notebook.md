@@ -1,5 +1,13 @@
 # Fix the "ABDB - Album performance vs predictions" notebook
 
+> ### ⚠ PARTLY SUPERSEDED by `PROMPT_hex_album_v2.md` (2026-10-13)
+> The production album SQL (`sqls/album_*.sql`) turned up eleven mismatches against this
+> document. In particular: `album_metrics_daily` DOES exist, the segment we need is already a
+> column (`album_segmentation_daily.level_completes_7d`) and must not be rebuilt by hand, the
+> payer flag should come from `spend_group`, and `albumPct` should use
+> `hex_abgbproduction_174525b3.album_snaps` rather than a hardcoded 72. **Send v2 instead of
+> this file**; it lists what here is still correct.
+
 Four cells to change. The notebook is currently broken for **two** independent reasons, and only one
 of them is the level-bucket problem:
 

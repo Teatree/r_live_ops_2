@@ -1,5 +1,13 @@
 # Fix needed: `segment` must be a 7-day saga play-rate tier, not profile level
 
+> ### ⚠ PARTLY SUPERSEDED by `PROMPT_hex_album_v2.md` (2026-10-13)
+> The production album SQL (`sqls/album_*.sql`) turned up eleven mismatches against this
+> document. In particular: `album_metrics_daily` DOES exist, the segment we need is already a
+> column (`album_segmentation_daily.level_completes_7d`) and must not be rebuilt by hand, the
+> payer flag should come from `spend_group`, and `albumPct` should use
+> `hex_abgbproduction_174525b3.album_snaps` rather than a hardcoded 72. **Send v2 instead of
+> this file**; it lists what here is still correct.
+
 The data you built is internally correct — the problem is that its `segment` column and ours are
 different measures that happen to use the same five labels, so they join cleanly and compare the
 wrong people. This is the one thing that has to be fixed before any of it is usable; everything else
