@@ -27,7 +27,7 @@ other two are once-per-season. If you can only deliver one, deliver that one.
 
 | Column | Allowed values |
 |---|---|
-| `segment` | `0-9`, `10-19`, `20-39`, `40-99`, `100+` — same bucketing as `level_bucket` in the existing query, but **the column must be called `segment`** |
+| `segment` | `0-9`, `10-19`, `20-39`, `40-99`, `100+` — **but see the warning below: this must be a 7-DAY SAGA-COMPLETION tier, not profile level.** The column must be called `segment` |
 | `payer_flag` | `PAYER`, `NONPAYER` — same as `payer_type`, **renamed** |
 | `metric` | `packs`, `cards`, `unique`, `sets`, `albumPct`, `balance` (the labels `Packs Opened`, `Cards Drawn`, `Unique Cards`, `Sets Completed`, `Album %`, `Star Balance` are also accepted) |
 | `pack_tier` | `1-star Pack` … `5-star Pack` (the 6-star tier was retired — omit it) |
@@ -164,6 +164,25 @@ Apply our standard economy filters (from `Event_Eco_Investigation_Context.md`):
 large grants. Athena/Trino: cast `processdate` to `INT` for partition pruning; no `COUNT(DISTINCT)`
 inside a window; `ARBITRARY()` is non-deterministic; `event_tokens` is a `MAP` on the level-summary
 view.
+
+> ### ⚠ `segment` IS A 7-DAY SAGA-COMPLETION TIER, NOT PROFILE LEVEL
+>
+> This one invalidated a whole pull, so please read it before writing the bucketing. Our segments
+> come from `sqls/data_seg_beh.sql` and are **how many saga levels a player completed in a rolling
+> 7-day window** — an activity measure. The obvious reading, `player_profile_level`, is a
+> progression measure, and the two produce nearly opposite populations:
+>
+> | cell | ours (7d saga completions) | a profile-level pull | ratio |
+> |---|---|---|---|
+> | `0-9 NONPAYER` | 107,126 | 221 | 0.00× |
+> | `100+ PAYER` | 1,362 | 44,259 | 32.50× |
+>
+> Our model plots your actuals directly against its own band for the same cell name, so a
+> profile-level bucketing silently compares our heaviest weekly players against everyone past level
+> 100. **Please bucket on 7-day saga completions**, and keep sending `players_in_cell` so we can
+> verify it — our engine now cross-checks that against `data_seg_beh` and flags any cell more than
+> 2× out. If 7-day saga completions cannot be reconstructed, tell us and send what you can with the
+> axis NAMED, rather than relabelled to ours.
 
 ## Three traps we have already been bitten by
 

@@ -161,6 +161,31 @@ red line ends on the last day that has data and the chart simply shows less of i
 | `actual_p10` … `actual_p98`, `actual_mean` | **cumulative** through that day, per player over the whole cell (the same denominator the simulated series uses). **All eight statistics**, the same set and order as the simulated side — every simulated column has an actual to be compared against. Each is OPTIONAL: a column the pull cannot produce is written blank rather than 0, so a partial pull still draws everything it did bring |
 | `status` | `FAKE` or `MEASURED` |
 
+> ### ⚠ THE SEGMENT AXIS IS NOT GUARANTEED TO MATCH (2026-10-13)
+>
+> `data_col_daily` and `data_seg_beh` both spell their segments `0-9` … `100+`, so they pair up
+> silently — **and the first real pull proved they need not mean the same thing.** Ours is a
+> **7-day saga-completion tier** (`sqls/data_seg_beh.sql`, line 9); that pull bucketed on
+> **`player_profile_level`**. Both are legitimate axes. They are not the same axis.
+>
+> | cell | `data_seg_beh` | the pull | ratio |
+> |---|---|---|---|
+> | `0-9 NONPAYER` | 107,126 | 221 | 0.00× |
+> | `40-99 PAYER` | 10,805 | 14,362 | 1.33× |
+> | `100+ PAYER` | 1,362 | 44,259 | **32.50×** |
+>
+> A different window or filter set shifts every cell by roughly the same factor. **A monotone
+> gradient from 0 to 32× is a different axis** — and plotting the red line against it compares our
+> heaviest-weekly-players band against everyone past profile level 100, while every individual
+> number still looks plausible. That `40-99` lands inside the band is coincidence, not agreement.
+>
+> `popCompare_` / `popWarning_` therefore cross-check `players_in_cell` against
+> `data_seg_beh.unique_players` on every run. Outside `POP_CHECK_FACTOR` (2× either way, which
+> covers honest window differences) the cell's group row gets
+> `[POP 32.5x data_seg_beh (44259 vs 1362) - SAME SEGMENT SPELLING, DIFFERENT AXIS?]` and the run
+> toast names every flagged cell. **Reported, never enforced** — a flagged cell still draws, because
+> the sheet is the place to decide what a mismatch means.
+
 **`FAKE` is READ here — the one deliberate exception.** The four anchor sheets
 (`data_col_season`, `data_col_envelopes`, `data_tof_runs`, `data_tof_stages`) treat a `FAKE` row as
 absent, because they feed simulated numbers and a placeholder must never move a balancing figure.
