@@ -6,7 +6,10 @@
 > column (`album_segmentation_daily.level_completes_7d`) and must not be rebuilt by hand, the
 > payer flag should come from `spend_group`, and `albumPct` should use
 > `hex_abgbproduction_174525b3.album_snaps` rather than a hardcoded 72. **Send v2 instead of
-> this file**; it lists what here is still correct.
+> this file**; it lists what here is still correct. Updated 2026-10-13 after two more
+> production queries landed: `album_daily_snaps.sql` is almost exactly the query we want
+> (all players, zeros included, long per metric x breakdown, splits on `level_completes_7d`),
+> and `star_balance_max` IS in `album_metrics_daily` after all.
 
 Hand this whole file to the analytics LLM. It describes one Hex notebook whose job is to produce
 **three output tables, named exactly as written here**, which get exported to three sheets of the

@@ -1,10 +1,26 @@
 # Album data tables — corrected brief (supersedes the earlier album prompts)
 
-We have since found the **production album SQL** that the live dashboards run
-(`sqls/album_snaps_collected.sql`, `album_total_snaps_found_percentiles.sql`,
-`album_set_completion.sql`, `album_card_rarity_per_envelope.sql`). Reading it against what you
-built, and against what we asked for, turned up **eleven mismatches**. Most of them make your job
-*smaller*, because the warehouse already has things we told you to build by hand.
+We have since found the **production album SQL** that the live dashboards run — seven queries now
+(`album_snaps_collected`, `album_total_snaps_found_percentiles`, `album_set_completion`,
+`album_card_rarity_per_envelope`, `album_daily_dau_share`, `album_daily_envelope_gained`,
+`album_daily_snaps`). Reading it against what you built, and against what we asked for, turned up
+**twelve mismatches**. Most of them make your job *smaller*, because the warehouse already has
+things we told you to build by hand — and in one case it already has the whole query.
+
+## START HERE: `album_daily_snaps.sql` is very nearly the query we want
+
+`album_daily_snaps.sql` and `album_daily_envelope_gained.sql` are **byte-identical** — one generic
+template, run twice. And that template is already:
+
+- **per day**, **per metric × breakdown**, in **long format**;
+- **percentiles + average per player**;
+- split on any of `spend_group`, `level_completes_7d`, `spend_60d_percentile`, `spent_in_event`,
+  `album_sod`, `sets_completed_sod`, `event_id`;
+- and — the important part — built on **all players with zeros included**, via an explicit `zeros`
+  CTE that back-fills everyone in the population who has no metric row that day.
+
+That is `data_col_daily`, give or take a pivot and two extra percentiles. **Start from this file**
+rather than from the raw-events rebuild or from the percentile query in §4.
 
 Where this document and the earlier prompts disagree, **this one wins**.
 
@@ -70,19 +86,22 @@ know which column collapses onto that, and how. Likely `spend_group`, but we are
 
 ---
 
-## 4. The denominator: ALL players in the cell, not the "qualified" ones
+## 4. The denominator: ALL players in the cell — and production already has a query that does this
 
-The production percentile query says:
+There are **two** production denominators, and the difference between them is roughly **16×** at
+~6% engagement, so picking the wrong one dwarfs every other number in this request.
 
-> *Qualified players: those who have opened 2+ envelopes by the day (the intro envelope does not
-> count); a player counts from the day they qualify.*
+| Query | Denominator |
+|---|---|
+| `album_total_snaps_found_percentiles`, `album_snaps_collected` | **qualified only** — *"players who have opened 2+ envelopes by the day (the intro envelope does not count)"* |
+| **`album_daily_snaps`, `album_daily_envelope_gained`, `album_daily_dau_share`** | **all players, zeros included** — *"every player in the filtered population counts, players without a metric row = 0"* |
 
-**That is not what we want.** Our simulation averages over **every** player in the cell, including
-everyone who never touched the album. At ~6% engagement those two denominators differ by roughly
-**16×**, so this single choice dwarfs every other number in the request.
+**We want the second one**, which is why §0 says to start from `album_daily_snaps.sql`. Our
+simulation averages over every player in the cell including everyone who never touched the album,
+so the all-players template matches us by construction — this is no longer a conflict with
+production, just a choice between two of its own patterns.
 
-So for our three tables: **mean and percentiles over all players in the cell**, zeros included. If
-it is cheap, send the qualified-only version too as extra columns (`*_qualified`) — we would read
+If it is cheap, send the qualified-only version too as extra `*_qualified` columns — we would read
 both — but the unsuffixed columns must be the all-players ones.
 
 ---
@@ -108,7 +127,7 @@ denominators differ — that is a known, accepted cost, not something to reconci
 
 ## 6. Percentiles: we need p10 and p98 as well
 
-Production reports **p25, p50, p75, p90, p95 + avg**. We need **p10, p25, p50, p75, p90, p95, p98 +
+Production reports **p25, p50, p75, p90, p95 + avg** in every one of its queries. We need **p10, p25, p50, p75, p90, p95, p98 +
 mean**, because our simulation reports exactly that set and we plot them against each other.
 
 p10 and p98 are one more `APPROX_PERCENTILE` each. If p10 is 0 for every cell (likely at 6%
@@ -133,16 +152,28 @@ config change cannot silently rescale the metric.
 
 ---
 
-## 8. `balance` is not in `album_metrics_daily` — keep the raw field
+## 8. `balance` IS in `album_metrics_daily` — as `star_balance_max` (correcting an earlier note)
 
-`album_metrics_daily` has **`stars_gained`** (cumulative gains). Our `balance` metric is the stars a
-player is **holding** at end of day, which goes **down** when they buy a chest. Those are different
-series and only one of them is in the metrics table.
+We previously said the metrics table had only `stars_gained` and that the balance had to come from
+raw events. **That was wrong.** `album_daily_snaps.sql` shows a `star_balance_max` metric, and it is
+special-cased in the aggregation precisely because it is a balance rather than a flow:
 
-**Fix:** keep sourcing `balance` from the raw `album_stars_bal` field as you already did (last
-reading of the day, carried forward). **And additionally** send `stars_gained` — it is what our
-`data_col_season.stars_earned_mean` wants, and the difference between the two is the spend we
-cannot otherwise see.
+```sql
+CASE WHEN metric = 'star_balance_max' THEN MAX(value) ELSE SUM(value) END AS value
+```
+
+**Fix:** use `star_balance_max` for our `balance` metric — it is the production field and it is
+already aggregated correctly.
+
+⚠ **One real difference to note rather than paper over:** `star_balance_max` is the **maximum**
+balance during the day. Ours is the balance **held at end of day**. They are identical on any day
+the player did not spend, and they diverge exactly on the days a chest was bought — which are the
+days the series is most interesting. Please send `star_balance_max` as `balance` and say so in the
+notes; if an end-of-day balance is also available, send it as `balance_end_of_day` and we will
+prefer that.
+
+**And still send `stars_gained`** — it is what `data_col_season.stars_earned_mean` wants, and
+gained-minus-balance is the only way to see the spend.
 
 ---
 
@@ -179,7 +210,26 @@ window, we would otherwise be averaging across both without knowing.
 
 ---
 
-## 11. Card rarity is 1..6 — which matches us, and is worth one sanity line
+## 11. The percentiles are computed differently from ours — worth knowing, not worth changing
+
+Production does not use `APPROX_PERCENTILE`. It builds a cumulative player count and takes:
+
+```sql
+MIN(CASE WHEN c.cum_players >= 0.25 * t.players_total THEN c.value END) AS p25
+```
+
+That is a **discrete inverse-CDF**: the lowest observed value at which the cumulative count crosses
+the quantile. Our simulation uses **linear interpolation** between order statistics. On a
+zero-inflated distribution — which this is, with ~94% of players at 0 — the two can differ by a
+whole step: production returns a real observed value, ours returns a point between two of them.
+
+**No change wanted.** Production's method is the more honest one for count data and we would rather
+match the dashboards than match ourselves. Just please note which method you used, so a small
+systematic offset in the lower percentiles is not mistaken for a real gap. (Also note the query
+already emits `players_nonzero` the same way we asked for it — that column is production's, not
+ours.)
+
+## 12. Card rarity is 1..6 — which matches us, and is worth one sanity line
 
 Production reports `card_rarity` as `item = 1..6`. That matches our six card rarities (1★–6★)
 exactly, and it is a **different scale from the five envelope tiers** — easy to conflate since both
