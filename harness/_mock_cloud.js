@@ -1259,10 +1259,15 @@ function GATES() {
       v4.indexOf("'SimulateCardCloud'") >= 0);
   }
 
-  // ---------------------------------------------- the ACTUALS overlay (D57, 2026-10-07) --------
-  // Real per-day numbers from data_col_daily are written to the RIGHTMOST columns of every band
-  // block, and Col_Charts plots them as a red line over the simulated band. The data arrives
-  // gradually, so most of what matters here is behaviour under ABSENCE.
+  // ------------------------------------ the ACTUALS overlay (D57 / D58, 2026-10-13) ------------
+  // The ACTUAL columns are FORMULAS into data_col_daily, not values (user, 2026-10-13). So what is
+  // gated here is the WIRING - which cell, which criteria, which source column - because that is
+  // the part this engine decides. The numbers are Sheets' job, and three properties that used to
+  // live in the writer now live in the formula instead:
+  //   * blank-not-zero past the end of the data  -> AVERAGEIFS gives #DIV/0!, IFERROR gives ""
+  //   * IFERROR INSIDE ArrayFormula              -> one erroring day cannot blank all 33
+  //   * a duplicate key averages, never doubles  -> AVERAGEIFS rather than SUMIFS
+  // Each is asserted on the formula text, which is the only honest offline check for them.
   {
     const SEG = '100+', PAY = 'PAYER', LABEL = SEG + ' ' + PAY;
     const dailySnap = JSON.stringify(data[SHEET_COL_DAILY].values);
@@ -1276,30 +1281,30 @@ function GATES() {
       SimulateCardCloud();
     };
     const SIMW = 1 + CLOUD_METRICS.length * CLOUD_STATS.length;          // 49 today
-    const FULLW = SIMW + CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length;  // 67 today
+    const FULLW = SIMW + CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length;  // 97 today
 
     runCloud();
     let r0 = blockRow(LABEL);
     const hdr = cloudRows()[r0 + 2];
     const filled = hdr.filter(x => String(x).trim() !== '').length;
+    // The first data row holds the formulas; the 32 below must be empty for the spill.
+    const fRow = () => cloudRows()[blockRow(LABEL) + 3];
+    const actF = (mIdx, sIdx) => String(fRow()[SIMW + mIdx * CLOUD_ACTUAL_STATS.length + sIdx]);
 
-    // (1) The width is the number Col_Charts!AA2 carries as a LITERAL inside its OFFSET. Derived
-    // from the stat lists, never frozen: the literal was 37, then 49, and is 67 from today.
+    // (1) The width Col_Charts!AA2 carries as a LITERAL inside its OFFSET. Derived from the stat
+    // lists, never frozen: that literal was 37, then 49, then 67, and is 97 from today.
     check('band block width == 1 + metrics x stats + metrics x actual stats',
       filled === FULLW, filled + ' header cells, expected ' + FULLW +
       '  <- Col_Charts!AA2 OFFSET width MUST read ' + FULLW);
 
-    // (1b) The actual stats MIRROR the simulated stats, same set and same order. Gated because the
-    // writer's offset arithmetic assumes it: actual column for (metric m, stat s) sits at
-    // 1 + 6*|CLOUD_STATS| + m*|CLOUD_ACTUAL_STATS| + s, with the SAME s index as the sim column.
-    // If the two lists ever diverge, every actual column silently lines up against the wrong
-    // simulated statistic and the chart compares p50 against p90.
+    // (1b) The actual stats MIRROR the simulated stats, same set and same order - the column
+    // arithmetic below, and in the writer, both assume it.
     check('ACT stats mirror CLOUD_STATS, same set and same order',
       CLOUD_ACTUAL_STATS.length === CLOUD_STATS.length &&
       CLOUD_ACTUAL_STATS.every((st, i) => st === 'ACT ' + CLOUD_STATS[i]),
       CLOUD_ACTUAL_STATS.join(', '));
 
-    // (2) ACTUALS are the RIGHTMOST columns - that is the whole contract with point 4 of the ask.
+    // (2) ACTUALS are the RIGHTMOST columns - the contract with "add it to the rightmost side".
     const firstAct = hdr.findIndex(x => String(x).indexOf('ACT ') === 0);
     const lastSim = hdr.reduce((acc, x, i) =>
       (CLOUD_STATS.indexOf(String(x).trim()) >= 0 ? i : acc), -1);
@@ -1307,127 +1312,112 @@ function GATES() {
       firstAct > lastSim && firstAct === SIMW,
       'first ACT at index ' + firstAct + ', last sim stat at ' + lastSim);
 
-    // (3) The red line STOPS on the last measured day, and the cells past it are BLANK, not 0.
-    // A zero would draw the line diving to the axis - a collapse, not "no data yet".
-    const act = colDailyActuals_();
-    const lastDay = act[SEG + '|' + PAY].lastDay;
-    const dayRow = (d) => cloudRows()[r0 + 2 + d];
-    const actCell = (d, mIdx, sIdx) => dayRow(d)[SIMW + mIdx * CLOUD_ACTUAL_STATS.length + sIdx];
-    check('actuals are present on the last measured day', lastDay > 0 && actCell(lastDay, 0, 0) !== '',
-      'day ' + lastDay + ' ACT MEAN = ' + actCell(lastDay, 0, 0));
-    let pastCutoff = [];
-    for (let d = lastDay + 1; d <= DAILY_DAYS; d++)
-      for (let m = 0; m < CLOUD_METRICS.length; m++)
-        for (let sIdx = 0; sIdx < CLOUD_ACTUAL_STATS.length; sIdx++)
-          if (actCell(d, m, sIdx) !== '') pastCutoff.push('d' + d);
-    check('every actual cell past the last measured day is BLANK, never 0',
-      pastCutoff.length === 0,
-      pastCutoff.length ? pastCutoff.slice(0, 6).join(', ') : 'days ' + (lastDay + 1) + '..' +
-      DAILY_DAYS + ' blank across all ' + (CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length) +
-      ' columns');
+    // (3) FORMULAS, not values. This is the whole point of the change: a static number here means
+    // a fresh data pull is invisible until someone re-runs a six-minute sweep.
+    const nonFormula = [];
+    CLOUD_METRICS.forEach((met, m) => CLOUD_ACTUAL_STATS.forEach((st, si) => {
+      if (actF(m, si).indexOf('=') !== 0) nonFormula.push(met.key + '/' + st);
+    }));
+    check('every ACTUAL column is a FORMULA, not a baked value',
+      nonFormula.length === 0,
+      nonFormula.length ? 'static: ' + nonFormula.slice(0, 6).join(', ')
+                        : CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length + ' formulas written');
 
-    // (3b) EVERY statistic is written, not just the three the first cut shipped. A blank column
-    // here would mean a simulated statistic with nothing to compare against, which is the whole
-    // reason the list was widened.
-    const missingStats = CLOUD_ACTUAL_STATS
-      .map((st, sIdx) => (actCell(lastDay, 0, sIdx) === '' ? st : null))
-      .filter(Boolean);
-    check('all ' + CLOUD_ACTUAL_STATS.length + ' actual statistics are written on a measured day',
-      missingStats.length === 0,
-      missingStats.length ? 'blank: ' + missingStats.join(', ')
-                          : CLOUD_ACTUAL_STATS.map((st, i) =>
-                              st + '=' + actCell(lastDay, 0, i)).join('  '));
+    // (4) The spill area BELOW the formula row must be empty, or ArrayFormula cannot expand into
+    // it - and that area is exactly where this writer used to put 33 rows of static values.
+    let occupied = 0;
+    for (let d = 1; d < DAILY_DAYS; d++)
+      for (let c = SIMW; c < FULLW; c++)
+        if (String(cloudRows()[blockRow(LABEL) + 3 + d][c]).trim() !== '') occupied++;
+    check('the 32 rows below the formula row are EMPTY, so the spill can expand',
+      occupied === 0, occupied + ' occupied cells (any value there breaks ArrayFormula)');
 
-    // (4) The overlay follows the CELL. Multiply one permutation's day-5 packs MEAN and nothing
-    // else may move - this is what makes "the red line respects the chosen permutation" a rule
-    // rather than a hope. The column is found by HEADER and the assertion reads the MEAN's own
-    // index: 'ACT MEAN' is the LAST of the eight now, not the first, and an index-0 assumption
-    // would have silently started testing p10 instead.
-    const MEANI = CLOUD_ACTUAL_STATS.indexOf('ACT MEAN');
-    const before = actCell(5, 0, MEANI);
+    // (5) THE WIRING, per column: this block's own segment and payer, this column's own metric and
+    // source column, and the day range is this block's own 33 rows. This replaces the old
+    // multiply-by-7 mutation gate and asserts the same property more directly - an actual can only
+    // belong to its own cell if the criteria say so.
+    const cols = colDailyCols_();
+    check('data_col_daily column letters resolve from its header',
+      !!cols && cols.seg && cols.pay && cols.day && cols.met,
+      cols ? JSON.stringify(cols) : 'NULL - overlay off');
+    const r0b = blockRow(LABEL);
+    const dayRange = '$A' + (r0b + 4) + ':$A' + (r0b + 3 + DAILY_DAYS);
+    const wrong = [];
+    CLOUD_METRICS.forEach((met, m) => CLOUD_ACTUAL_STATS.forEach((st, si) => {
+      const f = actF(m, si);
+      const src = cols.stats[st];
+      if (!src) return;                            // omitted statistic: checked in (7)
+      if (f.indexOf('"' + SEG + '"') < 0)          wrong.push(met.key + '/' + st + ':segment');
+      if (f.indexOf('"' + PAY + '"') < 0)          wrong.push(met.key + '/' + st + ':payer');
+      if (f.indexOf('"' + met.key + '"') < 0)      wrong.push(met.key + '/' + st + ':metric');
+      if (f.indexOf("!" + src + '$2:' + src) < 0)  wrong.push(met.key + '/' + st + ':srccol');
+      if (f.indexOf(dayRange) < 0)                 wrong.push(met.key + '/' + st + ':dayrange');
+    }));
+    check('every ACTUAL formula names its own segment, payer, metric, source column and day range',
+      wrong.length === 0,
+      wrong.length ? wrong.slice(0, 6).join(', ')
+                   : 'all ' + (CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length) +
+                     ' wired to ' + SEG + '/' + PAY + ', days ' + dayRange);
+
+    // No OTHER block's keys may appear in this block's formulas.
     const otherLabel = '0-9 NONPAYER';
-    const beforeOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW + MEANI];
-    {
-      const v = data[SHEET_COL_DAILY].values;
-      const mc = v[0].findIndex(h => String(h).trim().toLowerCase() === 'actual_mean');
-      check('data_col_daily carries an actual_mean column', mc >= 0, 'index ' + mc);
-      let hits = 0;
-      for (let i = 1; i < v.length; i++)
-        if (String(v[i][0]).trim() === SEG && String(v[i][1]).trim() === PAY &&
-            Math.round(Number(v[i][2])) === 5 && String(v[i][3]).trim() === 'packs') {
-          v[i][mc] = Number(v[i][mc]) * 7; hits++;
-        }
-      check('actuals fixture patched exactly one row', hits === 1, hits + ' rows');
-    }
-    runCloud();
-    r0 = blockRow(LABEL);
-    const after = actCell(5, 0, MEANI);
-    const afterOther = cloudRows()[blockRow(otherLabel) + 2 + 5][SIMW + MEANI];
-    // TOLERANCE IS DERIVED, not picked. The sheet carries values rounded to 2 dp, so `before` is
-    // already +/-0.005 of the truth and multiplying it by 7 carries that error up with it, while
-    // `after` adds its own 0.005: the bound is 7*0.005 + 0.005 = 0.04. The old 0.02 was simply too
-    // tight and had been passing on luck (71.87 vs 71.89 squeaked through at exactly the limit);
-    // it failed the moment the ACT MEAN column moved and the numbers changed slightly.
-    // The supremum is EXACTLY MULT*0.005 + 0.005 (0.04 at MULT 7): `before` is already +/-0.005 of
-    // the truth and multiplying carries that up, while `after` adds its own 0.005. That bound is
-    // ATTAINED here - 10.41 -> 72.83 against an expected 72.87 - and at the bound binary floating
-    // point decides the comparison (the difference evaluates to 0.040000000000006). So allow one
-    // more rounding unit rather than sitting on the boundary. Still a very tight gate: a leak
-    // across cells would not land within a hundredth of 7x, it would not be 7x at all.
-    var MULT = 7, TOL = MULT * 0.005 + 0.005 + 0.005;
-    check('an actual belongs to its own segment x payer cell only',
-      Math.abs(after - before * MULT) <= TOL && afterOther === beforeOther,
-      LABEL + ' day5 MEAN ' + before + ' -> ' + after + ' (x' + MULT + ', expected ' +
-      round_(before * MULT, 2) + ' +/-' + TOL + '), ' + otherLabel +
-      ' unchanged at ' + afterOther);
+    const leak = CLOUD_ACTUAL_STATS.some((st, si) => actF(0, si).indexOf('"0-9"') >= 0);
+    check('a block\'s formulas never reference another cell\'s segment',
+      !leak, leak ? 'found "0-9" inside a ' + LABEL + ' formula' : LABEL + ' only');
+    const otherF = String(cloudRows()[blockRow(otherLabel) + 3][SIMW]);
+    check('the ' + otherLabel + ' block wires itself, not ' + LABEL,
+      otherF.indexOf('"0-9"') >= 0 && otherF.indexOf('"NONPAYER"') >= 0 &&
+      otherF.indexOf('"100+"') < 0,
+      otherF.slice(0, 96) + '...');
 
-    // (4b) A PULL THAT BRINGS ONLY SOME STATISTICS. Delete the actual_p98 column outright: that
-    // statistic must come out BLANK, every other one must still be written, and nothing may be
-    // written as 0. round_('') returns 0, so this is the case where a missing column would have
-    // drawn a p98 series pinned to the axis - "the top of the cohort got nothing" - instead of
-    // drawing no p98 series at all.
+    // (6) THE THREE PROPERTIES THAT MOVED INTO THE FORMULA. Each is a deliberate choice and each
+    // would be invisible if it regressed, so each is asserted on the text.
+    const f0 = actF(0, 0);
+    check('blank-not-zero is enforced by IFERROR around AVERAGEIFS',
+      f0.indexOf('IFERROR(AVERAGEIFS(') >= 0,
+      'no match for a row -> #DIV/0! -> "" rather than a 0 that draws the line into the axis');
+    check('IFERROR sits INSIDE ArrayFormula, so one bad day cannot blank all 33',
+      /^=ARRAYFORMULA\(IFERROR\(/.test(f0), f0.slice(0, 40));
+    check('AVERAGEIFS not SUMIFS, so a duplicated key averages instead of doubling',
+      f0.indexOf('SUMIFS') < 0 && f0.indexOf('AVERAGEIFS') >= 0,
+      f0.indexOf('AVERAGEIFS') >= 0 ? 'AVERAGEIFS' : 'SUMIFS - a duplicate row would double');
+
+    // (7) A statistic the pull does NOT carry gets NO formula - not a formula over a missing
+    // column, which would average an empty range into #DIV/0! on every single row.
     {
       const v = JSON.parse(dailySnap);
       const drop = v[0].findIndex(h => String(h).trim().toLowerCase() === 'actual_p98');
       check('data_col_daily carries an actual_p98 column to drop', drop >= 0, 'index ' + drop);
       data[SHEET_COL_DAILY].values = v.map(r => r.filter((_, i) => i !== drop));
       runCloud();
-      r0 = blockRow(LABEL);
       const p98i = CLOUD_ACTUAL_STATS.indexOf('ACT p98');
       const others = CLOUD_ACTUAL_STATS
-        .map((st, i) => (i !== p98i && actCell(lastDay, 0, i) === '') ? st : null)
+        .map((st, i) => (i !== p98i && actF(0, i).indexOf('=') !== 0) ? st : null)
         .filter(Boolean);
-      check('a statistic the pull omits is BLANK, not 0 - and the others still fill',
-        actCell(lastDay, 0, p98i) === '' && others.length === 0,
-        'p98 = ' + JSON.stringify(actCell(lastDay, 0, p98i)) +
-        (others.length ? ', but also blank: ' + others.join(', ')
-                       : ', other 7 all written'));
+      check('a statistic the pull omits gets NO formula, and the others still do',
+        actF(0, p98i) === '' && others.length === 0,
+        'p98 = ' + JSON.stringify(actF(0, p98i)) +
+        (others.length ? ', but also empty: ' + others.join(', ') : ', other 7 all formulas'));
       data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
     }
 
-    // (5) ABSENCE. Strip every row for one cell: its actual columns go entirely blank, the block
-    // KEEPS its headers (one shape for every permutation, so the chart's fixed window still fits),
-    // and the group label says so instead of pretending.
+    // (8) ABSENCE. A cell with no rows in the sheet still gets its headers AND its formulas - the
+    // formulas resolve to blank on their own - and the group row says so rather than pretending.
     data[SHEET_COL_DAILY].values = JSON.parse(dailySnap).filter(
       (r, i) => i === 0 || !(String(r[0]).trim() === SEG && String(r[1]).trim() === PAY));
     runCloud();
     r0 = blockRow(LABEL);
-    let anyAct = false;
-    for (let d = 1; d <= DAILY_DAYS; d++)
-      for (let m = 0; m < CLOUD_METRICS.length; m++)
-        if (actCell(d, m, 0) !== '') anyAct = true;
     const hdrNow = cloudRows()[r0 + 2].filter(x => String(x).trim() !== '').length;
     const grpNow = cloudRows()[r0 + 1].join(' ');
-    check('a cell with NO actuals draws nothing, and does not break the block shape',
-      !anyAct && hdrNow === FULLW, 'actual cells written: ' + (anyAct ? 'some' : 'none') +
-      ', header cells still ' + hdrNow);
+    check('a cell with NO actuals keeps its block shape and still gets formulas',
+      hdrNow === FULLW && actF(0, 0).indexOf('=') === 0,
+      'header cells ' + hdrNow + ', first ACT column is ' +
+      (actF(0, 0).indexOf('=') === 0 ? 'a formula (resolves blank)' : 'NOT a formula'));
     check('a cell with no actuals says so on the group row',
       grpNow.indexOf('none yet') >= 0, grpNow.indexOf('none yet') >= 0 ? 'labelled "none yet"' :
       'NOT labelled');
 
-    // (6) FAKE is READ here, deliberately - the opposite of the four anchor sheets - and is
-    // LABELLED. Flipping status to MEASURED must drop the tag, which is how a real pull announces
-    // itself on the sheet.
+    // (9) FAKE is READ here, deliberately - the opposite of the four anchor sheets - and LABELLED.
     data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
     runCloud();
     r0 = blockRow(LABEL);
