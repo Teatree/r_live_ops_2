@@ -150,13 +150,12 @@ SHEETS = [
 # and on data_col_daily that silently replaces whatever real per-day actuals have landed. They stay
 # in SHEETS above, which is where an imported sheet belongs; PENDING_IMPORT is only ever for a
 # freshly built sheet that no workbook carries yet.
-# data_col_daily is BACK here (2026-10-07): the actuals block went from three statistics to all
-# eight, so the builder's sheet now carries actual_p25/p50/p75/p95/p98 that the imported copy does
-# not. The overlay is how the harness tests the layout the engine writes. Nothing real is lost -
-# the workbook copy holds only FAKE placeholder rows - but DROP THIS ENTRY the moment the sheet is
-# re-imported, and certainly before any real per-day actuals land in it.
-PENDING_IMPORT = {'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx',
-                  'data_col_daily':   'data_col_daily_v1.xlsx'}
+# data_col_daily is OUT of here again (2026-10-13): the sheet now carries REAL measured rows from
+# the Hex pull (60 rows, status MEASURED, day 1 of the live season). Leaving the overlay in would
+# have replaced that real data with the builder's 840 FAKE rows on every dump - which is the exact
+# failure this map has caused twice before. The builder's file stays in display/ as the schema
+# reference and for a cold start; it is no longer the truth.
+PENDING_IMPORT = {'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
 
 
 def dump_sheet(ws):
