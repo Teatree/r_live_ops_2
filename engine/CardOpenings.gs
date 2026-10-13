@@ -73,7 +73,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var CARDSIM_BUILD = 'CardOpenings.gs     D57  2026-10-07';
+var CARDSIM_BUILD = 'CardOpenings.gs     D59  2026-10-13';
 
 
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
