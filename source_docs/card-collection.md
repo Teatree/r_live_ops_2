@@ -169,6 +169,35 @@ red line never appears while data is still arriving. Fake rows are plotted and t
 reads `ACTUAL <metric> - FAKE (to day 14)`; a real pull drops the `- FAKE` tag by itself.
 `CLOUD_ACTUALS_READ_FAKE = false` restores the hide-it behaviour.
 
+**THE ACTUAL COLUMNS ARE FORMULAS, NOT VALUES (2026-10-13).** Each one is a single spilling
+`ARRAYFORMULA` into `data_col_daily`, written by the engine into the FIRST data row of its column
+and expanding over all 33 days:
+
+```
+=ARRAYFORMULA(IFERROR(AVERAGEIFS('data_col_daily'!L$2:L,
+    'data_col_daily'!$A$2:$A,"100+", 'data_col_daily'!$B$2:$B,"PAYER",
+    'data_col_daily'!$D$2:$D,"packs", 'data_col_daily'!$C$2:$C,$A379:$A411),""))
+```
+
+Three reasons, and three properties that moved out of the writer and into the formula:
+
+* **The project rule** — "formulas reference data sheets, never bake static values into sheets".
+  This lane carries no simulated quantity, so there was never a reason to freeze it.
+* **No re-run to see new data.** The actuals feed nothing, so they should not need a six-minute
+  `SimulateCardCloud` sweep to show a fresh pull. A partial pull now fills the part it has.
+* **One formula per column, not per cell** — 48 per block instead of 1,584.
+* `AVERAGEIFS` + `IFERROR` gives **blank, not zero**, for a day with no row: that is what ends the
+  red line instead of dropping it to the axis, and it is now Sheets enforcing it rather than code.
+* `IFERROR` sits **inside** `ARRAYFORMULA` — outside, one erroring day would blank all 33.
+* `AVERAGEIFS` rather than `SUMIFS` means a **duplicated key averages instead of doubling**. The
+  grain is unique by contract, but the data is external and a doubled curve is hard to spot.
+
+The source column letters are read off `data_col_daily`'s own header, so a pull that returns the
+statistics in a different order cannot shift every formula onto the wrong column, and a statistic
+the pull omits gets **no formula at all** rather than one averaging an empty range. The group row's
+provenance label (`- FAKE`, `- none yet`, `(to day N)`) is still engine-written, so it is the one
+part of the block that does need a re-run to refresh.
+
 **What the engine writes.** Eight columns per metric — `CLOUD_ACTUAL_STATS` is derived from
 `CLOUD_STATS`, so the two halves of the block are the same shape in the same order — appended to the
 **rightmost** side of every per-permutation band block (user: "the real player data will be added
