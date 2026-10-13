@@ -1444,11 +1444,13 @@ function GATES() {
       grpMeasured.indexOf('FAKE') < 0 && grpMeasured.indexOf('to day') >= 0,
       grpMeasured.split(/\s{2,}/).filter(Boolean)[1] || grpMeasured.slice(0, 60));
 
-    // (10) THE POPULATION CROSS-CHECK. data_col_daily and data_seg_beh both spell their segments
-    // '0-9'..'100+', so they pair up silently even when they mean different things - ours is a
-    // 7-day saga-completion tier, and the first real pull was bucketed on profile level. The
-    // populations are the tell, and this is gated in BOTH directions because a guard that cannot
-    // stand down is as useless as one that never fires.
+    // (10) THE POPULATION CROSS-CHECK, which is a SHAPE test and not a magnitude one. Two very
+    // different things move the populations, and only one of them is a problem:
+    //   * the ten cells disagreeing WITH EACH OTHER  -> different segment axis  -> warn
+    //   * every cell off by the same factor          -> different window        -> note, no warn
+    // Both directions are fixtured, because a guard that cannot stand down is as useless as one
+    // that never fires - and the live pull is the stand-down case, so it would be flagging ten
+    // cells of noise every run.
     data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
     {
       const v = data[SHEET_COL_DAILY].values;
@@ -1456,58 +1458,68 @@ function GATES() {
       check('data_col_daily carries players_in_cell, so the check is possible at all',
         pc >= 0, 'index ' + pc);
 
-      // (a) MATCHING populations must NOT be flagged. Rewrite players_in_cell to data_seg_beh's
-      // own unique_players for every cell.
-      const ds = Context.get().ds;
-      for (let i = 1; i < v.length; i++) {
-        if (!v[i] || !v[i][0]) continue;
-        const b = ds.beh(String(v[i][0]).trim(), String(v[i][1]).trim());
-        v[i][pc] = b ? Number(b.unique_players) : 0;
-      }
-      _sheetValsCache = {}; _colDailyCache = null;
-      let flaggedWhenMatched = 0;
-      cloudPermutations_().forEach(pm => {
-        const a = colDailyActuals_()[pm.seg + '|' + pm.payer];
-        if (popWarning_(popCompare_(a, pm.seg, pm.payer))) flaggedWhenMatched++;
-      });
-      check('populations that MATCH data_seg_beh raise no warning',
-        flaggedWhenMatched === 0, flaggedWhenMatched + ' of 10 cells flagged on matching data');
+      const setPops = (fn) => {
+        const vv = data[SHEET_COL_DAILY].values;
+        const ds = Context.get().ds;
+        for (let i = 1; i < vv.length; i++) {
+          if (!vv[i] || !vv[i][0]) continue;
+          const seg = String(vv[i][0]).trim(), pay = String(vv[i][1]).trim();
+          const b = ds.beh(seg, pay);
+          vv[i][pc] = fn(b ? Number(b.unique_players) : 0, seg, pay);
+        }
+        _sheetValsCache = {}; _colDailyCache = null;
+        return popProfile_(colDailyActuals_());
+      };
 
-      // (b) A MISMATCH must be flagged, and must say so on the group row.
-      for (let i = 1; i < v.length; i++) {
-        if (!v[i] || !v[i][0]) continue;
-        if (String(v[i][0]).trim() === SEG && String(v[i][1]).trim() === PAY)
-          v[i][pc] = Number(v[i][pc]) * 40;        // well past POP_CHECK_FACTOR
-      }
+      // (a) EXACT MATCH -> no tag at all.
+      let prof = setPops((ours) => ours);
+      check('populations identical to data_seg_beh raise nothing',
+        prof && prof.spread <= POP_SPREAD_TOL &&
+        cloudPermutations_().every(pm => popWarning_(prof, pm.label) === ''),
+        prof ? 'spread ' + prof.spread.toFixed(3) + ', scale ' + prof.scale.toFixed(3) : 'no profile');
+
+      // (b) A UNIFORM OFFSET -> the "different window" note, and NOT an axis warning. This is the
+      // live case: the real pull runs ~0.3x because data_seg_beh counts over 34 days.
+      prof = setPops((ours) => Math.round(ours * 0.3));
+      const tagsB = cloudPermutations_().map(pm => popWarning_(prof, pm.label));
+      check('a UNIFORM offset is reported as a window difference, not an axis mismatch',
+        prof.spread <= POP_SPREAD_TOL &&
+        tagsB.every(t => t.indexOf('DIFFERENT AXIS') < 0) &&
+        tagsB.every(t => t.indexOf('different window') >= 0),
+        'spread ' + prof.spread.toFixed(2) + ', scale ' + prof.scale.toFixed(2) +
+        ', first tag: ' + (tagsB[0] || '').trim().slice(0, 64));
+
+      // (c) A SPREAD -> the axis warning. Populations that climb with the segment rank are exactly
+      // what the profile-level pull produced.
+      const rank = { '0-9': 0.002, '10-19': 0.08, '20-39': 0.3, '40-99': 1.2, '100+': 30 };
+      prof = setPops((ours, seg) => Math.max(1, Math.round(ours * rank[seg])));
+      const tagsC = cloudPermutations_().map(pm => popWarning_(prof, pm.label));
+      check('cells that disagree WITH EACH OTHER raise the axis warning',
+        prof.spread > POP_SPREAD_TOL &&
+        tagsC.some(t => t.indexOf('DIFFERENT AXIS') >= 0),
+        'spread ' + Math.round(prof.spread) + 'x, ' +
+        tagsC.filter(t => t.indexOf('DIFFERENT AXIS') >= 0).length + ' of 10 tagged');
+
+      // (d) the warning names both populations and the spread, and lands on the GROUP row
       runCloud();
       const rr = blockRow(LABEL);
       const grp = cloudRows()[rr + 1].join(' ');
-      const cmp = popCompare_(colDailyActuals_()[SEG + '|' + PAY], SEG, PAY);
-      check('a population ' + POP_CHECK_FACTOR + 'x outside the band IS flagged',
-        !!popWarning_(cmp), cmp ? 'ratio ' + cmp.ratio.toFixed(2) : 'no comparison');
-      check('the warning lands on the GROUP row, naming both populations',
+      check('the axis warning lands on the GROUP row with both populations and the spread',
         grp.indexOf('POP ') >= 0 && grp.indexOf('data_seg_beh') >= 0 &&
-        grp.indexOf('DIFFERENT AXIS') >= 0,
-        grp.indexOf('POP ') >= 0 ? grp.slice(grp.indexOf('[POP'), grp.indexOf('[POP') + 78)
+        grp.indexOf('disagree with each other') >= 0 && grp.indexOf('DIFFERENT AXIS') >= 0,
+        grp.indexOf('[POP') >= 0 ? grp.slice(grp.indexOf('[POP'), grp.indexOf('[POP') + 96)
                                  : 'NOT on the group row');
-      // and the block LABEL row stays undecorated, or Col_Charts' exact MATCH breaks
       check('the block LABEL row is still exactly the permutation name',
         String(cloudRows()[rr][0]).trim() === LABEL,
         JSON.stringify(String(cloudRows()[rr][0])));
 
-      // (c) An unflagged cell must stay clean - the warning is per cell, not per sheet.
-      const okGrp = cloudRows()[blockRow('40-99 PAYER') + 1].join(' ');
-      check('a cell inside the band carries NO population warning',
-        okGrp.indexOf('POP ') < 0, okGrp.indexOf('POP ') < 0 ? 'clean' : 'warned anyway');
-
-      // (d) No players_in_cell column at all -> no comparison, and no false warning.
+      // (e) no players_in_cell column at all -> no profile, no tag, no crash.
       const v2 = JSON.parse(dailySnap);
       data[SHEET_COL_DAILY].values = v2.map(r => r.filter((_, i) => i !== pc));
       _sheetValsCache = {}; _colDailyCache = null;
-      const a2 = colDailyActuals_()[SEG + '|' + PAY];
-      check('no players_in_cell column -> no comparison and no false warning',
-        popCompare_(a2, SEG, PAY) === null && popWarning_(popCompare_(a2, SEG, PAY)) === '',
-        'comparison skipped');
+      const prof2 = popProfile_(colDailyActuals_());
+      check('no players_in_cell column -> no profile and no false warning',
+        prof2 === null && popWarning_(prof2, LABEL) === '', 'comparison skipped');
     }
 
     data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);

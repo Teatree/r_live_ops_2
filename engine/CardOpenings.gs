@@ -3129,8 +3129,8 @@ function SimulateCardCloud(){
             (skipped.length ? '  --  ' + skipped.length + ' BLOCK(S) NOT WRITTEN (bar not found ' +
                               'in column A): ' + skipped.join('; ') : '') +
             // Loud, because the numbers themselves look fine when this is wrong.
-            (popFlagged.length ? '  --  ' + popFlagged.length + ' CELL(S) DISAGREE WITH ' +
-                                 'data_seg_beh ON POPULATION (' + popFlagged.join(', ') +
+            (popFlagged.length ? '  --  THE TEN CELLS DISAGREE WITH EACH OTHER ON POPULATION (' +
+                                 popFlagged.slice(0, 4).join(', ') +
                                  '): the actuals may be segmented on a DIFFERENT AXIS' : '');
   Logger.log(msg + ' | ' + timings.join(', '));
   SpreadsheetApp.getActive().toast(msg, 'SimulateCardCloud', 10);
@@ -3292,7 +3292,28 @@ function colDailyCols_(){
 // Reported, never enforced: the band is wide (2x either way covers honest window and filter
 // differences) and a flagged cell still draws. The warning goes on the group row and in the
 // toast, because a silent mismatch is the failure mode.
-var POP_CHECK_FACTOR = 2.0;
+// SHAPE, NOT MAGNITUDE (rewritten 2026-10-13). The first version flagged any cell whose population
+// was more than POP_CHECK_FACTOR away from data_seg_beh, and the second real pull proved that is
+// the wrong test. Two very different situations both move the magnitude:
+//
+//   AXIS MISMATCH (what this guard is for). The profile-level pull ran
+//       0-9 0.00x ... 40-99 1.33x ... 100+ 32.50x
+//   - a monotone slide across three orders of magnitude. The cells disagree WITH EACH OTHER.
+//
+//   WINDOW / FILTER DIFFERENCE (benign, and expected). The play-rate pull ran
+//       0.27 0.35 0.29 0.38 0.25 0.30 0.29 0.26 0.35 0.28
+//   - every cell off by the SAME ~0.3x, because data_seg_beh counts unique players over a 34-day
+//   window while the album season is days old. Nothing is wrong; the ratio will drift towards 1
+//   as the season runs, and flagging all ten cells for it is noise that teaches people to ignore
+//   the warning.
+//
+// So the discriminator is the SPREAD of the ratios, not their level: a uniform offset is reported
+// as a scale note, a wide spread is reported as a possible axis mismatch. POP_SPREAD_TOL is
+// deliberately loose - 3x covers real sampling noise between cells of very different sizes, and
+// the failure it exists to catch was a factor of 15,000.
+var POP_SPREAD_TOL = 3.0;
+// Below this the uniform-scale note is not worth printing at all (the populations simply agree).
+var POP_SCALE_QUIET = 1.5;
 
 /** {ratio, ours, theirs} for one cell, or null when either side has no population to compare. */
 function popCompare_(act, seg, payer){
@@ -3304,12 +3325,41 @@ function popCompare_(act, seg, payer){
   return { ratio: act.pop / ours, ours: ours, theirs: act.pop };
 }
 
-/** The group-row suffix for a cell whose actuals population disagrees with data_seg_beh. */
-function popWarning_(cmp){
-  if (!cmp) return '';
-  if (cmp.ratio >= 1 / POP_CHECK_FACTOR && cmp.ratio <= POP_CHECK_FACTOR) return '';
-  return ' [POP ' + round_(cmp.ratio, 2) + 'x data_seg_beh (' + Math.round(cmp.theirs) +
-         ' vs ' + Math.round(cmp.ours) + ') - SAME SEGMENT SPELLING, DIFFERENT AXIS?]';
+/** Every cell's ratio at once, plus the two numbers that tell the two cases apart.
+ *  { byCell, n, lo, hi, spread, scale, loCell, hiCell } - or null when nothing is comparable. */
+function popProfile_(actuals){
+  var perms = cloudPermutations_(), byCell = {}, lo = null, hi = null, loCell = '', hiCell = '';
+  var logSum = 0, n = 0;
+  perms.forEach(function(p){
+    var cmp = popCompare_(actuals[p.seg + '|' + String(p.payer).toUpperCase()], p.seg, p.payer);
+    if (!cmp || !(cmp.ratio > 0)) return;
+    byCell[p.label] = cmp;
+    logSum += Math.log(cmp.ratio); n++;
+    if (lo === null || cmp.ratio < lo){ lo = cmp.ratio; loCell = p.label; }
+    if (hi === null || cmp.ratio > hi){ hi = cmp.ratio; hiCell = p.label; }
+  });
+  if (!n) return null;
+  return { byCell: byCell, n: n, lo: lo, hi: hi,
+           spread: (lo > 0) ? hi / lo : Infinity,
+           // GEOMETRIC mean: these are ratios, and one cell at 32x would drag an arithmetic mean
+           // somewhere no cell actually is.
+           scale: Math.exp(logSum / n),
+           loCell: loCell, hiCell: hiCell };
+}
+
+/** The group-row suffix. Takes the WHOLE profile, because one cell's ratio cannot tell you which
+ *  of the two cases you are in - only the other nine can. */
+function popWarning_(prof, label){
+  if (!prof || !prof.byCell[label]) return '';
+  var cmp = prof.byCell[label];
+  if (prof.spread > POP_SPREAD_TOL)
+    return ' [POP ' + round_(cmp.ratio, 2) + 'x data_seg_beh (' + Math.round(cmp.theirs) + ' vs ' +
+           Math.round(cmp.ours) + '), and the ten cells disagree with each other by ' +
+           round_(prof.spread, 1) + 'x - SAME SEGMENT SPELLING, DIFFERENT AXIS?]';
+  if (prof.scale < 1 / POP_SCALE_QUIET || prof.scale > POP_SCALE_QUIET)
+    return ' [pop x' + round_(prof.scale, 2) + ' vs data_seg_beh, uniform across all ' + prof.n +
+           ' cells - a different window, not a different axis]';
+  return '';
 }
 
 // One spilling formula per ACTUAL column (user, 2026-10-13: "it should be that the data is
@@ -3365,6 +3415,8 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
   // The reader is still here, but ONLY for the group row's provenance label (which cells have
   // data, how far it runs, whether it is FAKE). The numbers themselves are formulas now.
   var actuals = colDailyActuals_();
+  // ONE profile for the whole sheet: a cell's ratio is only interpretable next to the other nine.
+  var popProf = popProfile_(actuals);
   var cdCols  = colDailyCols_();
   var popFlagged = [];              // cells whose actuals population disagrees with data_seg_beh
   if (!cdCols)
@@ -3443,9 +3495,10 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
     // headers - the block keeps one shape for every permutation, so Col_Charts' fixed-width window
     // does not have to care which cells have data yet.
     var actTag = act ? (act.anyFake ? ' - FAKE' : '') : ' - none yet';
-    var popCmp = popCompare_(act, perms[j].seg, perms[j].payer);
-    var popTag = popWarning_(popCmp);
-    if (popTag) popFlagged.push(perms[j].label + ' ' + round_(popCmp.ratio, 2) + 'x');
+    var popTag = popWarning_(popProf, perms[j].label);
+    if (popTag && popProf && popProf.spread > POP_SPREAD_TOL)
+      popFlagged.push(perms[j].label + ' ' +
+                      round_(popProf.byCell[perms[j].label].ratio, 2) + 'x');
     CLOUD_METRICS.forEach(function(met){
       CLOUD_ACTUAL_STATS.forEach(function(st, i){
         grp.push(i === 0 ? ('ACTUAL ' + met.label + actTag +
@@ -3481,12 +3534,19 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
         .setFormulas([actFormulaRow_(perms[j], r0 + 3, r0 + 2 + DAILY_DAYS, cdCols)]);
   }
 
-  if (popFlagged.length)
-    Logger.log('ACTUALS POPULATION MISMATCH in ' + popFlagged.length + ' of ' + perms.length +
-               ' cells: ' + popFlagged.join(', ') + '. ' + SHEET_COL_DAILY + ' and data_seg_beh ' +
-               'spell their segments the same way but may not MEAN the same thing - ours is a ' +
-               '7-day saga-completion tier (sqls/data_seg_beh.sql), so a pull bucketed on profile ' +
-               'level pairs the wrong cohorts while every number still looks plausible.');
+  if (popProf && popProf.spread > POP_SPREAD_TOL)
+    Logger.log('ACTUALS POPULATION: the ten cells disagree with each other by ' +
+               round_(popProf.spread, 1) + 'x (' + popProf.loCell + ' ' + round_(popProf.lo, 3) +
+               'x .. ' + popProf.hiCell + ' ' + round_(popProf.hi, 2) + 'x). ' + SHEET_COL_DAILY +
+               ' and data_seg_beh spell their segments the same way but may not MEAN the same ' +
+               'thing - ours is a 7-day saga play-rate tier (sqls/data_seg_beh.sql), so a pull ' +
+               'bucketed on profile level pairs the wrong cohorts while every number still looks ' +
+               'plausible. A uniform offset would be a different WINDOW and is reported separately.');
+  else if (popProf)
+    Logger.log('ACTUALS POPULATION: consistent across cells (spread ' +
+               round_(popProf.spread, 2) + 'x, within the ' + POP_SPREAD_TOL + 'x tolerance), at ' +
+               round_(popProf.scale, 2) + 'x data_seg_beh overall. Same axis; the level difference ' +
+               'is the window - data_seg_beh counts unique players over 34 days.');
   return popFlagged;
 }
 
