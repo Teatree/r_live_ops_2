@@ -1,15 +1,10 @@
 # Fix the "ABDB - Album performance vs predictions" notebook
 
-> ### ⚠ PARTLY SUPERSEDED by `PROMPT_hex_album_v2.md` (2026-10-13)
-> The production album SQL (`sqls/album_*.sql`) turned up eleven mismatches against this
-> document. In particular: `album_metrics_daily` DOES exist, the segment we need is already a
-> column (`album_segmentation_daily.level_completes_7d`) and must not be rebuilt by hand, the
-> payer flag should come from `spend_group`, and `albumPct` should use
-> `hex_abgbproduction_174525b3.album_snaps` rather than a hardcoded 72. **Send v2 instead of
-> this file**; it lists what here is still correct. Updated 2026-10-13 after two more
-> production queries landed: `album_daily_snaps.sql` is almost exactly the query we want
-> (all players, zeros included, long per metric x breakdown, splits on `level_completes_7d`),
-> and `star_balance_max` IS in `album_metrics_daily` after all.
+> ### ✅ UPDATED 2026-10-13 for the production album SQL — send this one for the notebook fix
+> This file is for fixing **the existing comparison notebook**. `PROMPT_hex_album_v2.md` is a
+> different job (building the three `data_col_*` tables for the simulation workbook) — send both,
+> they do not overlap. Change A below was rewritten: the 7-day segment **already exists as a
+> column** and must not be rebuilt by hand.
 
 Four cells to change. The notebook is currently broken for **two** independent reasons, and only one
 of them is the level-bucket problem:
@@ -48,52 +43,32 @@ a slide from 0× to 32× in one direction means the two measures are different t
 **Keep:** the day index (`DATE_DIFF('day', ev.start_date, event_date) + 1`, capped at 28), the
 per-metric derivations, the cumulative window function, and the de-duplication. All correct.
 
-**Change A — replace the `lvl` CTE and the `level_bucket` CASE** with the play-rate tier. Two new
-CTEs:
+**Change A — replace the `lvl` CTE and the `level_bucket` CASE with a join to the segmentation
+table.** This is much smaller than it first looked: the tier we need is **already a column**.
 
 ```sql
--- saga level completions per player per day. Start the window 6 days BEFORE the season
--- so day 1 already has a full 7-day average behind it.
-daily_completions AS (
-    SELECT
-        ls.player_id,
-        CAST(date_parse(CAST(ls.processdate AS VARCHAR), '%Y%m%d') AS DATE) AS event_date,
-        COUNT(*) AS daily_completions
-    FROM abgbproduction_174525b3_gdpr.client_events_view_level_summary ls
-    CROSS JOIN ev
-    WHERE CAST(ls.processdate AS INT)
-          BETWEEN CAST(date_format(ev.start_date - INTERVAL '6' DAY, '%Y%m%d') AS INT)
-              AND CAST(date_format(ev.start_date + INTERVAL '28' DAY, '%Y%m%d') AS INT)
-      AND ls.game_mode   = 'saga'
-      AND ls.exit_screen = 'completed'
-    GROUP BY 1, 2
-),
-rolling_7d AS (
-    SELECT player_id, event_date,
-        AVG(daily_completions) OVER (
-            PARTITION BY player_id
-            ORDER BY CAST(event_date AS TIMESTAMP)
-            RANGE BETWEEN INTERVAL '6' DAY PRECEDING AND CURRENT ROW
-        ) AS avg_completions_7d
-    FROM daily_completions
+seg AS (
+    SELECT event_date, event_id, player_id,
+           CAST(level_completes_7d AS varchar) AS level_completes_7d,
+           CAST(spend_group        AS varchar) AS spend_group
+    FROM tmp_radekjanhuba.album_segmentation_daily
+    WHERE event_date <= DATE '<end date>'
 )
 ```
 
-then bucket it:
+`album_segmentation_daily.level_completes_7d` is what **every** production album query filters and
+splits on (`album_snaps_collected.sql`, `album_total_snaps_found_percentiles.sql`,
+`album_set_completion.sql`, `album_card_rarity_per_envelope.sql`, `album_daily_dau_share.sql`,
+`album_daily_envelope_gained.sql`, `album_daily_snaps.sql` — all seven). Using it means the charts
+are on the same axis as the dashboards, and there is no second definition of the same thing to keep
+in step.
 
-| `avg_completions_7d` | tier |
-|---|---|
-| `NULL` or `0` | **drop the player entirely** |
-| `< 10` | `0-9` |
-| `< 20` | `10-19` |
-| `< 40` | `20-39` |
-| `< 100` | `40-99` |
-| `>= 100` | `100+` |
-
-> ⚠ **Do not zero-fill the gap days.** `daily_completions` only has rows for days with at least one
-> completion, and the average is over *those* rows inside the 7-day span — not over all seven days.
-> A player who finished 40 levels on Monday and nothing until Sunday averages 40, not 40÷7. This is
-> the one detail that is easy to "tidy up" and it shifts every bucket if you do.
+> ⚠ **Check the bucket values before mapping.** The column *name* matches the simulation's axis, but
+> the boundaries might not. The simulation cuts the 7-day **average completions per day** at
+> `<10 / <20 / <40 / <100 / >=100` and labels them `0-9 / 10-19 / 20-39 / 40-99 / 100+`. Please run
+> `SELECT level_completes_7d, COUNT(DISTINCT player_id) FROM tmp_radekjanhuba.album_segmentation_daily GROUP BY 1`
+> first. If the values are already those five labels, map straight across; if they are raw numbers or
+> different bands, say so rather than relabelling on a guess.
 
 **Change B — name it `segment`, and keep your profile level as its own column.** Emit **both**:
 
@@ -105,28 +80,25 @@ then bucket it:
 Your profile-level measure is not wrong and is worth charting on its own. The only rule is that
 `profile_level_bucket` must never be the join key.
 
-**Change C — the tier moves day to day, so pick one per player.** Assign each player their **modal**
-tier: the one holding the most of their active days in the window, ties going to the *higher* tier.
-That keeps a player in exactly one group for the whole season, which is how the simulation's own
-population is counted.
+**Change C — one tier per player, fixed to their FIRST DAY SEEN.** The tier moves day to day, so
+it has to be pinned. Every production album query pins it the same way — *"a player's segment
+(filters + splits) is fixed to their FIRST day seen (stable cohorts)"* — so do that. It is simpler
+than a modal tier and it is stable from day 1, which matters for a cumulative chart.
 
-**Change D — the payer flag.** Yours is the last reading before day 1:
+**Change D — the payer flag: use the segmentation table's own spend column.** Do not recompute it
+from `player_daily`. `album_segmentation_daily` carries **`spend_group`**, **`spend_60d_percentile`**
+and **`spent_in_event`**, and the dashboards use those.
 
-```sql
-MAX_BY(p.cumulative_money_spent, CASE WHEN p.event_date < ev.start_date THEN ... END)
-```
+Please run `SELECT DISTINCT` + player counts on `spend_group` and `spent_in_event` and tell us the
+values. The simulation's flag is binary — `PAYER` = paid anything at any point in the window — so we
+need to know which column collapses onto that and how. Likely `spend_group`; not worth guessing.
 
-The simulation uses **lifetime payer within the window** — paid anything at any point during the
-season. So a player who first pays on day 3 is `PAYER` there and `NONPAYER` here. Replace with:
-
-```sql
-MAX(p.cumulative_money_spent) > 0   -- over event_date BETWEEN ev.start_date AND ev.start_date + 28
-```
-
-**Change E — add the standard filters** if they are not already there: `geo NOT IN ('FI','PL')`,
-exclude `reporting.orphans` for this app id, `max_level > 200`. Combined with the
-`avg_completions_7d > 0` drop above, this is most of why the simulation's population is ~350k and
-yours is ~165k — players who completed no saga levels are not in its population at all.
+**Change E — the population comes from `album_segmentation_daily`, which already applies most of
+this.** Joining to that table for the segment also gives you its population definition for free, so
+the hand-rolled filters mostly go away. Keep `geo NOT IN ('FI','PL')` and the `reporting.orphans`
+exclusion if the segmentation table does not already apply them — please check and say which it
+does. (The simulation additionally drops players with zero 7-day completions, which is part of why
+its population is ~350k against your ~165k.)
 
 **Change F — pre-start activity.** The current season logged album activity on the day *before* the
 official calendar start, which `DATE_DIFF + 1` puts on day 0 and then drops. Every series is a
@@ -186,9 +158,10 @@ ON CAST(b.segment AS VARCHAR) = a.segment
 
 Two other things in this cell worth a look while you are there:
 
-- **`album_pct` is hardcoded to 72 cards** (`cum_value / 72.0 * 100`). Take the card count from the
-  event's own `album_snaps_needed` field instead, so a config change does not silently rescale the
-  metric.
+- **`album_pct` is hardcoded to 72 cards** (`cum_value / 72.0 * 100`). Production has a table for
+  this — **`hex_abgbproduction_174525b3.album_snaps`** (cards per album) — and its own
+  `cards_found_pct` measure is *unique cards ÷ cards in that album × 100*. Use the table, so a
+  config change cannot silently rescale the metric.
 - **`album_pct` cannot exceed 100 here, but it does in the simulation.** A player who finishes album
   1 and starts album 2 reads 130 there (album 2 at 30%). If the data can see a second album, add
   +100 for it; if not, that is fine, but expect the simulation's curve to sit above yours at the top

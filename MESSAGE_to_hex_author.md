@@ -40,17 +40,23 @@ isn't, even though it's labelled the same way.
 prediction for ~1,400 very heavy players next to the real behaviour of ~44,000 ordinary
 high-level players. The prediction looks far too high, and it isn't the prediction that's wrong.
 
-**What would fix it:** bucket players on the rolling 7-day average of saga levels completed per day,
-rather than on profile level. The exact definition is in `sqls/data_seg_beh.sql` — happy to walk
-through it, and I've written up the steps if that's easier. Two details that are easy to miss:
+**What would fix it, and it's smaller than it sounds:** there's already a column for the measure I
+use. `tmp_radekjanhuba.album_segmentation_daily` has **`level_completes_7d`**, and every one of the
+seven production album queries filters and splits on it. So instead of bucketing on profile level,
+join to that table and use that column — no new logic, and it puts the charts on the same axis as
+the album dashboards.
 
-- the average only counts days the player actually completed something, not all seven days; and
-- players who completed no saga levels in the window aren't in my population at all, which is part
-  of why my totals are bigger (350k vs 165k).
+Worth checking the bucket values first (`SELECT level_completes_7d, COUNT(DISTINCT player_id) ...
+GROUP BY 1`) — the column name matches my axis but I haven't confirmed the boundaries are the same
+five bands. If they're raw numbers rather than `0-9`/`10-19`/..., let me know and we'll agree the
+mapping rather than guessing.
 
-One more small thing while you're in there: the payer flag. Yours is the last reading before day 1,
-mine is "paid anything at any point during the window", so a player who first pays on day 3 lands in
-a different group in each.
+Same table also has `spend_group`, which is probably a cleaner source for the payer split than the
+`player_daily` lookup — yours takes the last reading before day 1, mine is "paid anything at any
+point during the window", so a player who first pays on day 3 lands in a different group in each.
+
+One other thing: my population is bigger (350k vs 165k) partly because players who completed no
+saga levels in the window aren't in mine at all.
 
 No rush on any of this, and the notebook itself is genuinely useful — I've reused your
 `album_actuals_player` query as the basis for the data feed. Just wanted to flag it before anyone
