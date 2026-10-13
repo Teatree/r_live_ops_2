@@ -1418,23 +1418,97 @@ function GATES() {
       'NOT labelled');
 
     // (9) FAKE is READ here, deliberately - the opposite of the four anchor sheets - and LABELLED.
+    // BOTH DIRECTIONS ARE FORCED BY FIXTURE, not read off whatever the sheet happens to hold. This
+    // gate used to assert the tag against the live sheet's own status, which passed only while the
+    // sheet held placeholders - the moment the first real MEASURED pull landed (2026-10-13) it went
+    // red on data that was entirely correct. The rule is "FAKE is tagged, MEASURED is not", so the
+    // fixture sets each in turn.
+    const setStatus = (val) => {
+      const v = data[SHEET_COL_DAILY].values;
+      const st = v[0].findIndex(h => String(h).trim().toLowerCase() === 'status');
+      for (let i = 1; i < v.length; i++) if (v[i] && v[i][0]) v[i][st] = val;
+    };
     data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+    setStatus('FAKE');
     runCloud();
     r0 = blockRow(LABEL);
     const fakeLabelled = cloudRows()[r0 + 1].join(' ').indexOf('FAKE') >= 0;
     check('FAKE actuals are read AND labelled FAKE on the group row', fakeLabelled,
       fakeLabelled ? 'tagged' : 'not tagged - a placeholder would read as telemetry');
-    {
-      const v = data[SHEET_COL_DAILY].values;
-      const st = v[0].findIndex(h => String(h).trim().toLowerCase() === 'status');
-      for (let i = 1; i < v.length; i++) v[i][st] = 'MEASURED';
-    }
+    data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+    setStatus('MEASURED');
     runCloud();
     r0 = blockRow(LABEL);
     const grpMeasured = cloudRows()[r0 + 1].join(' ');
     check('status = MEASURED drops the FAKE tag but keeps the day stamp',
       grpMeasured.indexOf('FAKE') < 0 && grpMeasured.indexOf('to day') >= 0,
       grpMeasured.split(/\s{2,}/).filter(Boolean)[1] || grpMeasured.slice(0, 60));
+
+    // (10) THE POPULATION CROSS-CHECK. data_col_daily and data_seg_beh both spell their segments
+    // '0-9'..'100+', so they pair up silently even when they mean different things - ours is a
+    // 7-day saga-completion tier, and the first real pull was bucketed on profile level. The
+    // populations are the tell, and this is gated in BOTH directions because a guard that cannot
+    // stand down is as useless as one that never fires.
+    data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+    {
+      const v = data[SHEET_COL_DAILY].values;
+      const pc = v[0].findIndex(h => String(h).trim().toLowerCase() === 'players_in_cell');
+      check('data_col_daily carries players_in_cell, so the check is possible at all',
+        pc >= 0, 'index ' + pc);
+
+      // (a) MATCHING populations must NOT be flagged. Rewrite players_in_cell to data_seg_beh's
+      // own unique_players for every cell.
+      const ds = Context.get().ds;
+      for (let i = 1; i < v.length; i++) {
+        if (!v[i] || !v[i][0]) continue;
+        const b = ds.beh(String(v[i][0]).trim(), String(v[i][1]).trim());
+        v[i][pc] = b ? Number(b.unique_players) : 0;
+      }
+      _sheetValsCache = {}; _colDailyCache = null;
+      let flaggedWhenMatched = 0;
+      cloudPermutations_().forEach(pm => {
+        const a = colDailyActuals_()[pm.seg + '|' + pm.payer];
+        if (popWarning_(popCompare_(a, pm.seg, pm.payer))) flaggedWhenMatched++;
+      });
+      check('populations that MATCH data_seg_beh raise no warning',
+        flaggedWhenMatched === 0, flaggedWhenMatched + ' of 10 cells flagged on matching data');
+
+      // (b) A MISMATCH must be flagged, and must say so on the group row.
+      for (let i = 1; i < v.length; i++) {
+        if (!v[i] || !v[i][0]) continue;
+        if (String(v[i][0]).trim() === SEG && String(v[i][1]).trim() === PAY)
+          v[i][pc] = Number(v[i][pc]) * 40;        // well past POP_CHECK_FACTOR
+      }
+      runCloud();
+      const rr = blockRow(LABEL);
+      const grp = cloudRows()[rr + 1].join(' ');
+      const cmp = popCompare_(colDailyActuals_()[SEG + '|' + PAY], SEG, PAY);
+      check('a population ' + POP_CHECK_FACTOR + 'x outside the band IS flagged',
+        !!popWarning_(cmp), cmp ? 'ratio ' + cmp.ratio.toFixed(2) : 'no comparison');
+      check('the warning lands on the GROUP row, naming both populations',
+        grp.indexOf('POP ') >= 0 && grp.indexOf('data_seg_beh') >= 0 &&
+        grp.indexOf('DIFFERENT AXIS') >= 0,
+        grp.indexOf('POP ') >= 0 ? grp.slice(grp.indexOf('[POP'), grp.indexOf('[POP') + 78)
+                                 : 'NOT on the group row');
+      // and the block LABEL row stays undecorated, or Col_Charts' exact MATCH breaks
+      check('the block LABEL row is still exactly the permutation name',
+        String(cloudRows()[rr][0]).trim() === LABEL,
+        JSON.stringify(String(cloudRows()[rr][0])));
+
+      // (c) An unflagged cell must stay clean - the warning is per cell, not per sheet.
+      const okGrp = cloudRows()[blockRow('40-99 PAYER') + 1].join(' ');
+      check('a cell inside the band carries NO population warning',
+        okGrp.indexOf('POP ') < 0, okGrp.indexOf('POP ') < 0 ? 'clean' : 'warned anyway');
+
+      // (d) No players_in_cell column at all -> no comparison, and no false warning.
+      const v2 = JSON.parse(dailySnap);
+      data[SHEET_COL_DAILY].values = v2.map(r => r.filter((_, i) => i !== pc));
+      _sheetValsCache = {}; _colDailyCache = null;
+      const a2 = colDailyActuals_()[SEG + '|' + PAY];
+      check('no players_in_cell column -> no comparison and no false warning',
+        popCompare_(a2, SEG, PAY) === null && popWarning_(popCompare_(a2, SEG, PAY)) === '',
+        'comparison skipped');
+    }
 
     data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
     _sheetValsCache = {}; _colDailyCache = null;
