@@ -1336,28 +1336,42 @@ function GATES() {
     // source column, and the day range is this block's own 33 rows. This replaces the old
     // multiply-by-7 mutation gate and asserts the same property more directly - an actual can only
     // belong to its own cell if the criteria say so.
-    const cols = colDailyCols_();
-    check('data_col_daily column letters resolve from its header',
-      !!cols && cols.seg && cols.pay && cols.day && cols.met,
-      cols ? JSON.stringify(cols) : 'NULL - overlay off');
+    check('data_col_daily is usable, so the formulas are written at all', colDailyUsable_());
     const r0b = blockRow(LABEL);
     const dayRange = '$A' + (r0b + 4) + ':$A' + (r0b + 3 + DAILY_DAYS);
+    const allF = () => {
+      const out = [];
+      CLOUD_METRICS.forEach((met, m) =>
+        CLOUD_ACTUAL_STATS.forEach((st, si) => out.push(actF(m, si))));
+      return out;
+    };
     const wrong = [];
     CLOUD_METRICS.forEach((met, m) => CLOUD_ACTUAL_STATS.forEach((st, si) => {
       const f = actF(m, si);
-      const src = cols.stats[st];
-      if (!src) return;                            // omitted statistic: checked in (7)
-      if (f.indexOf('"' + SEG + '"') < 0)          wrong.push(met.key + '/' + st + ':segment');
-      if (f.indexOf('"' + PAY + '"') < 0)          wrong.push(met.key + '/' + st + ':payer');
-      if (f.indexOf('"' + met.key + '"') < 0)      wrong.push(met.key + '/' + st + ':metric');
-      if (f.indexOf("!" + src + '$2:' + src) < 0)  wrong.push(met.key + '/' + st + ':srccol');
-      if (f.indexOf(dayRange) < 0)                 wrong.push(met.key + '/' + st + ':dayrange');
+      if (f.indexOf('"' + SEG + '"') < 0)     wrong.push(met.key + '/' + st + ':segment');
+      if (f.indexOf('"' + PAY + '"') < 0)     wrong.push(met.key + '/' + st + ':payer');
+      if (f.indexOf('"' + met.key + '"') < 0) wrong.push(met.key + '/' + st + ':metric');
+      // The SOURCE column is named by its HEADER, through a MATCH - never by a letter.
+      if (f.indexOf('MATCH("' + actualHeader_(st) + '"') < 0)
+        wrong.push(met.key + '/' + st + ':srcheader');
+      if (f.indexOf(dayRange) < 0)            wrong.push(met.key + '/' + st + ':dayrange');
     }));
-    check('every ACTUAL formula names its own segment, payer, metric, source column and day range',
+    check('every ACTUAL formula names its own segment, payer, metric, source HEADER and day range',
       wrong.length === 0,
       wrong.length ? wrong.slice(0, 6).join(', ')
                    : 'all ' + (CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length) +
                      ' wired to ' + SEG + '/' + PAY + ', days ' + dayRange);
+
+    // NO COLUMN LETTER MAY CARRY MEANING. Every reference into data_col_daily has to be one of the
+    // two FIXED spans - the INDEX range and the header row the MATCH searches - because anything
+    // else is a position, and a position is what goes stale when the pull changes shape.
+    const refs = new Set();
+    allF().forEach(f => (f.match(/'data_col_daily'!\$?[A-Z0-9$:]+/g) || [])
+                          .forEach(x => refs.add(x)));
+    check('no formula bakes a data_col_daily COLUMN LETTER - only the two fixed spans',
+      refs.size === 2 && refs.has("'data_col_daily'!$A:$ZZ") &&
+      refs.has("'data_col_daily'!$1:$1"),
+      Array.from(refs).sort().join('  '));
 
     // No OTHER block's keys may appear in this block's formulas.
     const otherLabel = '0-9 NONPAYER';
@@ -1382,23 +1396,59 @@ function GATES() {
       f0.indexOf('SUMIFS') < 0 && f0.indexOf('AVERAGEIFS') >= 0,
       f0.indexOf('AVERAGEIFS') >= 0 ? 'AVERAGEIFS' : 'SUMIFS - a duplicate row would double');
 
-    // (7) A statistic the pull does NOT carry gets NO formula - not a formula over a missing
-    // column, which would average an empty range into #DIV/0! on every single row.
+    // (7) THE REGRESSION THIS WHOLE DESIGN EXISTS FOR (2026-10-13). The 13 Oct pull inserted
+    // `event_id` at position 5, which moved actual_p10 from E to F. The engine had baked E into
+    // all 480 formulas at write time, so every series on the sheet was then averaging a column of
+    // UUIDs - and nothing said so, because a wrong average still draws a line. The only repair
+    // was a six-minute re-run.
+    //
+    // Gated as the PROPERTY and not as that one column: insert a column ahead of the values and
+    // assert that NOT ONE formula changes. That can only hold if no formula depends on where a
+    // column sits, which is the whole claim. The fixture proves it is not vacuous by checking the
+    // insertion really did move actual_p10.
+    {
+      const before = allF();
+      const v = JSON.parse(dailySnap);
+      const was = v[0].findIndex(h => String(h).trim().toLowerCase() === 'actual_p10');
+      data[SHEET_COL_DAILY].values = v.map((r, i) =>
+        r.slice(0, 4).concat([i === 0 ? 'event_id' : 'uuid-' + i], r.slice(4)));
+      const now = data[SHEET_COL_DAILY].values[0]
+                    .findIndex(h => String(h).trim().toLowerCase() === 'actual_p10');
+      check('the fixture really moves actual_p10 (otherwise this gate proves nothing)',
+        was >= 0 && now === was + 1, 'actual_p10 index ' + was + ' -> ' + now);
+      _sheetValsCache = {}; _colDailyCache = null;
+      runCloud();
+      const after = allF();
+      const moved = after.filter((f, i) => f !== before[i]).length;
+      check('a column INSERTED ahead of the value columns changes NOT ONE formula',
+        moved === 0 && after.length === before.length && before.length > 0,
+        moved + ' of ' + before.length + ' formulas rewritten (the old engine rewrote all of them)');
+      data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+      _sheetValsCache = {}; _colDailyCache = null;
+    }
+
+    // (7b) A statistic the pull does not carry STILL gets its formula, which names the header it
+    // is waiting for. MATCH then returns #N/A, the IFERROR turns that into a blank cell, and the
+    // series starts drawing on the next RECALC when the column shows up - no sweep, no re-import.
+    // This is the opposite of the old behaviour (the writer used to leave the cell empty), and it
+    // is why the writer no longer has to decide anything.
     {
       const v = JSON.parse(dailySnap);
       const drop = v[0].findIndex(h => String(h).trim().toLowerCase() === 'actual_p98');
       check('data_col_daily carries an actual_p98 column to drop', drop >= 0, 'index ' + drop);
       data[SHEET_COL_DAILY].values = v.map(r => r.filter((_, i) => i !== drop));
+      _sheetValsCache = {}; _colDailyCache = null;
       runCloud();
       const p98i = CLOUD_ACTUAL_STATS.indexOf('ACT p98');
-      const others = CLOUD_ACTUAL_STATS
-        .map((st, i) => (i !== p98i && actF(0, i).indexOf('=') !== 0) ? st : null)
-        .filter(Boolean);
-      check('a statistic the pull omits gets NO formula, and the others still do',
-        actF(0, p98i) === '' && others.length === 0,
-        'p98 = ' + JSON.stringify(actF(0, p98i)) +
-        (others.length ? ', but also empty: ' + others.join(', ') : ', other 7 all formulas'));
+      const f98 = actF(0, p98i);
+      const blanks = CLOUD_ACTUAL_STATS
+        .map((st, i) => actF(0, i).indexOf('=') !== 0 ? st : null).filter(Boolean);
+      check('a statistic the pull omits still gets a formula, naming the header it waits for',
+        f98.indexOf('MATCH("actual_p98"') >= 0 && blanks.length === 0,
+        blanks.length ? 'blank: ' + blanks.join(', ')
+                      : 'all 8 written; p98 waits on MATCH("actual_p98")');
       data[SHEET_COL_DAILY].values = JSON.parse(dailySnap);
+      _sheetValsCache = {}; _colDailyCache = null;
     }
 
     // (8) ABSENCE. A cell with no rows in the sheet still gets its headers AND its formulas - the

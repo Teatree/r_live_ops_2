@@ -3143,8 +3143,15 @@ function SimulateCardCloud(){
 // the BAR LABELS this file searches for. One shared string per block instead of a whole layout
 // duplicated across two files, which is the drift this project keeps paying for.
 
-// data_col_daily -> { 'seg|payer': { metricKey: { day: {mean, p10, p90} } }, ... } plus, per cell,
-// the LAST DAY that carries any row and whether anything read was FAKE.
+// data_col_daily -> { 'seg|payer': { metricKey: { day: {ACT p10..ACT MEAN} } }, ... } plus, per
+// cell, the LAST DAY that carries any row and whether anything read was FAKE.
+//
+// SINCE THE FORMULAS RESOLVE THEIR OWN COLUMNS (2026-10-13) this reader no longer feeds a single
+// number on the sheet - the ACT columns are formulas that read data_col_daily directly. All it
+// still produces is the GROUP-ROW LABEL (which cells have data, how far it runs, whether it is
+// FAKE) and the population cross-check. That label is therefore a snapshot of the last sweep while
+// the columns beneath it are live: if it says 'to day 1' and the column shows day 14, the label is
+// the stale one (user decision 2026-10-13: left engine-written).
 //
 // Actuals arrive GRADUALLY (user, 2026-10-07), so this reader is built around absence:
 //   * a cell with no rows at all  -> no entry, every ACTUAL column written blank, no red line;
@@ -3175,22 +3182,19 @@ function colDailyActuals_(){
       return (_colDailyCache = out);
     }
   }
-  // 'ACT p10' -> the sheet column that carries it. 'ACT MEAN' reads actual_mean; the percentiles
-  // read actual_p10 .. actual_p98. A column the sheet does not have is simply absent and its cells
-  // are written blank, which is why a partial pull still draws every statistic it did bring.
+  // 'ACT p10' -> the sheet column that carries it, via actualHeader_ - the SAME mapping the
+  // formulas are built from, so the provenance label and the columns under it cannot end up
+  // describing different data. A column the sheet does not have is simply absent.
   var statCol = {}, haveAny = false;
   CLOUD_ACTUAL_STATS.forEach(function(st){
-    var tail = st.replace(/^ACT\s+/, '');
-    var name = 'actual_' + (tail === 'MEAN' ? 'mean' : tail.toLowerCase());
+    var name = actualHeader_(st);
     if (hdr[name] != null){ statCol[st] = hdr[name]; haveAny = true; }
   });
   if (!haveAny){
     Logger.log(SHEET_COL_DAILY + ' has none of the actual_* value columns (expected ' +
-               CLOUD_ACTUAL_STATS.map(function(st){
-                 var t = st.replace(/^ACT\s+/, '');
-                 return 'actual_' + (t === 'MEAN' ? 'mean' : t.toLowerCase());
-               }).join(', ') + ') - the actuals overlay is OFF. Columns seen: ' +
-               Object.keys(hdr).join(', '));
+               CLOUD_ACTUAL_STATS.map(actualHeader_).join(', ') + ') - no provenance label can be ' +
+               'built. The FORMULAS are still written and will resolve themselves once the pull ' +
+               'carries one. Columns seen: ' + Object.keys(hdr).join(', '));
     return (_colDailyCache = out);
   }
 
@@ -3241,36 +3245,60 @@ function colDailyActuals_(){
   return (_colDailyCache = out);
 }
 
-// data_col_daily's column LETTERS, by role, read off its header row. Derived rather than assumed:
-// the sheet is filled by an external analytics pull, and a pull that returns the statistics in a
-// different order - or omits one - must not silently shift every formula onto the wrong column.
-// Returns null when the sheet or the key columns are missing, which switches the overlay off.
-//   { seg:'A', pay:'B', day:'C', met:'D', stats:{'ACT p10':'E', ... } }
-function colDailyCols_(){
+/** 'ACT p10' -> 'actual_p10'; 'ACT MEAN' -> 'actual_mean'. ONE definition, because the reader
+ *  that builds the provenance label and the writer that builds the formulas must not disagree
+ *  about which column a statistic lives in. */
+function actualHeader_(st){
+  var tail = String(st).replace(/^ACT\s+/, '');
+  return 'actual_' + (tail === 'MEAN' ? 'mean' : tail.toLowerCase());
+}
+
+/** A whole COLUMN of data_col_daily, named by its HEADER TEXT rather than by a letter.
+ *  INDEX(range, 0, n) returns the entire nth column, so every range an AVERAGEIFS is given here is
+ *  the same shape, and the MATCH re-resolves on every recalc.
+ *
+ *  WHY NOT A COLUMN LETTER (2026-10-13). The letters used to be resolved in THIS FILE and baked
+ *  into the formula text, which made every formula on the sheet correct only for the header that
+ *  happened to exist during the last sweep. The 13 Oct pull inserted `event_id` at position 5 and
+ *  moved actual_p10 from E to F: all 480 formulas were then averaging a column of UUIDs, nothing
+ *  said so, and the only repair was a six-minute re-run. Resolved INSIDE the formula it cannot go
+ *  stale - a column insertion, a reorder, or a statistic that only shows up in a later pull all
+ *  take effect on the next RECALC, with no re-run and no re-import.
+ *
+ *  It also deletes a special case. A header the sheet does not carry makes MATCH return #N/A,
+ *  which the IFERROR already wrapped around the AVERAGEIFS turns into a BLANK cell - exactly the
+ *  "no data yet" rendering this lane wants. The writer therefore no longer has to decide which
+ *  statistics to skip, and a statistic that arrives later needs nothing done to it. */
+function cdCol_(header){
+  var s = "'" + SHEET_COL_DAILY + "'!";
+  return 'INDEX(' + s + '$A:$ZZ,0,MATCH("' + header + '",' + s + '$1:$1,0))';
+}
+
+/** Is there a data_col_daily sheet for a formula to point AT? That is the only thing the writer
+ *  still has to know: a sheet that does not exist cannot be referenced at all (the formula would
+ *  not even parse), whereas a sheet that exists but is missing a column is handled by the formula
+ *  itself. Missing columns are therefore LOGGED, not refused. */
+function colDailyUsable_(){
   var v = sheetVals_(SHEET_COL_DAILY);
-  if (!v || !v.length) return null;
-  var at = {}, c;
+  if (!v || !v.length){
+    Logger.log(SHEET_COL_DAILY + ' is missing or empty - the ACTUAL columns are left EMPTY, ' +
+               'because a formula cannot reference a sheet that does not exist.');
+    return false;
+  }
+  var have = {}, c;
   for (c = 0; c < (v[0] || []).length; c++){
     var h = String(v[0][c] == null ? '' : v[0][c]).trim().toLowerCase();
-    if (h && at[h] == null) at[h] = colLetter_(c + 1);
+    if (h) have[h] = true;
   }
-  if (!at['segment'] || !at['payer_flag'] || !at['day'] || !at['metric']){
-    Logger.log(SHEET_COL_DAILY + ' is missing one of segment / payer_flag / day / metric - the ' +
-               'actuals overlay is OFF. Header seen: ' + Object.keys(at).join(', '));
-    return null;
-  }
-  var stats = {}, any = false;
-  CLOUD_ACTUAL_STATS.forEach(function(st){
-    var tail = String(st).replace(/^ACT\s+/, '');
-    var name = 'actual_' + (tail === 'MEAN' ? 'mean' : tail.toLowerCase());
-    if (at[name]){ stats[st] = at[name]; any = true; }
-  });
-  if (!any){
-    Logger.log(SHEET_COL_DAILY + ' has no actual_* value column - the actuals overlay is OFF.');
-    return null;
-  }
-  return { seg: at['segment'], pay: at['payer_flag'], day: at['day'], met: at['metric'],
-           stats: stats };
+  var missing = [];
+  ['segment', 'payer_flag', 'day', 'metric'].forEach(function(n){ if (!have[n]) missing.push(n); });
+  if (missing.length)
+    Logger.log(SHEET_COL_DAILY + ' has no ' + missing.join(' / ') + ' column yet, so the ACTUAL ' +
+               'columns will resolve BLANK until the pull carries ' +
+               (missing.length > 1 ? 'them' : 'it') + '. The formulas are written anyway - they ' +
+               'resolve their columns by header on every recalc, so this fixes itself with no ' +
+               're-run. Headers seen: ' + Object.keys(have).join(', '));
+  return true;
 }
 
 // ---- POPULATION CROSS-CHECK (2026-10-13) ----------------------------------------------------
@@ -3384,24 +3412,26 @@ function popWarning_(prof, label){
 //   * a DUPLICATE key in the pull averages instead of doubling. The grain is unique by contract,
 //     but the data is external and a doubled curve is far harder to spot than a slightly wrong one.
 // IFERROR sits INSIDE ARRAYFORMULA on purpose: outside, one erroring day would blank all 33.
-function actFormulaRow_(perm, firstDataRow, lastDataRow, cols){
-  var sheetRef = "'" + SHEET_COL_DAILY + "'!";
+//
+// EVERY COLUMN IS NAMED BY ITS HEADER, never by a letter (2026-10-13, user) - see cdCol_. The only
+// thing this function still bakes in is what it is entitled to know: which cell this block is for,
+// which metric each column plots, and which 33 rows the spill covers. Nothing about the SHAPE of
+// data_col_daily reaches the sheet, so the formulas written today stay correct across a pull that
+// reorders its columns, inserts one, or starts carrying a statistic it did not carry before.
+function actFormulaRow_(perm, firstDataRow, lastDataRow){
   var dayRange = '$' + colLetter_(1) + firstDataRow + ':$' + colLetter_(1) + lastDataRow;
-  var keyCrit =
-    sheetRef + '$' + cols.seg + '$2:$' + cols.seg + ',"' + perm.seg + '",' +
-    sheetRef + '$' + cols.pay + '$2:$' + cols.pay + ',"' + String(perm.payer).toUpperCase() + '",';
+  var keyCrit = cdCol_('segment')    + ',"' + perm.seg + '",' +
+                cdCol_('payer_flag') + ',"' + String(perm.payer).toUpperCase() + '",';
   var out = [];
   CLOUD_METRICS.forEach(function(met){
     CLOUD_ACTUAL_STATS.forEach(function(st){
-      var src = cols.stats[st];
-      // A statistic the pull did not bring gets NO formula - an empty cell, not a zero and not a
-      // formula that would average an empty column into #DIV/0! on every row.
-      if (!src){ out.push(''); return; }
+      // No skipping. A statistic the pull has not brought yet resolves to #N/A inside the MATCH
+      // and lands as a blank cell, so it needs no decision here and no re-run when it arrives.
       out.push('=ARRAYFORMULA(IFERROR(AVERAGEIFS(' +
-               sheetRef + src + '$2:' + src + ',' +
+               cdCol_(actualHeader_(st)) + ',' +
                keyCrit +
-               sheetRef + '$' + cols.met + '$2:$' + cols.met + ',"' + met.key + '",' +
-               sheetRef + '$' + cols.day + '$2:$' + cols.day + ',' + dayRange +
+               cdCol_('metric') + ',"' + met.key + '",' +
+               cdCol_('day') + ',' + dayRange +
                '),""))');
     });
   });
@@ -3417,11 +3447,8 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
   var actuals = colDailyActuals_();
   // ONE profile for the whole sheet: a cell's ratio is only interpretable next to the other nine.
   var popProf = popProfile_(actuals);
-  var cdCols  = colDailyCols_();
+  var cdOk    = colDailyUsable_();
   var popFlagged = [];              // cells whose actuals population disagrees with data_seg_beh
-  if (!cdCols)
-    Logger.log('No usable ' + SHEET_COL_DAILY + ' header - the ACTUAL columns are left EMPTY ' +
-               'rather than filled with a formula that cannot resolve.');
   var d, m, j, s, row, rows, grp, hdr;
 
   sh.getRange(CLOUD_STAMP_CELL).setValue(
@@ -3529,9 +3556,9 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
     // cells below are exactly where this writer used to put static values.
     var actW = CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length;
     sh.getRange(r0 + 3, SIM_BAND_W + 1, DAILY_DAYS, actW).clearContent();
-    if (cdCols)
+    if (cdOk)
       sh.getRange(r0 + 3, SIM_BAND_W + 1, 1, actW)
-        .setFormulas([actFormulaRow_(perms[j], r0 + 3, r0 + 2 + DAILY_DAYS, cdCols)]);
+        .setFormulas([actFormulaRow_(perms[j], r0 + 3, r0 + 2 + DAILY_DAYS)]);
   }
 
   if (popProf && popProf.spread > POP_SPREAD_TOL)
