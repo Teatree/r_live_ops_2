@@ -92,6 +92,25 @@ function mkRange(name, r1, c1, nr, nc) {
       for (let r = r1; r < r1 + nr; r++)
         for (let c = c1; c < c1 + nc; c++) if (sh.values[r - 1]) ensure(sh, r, c)[c - 1] = '';
     },
+    // Formulas are stored as their TEXT, which is what the gates assert against: a formula's
+    // correctness here is its wiring (which cell, which criteria), not a number only Sheets can
+    // evaluate. getValues therefore returns the formula string for a formula cell, exactly as a
+    // Sheets range would if asked for values before recalc.
+    setFormula: (f) => { ensure(sh, r1, c1)[c1 - 1] = f; },
+    setFormulas: (grid) => {
+      for (let i = 0; i < grid.length; i++)
+        for (let j = 0; j < grid[i].length; j++) ensure(sh, r1 + i, c1 + j)[c1 + j - 1] = grid[i][j];
+    },
+    getFormulas: () => {
+      const out = [];
+      for (let r = r1; r < r1 + nr; r++) {
+        const row = [];
+        for (let c = c1; c < c1 + nc; c++)
+          row.push((sh.values[r - 1] && sh.values[r - 1][c - 1] !== undefined) ? sh.values[r - 1][c - 1] : '');
+        out.push(row);
+      }
+      return out;
+    },
     setHorizontalAlignment: () => {},
   };
 }

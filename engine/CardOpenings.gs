@@ -2714,6 +2714,10 @@ var CLOUD_STATS = ['p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'p98', 'MEAN'];
 // (_mock_cloud prints the width the chart needs on every run). Row height is untouched:
 // CLOUD_BAND_STRIDE stays 37 and no block moves.
 var CLOUD_ACTUAL_STATS = CLOUD_STATS.map(function(st){ return 'ACT ' + st; });
+// Where the simulated half of a band block ends and the actuals begin: 1 Day + 6 metrics x 8
+// stats = 49. Named because the writer now writes the two halves differently - values on the left,
+// formulas on the right - and both need the same boundary.
+var SIM_BAND_W = 1 + CLOUD_METRICS.length * CLOUD_STATS.length;
 var SHEET_COL_DAILY = 'data_col_daily';
 // The sheet may name a metric by the engine key ('packs') or by the human label ('Packs Opened').
 // The analytics pull is as likely to produce one as the other and the join should not be the thing
@@ -3226,11 +3230,95 @@ function colDailyActuals_(){
   return (_colDailyCache = out);
 }
 
+// data_col_daily's column LETTERS, by role, read off its header row. Derived rather than assumed:
+// the sheet is filled by an external analytics pull, and a pull that returns the statistics in a
+// different order - or omits one - must not silently shift every formula onto the wrong column.
+// Returns null when the sheet or the key columns are missing, which switches the overlay off.
+//   { seg:'A', pay:'B', day:'C', met:'D', stats:{'ACT p10':'E', ... } }
+function colDailyCols_(){
+  var v = sheetVals_(SHEET_COL_DAILY);
+  if (!v || !v.length) return null;
+  var at = {}, c;
+  for (c = 0; c < (v[0] || []).length; c++){
+    var h = String(v[0][c] == null ? '' : v[0][c]).trim().toLowerCase();
+    if (h && at[h] == null) at[h] = colLetter_(c + 1);
+  }
+  if (!at['segment'] || !at['payer_flag'] || !at['day'] || !at['metric']){
+    Logger.log(SHEET_COL_DAILY + ' is missing one of segment / payer_flag / day / metric - the ' +
+               'actuals overlay is OFF. Header seen: ' + Object.keys(at).join(', '));
+    return null;
+  }
+  var stats = {}, any = false;
+  CLOUD_ACTUAL_STATS.forEach(function(st){
+    var tail = String(st).replace(/^ACT\s+/, '');
+    var name = 'actual_' + (tail === 'MEAN' ? 'mean' : tail.toLowerCase());
+    if (at[name]){ stats[st] = at[name]; any = true; }
+  });
+  if (!any){
+    Logger.log(SHEET_COL_DAILY + ' has no actual_* value column - the actuals overlay is OFF.');
+    return null;
+  }
+  return { seg: at['segment'], pay: at['payer_flag'], day: at['day'], met: at['metric'],
+           stats: stats };
+}
+
+// One spilling formula per ACTUAL column (user, 2026-10-13: "it should be that the data is
+// populated with formulas from the data_ sheets"). Written instead of values, for three reasons:
+//
+//   1. THE PROJECT RULE. "Formulas reference data sheets - never bake static values into sheets."
+//      These columns carry no simulated quantity at all, so there was never a reason to freeze
+//      them into the sheet.
+//   2. NO RE-RUN TO SEE NEW DATA. The actuals lane feeds nothing, so it should not need a
+//      six-minute SimulateCardCloud sweep to show a fresh pull. With formulas, the moment rows
+//      land in data_col_daily every band block fills - and a PARTIAL pull fills the part it has.
+//      That matters today: the live sheet holds 99 of 840 rows, so eight of the ten cells read
+//      blank, and with static values they stay blank until someone re-runs the sim.
+//   3. ONE FORMULA PER COLUMN, not per cell. ARRAYFORMULA over the block's own Day column spills
+//      33 rows from one cell: 48 formulas per block instead of 1,584, so ~480 on the sheet rather
+//      than ~15,800.
+//
+// AVERAGEIFS, not SUMIFS, and that choice carries two properties worth stating:
+//   * no matching row -> #DIV/0! -> IFERROR -> BLANK. The blank-not-zero rule is therefore
+//     enforced by the formula itself rather than by this writer, which is also what makes a day
+//     past the end of the data end the line instead of dropping it to the axis.
+//   * a DUPLICATE key in the pull averages instead of doubling. The grain is unique by contract,
+//     but the data is external and a doubled curve is far harder to spot than a slightly wrong one.
+// IFERROR sits INSIDE ARRAYFORMULA on purpose: outside, one erroring day would blank all 33.
+function actFormulaRow_(perm, firstDataRow, lastDataRow, cols){
+  var sheetRef = "'" + SHEET_COL_DAILY + "'!";
+  var dayRange = '$' + colLetter_(1) + firstDataRow + ':$' + colLetter_(1) + lastDataRow;
+  var keyCrit =
+    sheetRef + '$' + cols.seg + '$2:$' + cols.seg + ',"' + perm.seg + '",' +
+    sheetRef + '$' + cols.pay + '$2:$' + cols.pay + ',"' + String(perm.payer).toUpperCase() + '",';
+  var out = [];
+  CLOUD_METRICS.forEach(function(met){
+    CLOUD_ACTUAL_STATS.forEach(function(st){
+      var src = cols.stats[st];
+      // A statistic the pull did not bring gets NO formula - an empty cell, not a zero and not a
+      // formula that would average an empty column into #DIV/0! on every row.
+      if (!src){ out.push(''); return; }
+      out.push('=ARRAYFORMULA(IFERROR(AVERAGEIFS(' +
+               sheetRef + src + '$2:' + src + ',' +
+               keyCrit +
+               sheetRef + '$' + cols.met + '$2:$' + cols.met + ',"' + met.key + '",' +
+               sheetRef + '$' + cols.day + '$2:$' + cols.day + ',' + dayRange +
+               '),""))');
+    });
+  });
+  return out;
+}
+
 /** Col_Cards_Cloud: the MEANS comparison block, then one p10-p90 band block per permutation. */
 function writeCloudSheet_(sh, agg, nPlayers, seed){
   var vals = sh.getDataRange().getValues();
   var perms = cloudPermutations_();
+  // The reader is still here, but ONLY for the group row's provenance label (which cells have
+  // data, how far it runs, whether it is FAKE). The numbers themselves are formulas now.
   var actuals = colDailyActuals_();
+  var cdCols  = colDailyCols_();
+  if (!cdCols)
+    Logger.log('No usable ' + SHEET_COL_DAILY + ' header - the ACTUAL columns are left EMPTY ' +
+               'rather than filled with a formula that cannot resolve.');
   var d, m, j, s, row, rows, grp, hdr;
 
   sh.getRange(CLOUD_STAMP_CELL).setValue(
@@ -3312,6 +3400,8 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
     });
     sh.getRange(r0 + 1, 1, 1, grp.length).setValues([grp]);
     sh.getRange(r0 + 2, 1, 1, hdr.length).setValues([hdr]);
+    // SIMULATED columns: values, because they are this run's output and nothing on the sheet can
+    // recompute them.
     rows = [];
     for (d = 0; d < DAILY_DAYS; d++){
       row = [d + 1];
@@ -3320,23 +3410,18 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
         for (s = 0; s < CLOUD_STATS.length; s++)
           row.push(st ? round_(st[CLOUD_STATS[s]], 2) : '');
       }
-      // BLANK past the last measured day, never 0: a zero draws the red line diving to the axis,
-      // which reads as a collapse rather than as "no data yet".
-      for (m = 0; m < CLOUD_METRICS.length; m++){
-        var av = (act && act.metrics[CLOUD_METRICS[m].key]) ? act.metrics[CLOUD_METRICS[m].key][d + 1] : null;
-        for (s = 0; s < CLOUD_ACTUAL_STATS.length; s++){
-          // The '' check is NOT redundant with the `av` check beside it. A statistic the sheet has
-          // no column for is stored as '' on a row that otherwise exists, and round_('') returns
-          // 0 - so without this a pull missing p98 would draw a p98 series pinned to the axis,
-          // which is the exact misreading ("players at the top got nothing") that blanking exists
-          // to prevent. One guard per level: no row at all, and no value on the row.
-          var raw = av ? av[CLOUD_ACTUAL_STATS[s]] : '';
-          row.push((raw === '' || raw == null) ? '' : round_(raw, 2));
-        }
-      }
       rows.push(row);
     }
-    sh.getRange(r0 + 3, 1, DAILY_DAYS, rows[0].length).setValues(rows);
+    sh.getRange(r0 + 3, 1, DAILY_DAYS, SIM_BAND_W).setValues(rows);
+
+    // ACTUAL columns: FORMULAS into data_col_daily, one per column, spilling all 33 days. The
+    // whole area is cleared first - an ARRAYFORMULA will not spill into occupied cells, and the
+    // cells below are exactly where this writer used to put static values.
+    var actW = CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length;
+    sh.getRange(r0 + 3, SIM_BAND_W + 1, DAILY_DAYS, actW).clearContent();
+    if (cdCols)
+      sh.getRange(r0 + 3, SIM_BAND_W + 1, 1, actW)
+        .setFormulas([actFormulaRow_(perms[j], r0 + 3, r0 + 2 + DAILY_DAYS, cdCols)]);
   }
 }
 
