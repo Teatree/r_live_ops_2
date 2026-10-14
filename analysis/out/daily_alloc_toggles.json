@@ -1,0 +1,3419 @@
+{
+ "_meta": {
+  "probe": "harness/_probe_daily_alloc_toggles.js",
+  "requires": "harness/_probe_daily_alloc.js",
+  "run": "2026-10-14T09:46:49.271Z",
+  "data": "harness/_mockdata.json",
+  "data_meta": null,
+  "engine": {
+   "v4": "engine/EcoGainsSim_v4.gs",
+   "daily": "engine/EcoGainsSim_Daily.gs",
+   "daily_build": "EcoGainsSim_Daily.gs D38  2026-09-07"
+  }
+ },
+ "activity_rates_used": {
+  "0-9 NONPAYER": {
+   "weekday": 0.2751,
+   "weekend": 0.2669,
+   "expected_active_days": 8.9553
+  },
+  "0-9 PAYER": {
+   "weekday": 0.3648,
+   "weekend": 0.3515,
+   "expected_active_days": 11.8389
+  },
+  "10-19 NONPAYER": {
+   "weekday": 0.3574,
+   "weekend": 0.334,
+   "expected_active_days": 11.4432
+  },
+  "10-19 PAYER": {
+   "weekday": 0.3785,
+   "weekend": 0.3523,
+   "expected_active_days": 12.0975
+  },
+  "20-39 NONPAYER": {
+   "weekday": 0.3296,
+   "weekend": 0.316,
+   "expected_active_days": 10.6728
+  },
+  "20-39 PAYER": {
+   "weekday": 0.3269,
+   "weekend": 0.3151,
+   "expected_active_days": 10.6107
+  },
+  "40-99 NONPAYER": {
+   "weekday": 0.2969,
+   "weekend": 0.2947,
+   "expected_active_days": 9.7647
+  },
+  "40-99 PAYER": {
+   "weekday": 0.2885,
+   "weekend": 0.2883,
+   "expected_active_days": 9.5175
+  },
+  "100+ NONPAYER": {
+   "weekday": 0.1828,
+   "weekend": 0.1907,
+   "expected_active_days": 6.1509
+  },
+  "100+ PAYER": {
+   "weekday": 0.1992,
+   "weekend": 0.2117,
+   "expected_active_days": 6.7611
+  }
+ },
+ "baseline": {
+  "tv": {
+   "n": 130,
+   "unweighted_mean": 0.19624,
+   "actual_mass_weighted": 0.145768,
+   "quantiles": {
+    "n": 130,
+    "min": 0.066465,
+    "p25": 0.122892,
+    "median": 0.178773,
+    "p75": 0.231889,
+    "max": 0.45364,
+    "mean": 0.19624
+   }
+  },
+  "mape": {
+   "n": 130,
+   "unweighted_mean": 3.328432,
+   "actual_mass_weighted": 1.851615,
+   "quantiles": {
+    "n": 130,
+    "min": 0.132771,
+    "p25": 0.369522,
+    "median": 0.449537,
+    "p75": 0.55492,
+    "max": 48.223826,
+    "mean": 3.328432
+   }
+  },
+  "mape_shape": {
+   "n": 130,
+   "unweighted_mean": 2.297375,
+   "actual_mass_weighted": 0.407089,
+   "quantiles": {
+    "n": 130,
+    "min": 0.137125,
+    "p25": 0.247805,
+    "median": 0.3654,
+    "p75": 0.492191,
+    "max": 56.119899,
+    "mean": 2.297375
+   }
+  }
+ },
+ "self_check": {
+  "rebuilt_vs_engine_dailySeries_maxabs": 0,
+  "tv_rebuilt": 0.19624,
+  "tv_engine": 0.19624
+ },
+ "T1": {
+  "name": "T1 SETTLE+1",
+  "tv_baseline": 0.19624,
+  "tv_alone": 0.177889,
+  "improvement_pct": 9.351305,
+  "tv_mass_weighted": {
+   "baseline": 0.145768,
+   "alone": 0.132076
+  },
+  "tv_median": {
+   "baseline": 0.178773,
+   "alone": 0.146701
+  },
+  "mape_baseline": 3.328432,
+  "mape_alone": 3.307266,
+  "mape_improvement_pct": 0.635915,
+  "mape_shape_baseline": 2.297375,
+  "mape_shape_alone": 2.255935,
+  "mape_shape_improvement_pct": 1.803798,
+  "improved_pairs": 92,
+  "worsened_pairs": 12,
+  "unchanged_pairs": 26,
+  "conserved_maxabs": 0,
+  "per_resource_tv": {
+   "Bomb": {
+    "baseline": 0.147246,
+    "alone": 0.121725
+   },
+   "Chuck": {
+    "baseline": 0.138961,
+    "alone": 0.134579
+   },
+   "Comet": {
+    "baseline": 0.202533,
+    "alone": 0.117572
+   },
+   "HC": {
+    "baseline": 0.13913,
+    "alone": 0.114104
+   },
+   "Red": {
+    "baseline": 0.121119,
+    "alone": 0.119097
+   },
+   "SPT": {
+    "baseline": 0.20538,
+    "alone": 0.202725
+   },
+   "SPTx2": {
+    "baseline": 0.442685,
+    "alone": 0.442685
+   },
+   "Shuffle": {
+    "baseline": 0.137442,
+    "alone": 0.109903
+   },
+   "Slingshot": {
+    "baseline": 0.13781,
+    "alone": 0.113809
+   },
+   "UL Bomb": {
+    "baseline": 0.204621,
+    "alone": 0.20462
+   },
+   "UL Chuck": {
+    "baseline": 0.248999,
+    "alone": 0.248997
+   },
+   "UL Red": {
+    "baseline": 0.250239,
+    "alone": 0.250238
+   },
+   "Unlimited Lives": {
+    "baseline": 0.174954,
+    "alone": 0.132511
+   }
+  },
+  "what_it_does": "every DAILY_LASTDAY lump moves from the instance last day to last day + 1; mass past day 33 renormalised over 1..33",
+  "variants": {
+   "renorm": {
+    "tv": 0.177889,
+    "mape": 3.307266,
+    "mape_shape": 2.255935
+   },
+   "drop_past_33": {
+    "tv": 0.17789,
+    "mape": 3.307871,
+    "note": "TV is scale-free so it equals renorm; only the level (MAPE) differs; sum of sim days then < window total"
+   },
+   "fold_onto_day_33": {
+    "tv": 0.180723,
+    "mape": 3.311703,
+    "note": "stage-1 E2 semantics"
+   }
+  },
+  "per_category_plus1_alone": {
+   "Bomb Challenge": {
+    "tv_all": 0.197122,
+    "tv_affected_pairs": 0.152716,
+    "tv_affected_base": 0.150167,
+    "affected_pairs": 45,
+    "improved": 6,
+    "worsened": 32,
+    "mass_share_of_actual": 0.007425
+   },
+   "Chuck Challenge": {
+    "tv_all": 0.195539,
+    "tv_affected_pairs": 0.151073,
+    "tv_affected_base": 0.153242,
+    "affected_pairs": 42,
+    "improved": 37,
+    "worsened": 4,
+    "mass_share_of_actual": 0.002014
+   },
+   "Red Challenge": {
+    "tv_all": 0.196581,
+    "tv_affected_pairs": 0.150041,
+    "tv_affected_base": 0.149057,
+    "affected_pairs": 45,
+    "improved": 24,
+    "worsened": 20,
+    "mass_share_of_actual": 0.007728
+   },
+   "Level Race": {
+    "tv_all": 0.200999,
+    "tv_affected_pairs": 0.162938,
+    "tv_affected_base": 0.156064,
+    "affected_pairs": 90,
+    "improved": 3,
+    "worsened": 84,
+    "mass_share_of_actual": 0.030291
+   },
+   "Flash Race": {
+    "tv_all": 0.19624,
+    "tv_affected_pairs": 0.242749,
+    "tv_affected_base": 0.24275,
+    "affected_pairs": 7,
+    "improved": 6,
+    "worsened": 1,
+    "mass_share_of_actual": 0.000007
+   },
+   "Target Day": {
+    "tv_all": 0.194251,
+    "tv_affected_pairs": 0.153853,
+    "tv_affected_base": 0.156826,
+    "affected_pairs": 87,
+    "improved": 62,
+    "worsened": 14,
+    "mass_share_of_actual": 0.004968
+   },
+   "Kite Festival": {
+    "tv_all": 0.194145,
+    "tv_affected_pairs": 0.153038,
+    "tv_affected_base": 0.156064,
+    "affected_pairs": 90,
+    "improved": 87,
+    "worsened": 2,
+    "mass_share_of_actual": 0.012872
+   },
+   "Team Event": {
+    "tv_all": 0.19089,
+    "tv_affected_pairs": 0.161601,
+    "tv_affected_base": 0.174022,
+    "affected_pairs": 56,
+    "improved": 47,
+    "worsened": 8,
+    "mass_share_of_actual": 0.015712
+   },
+   "Team Race": {
+    "tv_all": 0.185699,
+    "tv_affected_pairs": 0.144756,
+    "tv_affected_base": 0.159334,
+    "affected_pairs": 94,
+    "improved": 80,
+    "worsened": 8,
+    "mass_share_of_actual": 0.024996
+   },
+   "Flock Flurry": {
+    "tv_all": 0.193566,
+    "tv_affected_pairs": 0.148452,
+    "tv_affected_base": 0.154245,
+    "affected_pairs": 60,
+    "improved": 32,
+    "worsened": 28,
+    "mass_share_of_actual": 0.042527
+   }
+  }
+ },
+ "T2": {
+  "name": "T2 COLLECT (all non-always-on)",
+  "tv_baseline": 0.19624,
+  "tv_alone": 0.162467,
+  "improvement_pct": 17.210049,
+  "tv_mass_weighted": {
+   "baseline": 0.145768,
+   "alone": 0.105749
+  },
+  "tv_median": {
+   "baseline": 0.178773,
+   "alone": 0.139073
+  },
+  "mape_baseline": 3.328432,
+  "mape_alone": 3.293509,
+  "mape_improvement_pct": 1.049233,
+  "mape_shape_baseline": 2.297375,
+  "mape_shape_alone": 2.236035,
+  "mape_shape_improvement_pct": 2.670004,
+  "improved_pairs": 118,
+  "worsened_pairs": 12,
+  "unchanged_pairs": 0,
+  "conserved_maxabs": 0,
+  "per_resource_tv": {
+   "Bomb": {
+    "baseline": 0.147246,
+    "alone": 0.124338
+   },
+   "Chuck": {
+    "baseline": 0.138961,
+    "alone": 0.11682
+   },
+   "Comet": {
+    "baseline": 0.202533,
+    "alone": 0.121609
+   },
+   "HC": {
+    "baseline": 0.13913,
+    "alone": 0.088715
+   },
+   "Red": {
+    "baseline": 0.121119,
+    "alone": 0.109377
+   },
+   "SPT": {
+    "baseline": 0.20538,
+    "alone": 0.203402
+   },
+   "SPTx2": {
+    "baseline": 0.442685,
+    "alone": 0.451727
+   },
+   "Shuffle": {
+    "baseline": 0.137442,
+    "alone": 0.096722
+   },
+   "Slingshot": {
+    "baseline": 0.13781,
+    "alone": 0.088245
+   },
+   "UL Bomb": {
+    "baseline": 0.204621,
+    "alone": 0.183003
+   },
+   "UL Chuck": {
+    "baseline": 0.248999,
+    "alone": 0.200968
+   },
+   "UL Red": {
+    "baseline": 0.250239,
+    "alone": 0.201856
+   },
+   "Unlimited Lives": {
+    "baseline": 0.174954,
+    "alone": 0.125294
+   }
+  },
+  "what_it_does": "every non-always-on component convolved with the attendance kernel P(collect on s+k) = p_(s+k) PROD_(j<k)(1-p_(s+j)); truncated at day 33 and renormalised",
+  "mult_sweep": {
+   "1": {
+    "tv": 0.162467,
+    "mape_shape": 2.236035,
+    "improved": 118,
+    "worsened": 12
+   },
+   "2": {
+    "tv": 0.173566,
+    "mape_shape": 2.223339,
+    "improved": 126,
+    "worsened": 4
+   },
+   "3": {
+    "tv": 0.189483,
+    "mape_shape": 2.268727,
+    "improved": 123,
+    "worsened": 7
+   },
+   "1.25": {
+    "tv": 0.164172,
+    "mape_shape": 2.221969,
+    "improved": 117,
+    "worsened": 13
+   },
+   "1.5": {
+    "tv": 0.166641,
+    "mape_shape": 2.216151,
+    "improved": 123,
+    "worsened": 7
+   },
+   "2.5": {
+    "tv": 0.181978,
+    "mape_shape": 2.245236,
+    "improved": 124,
+    "worsened": 6
+   }
+  },
+  "best_mult": 1,
+  "tv_at_best_mult": 0.162467,
+  "improvement_pct_at_best_mult": 17.210049,
+  "kernel_at_mult_1": {
+   "0-9 NONPAYER": {
+    "p_same_day": 0.2751,
+    "expected_lag_days": 2.67399,
+    "uncollected_by_day33_from_day1": 0.000029
+   },
+   "0-9 PAYER": {
+    "p_same_day": 0.3648,
+    "expected_lag_days": 1.773064,
+    "uncollected_by_day33_from_day1": 0
+   },
+   "10-19 NONPAYER": {
+    "p_same_day": 0.3574,
+    "expected_lag_days": 1.858019,
+    "uncollected_by_day33_from_day1": 0.000001
+   },
+   "10-19 PAYER": {
+    "p_same_day": 0.3785,
+    "expected_lag_days": 1.699606,
+    "uncollected_by_day33_from_day1": 0
+   },
+   "20-39 NONPAYER": {
+    "p_same_day": 0.3296,
+    "expected_lag_days": 2.076561,
+    "uncollected_by_day33_from_day1": 0.000003
+   },
+   "20-39 PAYER": {
+    "p_same_day": 0.3269,
+    "expected_lag_days": 2.096662,
+    "uncollected_by_day33_from_day1": 0.000003
+   },
+   "40-99 NONPAYER": {
+    "p_same_day": 0.2969,
+    "expected_lag_days": 2.376654,
+    "uncollected_by_day33_from_day1": 0.000009
+   },
+   "40-99 PAYER": {
+    "p_same_day": 0.2885,
+    "expected_lag_days": 2.466624,
+    "uncollected_by_day33_from_day1": 0.000013
+   },
+   "100+ NONPAYER": {
+    "p_same_day": 0.1828,
+    "expected_lag_days": 4.340766,
+    "uncollected_by_day33_from_day1": 0.001105
+   },
+   "100+ PAYER": {
+    "p_same_day": 0.1992,
+    "expected_lag_days": 3.881543,
+    "uncollected_by_day33_from_day1": 0.000517
+   }
+  },
+  "symmetric_smoothing_control": {
+   "note": "centred box on every non-always-on component (same scope as T2 all); a model-free smoother that also moves mass EARLIER, which a payout cannot do. If it matches T2, the TV gain is de-lumping a population average, not a collection lag; the T1+box vs T1+T2 rows ask the same question after the rank lumps have been moved to their settle day.",
+   "box3": {
+    "tv": 0.166324,
+    "improved": 126,
+    "worsened": 4
+   },
+   "T1+box3": {
+    "tv": 0.164742,
+    "improved": 128,
+    "worsened": 2
+   },
+   "box5": {
+    "tv": 0.160071,
+    "improved": 119,
+    "worsened": 11
+   },
+   "T1+box5": {
+    "tv": 0.162892,
+    "improved": 117,
+    "worsened": 13
+   },
+   "box7": {
+    "tv": 0.159841,
+    "improved": 118,
+    "worsened": 12
+   },
+   "T1+box7": {
+    "tv": 0.160942,
+    "improved": 118,
+    "worsened": 12
+   },
+   "T1+T2all@1": {
+    "tv": 0.159253,
+    "improved": 118,
+    "worsened": 12
+   },
+   "T1+T2all@1.25": {
+    "tv": 0.159051,
+    "improved": 118,
+    "worsened": 12
+   },
+   "T1+T2all@1.5": {
+    "tv": 0.159578,
+    "improved": 124,
+    "worsened": 6
+   },
+   "T1+T2all@2": {
+    "tv": 0.16223,
+    "improved": 127,
+    "worsened": 3
+   },
+   "T1+T2all@2.5": {
+    "tv": 0.167099,
+    "improved": 124,
+    "worsened": 6
+   },
+   "T1+T2all@3": {
+    "tv": 0.172059,
+    "improved": 124,
+    "worsened": 6
+   }
+  }
+ },
+ "T2b": {
+  "name": "T2b COLLECT (rank lumps only)",
+  "tv_baseline": 0.19624,
+  "tv_alone": 0.178443,
+  "improvement_pct": 9.068997,
+  "tv_mass_weighted": {
+   "baseline": 0.145768,
+   "alone": 0.11991
+  },
+  "tv_median": {
+   "baseline": 0.178773,
+   "alone": 0.151701
+  },
+  "mape_baseline": 3.328432,
+  "mape_alone": 3.309087,
+  "mape_improvement_pct": 0.581205,
+  "mape_shape_baseline": 2.297375,
+  "mape_shape_alone": 2.257939,
+  "mape_shape_improvement_pct": 1.716568,
+  "improved_pairs": 98,
+  "worsened_pairs": 7,
+  "unchanged_pairs": 25,
+  "conserved_maxabs": 0,
+  "per_resource_tv": {
+   "Bomb": {
+    "baseline": 0.147246,
+    "alone": 0.133976
+   },
+   "Chuck": {
+    "baseline": 0.138961,
+    "alone": 0.137381
+   },
+   "Comet": {
+    "baseline": 0.202533,
+    "alone": 0.133298
+   },
+   "HC": {
+    "baseline": 0.13913,
+    "alone": 0.095744
+   },
+   "Red": {
+    "baseline": 0.121119,
+    "alone": 0.119127
+   },
+   "SPT": {
+    "baseline": 0.20538,
+    "alone": 0.202917
+   },
+   "SPTx2": {
+    "baseline": 0.442685,
+    "alone": 0.442685
+   },
+   "Shuffle": {
+    "baseline": 0.137442,
+    "alone": 0.110537
+   },
+   "Slingshot": {
+    "baseline": 0.13781,
+    "alone": 0.096567
+   },
+   "UL Bomb": {
+    "baseline": 0.204621,
+    "alone": 0.204621
+   },
+   "UL Chuck": {
+    "baseline": 0.248999,
+    "alone": 0.248998
+   },
+   "UL Red": {
+    "baseline": 0.250239,
+    "alone": 0.250238
+   },
+   "Unlimited Lives": {
+    "baseline": 0.174954,
+    "alone": 0.143664
+   }
+  },
+  "what_it_does": "the same kernel applied ONLY to DAILY_LASTDAY lumps; milestone / accrual / p_day-placed mass is collected same-day by construction",
+  "mult_sweep": {
+   "1": {
+    "tv": 0.178443,
+    "mape_shape": 2.257939,
+    "improved": 98,
+    "worsened": 7
+   },
+   "2": {
+    "tv": 0.183757,
+    "mape_shape": 2.270579,
+    "improved": 97,
+    "worsened": 8
+   },
+   "3": {
+    "tv": 0.192974,
+    "mape_shape": 2.290464,
+    "improved": 98,
+    "worsened": 7
+   },
+   "1.25": {
+    "tv": 0.179251,
+    "mape_shape": 2.260056,
+    "improved": 99,
+    "worsened": 6
+   },
+   "1.5": {
+    "tv": 0.180407,
+    "mape_shape": 2.262876,
+    "improved": 99,
+    "worsened": 6
+   },
+   "2.5": {
+    "tv": 0.188441,
+    "mape_shape": 2.28089,
+    "improved": 99,
+    "worsened": 6
+   }
+  },
+  "best_mult": 1,
+  "tv_at_best_mult": 0.178443,
+  "improvement_pct_at_best_mult": 9.068997
+ },
+ "T3": {
+  "name": "T3 LEADERBOARD CURVES",
+  "tv_baseline": 0.19624,
+  "tv_alone": 0.193593,
+  "improvement_pct": 1.348859,
+  "tv_mass_weighted": {
+   "baseline": 0.145768,
+   "alone": 0.140764
+  },
+  "tv_median": {
+   "baseline": 0.178773,
+   "alone": 0.174438
+  },
+  "mape_baseline": 3.328432,
+  "mape_alone": 3.326498,
+  "mape_improvement_pct": 0.058105,
+  "mape_shape_baseline": 2.297375,
+  "mape_shape_alone": 2.291675,
+  "mape_shape_improvement_pct": 0.248109,
+  "improved_pairs": 66,
+  "worsened_pairs": 18,
+  "unchanged_pairs": 46,
+  "conserved_maxabs": 0,
+  "per_resource_tv": {
+   "Bomb": {
+    "baseline": 0.147246,
+    "alone": 0.147235
+   },
+   "Chuck": {
+    "baseline": 0.138961,
+    "alone": 0.138944
+   },
+   "Comet": {
+    "baseline": 0.202533,
+    "alone": 0.205049
+   },
+   "HC": {
+    "baseline": 0.13913,
+    "alone": 0.134922
+   },
+   "Red": {
+    "baseline": 0.121119,
+    "alone": 0.12109
+   },
+   "SPT": {
+    "baseline": 0.20538,
+    "alone": 0.20538
+   },
+   "SPTx2": {
+    "baseline": 0.442685,
+    "alone": 0.442685
+   },
+   "Shuffle": {
+    "baseline": 0.137442,
+    "alone": 0.134094
+   },
+   "Slingshot": {
+    "baseline": 0.13781,
+    "alone": 0.122435
+   },
+   "UL Bomb": {
+    "baseline": 0.204621,
+    "alone": 0.204621
+   },
+   "UL Chuck": {
+    "baseline": 0.248999,
+    "alone": 0.248999
+   },
+   "UL Red": {
+    "baseline": 0.250239,
+    "alone": 0.250239
+   },
+   "Unlimited Lives": {
+    "baseline": 0.174954,
+    "alone": 0.161014
+   }
+  },
+  "what_it_does": "for DAILY_LASTDAY categories with a data_event_accrual curve, a MILESTONE share s of each instance is placed along the marginal of cum_token_share (settle 0, collected same-day under T2b) and 1-s stays the end lump; s swept per category - an EMPIRICAL CALIBRATION, not the model (the model needs packRungs_/rewardE_ ladder pricing per resource)",
+  "instance_vs_curve_lengths": {
+   "Bomb Challenge": {
+    "cal_curr_instance_days": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "curve_length_days": 2,
+    "curve_day1_share_20_39_NP": 1
+   },
+   "Chuck Challenge": {
+    "cal_curr_instance_days": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "curve_length_days": 2,
+    "curve_day1_share_20_39_NP": 1
+   },
+   "Red Challenge": {
+    "cal_curr_instance_days": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "curve_length_days": 2,
+    "curve_day1_share_20_39_NP": 1
+   },
+   "Flash Race": {
+    "cal_curr_instance_days": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "curve_length_days": 2,
+    "curve_day1_share_20_39_NP": 1
+   },
+   "Level Race": {
+    "cal_curr_instance_days": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "curve_length_days": 2,
+    "curve_day1_share_20_39_NP": 1
+   },
+   "Target Day": {
+    "cal_curr_instance_days": [
+     7,
+     7,
+     2
+    ],
+    "curve_length_days": 2,
+    "curve_day1_share_20_39_NP": 1
+   },
+   "Flock Flurry": {
+    "cal_curr_instance_days": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "curve_length_days": 2,
+    "curve_day1_share_20_39_NP": 1
+   }
+  },
+  "sweep_alone": {
+   "label": "T3 alone (no settle, no collect): s only changes PLACEMENT",
+   "table": {
+    "Bomb Challenge": {
+     "0": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.150167,
+      "affected_pairs": 45
+     },
+     "1": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.150167,
+      "affected_pairs": 45
+     },
+     "0.25": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.150167,
+      "affected_pairs": 45
+     },
+     "0.5": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.150167,
+      "affected_pairs": 45
+     },
+     "0.75": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.150167,
+      "affected_pairs": 45
+     }
+    },
+    "Chuck Challenge": {
+     "0": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.153242,
+      "affected_pairs": 42
+     },
+     "1": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.153242,
+      "affected_pairs": 42
+     },
+     "0.25": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.153242,
+      "affected_pairs": 42
+     },
+     "0.5": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.153242,
+      "affected_pairs": 42
+     },
+     "0.75": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.153242,
+      "affected_pairs": 42
+     }
+    },
+    "Red Challenge": {
+     "0": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.149057,
+      "affected_pairs": 45
+     },
+     "1": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.149057,
+      "affected_pairs": 45
+     },
+     "0.25": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.149057,
+      "affected_pairs": 45
+     },
+     "0.5": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.149057,
+      "affected_pairs": 45
+     },
+     "0.75": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.149057,
+      "affected_pairs": 45
+     }
+    },
+    "Flash Race": {
+     "0": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.24275,
+      "affected_pairs": 7
+     },
+     "1": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.24275,
+      "affected_pairs": 7
+     },
+     "0.25": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.24275,
+      "affected_pairs": 7
+     },
+     "0.5": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.24275,
+      "affected_pairs": 7
+     },
+     "0.75": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.24275,
+      "affected_pairs": 7
+     }
+    },
+    "Level Race": {
+     "0": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.156064,
+      "affected_pairs": 90
+     },
+     "1": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.156064,
+      "affected_pairs": 90
+     },
+     "0.25": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.156064,
+      "affected_pairs": 90
+     },
+     "0.5": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.156064,
+      "affected_pairs": 90
+     },
+     "0.75": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.156064,
+      "affected_pairs": 90
+     }
+    },
+    "Target Day": {
+     "0": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.156826,
+      "affected_pairs": 87
+     },
+     "1": {
+      "tv_all": 0.193593,
+      "tv_affected_pairs": 0.15287,
+      "affected_pairs": 87
+     },
+     "0.25": {
+      "tv_all": 0.195279,
+      "tv_affected_pairs": 0.15539,
+      "affected_pairs": 87
+     },
+     "0.5": {
+      "tv_all": 0.194479,
+      "tv_affected_pairs": 0.154195,
+      "affected_pairs": 87
+     },
+     "0.75": {
+      "tv_all": 0.193871,
+      "tv_affected_pairs": 0.153285,
+      "affected_pairs": 87
+     }
+    },
+    "Flock Flurry": {
+     "0": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.154245,
+      "affected_pairs": 60
+     },
+     "1": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.154245,
+      "affected_pairs": 60
+     },
+     "0.25": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.154245,
+      "affected_pairs": 60
+     },
+     "0.5": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.154245,
+      "affected_pairs": 60
+     },
+     "0.75": {
+      "tv_all": 0.19624,
+      "tv_affected_pairs": 0.154245,
+      "affected_pairs": 60
+     }
+    }
+   },
+   "best": {
+    "Bomb Challenge": {
+     "s": 0,
+     "tv_all": 0.19624,
+     "spread_over_grid": 0,
+     "no_op": true
+    },
+    "Chuck Challenge": {
+     "s": 0,
+     "tv_all": 0.19624,
+     "spread_over_grid": 0,
+     "no_op": true
+    },
+    "Red Challenge": {
+     "s": 0,
+     "tv_all": 0.19624,
+     "spread_over_grid": 0,
+     "no_op": true
+    },
+    "Flash Race": {
+     "s": 0,
+     "tv_all": 0.19624,
+     "spread_over_grid": 0,
+     "no_op": true
+    },
+    "Level Race": {
+     "s": 0,
+     "tv_all": 0.19624,
+     "spread_over_grid": 0,
+     "no_op": true
+    },
+    "Target Day": {
+     "s": 1,
+     "tv_all": 0.193593,
+     "spread_over_grid": 0.002647,
+     "no_op": false
+    },
+    "Flock Flurry": {
+     "s": 0,
+     "tv_all": 0.19624,
+     "spread_over_grid": 0,
+     "no_op": true
+    }
+   }
+  },
+  "best_s_alone": {
+   "Bomb Challenge": 0,
+   "Chuck Challenge": 0,
+   "Red Challenge": 0,
+   "Flash Race": 0,
+   "Level Race": 0,
+   "Target Day": 1,
+   "Flock Flurry": 0
+  },
+  "curvelen_variant": {
+   "note": "place along the curve over its OWN length (instance_length_days) starting on the grid day, so a 1-day grid instance with a 2-day curve pays ~93% on day d and ~7% on d+1, and its lump moves to d+1 - this is the mechanism behind T1 for these events (a 1-day event that starts mid-day ends on the next calendar date)",
+   "tv_s1_all_curve_cats": 0.193593,
+   "tv_s0_lump_at_curve_end": 0.199478,
+   "improvement_pct_s1": 1.348859,
+   "improvement_pct_s0": -1.65002
+  },
+  "sweep_under_T1_T2b": {
+   "label": "T3 under T1 + T2b(lumps only) + T5: s decides which share is paid same-day (milestone) vs settled +1 and collected (rank)",
+   "table": {
+    "Bomb Challenge": {
+     "0": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.102205,
+      "affected_pairs": 45
+     },
+     "1": {
+      "tv_all": 0.173151,
+      "tv_affected_pairs": 0.097476,
+      "affected_pairs": 45
+     },
+     "0.25": {
+      "tv_all": 0.174276,
+      "tv_affected_pairs": 0.100724,
+      "affected_pairs": 45
+     },
+     "0.5": {
+      "tv_all": 0.173806,
+      "tv_affected_pairs": 0.099367,
+      "affected_pairs": 45
+     },
+     "0.75": {
+      "tv_all": 0.173423,
+      "tv_affected_pairs": 0.09826,
+      "affected_pairs": 45
+     }
+    },
+    "Chuck Challenge": {
+     "0": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.10259,
+      "affected_pairs": 42
+     },
+     "1": {
+      "tv_all": 0.174569,
+      "tv_affected_pairs": 0.101913,
+      "affected_pairs": 42
+     },
+     "0.25": {
+      "tv_all": 0.17472,
+      "tv_affected_pairs": 0.10238,
+      "affected_pairs": 42
+     },
+     "0.5": {
+      "tv_all": 0.17466,
+      "tv_affected_pairs": 0.102194,
+      "affected_pairs": 42
+     },
+     "0.75": {
+      "tv_all": 0.174608,
+      "tv_affected_pairs": 0.102033,
+      "affected_pairs": 42
+     }
+    },
+    "Red Challenge": {
+     "0": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.10139,
+      "affected_pairs": 45
+     },
+     "1": {
+      "tv_all": 0.175415,
+      "tv_affected_pairs": 0.103201,
+      "affected_pairs": 45
+     },
+     "0.25": {
+      "tv_all": 0.174797,
+      "tv_affected_pairs": 0.101414,
+      "affected_pairs": 45
+     },
+     "0.5": {
+      "tv_all": 0.174925,
+      "tv_affected_pairs": 0.101786,
+      "affected_pairs": 45
+     },
+     "0.75": {
+      "tv_all": 0.175136,
+      "tv_affected_pairs": 0.102394,
+      "affected_pairs": 45
+     }
+    },
+    "Flash Race": {
+     "0": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.230142,
+      "affected_pairs": 7
+     },
+     "1": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.230143,
+      "affected_pairs": 7
+     },
+     "0.25": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.230142,
+      "affected_pairs": 7
+     },
+     "0.5": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.230142,
+      "affected_pairs": 7
+     },
+     "0.75": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.230142,
+      "affected_pairs": 7
+     }
+    },
+    "Level Race": {
+     "0": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.125013,
+      "affected_pairs": 90
+     },
+     "1": {
+      "tv_all": 0.171062,
+      "tv_affected_pairs": 0.119632,
+      "affected_pairs": 90
+     },
+     "0.25": {
+      "tv_all": 0.173224,
+      "tv_affected_pairs": 0.122755,
+      "affected_pairs": 90
+     },
+     "0.5": {
+      "tv_all": 0.171976,
+      "tv_affected_pairs": 0.120952,
+      "affected_pairs": 90
+     },
+     "0.75": {
+      "tv_all": 0.17123,
+      "tv_affected_pairs": 0.119874,
+      "affected_pairs": 90
+     }
+    },
+    "Target Day": {
+     "0": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.124969,
+      "affected_pairs": 87
+     },
+     "1": {
+      "tv_all": 0.174814,
+      "tv_affected_pairs": 0.125009,
+      "affected_pairs": 87
+     },
+     "0.25": {
+      "tv_all": 0.174534,
+      "tv_affected_pairs": 0.12459,
+      "affected_pairs": 87
+     },
+     "0.5": {
+      "tv_all": 0.174481,
+      "tv_affected_pairs": 0.12451,
+      "affected_pairs": 87
+     },
+     "0.75": {
+      "tv_all": 0.174566,
+      "tv_affected_pairs": 0.124638,
+      "affected_pairs": 87
+     }
+    },
+    "Flock Flurry": {
+     "0": {
+      "tv_all": 0.174788,
+      "tv_affected_pairs": 0.135801,
+      "affected_pairs": 60
+     },
+     "1": {
+      "tv_all": 0.177044,
+      "tv_affected_pairs": 0.140688,
+      "affected_pairs": 60
+     },
+     "0.25": {
+      "tv_all": 0.17499,
+      "tv_affected_pairs": 0.136238,
+      "affected_pairs": 60
+     },
+     "0.5": {
+      "tv_all": 0.175512,
+      "tv_affected_pairs": 0.137371,
+      "affected_pairs": 60
+     },
+     "0.75": {
+      "tv_all": 0.176199,
+      "tv_affected_pairs": 0.138858,
+      "affected_pairs": 60
+     }
+    }
+   },
+   "best": {
+    "Bomb Challenge": {
+     "s": 1,
+     "tv_all": 0.173151,
+     "spread_over_grid": 0.001637,
+     "no_op": false
+    },
+    "Chuck Challenge": {
+     "s": 1,
+     "tv_all": 0.174569,
+     "spread_over_grid": 0.000219,
+     "no_op": false
+    },
+    "Red Challenge": {
+     "s": 0,
+     "tv_all": 0.174788,
+     "spread_over_grid": 0.000627,
+     "no_op": false
+    },
+    "Flash Race": {
+     "s": 0,
+     "tv_all": 0.174788,
+     "spread_over_grid": 0,
+     "no_op": true
+    },
+    "Level Race": {
+     "s": 1,
+     "tv_all": 0.171062,
+     "spread_over_grid": 0.003726,
+     "no_op": false
+    },
+    "Target Day": {
+     "s": 0.5,
+     "tv_all": 0.174481,
+     "spread_over_grid": 0.000333,
+     "no_op": false
+    },
+    "Flock Flurry": {
+     "s": 0,
+     "tv_all": 0.174788,
+     "spread_over_grid": 0.002256,
+     "no_op": false
+    }
+   }
+  }
+ },
+ "T4": {
+  "name": "T4 SEASON PASS",
+  "tv_baseline": 0.19624,
+  "tv_alone": 0.258653,
+  "improvement_pct": -31.804423,
+  "tv_mass_weighted": {
+   "baseline": 0.145768,
+   "alone": 0.205418
+  },
+  "tv_median": {
+   "baseline": 0.178773,
+   "alone": 0.231902
+  },
+  "mape_baseline": 3.328432,
+  "mape_alone": 3.454833,
+  "mape_improvement_pct": -3.797614,
+  "mape_shape_baseline": 2.297375,
+  "mape_shape_alone": 2.443869,
+  "mape_shape_improvement_pct": -6.376582,
+  "improved_pairs": 18,
+  "worsened_pairs": 97,
+  "unchanged_pairs": 15,
+  "conserved_maxabs": 0,
+  "per_resource_tv": {
+   "Bomb": {
+    "baseline": 0.147246,
+    "alone": 0.21292
+   },
+   "Chuck": {
+    "baseline": 0.138961,
+    "alone": 0.186462
+   },
+   "Comet": {
+    "baseline": 0.202533,
+    "alone": 0.202933
+   },
+   "HC": {
+    "baseline": 0.13913,
+    "alone": 0.177115
+   },
+   "Red": {
+    "baseline": 0.121119,
+    "alone": 0.20813
+   },
+   "SPT": {
+    "baseline": 0.20538,
+    "alone": 0.205362
+   },
+   "SPTx2": {
+    "baseline": 0.442685,
+    "alone": 0.442685
+   },
+   "Shuffle": {
+    "baseline": 0.137442,
+    "alone": 0.173725
+   },
+   "Slingshot": {
+    "baseline": 0.13781,
+    "alone": 0.176559
+   },
+   "UL Bomb": {
+    "baseline": 0.204621,
+    "alone": 0.269249
+   },
+   "UL Chuck": {
+    "baseline": 0.248999,
+    "alone": 0.485892
+   },
+   "UL Red": {
+    "baseline": 0.250239,
+    "alone": 0.377436
+   },
+   "Unlimited Lives": {
+    "baseline": 0.174954,
+    "alone": 0.244018
+   }
+  },
+  "what_it_does": "Season Pass (Free)/(Paid) mass placed on tier-crossing days instead of p_day over the lane; per resource the tier masses are the base SP track rewards of that resource (equal per tier when the track pays none of it); each cal_curr pass instance is its own season",
+  "route": "spPackTiers_ IS callable offline but returns 0 entries on this dump (no envelope authored on the SP ladder; it also places tiers linearly in days, not by points). Used instead: cumulative p_day as the SPT proxy - window SPT total from sptTotals_(seg,payer,ctx).meas (includes the D18 synthetic Core anchor) accrued prop p_day, tier i on the first day the running total reaches SP.cum[i]. The engine-linear rule, a continuous-accrual (_spread) form and the ACTUAL SPT total (_actualspt, data_econ_daily sum) are reported as alternatives.",
+  "variants": {
+   "sptproxy": {
+    "tv": 0.28246,
+    "mape_shape": 2.491712,
+    "improved": 6,
+    "worsened": 109
+   },
+   "linear": {
+    "tv": 0.272193,
+    "mape_shape": 2.45807,
+    "improved": 5,
+    "worsened": 110
+   },
+   "sptproxy_spread": {
+    "tv": 0.275322,
+    "mape_shape": 2.478934,
+    "improved": 7,
+    "worsened": 108
+   },
+   "linear_spread": {
+    "tv": 0.267495,
+    "mape_shape": 2.448273,
+    "improved": 6,
+    "worsened": 109
+   },
+   "sptproxy_actualspt": {
+    "tv": 0.284437,
+    "mape_shape": 2.485593,
+    "improved": 10,
+    "worsened": 105
+   },
+   "sptproxy_spread_actualspt": {
+    "tv": 0.258653,
+    "mape_shape": 2.443869,
+    "improved": 18,
+    "worsened": 97
+   }
+  },
+  "best_variant": "sptproxy_spread_actualspt",
+  "sp_track": {
+   "tiers": 30,
+   "cum_first_last": [
+    10,
+    3557
+   ],
+   "season_days_on_sheet": 28,
+   "cal_curr_lane": [
+    "1..30",
+    "31..33"
+   ],
+   "free_track_hc_by_tier": [
+    0,
+    10,
+    0,
+    0,
+    10,
+    0,
+    0,
+    0,
+    0,
+    10,
+    0,
+    0,
+    0,
+    0,
+    15,
+    0,
+    0,
+    0,
+    0,
+    20,
+    0,
+    0,
+    0,
+    0,
+    25,
+    0,
+    0,
+    0,
+    0,
+    40
+   ],
+   "paid_track_hc_by_tier": [
+    0,
+    25,
+    0,
+    0,
+    25,
+    0,
+    0,
+    0,
+    0,
+    25,
+    0,
+    0,
+    0,
+    0,
+    30,
+    0,
+    0,
+    0,
+    0,
+    40,
+    0,
+    0,
+    0,
+    0,
+    55,
+    0,
+    0,
+    0,
+    0,
+    100
+   ]
+  },
+  "per_cell_tiers": {
+   "0-9 NONPAYER": {
+    "spt_window_total_incl_synthetic_core": 877.604651,
+    "tiers_reached_per_instance": [
+     13,
+     4
+    ],
+    "tier_cap": 30
+   },
+   "0-9 PAYER": {
+    "spt_window_total_incl_synthetic_core": 1124.259852,
+    "tiers_reached_per_instance": [
+     15,
+     4
+    ],
+    "tier_cap": 30
+   },
+   "10-19 NONPAYER": {
+    "spt_window_total_incl_synthetic_core": 2675.606808,
+    "tiers_reached_per_instance": [
+     24,
+     6
+    ],
+    "tier_cap": 30
+   },
+   "10-19 PAYER": {
+    "spt_window_total_incl_synthetic_core": 2828.333587,
+    "tiers_reached_per_instance": [
+     25,
+     7
+    ],
+    "tier_cap": 30
+   },
+   "20-39 NONPAYER": {
+    "spt_window_total_incl_synthetic_core": 4689.834793,
+    "tiers_reached_per_instance": [
+     30,
+     9
+    ],
+    "tier_cap": 30
+   },
+   "20-39 PAYER": {
+    "spt_window_total_incl_synthetic_core": 4678.269623,
+    "tiers_reached_per_instance": [
+     30,
+     9
+    ],
+    "tier_cap": 30
+   },
+   "40-99 NONPAYER": {
+    "spt_window_total_incl_synthetic_core": 8374.037754,
+    "tiers_reached_per_instance": [
+     30,
+     12
+    ],
+    "tier_cap": 30
+   },
+   "40-99 PAYER": {
+    "spt_window_total_incl_synthetic_core": 8303.240585,
+    "tiers_reached_per_instance": [
+     30,
+     12
+    ],
+    "tier_cap": 30
+   },
+   "100+ NONPAYER": {
+    "spt_window_total_incl_synthetic_core": 12267.583028,
+    "tiers_reached_per_instance": [
+     30,
+     15
+    ],
+    "tier_cap": 30
+   },
+   "100+ PAYER": {
+    "spt_window_total_incl_synthetic_core": 13590.703919,
+    "tiers_reached_per_instance": [
+     30,
+     16
+    ],
+    "tier_cap": 30
+   }
+  },
+  "actual_spt_window_total": {
+   "0-9 NONPAYER": 136.13,
+   "0-9 PAYER": 198.1793,
+   "10-19 NONPAYER": 263.4519,
+   "10-19 PAYER": 378.6602,
+   "20-39 NONPAYER": 350.7525,
+   "20-39 PAYER": 486.6581,
+   "40-99 NONPAYER": 451.4061,
+   "40-99 PAYER": 629.6065,
+   "100+ NONPAYER": 400.8245,
+   "100+ PAYER": 620.9714
+  },
+  "stage1_E3_sigma_p_for_reference": 0.169882
+ },
+ "T5": {
+  "name": "T5 FLAT->p_day",
+  "tv_baseline": 0.19624,
+  "tv_alone": 0.196259,
+  "improvement_pct": -0.009682,
+  "tv_mass_weighted": {
+   "baseline": 0.145768,
+   "alone": 0.145763
+  },
+  "tv_median": {
+   "baseline": 0.178773,
+   "alone": 0.178889
+  },
+  "mape_baseline": 3.328432,
+  "mape_alone": 3.327516,
+  "mape_improvement_pct": 0.02752,
+  "mape_shape_baseline": 2.297375,
+  "mape_shape_alone": 2.296174,
+  "mape_shape_improvement_pct": 0.052277,
+  "improved_pairs": 66,
+  "worsened_pairs": 64,
+  "unchanged_pairs": 0,
+  "conserved_maxabs": 0,
+  "per_resource_tv": {
+   "Bomb": {
+    "baseline": 0.147246,
+    "alone": 0.147219
+   },
+   "Chuck": {
+    "baseline": 0.138961,
+    "alone": 0.139023
+   },
+   "Comet": {
+    "baseline": 0.202533,
+    "alone": 0.202387
+   },
+   "HC": {
+    "baseline": 0.13913,
+    "alone": 0.139048
+   },
+   "Red": {
+    "baseline": 0.121119,
+    "alone": 0.121138
+   },
+   "SPT": {
+    "baseline": 0.20538,
+    "alone": 0.205516
+   },
+   "SPTx2": {
+    "baseline": 0.442685,
+    "alone": 0.443
+   },
+   "Shuffle": {
+    "baseline": 0.137442,
+    "alone": 0.137214
+   },
+   "Slingshot": {
+    "baseline": 0.13781,
+    "alone": 0.137721
+   },
+   "UL Bomb": {
+    "baseline": 0.204621,
+    "alone": 0.204818
+   },
+   "UL Chuck": {
+    "baseline": 0.248999,
+    "alone": 0.248968
+   },
+   "UL Red": {
+    "baseline": 0.250239,
+    "alone": 0.250342
+   },
+   "Unlimited Lives": {
+    "baseline": 0.174954,
+    "alone": 0.174974
+   }
+  },
+  "what_it_does": "categories with no cal_curr instance (Ads, Other, IAPs, FlowerCoop, River Rush, Rainbow Maker where present) spread prop p_day instead of 1/33",
+  "flat_categories_per_cell": {
+   "0-9 NONPAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop",
+    "Rainbow Maker",
+    "IAPs"
+   ],
+   "0-9 PAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop",
+    "Rainbow Maker"
+   ],
+   "10-19 NONPAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop",
+    "IAPs"
+   ],
+   "10-19 PAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop",
+    "Rainbow Maker"
+   ],
+   "20-39 NONPAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop"
+   ],
+   "20-39 PAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop"
+   ],
+   "40-99 NONPAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop",
+    "IAPs"
+   ],
+   "40-99 PAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "FlowerCoop"
+   ],
+   "100+ NONPAYER": [
+    "Ads",
+    "Other",
+    "River Rush",
+    "Rainbow Maker",
+    "IAPs"
+   ],
+   "100+ PAYER": [
+    "Ads",
+    "Other",
+    "River Rush"
+   ]
+  }
+ },
+ "all_combined": {
+  "headline": {
+   "tv_baseline": 0.19624,
+   "tv_all_toggles_as_specified": 0.192073,
+   "tv_best_combination": 0.154931,
+   "improvement_pct_best": 21.050245,
+   "improvement_pct_as_specified": 2.12342
+  },
+  "as_specified": {
+   "label": "ALL TOGGLES ON, as specified (T4 at its least-bad variant)",
+   "params": {
+    "settle": "+1 on every DAILY_LASTDAY lump (T1)",
+    "collect": "all",
+    "collect_rate_multiplier": 1,
+    "t3_milestone_share_s": {
+     "Bomb Challenge": 1,
+     "Chuck Challenge": 1,
+     "Red Challenge": 0.25,
+     "Flash Race": 0,
+     "Level Race": 1,
+     "Target Day": 0.5,
+     "Flock Flurry": 0
+    },
+    "t4": "sptproxy_spread_actualspt",
+    "t5": true,
+    "pastEnd": "renorm"
+   },
+   "summary": {
+    "tv_baseline": 0.19624,
+    "tv_combined": 0.192073,
+    "improvement_pct": 2.12342,
+    "tv_mass_weighted": {
+     "baseline": 0.145768,
+     "combined": 0.133992
+    },
+    "tv_quantiles": {
+     "n": 130,
+     "min": 0.051025,
+     "p25": 0.095813,
+     "median": 0.168999,
+     "p75": 0.242252,
+     "max": 0.498602,
+     "mean": 0.192073
+    },
+    "mape_baseline": 3.328432,
+    "mape_combined": 3.345116,
+    "mape_shape_baseline": 2.297375,
+    "mape_shape_combined": 2.299325,
+    "improved_pairs": 76,
+    "worsened_pairs": 54,
+    "unchanged_pairs": 0,
+    "conserved_maxabs": 0,
+    "per_resource_tv": {
+     "Bomb": {
+      "baseline": 0.147246,
+      "combined": 0.173567,
+      "mape_shape": 0.368932
+     },
+     "Chuck": {
+      "baseline": 0.138961,
+      "combined": 0.132025,
+      "mape_shape": 0.262662
+     },
+     "Comet": {
+      "baseline": 0.202533,
+      "combined": 0.088377,
+      "mape_shape": 0.175074
+     },
+     "HC": {
+      "baseline": 0.13913,
+      "combined": 0.094864,
+      "mape_shape": 0.193371
+     },
+     "Red": {
+      "baseline": 0.121119,
+      "combined": 0.166519,
+      "mape_shape": 0.33709
+     },
+     "SPT": {
+      "baseline": 0.20538,
+      "combined": 0.202069,
+      "mape_shape": 0.468243
+     },
+     "SPTx2": {
+      "baseline": 0.442685,
+      "combined": 0.451884,
+      "mape_shape": 25.509748
+     },
+     "Shuffle": {
+      "baseline": 0.137442,
+      "combined": 0.107526,
+      "mape_shape": 0.214603
+     },
+     "Slingshot": {
+      "baseline": 0.13781,
+      "combined": 0.103307,
+      "mape_shape": 0.207326
+     },
+     "UL Bomb": {
+      "baseline": 0.204621,
+      "combined": 0.211769,
+      "mape_shape": 0.572065
+     },
+     "UL Chuck": {
+      "baseline": 0.248999,
+      "combined": 0.33568,
+      "mape_shape": 0.687443
+     },
+     "UL Red": {
+      "baseline": 0.250239,
+      "combined": 0.272547,
+      "mape_shape": 0.570171
+     },
+     "Unlimited Lives": {
+      "baseline": 0.174954,
+      "combined": 0.156817,
+      "mape_shape": 0.324493
+     }
+    },
+    "per_cell_tv": {
+     "0-9 NONPAYER": {
+      "tv": 0.176879,
+      "tv_base": 0.212723
+     },
+     "0-9 PAYER": {
+      "tv": 0.211168,
+      "tv_base": 0.241835
+     },
+     "10-19 NONPAYER": {
+      "tv": 0.163945,
+      "tv_base": 0.198343
+     },
+     "10-19 PAYER": {
+      "tv": 0.247196,
+      "tv_base": 0.228255
+     },
+     "20-39 NONPAYER": {
+      "tv": 0.154022,
+      "tv_base": 0.177668
+     },
+     "20-39 PAYER": {
+      "tv": 0.24462,
+      "tv_base": 0.210195
+     },
+     "40-99 NONPAYER": {
+      "tv": 0.147011,
+      "tv_base": 0.162918
+     },
+     "40-99 PAYER": {
+      "tv": 0.219479,
+      "tv_base": 0.187837
+     },
+     "100+ NONPAYER": {
+      "tv": 0.160835,
+      "tv_base": 0.174993
+     },
+     "100+ PAYER": {
+      "tv": 0.195574,
+      "tv_base": 0.167631
+     }
+    },
+    "tv_within_noise": {
+     "le_1x_tv_ma7": 19,
+     "le_2x_tv_ma7": 87,
+     "n": 130,
+     "baseline_le_1x": 1,
+     "baseline_le_2x": 79
+    }
+   },
+   "ablations": {
+    "without_T1": {
+     "tv": 0.197685,
+     "tv_loss_vs_combined": 0.005612
+    },
+    "without_T2": {
+     "tv": 0.244232,
+     "tv_loss_vs_combined": 0.052159
+    },
+    "without_T3": {
+     "tv": 0.194352,
+     "tv_loss_vs_combined": 0.002279
+    },
+    "without_T4": {
+     "tv": 0.155744,
+     "tv_loss_vs_combined": -0.036329
+    },
+    "without_T5": {
+     "tv": 0.192037,
+     "tv_loss_vs_combined": -0.000036
+    }
+   },
+   "per_category_settle": {
+    "Bomb Challenge": {
+     "tv_if_this_category_settles_0": 0.192073,
+     "prefers": "+1"
+    },
+    "Chuck Challenge": {
+     "tv_if_this_category_settles_0": 0.192073,
+     "prefers": "+1"
+    },
+    "Red Challenge": {
+     "tv_if_this_category_settles_0": 0.192094,
+     "prefers": "+1"
+    },
+    "Level Race": {
+     "tv_if_this_category_settles_0": 0.192073,
+     "prefers": "+1"
+    },
+    "Flash Race": {
+     "tv_if_this_category_settles_0": 0.192073,
+     "prefers": "+1"
+    },
+    "Target Day": {
+     "tv_if_this_category_settles_0": 0.192022,
+     "prefers": "0"
+    },
+    "Kite Festival": {
+     "tv_if_this_category_settles_0": 0.192374,
+     "prefers": "+1"
+    },
+    "Team Event": {
+     "tv_if_this_category_settles_0": 0.19266,
+     "prefers": "+1"
+    },
+    "Team Race": {
+     "tv_if_this_category_settles_0": 0.196198,
+     "prefers": "+1"
+    },
+    "Flock Flurry": {
+     "tv_if_this_category_settles_0": 0.192725,
+     "prefers": "+1"
+    }
+   },
+   "t3_sweep": {
+    "label": "T3 under T1 + best T2 + best T4 + T5",
+    "table": {
+     "Bomb Challenge": {
+      "0": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.112177,
+       "affected_pairs": 45
+      },
+      "1": {
+       "tv_all": 0.193747,
+       "tv_affected_pairs": 0.110428,
+       "affected_pairs": 45
+      },
+      "0.25": {
+       "tv_all": 0.19419,
+       "tv_affected_pairs": 0.111708,
+       "affected_pairs": 45
+      },
+      "0.5": {
+       "tv_all": 0.194031,
+       "tv_affected_pairs": 0.111249,
+       "affected_pairs": 45
+      },
+      "0.75": {
+       "tv_all": 0.193885,
+       "tv_affected_pairs": 0.110827,
+       "affected_pairs": 45
+      }
+     },
+     "Chuck Challenge": {
+      "0": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.10543,
+       "affected_pairs": 42
+      },
+      "1": {
+       "tv_all": 0.194312,
+       "tv_affected_pairs": 0.105304,
+       "affected_pairs": 42
+      },
+      "0.25": {
+       "tv_all": 0.194342,
+       "tv_affected_pairs": 0.105397,
+       "affected_pairs": 42
+      },
+      "0.5": {
+       "tv_all": 0.194331,
+       "tv_affected_pairs": 0.105364,
+       "affected_pairs": 42
+      },
+      "0.75": {
+       "tv_all": 0.194321,
+       "tv_affected_pairs": 0.105333,
+       "affected_pairs": 42
+      }
+     },
+     "Red Challenge": {
+      "0": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.108314,
+       "affected_pairs": 45
+      },
+      "1": {
+       "tv_all": 0.194393,
+       "tv_affected_pairs": 0.108433,
+       "affected_pairs": 45
+      },
+      "0.25": {
+       "tv_all": 0.194348,
+       "tv_affected_pairs": 0.108303,
+       "affected_pairs": 45
+      },
+      "0.5": {
+       "tv_all": 0.194356,
+       "tv_affected_pairs": 0.108325,
+       "affected_pairs": 45
+      },
+      "0.75": {
+       "tv_all": 0.194371,
+       "tv_affected_pairs": 0.108368,
+       "affected_pairs": 45
+      }
+     },
+     "Flash Race": {
+      "0": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.268462,
+       "affected_pairs": 7
+      },
+      "1": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.268462,
+       "affected_pairs": 7
+      },
+      "0.25": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.268462,
+       "affected_pairs": 7
+      },
+      "0.5": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.268462,
+       "affected_pairs": 7
+      },
+      "0.75": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.268462,
+       "affected_pairs": 7
+      }
+     },
+     "Level Race": {
+      "0": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.139411,
+       "affected_pairs": 90
+      },
+      "1": {
+       "tv_all": 0.192713,
+       "tv_affected_pairs": 0.137043,
+       "affected_pairs": 90
+      },
+      "0.25": {
+       "tv_all": 0.193892,
+       "tv_affected_pairs": 0.138746,
+       "affected_pairs": 90
+      },
+      "0.5": {
+       "tv_all": 0.193463,
+       "tv_affected_pairs": 0.138127,
+       "affected_pairs": 90
+      },
+      "0.75": {
+       "tv_all": 0.193074,
+       "tv_affected_pairs": 0.137565,
+       "affected_pairs": 90
+      }
+     },
+     "Target Day": {
+      "0": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.138926,
+       "affected_pairs": 87
+      },
+      "1": {
+       "tv_all": 0.19438,
+       "tv_affected_pairs": 0.138967,
+       "affected_pairs": 87
+      },
+      "0.25": {
+       "tv_all": 0.194262,
+       "tv_affected_pairs": 0.138791,
+       "affected_pairs": 87
+      },
+      "0.5": {
+       "tv_all": 0.194243,
+       "tv_affected_pairs": 0.138763,
+       "affected_pairs": 87
+      },
+      "0.75": {
+       "tv_all": 0.19429,
+       "tv_affected_pairs": 0.138833,
+       "affected_pairs": 87
+      }
+     },
+     "Flock Flurry": {
+      "0": {
+       "tv_all": 0.194352,
+       "tv_affected_pairs": 0.157637,
+       "affected_pairs": 60
+      },
+      "1": {
+       "tv_all": 0.19492,
+       "tv_affected_pairs": 0.158867,
+       "affected_pairs": 60
+      },
+      "0.25": {
+       "tv_all": 0.194458,
+       "tv_affected_pairs": 0.157865,
+       "affected_pairs": 60
+      },
+      "0.5": {
+       "tv_all": 0.194589,
+       "tv_affected_pairs": 0.15815,
+       "affected_pairs": 60
+      },
+      "0.75": {
+       "tv_all": 0.194742,
+       "tv_affected_pairs": 0.15848,
+       "affected_pairs": 60
+      }
+     }
+    },
+    "best": {
+     "Bomb Challenge": {
+      "s": 1,
+      "tv_all": 0.193747,
+      "spread_over_grid": 0.000605,
+      "no_op": false
+     },
+     "Chuck Challenge": {
+      "s": 1,
+      "tv_all": 0.194312,
+      "spread_over_grid": 0.00004,
+      "no_op": false
+     },
+     "Red Challenge": {
+      "s": 0.25,
+      "tv_all": 0.194348,
+      "spread_over_grid": 0.000045,
+      "no_op": false
+     },
+     "Flash Race": {
+      "s": 0,
+      "tv_all": 0.194352,
+      "spread_over_grid": 0,
+      "no_op": true
+     },
+     "Level Race": {
+      "s": 1,
+      "tv_all": 0.192713,
+      "spread_over_grid": 0.001639,
+      "no_op": false
+     },
+     "Target Day": {
+      "s": 0.5,
+      "tv_all": 0.194243,
+      "spread_over_grid": 0.000137,
+      "no_op": false
+     },
+     "Flock Flurry": {
+      "s": 0,
+      "tv_all": 0.194352,
+      "spread_over_grid": 0.000568,
+      "no_op": false
+     }
+    }
+   },
+   "t2_recheck": {
+    "all@1": 0.192073,
+    "all@1.25": 0.197774,
+    "all@1.5": 0.202438,
+    "all@2": 0.211917,
+    "all@2.5": 0.222574,
+    "all@3": 0.232707,
+    "lumps@1": 0.236155,
+    "lumps@1.25": 0.235999,
+    "lumps@1.5": 0.23601,
+    "lumps@2": 0.236886,
+    "lumps@2.5": 0.239096,
+    "lumps@3": 0.241745
+   },
+   "curvelen_variant_tv": 0.192392
+  },
+  "best_combination": {
+   "label": "BEST COMBINATION (coordinate descent, off allowed)",
+   "params": {
+    "settle": "+1 on every DAILY_LASTDAY lump (T1)",
+    "collect": "all",
+    "collect_rate_multiplier": 1.25,
+    "t3_milestone_share_s": {
+     "Bomb Challenge": 1,
+     "Chuck Challenge": 1,
+     "Level Race": 1,
+     "Target Day": 1,
+     "Red Challenge": 0.25
+    },
+    "t4": "off",
+    "t5": false,
+    "pastEnd": "renorm"
+   },
+   "summary": {
+    "tv_baseline": 0.19624,
+    "tv_combined": 0.154931,
+    "improvement_pct": 21.050245,
+    "tv_mass_weighted": {
+     "baseline": 0.145768,
+     "combined": 0.098214
+    },
+    "tv_quantiles": {
+     "n": 130,
+     "min": 0.044566,
+     "p25": 0.080065,
+     "median": 0.122785,
+     "p75": 0.18912,
+     "max": 0.470925,
+     "mean": 0.154931
+    },
+    "mape_baseline": 3.328432,
+    "mape_combined": 3.279336,
+    "mape_shape_baseline": 2.297375,
+    "mape_shape_combined": 2.203208,
+    "improved_pairs": 119,
+    "worsened_pairs": 11,
+    "unchanged_pairs": 0,
+    "conserved_maxabs": 0,
+    "per_resource_tv": {
+     "Bomb": {
+      "baseline": 0.147246,
+      "combined": 0.118538,
+      "mape_shape": 0.242854
+     },
+     "Chuck": {
+      "baseline": 0.138961,
+      "combined": 0.116913,
+      "mape_shape": 0.233299
+     },
+     "Comet": {
+      "baseline": 0.202533,
+      "combined": 0.088521,
+      "mape_shape": 0.180884
+     },
+     "HC": {
+      "baseline": 0.13913,
+      "combined": 0.071039,
+      "mape_shape": 0.14546
+     },
+     "Red": {
+      "baseline": 0.121119,
+      "combined": 0.109474,
+      "mape_shape": 0.21725
+     },
+     "SPT": {
+      "baseline": 0.20538,
+      "combined": 0.201992,
+      "mape_shape": 0.468391
+     },
+     "SPTx2": {
+      "baseline": 0.442685,
+      "combined": 0.447273,
+      "mape_shape": 25.303326
+     },
+     "Shuffle": {
+      "baseline": 0.137442,
+      "combined": 0.083308,
+      "mape_shape": 0.170024
+     },
+     "Slingshot": {
+      "baseline": 0.13781,
+      "combined": 0.072597,
+      "mape_shape": 0.14805
+     },
+     "UL Bomb": {
+      "baseline": 0.204621,
+      "combined": 0.1827,
+      "mape_shape": 0.489148
+     },
+     "UL Chuck": {
+      "baseline": 0.248999,
+      "combined": 0.204391,
+      "mape_shape": 0.405013
+     },
+     "UL Red": {
+      "baseline": 0.250239,
+      "combined": 0.206514,
+      "mape_shape": 0.409078
+     },
+     "Unlimited Lives": {
+      "baseline": 0.174954,
+      "combined": 0.110841,
+      "mape_shape": 0.228931
+     }
+    },
+    "per_cell_tv": {
+     "0-9 NONPAYER": {
+      "tv": 0.150389,
+      "tv_base": 0.212723
+     },
+     "0-9 PAYER": {
+      "tv": 0.171549,
+      "tv_base": 0.241835
+     },
+     "10-19 NONPAYER": {
+      "tv": 0.146503,
+      "tv_base": 0.198343
+     },
+     "10-19 PAYER": {
+      "tv": 0.180279,
+      "tv_base": 0.228255
+     },
+     "20-39 NONPAYER": {
+      "tv": 0.141232,
+      "tv_base": 0.177668
+     },
+     "20-39 PAYER": {
+      "tv": 0.175416,
+      "tv_base": 0.210195
+     },
+     "40-99 NONPAYER": {
+      "tv": 0.138112,
+      "tv_base": 0.162918
+     },
+     "40-99 PAYER": {
+      "tv": 0.156195,
+      "tv_base": 0.187837
+     },
+     "100+ NONPAYER": {
+      "tv": 0.150814,
+      "tv_base": 0.174993
+     },
+     "100+ PAYER": {
+      "tv": 0.138821,
+      "tv_base": 0.167631
+     }
+    },
+    "tv_within_noise": {
+     "le_1x_tv_ma7": 24,
+     "le_2x_tv_ma7": 119,
+     "n": 130,
+     "baseline_le_1x": 1,
+     "baseline_le_2x": 79
+    }
+   },
+   "ablations": {
+    "without_T1": {
+     "tv": 0.163264,
+     "tv_loss_vs_combined": 0.008333
+    },
+    "without_T2": {
+     "tv": 0.179132,
+     "tv_loss_vs_combined": 0.024201
+    },
+    "without_T3": {
+     "tv": 0.159051,
+     "tv_loss_vs_combined": 0.00412
+    },
+    "without_T4": {
+     "tv": null,
+     "note": "not in this combination"
+    },
+    "without_T5": {
+     "tv": null,
+     "note": "not in this combination"
+    }
+   },
+   "per_category_settle": {
+    "Bomb Challenge": {
+     "tv_if_this_category_settles_0": 0.154931,
+     "prefers": "+1"
+    },
+    "Chuck Challenge": {
+     "tv_if_this_category_settles_0": 0.154931,
+     "prefers": "+1"
+    },
+    "Red Challenge": {
+     "tv_if_this_category_settles_0": 0.155037,
+     "prefers": "+1"
+    },
+    "Level Race": {
+     "tv_if_this_category_settles_0": 0.154931,
+     "prefers": "+1"
+    },
+    "Flash Race": {
+     "tv_if_this_category_settles_0": 0.154931,
+     "prefers": "+1"
+    },
+    "Target Day": {
+     "tv_if_this_category_settles_0": 0.154931,
+     "prefers": "+1"
+    },
+    "Kite Festival": {
+     "tv_if_this_category_settles_0": 0.155311,
+     "prefers": "+1"
+    },
+    "Team Event": {
+     "tv_if_this_category_settles_0": 0.155817,
+     "prefers": "+1"
+    },
+    "Team Race": {
+     "tv_if_this_category_settles_0": 0.161646,
+     "prefers": "+1"
+    },
+    "Flock Flurry": {
+     "tv_if_this_category_settles_0": 0.155593,
+     "prefers": "+1"
+    }
+   },
+   "descent": {
+    "passes": 3,
+    "trace": [
+     "T1 -> 0.177889",
+     "T2 -> 0.159051",
+     "T3 Bomb Challenge -> 0.158113",
+     "T3 Chuck Challenge -> 0.157997",
+     "T3 Level Race -> 0.155583",
+     "T3 Target Day -> 0.154943",
+     "T3 Red Challenge -> 0.154931"
+    ]
+   },
+   "curvelen_variant_tv": 0.155332
+  }
+ },
+ "T6": {
+  "what_it_does": "the ACTUAL series shifted by k days (k=+1: actual moved one day LATER, i.e. a[d] <- a[d-1]; k=-1: earlier), sim untouched, window-truncated; TV against the baseline sim, the T1-only sim and the best-combination sim",
+  "tv_by_actual_shift": {
+   "baseline_sim": {
+    "0": 0.19624,
+    "1": 0.209504,
+    "-1": 0.196798
+   },
+   "t1_settle_plus1_sim": {
+    "0": 0.177889,
+    "1": 0.208519,
+    "-1": 0.212934
+   },
+   "combined_sim": {
+    "0": 0.154931,
+    "1": 0.173268,
+    "-1": 0.189991
+   }
+  },
+  "stage1_sim_lag_scan_for_reference": {
+   "0": 0.19624,
+   "1": 0.176979,
+   "2": 0.205419,
+   "3": 0.229361,
+   "-3": 0.246993,
+   "-2": 0.225445,
+   "-1": 0.209279
+  },
+  "day33_edge_diagnostic": {
+   "baseline": 0.19624,
+   "sim_day33_zeroed": 0.199149,
+   "actual_day33_zeroed": 0.21514,
+   "sim_shift_plus1_as_in_stage1": 0.176979,
+   "sim_day33_share_of_window_mean_over_pairs": 0.056552,
+   "actual_day33_share_of_window_mean_over_pairs": 0.030868
+  },
+  "actual_spikes_vs_instance_end_days": {
+   "Bomb Challenge": {
+    "instance_end_days": [
+     4,
+     13,
+     20,
+     27
+    ],
+    "pairs": 45,
+    "actual_over_mean": {
+     "end": 1.258374,
+     "end_plus_1": 1.053131,
+     "end_plus_2": 0.982926,
+     "start": null,
+     "other": 0.943918
+    },
+    "per_end_day": {
+     "4": {
+      "end": 0.924032,
+      "end_plus_1": 0.862358
+     },
+     "13": {
+      "end": 1.294579,
+      "end_plus_1": 0.959158
+     },
+     "20": {
+      "end": 1.391539,
+      "end_plus_1": 1.379147
+     },
+     "27": {
+      "end": 1.423344,
+      "end_plus_1": 1.011863
+     }
+    }
+   },
+   "Chuck Challenge": {
+    "instance_end_days": [
+     2,
+     9,
+     16,
+     23,
+     30
+    ],
+    "pairs": 42,
+    "actual_over_mean": {
+     "end": 0.932549,
+     "end_plus_1": 1.021319,
+     "end_plus_2": 0.96118,
+     "start": null,
+     "other": 1.023598
+    },
+    "per_end_day": {
+     "2": {
+      "end": 0.934784,
+      "end_plus_1": 0.985322
+     },
+     "9": {
+      "end": 0.826614,
+      "end_plus_1": 0.955876
+     },
+     "16": {
+      "end": 0.944143,
+      "end_plus_1": 1.010404
+     },
+     "23": {
+      "end": 0.933005,
+      "end_plus_1": 1.05334
+     },
+     "30": {
+      "end": 1.0242,
+      "end_plus_1": 1.101652
+     }
+    }
+   },
+   "Red Challenge": {
+    "instance_end_days": [
+     5,
+     14,
+     21,
+     28
+    ],
+    "pairs": 45,
+    "actual_over_mean": {
+     "end": 1.059954,
+     "end_plus_1": 0.984105,
+     "end_plus_2": 0.977676,
+     "start": null,
+     "other": 0.99586
+    },
+    "per_end_day": {
+     "5": {
+      "end": 0.863903,
+      "end_plus_1": 1.343238
+     },
+     "14": {
+      "end": 0.960545,
+      "end_plus_1": 0.77977
+     },
+     "21": {
+      "end": 1.406843,
+      "end_plus_1": 0.993935
+     },
+     "28": {
+      "end": 1.008526,
+      "end_plus_1": 0.819476
+     }
+    }
+   },
+   "Level Race": {
+    "instance_end_days": [
+     4,
+     13,
+     20,
+     27
+    ],
+    "pairs": 90,
+    "actual_over_mean": {
+     "end": 1.130921,
+     "end_plus_1": 1.024285,
+     "end_plus_2": 0.955947,
+     "start": null,
+     "other": 0.978828
+    },
+    "per_end_day": {
+     "4": {
+      "end": 0.926158,
+      "end_plus_1": 0.883195
+     },
+     "13": {
+      "end": 1.140132,
+      "end_plus_1": 0.879085
+     },
+     "20": {
+      "end": 1.203242,
+      "end_plus_1": 1.399733
+     },
+     "27": {
+      "end": 1.254153,
+      "end_plus_1": 0.935127
+     }
+    }
+   },
+   "Flash Race": {
+    "instance_end_days": [
+     1,
+     3,
+     5,
+     8,
+     10,
+     12,
+     15,
+     17,
+     19,
+     22,
+     24,
+     26,
+     29,
+     31,
+     33
+    ],
+    "pairs": 7,
+    "actual_over_mean": {
+     "end": 1.013444,
+     "end_plus_1": 0.891961,
+     "end_plus_2": 1.327723,
+     "start": null,
+     "other": null
+    },
+    "per_end_day": {
+     "1": {
+      "end": 0.757364,
+      "end_plus_1": 0.918994
+     },
+     "3": {
+      "end": 1.007385,
+      "end_plus_1": 0.849989
+     },
+     "5": {
+      "end": 0.83118,
+      "end_plus_1": 1.036583
+     },
+     "8": {
+      "end": 0.988295,
+      "end_plus_1": 0.800738
+     },
+     "10": {
+      "end": 1.336909,
+      "end_plus_1": 0.765938
+     },
+     "12": {
+      "end": 0.727079,
+      "end_plus_1": 0.903454
+     },
+     "15": {
+      "end": 0.885281,
+      "end_plus_1": 0.949462
+     },
+     "17": {
+      "end": 1.153027,
+      "end_plus_1": 0.788449
+     },
+     "19": {
+      "end": 0.742925,
+      "end_plus_1": 0.899513
+     },
+     "22": {
+      "end": 1.770865,
+      "end_plus_1": 1.211733
+     },
+     "24": {
+      "end": 1.65861,
+      "end_plus_1": 0.994067
+     },
+     "26": {
+      "end": 0.876984,
+      "end_plus_1": 0.762136
+     },
+     "29": {
+      "end": 0.701616,
+      "end_plus_1": 0.816592
+     },
+     "31": {
+      "end": 0.985563,
+      "end_plus_1": 0.789802
+     },
+     "33": {
+      "end": 0.778576,
+      "end_plus_1": null
+     }
+    }
+   },
+   "Target Day": {
+    "instance_end_days": [
+     16,
+     30,
+     2
+    ],
+    "pairs": 87,
+    "actual_over_mean": {
+     "end": 0.990623,
+     "end_plus_1": 1.160381,
+     "end_plus_2": 0.96683,
+     "start": 1.042297,
+     "other": 0.977124
+    },
+    "per_end_day": {
+     "2": {
+      "end": 0.965626,
+      "end_plus_1": 1.097744
+     },
+     "16": {
+      "end": 0.959564,
+      "end_plus_1": 1.136583
+     },
+     "30": {
+      "end": 1.04668,
+      "end_plus_1": 1.246815
+     }
+    }
+   },
+   "Kite Festival": {
+    "instance_end_days": [
+     9,
+     23,
+     33
+    ],
+    "pairs": 90,
+    "actual_over_mean": {
+     "end": 0.88327,
+     "end_plus_1": 1.175037,
+     "end_plus_2": 0.961027,
+     "start": 1.163709,
+     "other": 0.982041
+    },
+    "per_end_day": {
+     "9": {
+      "end": 0.761468,
+      "end_plus_1": 1.119971
+     },
+     "23": {
+      "end": 0.905109,
+      "end_plus_1": 1.230102
+     },
+     "33": {
+      "end": 0.983232,
+      "end_plus_1": null
+     }
+    }
+   },
+   "Team Event": {
+    "instance_end_days": [
+     16,
+     23,
+     9,
+     30,
+     2
+    ],
+    "pairs": 56,
+    "actual_over_mean": {
+     "end": 0.945845,
+     "end_plus_1": 1.063103,
+     "end_plus_2": 0.944529,
+     "start": 1.167419,
+     "other": 0.953501
+    },
+    "per_end_day": {
+     "2": {
+      "end": 0.95719,
+      "end_plus_1": 0.990932
+     },
+     "9": {
+      "end": 0.801209,
+      "end_plus_1": 1.018172
+     },
+     "16": {
+      "end": 0.967711,
+      "end_plus_1": 1.039998
+     },
+     "23": {
+      "end": 0.986775,
+      "end_plus_1": 1.173685
+     },
+     "30": {
+      "end": 1.016339,
+      "end_plus_1": 1.092729
+     }
+    }
+   },
+   "Team Race": {
+    "instance_end_days": [
+     5,
+     12,
+     19,
+     26,
+     33
+    ],
+    "pairs": 94,
+    "actual_over_mean": {
+     "end": 0.89521,
+     "end_plus_1": 1.195032,
+     "end_plus_2": 1.069987,
+     "start": 1.15739,
+     "other": 0.911795
+    },
+    "per_end_day": {
+     "5": {
+      "end": 0.882927,
+      "end_plus_1": 1.192687
+     },
+     "12": {
+      "end": 0.830951,
+      "end_plus_1": 1.147577
+     },
+     "19": {
+      "end": 0.861003,
+      "end_plus_1": 1.212003
+     },
+     "26": {
+      "end": 0.935434,
+      "end_plus_1": 1.227863
+     },
+     "33": {
+      "end": 0.965736,
+      "end_plus_1": null
+     }
+    }
+   },
+   "Flock Flurry": {
+    "instance_end_days": [
+     2,
+     4,
+     6,
+     7,
+     9,
+     11,
+     13,
+     14,
+     16,
+     18,
+     20,
+     21,
+     23,
+     25,
+     27,
+     28,
+     30,
+     32
+    ],
+    "pairs": 60,
+    "actual_over_mean": {
+     "end": 0.983869,
+     "end_plus_1": 1.036391,
+     "end_plus_2": null,
+     "start": null,
+     "other": 0.780884
+    },
+    "per_end_day": {
+     "2": {
+      "end": 0.966526,
+      "end_plus_1": 1.163958
+     },
+     "4": {
+      "end": 0.918818,
+      "end_plus_1": 0.89915
+     },
+     "6": {
+      "end": 1.044109,
+      "end_plus_1": 0.854954
+     },
+     "7": {
+      "end": 0.854954,
+      "end_plus_1": 0.807795
+     },
+     "9": {
+      "end": 0.725409,
+      "end_plus_1": 1.227434
+     },
+     "11": {
+      "end": 0.908199,
+      "end_plus_1": 0.879739
+     },
+     "13": {
+      "end": 1.022146,
+      "end_plus_1": 0.823824
+     },
+     "14": {
+      "end": 0.823824,
+      "end_plus_1": 0.798431
+     },
+     "16": {
+      "end": 0.966742,
+      "end_plus_1": 1.221383
+     },
+     "18": {
+      "end": 0.940365,
+      "end_plus_1": 0.88502
+     },
+     "20": {
+      "end": 1.074033,
+      "end_plus_1": 1.394916
+     },
+     "21": {
+      "end": 1.394916,
+      "end_plus_1": 1.054873
+     },
+     "23": {
+      "end": 0.888695,
+      "end_plus_1": 1.349061
+     },
+     "25": {
+      "end": 1.037591,
+      "end_plus_1": 0.986622
+     },
+     "27": {
+      "end": 1.137832,
+      "end_plus_1": 0.88685
+     },
+     "28": {
+      "end": 0.88685,
+      "end_plus_1": 0.866695
+     },
+     "30": {
+      "end": 1.077734,
+      "end_plus_1": 1.363197
+     },
+     "32": {
+      "end": 1.040904,
+      "end_plus_1": 1.006111
+     }
+    }
+   }
+  },
+  "weekday_weekend_rates_note": "data_seg_beh weekday vs weekend rates in this dump differ by < 0.03, so always-on sources carry almost no day-of-week signal; the day-axis test rests on the event lumps"
+ },
+ "samples_new": [
+  {
+   "cell": "20-39 NONPAYER",
+   "resource": "Chuck",
+   "day": 4,
+   "weekend": true,
+   "actual": 0.6383,
+   "sim_new": 0.320897,
+   "delta": -0.317403,
+   "delta_pct": -49.726356,
+   "sim_old": 0.366569,
+   "delta_old": -0.271731,
+   "delta_old_pct": -42.571029,
+   "actual_ma7": 0.6862,
+   "window": {
+    "tv_old": 0.121098,
+    "tv_new": 0.109828,
+    "tv_noise_ma7": 0.0826,
+    "mape_shape_old": 0.235764,
+    "mape_shape_new": 0.219086,
+    "level_ratio": 0.50935
+   },
+   "composition_new": [
+    {
+     "category": "Saga",
+     "value": 0.148253,
+     "was": 0.148253
+    },
+    {
+     "category": "Season Pass (Free)",
+     "value": 0.040704,
+     "was": 0.039107
+    },
+    {
+     "category": "Jigsaw",
+     "value": 0.029853,
+     "was": 0
+    },
+    {
+     "category": "Other",
+     "value": 0.029329,
+     "was": 0.032652
+    },
+    {
+     "category": "Hatchling Hideaway",
+     "value": 0.020063,
+     "was": 0.046389
+    },
+    {
+     "category": "Daily Night Sky Prize",
+     "value": 0.017707,
+     "was": 0.019509
+    },
+    {
+     "category": "Level Race",
+     "value": 0.011241,
+     "was": 0.028263
+    },
+    {
+     "category": "Flock Flurry",
+     "value": 0.010084,
+     "was": 0.038298
+    },
+    {
+     "category": "Core",
+     "value": 0.009756,
+     "was": 0.009756
+    },
+    {
+     "category": "River Rush",
+     "value": 0.003895,
+     "was": 0.004336
+    },
+    {
+     "category": "FlowerCoop",
+     "value": 0.000005,
+     "was": 0.000006
+    },
+    {
+     "category": "Target Day",
+     "value": 0.000004,
+     "was": 0
+    },
+    {
+     "category": "Chuck Challenge",
+     "value": 0.000003,
+     "was": 0
+    }
+   ]
+  },
+  {
+   "cell": "40-99 PAYER",
+   "resource": "HC",
+   "day": 12,
+   "weekend": true,
+   "actual": 147.6713,
+   "sim_new": 51.011389,
+   "delta": -96.659911,
+   "delta_pct": -65.456125,
+   "sim_old": 55.548638,
+   "delta_old": -92.122662,
+   "delta_old_pct": -62.383593,
+   "actual_ma7": 158.667929,
+   "window": {
+    "tv_old": 0.120625,
+    "tv_new": 0.067445,
+    "tv_noise_ma7": 0.0424,
+    "mape_shape_old": 0.244599,
+    "mape_shape_new": 0.135577,
+    "level_ratio": 0.332962
+   },
+   "composition_new": [
+    {
+     "category": "Saga",
+     "value": 10.872195,
+     "was": 10.872195
+    },
+    {
+     "category": "Season Pass (Paid)",
+     "value": 7.398024,
+     "was": 6.096751
+    },
+    {
+     "category": "Daily Night Sky Prize",
+     "value": 5.058432,
+     "was": 4.809417
+    },
+    {
+     "category": "Core",
+     "value": 4.588879,
+     "was": 4.588879
+    },
+    {
+     "category": "Other",
+     "value": 3.302202,
+     "was": 3.140094
+    },
+    {
+     "category": "Season Pass (Free)",
+     "value": 3.032781,
+     "was": 2.49933
+    },
+    {
+     "category": "Daily Gift",
+     "value": 2.698997,
+     "was": 2.698997
+    },
+    {
+     "category": "Hatchling Hideaway",
+     "value": 2.555765,
+     "was": 4.267095
+    },
+    {
+     "category": "Kite Festival",
+     "value": 2.401823,
+     "was": 0
+    },
+    {
+     "category": "Target Day",
+     "value": 2.292365,
+     "was": 0
+    },
+    {
+     "category": "River Rush",
+     "value": 1.93739,
+     "was": 1.842282
+    },
+    {
+     "category": "Team Event",
+     "value": 1.707553,
+     "was": 0
+    },
+    {
+     "category": "Photoshoot",
+     "value": 1.126273,
+     "was": 0
+    },
+    {
+     "category": "Ads",
+     "value": 0.798897,
+     "was": 0.759679
+    },
+    {
+     "category": "Team Race",
+     "value": 0.435362,
+     "was": 13.97392
+    },
+    {
+     "category": "Red Challenge",
+     "value": 0.239627,
+     "was": 0
+    },
+    {
+     "category": "Chuck Challenge",
+     "value": 0.220905,
+     "was": 0
+    },
+    {
+     "category": "Level Race",
+     "value": 0.208873,
+     "was": 0
+    },
+    {
+     "category": "Bomb Challenge",
+     "value": 0.103224,
+     "was": 0
+    },
+    {
+     "category": "Jigsaw",
+     "value": 0.031821,
+     "was": 0
+    }
+   ]
+  },
+  {
+   "cell": "0-9 NONPAYER",
+   "resource": "SPT",
+   "day": 20,
+   "weekend": false,
+   "actual": 1.9901,
+   "sim_new": 28.232618,
+   "delta": 26.242518,
+   "delta_pct": 1318.653244,
+   "sim_old": 31.63309,
+   "delta_old": 29.64299,
+   "delta_old_pct": 1489.522636,
+   "actual_ma7": 3.624914,
+   "window": {
+    "tv_old": 0.206087,
+    "tv_new": 0.204274,
+    "tv_noise_ma7": 0.188898,
+    "mape_shape_old": 0.46646,
+    "mape_shape_new": 0.457444,
+    "level_ratio": 6.446813
+   },
+   "composition_new": [
+    {
+     "category": "Core",
+     "value": 24.029272,
+     "was": 24.029272
+    },
+    {
+     "category": "Level Race",
+     "value": 2.006065,
+     "was": 5.44291
+    },
+    {
+     "category": "Other",
+     "value": 1.968704,
+     "was": 1.809942
+    },
+    {
+     "category": "Flock Flurry",
+     "value": 0.126415,
+     "was": 0.280848
+    },
+    {
+     "category": "Season Pass (Free)",
+     "value": 0.075374,
+     "was": 0.060697
+    },
+    {
+     "category": "Kite Festival",
+     "value": 0.016384,
+     "was": 0
+    },
+    {
+     "category": "River Rush",
+     "value": 0.010248,
+     "was": 0.009421
+    },
+    {
+     "category": "Team Race",
+     "value": 0.000074,
+     "was": 0
+    },
+    {
+     "category": "Team Event",
+     "value": 0.00004,
+     "was": 0
+    },
+    {
+     "category": "Flash Race",
+     "value": 0.000036,
+     "was": 0
+    },
+    {
+     "category": "Target Day",
+     "value": 0.000008,
+     "was": 0
+    }
+   ]
+  },
+  {
+   "cell": "100+ PAYER",
+   "resource": "Red",
+   "day": 27,
+   "weekend": false,
+   "actual": 1.6866,
+   "sim_new": 0.873462,
+   "delta": -0.813138,
+   "delta_pct": -48.211696,
+   "sim_old": 0.813342,
+   "delta_old": -0.873258,
+   "delta_old_pct": -51.776216,
+   "actual_ma7": 1.587414,
+   "window": {
+    "tv_old": 0.100146,
+    "tv_new": 0.076265,
+    "tv_noise_ma7": 0.048645,
+    "mape_shape_old": 0.208998,
+    "mape_shape_new": 0.15785,
+    "level_ratio": 0.676313
+   },
+   "composition_new": [
+    {
+     "category": "Saga",
+     "value": 0.455222,
+     "was": 0.455222
+    },
+    {
+     "category": "Season Pass (Paid)",
+     "value": 0.108366,
+     "was": 0.0861
+    },
+    {
+     "category": "Season Pass (Free)",
+     "value": 0.097015,
+     "was": 0.077081
+    },
+    {
+     "category": "Other",
+     "value": 0.049103,
+     "was": 0.046779
+    },
+    {
+     "category": "Daily Night Sky Prize",
+     "value": 0.038928,
+     "was": 0.035918
+    },
+    {
+     "category": "Core",
+     "value": 0.035977,
+     "was": 0.035977
+    },
+    {
+     "category": "Hatchling Hideaway",
+     "value": 0.032193,
+     "was": 0
+    },
+    {
+     "category": "Flock Flurry",
+     "value": 0.027562,
+     "was": 0.055505
+    },
+    {
+     "category": "River Rush",
+     "value": 0.01529,
+     "was": 0.014567
+    },
+    {
+     "category": "Bomb's Ballet",
+     "value": 0.008636,
+     "was": 0
+    },
+    {
+     "category": "Level Race",
+     "value": 0.001795,
+     "was": 0.00608
+    },
+    {
+     "category": "Team Race",
+     "value": 0.001715,
+     "was": 0
+    },
+    {
+     "category": "Jigsaw",
+     "value": 0.000973,
+     "was": 0
+    },
+    {
+     "category": "Kite Festival",
+     "value": 0.000382,
+     "was": 0
+    },
+    {
+     "category": "Photoshoot",
+     "value": 0.000181,
+     "was": 0
+    },
+    {
+     "category": "Ads",
+     "value": 0.00007,
+     "was": 0.000067
+    },
+    {
+     "category": "Target Day",
+     "value": 0.000038,
+     "was": 0
+    },
+    {
+     "category": "Bomb Challenge",
+     "value": 0.000015,
+     "was": 0.000049
+    }
+   ]
+  }
+ ],
+ "ranking": [
+  "1. T2 COLLECT all (best mult 1): TV 0.162467 (17.210049% better than baseline 0.19624)",
+  "2. T1 SETTLE+1: TV 0.177889 (9.351305% better than baseline 0.19624)",
+  "3. T2b COLLECT lumps only (best mult 1): TV 0.178443 (9.068997% better than baseline 0.19624)",
+  "4. T3 LEADERBOARD CURVES (best s alone): TV 0.193593 (1.348859% better than baseline 0.19624)",
+  "5. T5 FLAT->p_day: TV 0.196259 (-0.009682% better than baseline 0.19624)",
+  "6. T4 SEASON PASS (sptproxy_spread_actualspt): TV 0.258653 (-31.804423% better than baseline 0.19624)"
+ ],
+ "ablation_ranking": [
+  "without_T2: TV without it 0.179132 (+0.024201 vs best combination 0.154931)",
+  "without_T1: TV without it 0.163264 (+0.008333 vs best combination 0.154931)",
+  "without_T3: TV without it 0.159051 (+0.00412 vs best combination 0.154931)"
+ ]
+}
