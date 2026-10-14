@@ -291,6 +291,28 @@ function resultRow_(cat, seg, payer, ctx){
 // re-pull delivers real Core SPT rows, the raw value takes back over (no double count).
 // A. 0 stays raw (appendix — no behaviour telemetry, §3).
 function measuredRow_(cat, seg, payer, ds){
+  var row = measuredRowCore_(cat, seg, payer, ds);
+  if (_baseSide || seg === 'A. 0' || seg === 'A.0') return row;
+  // D61: the bottom-up columns of the MEASURED side (see PACK_ANCHORED). Only where the export is
+  // silent on every one of them - a pull that one day carries real pack rows takes over by itself.
+  if (!PACK_ANCHORED || cat === 'Rainbow Maker' || cat === TOF_CAT || bottomUpHasData_(row)) return row;
+  var pk = (cat === 'Season Pass (Free)') ? spFreePacksSynth_(seg, payer, ds) : packAnchorRow_(cat, seg, payer);
+  return pk ? overlayPacks_(copyRow_(row), pk) : row;
+}
+
+// The MEASURED side of Season Pass (Free)'s bottom-up columns: the base track's packs up to the
+// tier the measured SPT reached - the free-track twin of spPaidSynth_, same tier machinery.
+function spFreePacksSynth_(seg, payer, ds){
+  var sp = spPaidTracks_();
+  if (!sp) return null;
+  var Tm = spTier_(measuredSptTotal_(seg, payer, ds) * sp.daysBase / 33, sp.base.cum);
+  if (!(Tm > 0)) return null;
+  var cb = spCumTo_(sp.base, Tm, 'NONPAYER'), out = {};
+  BOTTOMUP_RES.forEach(function(r){ out[r] = num(cb[r]); });
+  return out;
+}
+
+function measuredRowCore_(cat, seg, payer, ds){
   var row = ds.dataRow(cat, seg, payer);
   // Season Pass (Paid): SYNTHETIC anchor, same pattern as the D18 Core SPT one. data_gains has no
   // '(Paid)' category, so without this the measured side is 0 and the DIFF becomes the whole paid
@@ -465,7 +487,7 @@ function simDailyGift(seg, payer, ctx){
 function dailyGiftBottomUp_(seg, payer, ctx){
   var out = {};
   BOTTOMUP_RES.forEach(function(r){ out[r] = 0; });
-  var v = sheetVals_('c_day_v2');
+  var v = sheetVals_(_baseSide ? 'c_day' : 'c_day_v2');          // D61: base sheet on the anchor side
   if (!v.length) return out;
   var beh = ctx.ds.beh(seg, payer);
   var S = survival_([[num(beh.login_streak_p50),.5],[num(beh.login_streak_p75),.75],
@@ -589,7 +611,8 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   RESOURCES.forEach(function(r){
     out[r] = num(meas[r]) * ((R[r] != null) ? R[r] : 1) * D * T;
   });
-  return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx, E && E.eV2, E && E.inst, cat));
+  // D61: on the anchor side the pack E is the BASE ladder's; calNew is cal_curr there already.
+  return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx, E && (_baseSide ? E.eBase : E.eV2), E && E.inst, cat));
 }
 
 // ============================== PACK LANE (D19 — bottom-up, simulated side only) ==============
@@ -636,7 +659,8 @@ var PACK_PARTICIPATION = { 'Kite Festival': 0.35 };   // redesign assumption (me
 
 function packParticipation_(cat, inst){
   var spec = LB_R_SPECS[cat] || COLL_R_SPECS[cat] || PACK_ONLY_SPECS[cat];
-  var sheet = spec && (spec.v2 || spec.sheet);
+  // D61: the authored 'Participation' label is read off the BASE sheet on the anchor side.
+  var sheet = spec && (_baseSide ? (spec.base || spec.sheet) : (spec.v2 || spec.sheet));
   if (sheet){
     var raw = readSPLabel_(sheet, 'Participation');     // generic label scan, any sheet
     var x = parseFloat(raw);
@@ -1034,6 +1058,69 @@ function overlayPacks_(row, packs){
   if (!packs) return row;
   BOTTOMUP_RES.forEach(function(r){ row[r] = num(packs[r]); });
   return row;
+}
+
+// ============================== THE ANCHOR SIDE OF WHAT THE EXPORT CANNOT SEE (D61, 2026-10-14) ==
+// data_gains has no pack rows, no ToF_Ticket rows and no ToF category, so the measured side of
+// every one of those read 0 by construction and the DIFF showed them as additions - even on a
+// workbook whose two calendars and every config are IDENTICAL, where the user rightly expects a
+// DIFF of exactly nothing. The D29 answer for Rainbow Maker is generalised here (user decision,
+// 2026-10-14): SYNTHESISE the measured side by running the source's own simulator over cal_curr
+// with the BASE config, and keep only the bottom-up columns of what comes back.
+//
+//   measured[packs, ticket] = the source's sim, with calNew := calCur and every pack E read off
+//                             the BASE ladder (eBase, c_day, Ki rather than Ki_v2 ...)
+//   simulated               = unchanged: the same sim over cal_new on the _v2 config
+//
+// So identical calendars + identical ladders give DIFF 0 on every pack column, and an edit moves
+// exactly what it edits. `_baseSide` is the switch the pack-pricing call sites consult (timedCore_,
+// Night Sky, Daily Gift, packParticipation_); the anchor run clones ctx with calNew := calCur.
+// Recursion is cut at measuredRow_: while an anchor run is in flight every measured row is the
+// plain export, which is what the inner sim needs anyway.
+// PACK_ANCHORED = false restores the pre-D61 measured side (0 packs) bit for bit; the simulated
+// side is untouched either way (gated).
+var PACK_ANCHORED = true;
+var _baseSide = false;
+var _packAnchorCache = {};
+// Sources anchored their own way (RM: D29/D61 merge; ToF: tofSynth_; Season Pass: the track up to
+// the measured tier) or that pay no pack at all.
+var PACK_ANCHOR_SKIP = { 'Rainbow Maker':1, 'ToF':1, 'Season Pass (Free)':1, 'Season Pass (Paid)':1,
+                         'Core':1, 'Saga':1, 'River Rush':1, 'Col - Sets':1, 'Col - Albums':1 };
+
+/** ctx with cal_curr on BOTH calendar slots, its own SPT memo, flagged as the anchor side. */
+function baseCtx_(ctx){
+  var c = {};
+  for (var k in ctx) c[k] = ctx[k];
+  c.calNew = ctx.calCur; c.calNewOk = ctx.calCurOk;
+  c._spt = {}; c._sptBusy = false; c._baseSide = true;
+  return c;
+}
+function bottomUpHasData_(row){
+  for (var i = 0; i < BOTTOMUP_RES.length; i++) if (num(row[BOTTOMUP_RES[i]]) > 0) return true;
+  return false;
+}
+function anyAmount_(row){
+  for (var i = 0; i < RESOURCES.length; i++) if (num(row[RESOURCES[i]]) !== 0) return true;
+  return false;
+}
+/** The bottom-up columns of `cat` on the anchor side, or null when it cannot be priced. */
+function packAnchorRow_(cat, seg, payer){
+  if (!PACK_ANCHORED || _baseSide || PACK_ANCHOR_SKIP[cat]) return null;
+  var key = cat + '|' + seg + '|' + payer;
+  if (_packAnchorCache[key] !== undefined) return _packAnchorCache[key];
+  var fn = SOURCES[cat], pack = PACK_ONLY_SPECS[cat];
+  if (!fn && !pack) return (_packAnchorCache[key] = null);
+  var ctx;
+  try { ctx = Context.get(); } catch (e){ return null; }
+  if (!ctx || !ctx.calCurOk) return (_packAnchorCache[key] = null);
+  var bctx = baseCtx_(ctx), row = null;
+  _baseSide = true;
+  try { row = pack ? packOnlyRow_(cat, seg, payer, bctx) : fn(seg, payer, bctx, cat); }
+  finally { _baseSide = false; }
+  if (!row) return (_packAnchorCache[key] = null);
+  var out = {};
+  BOTTOMUP_RES.forEach(function(r){ out[r] = num(row[r]); });
+  return (_packAnchorCache[key] = out);
 }
 function copyRow_(row){ var o = {}; RESOURCES.forEach(function(r){ o[r] = num(row[r]); }); return o; }
 
@@ -2393,7 +2480,7 @@ function simNightSky(seg, payer, ctx){
   }
   // Packs (D19) never have an anchor, so the base-0 addition above would price them without the
   // participation term every other source carries. Overlay the standard pack lane instead (D22).
-  return overlayPacks_(out, packLane_('Night Sky', seg, payer, ctx, E.eV2,
+  return overlayPacks_(out, packLane_('Night Sky', seg, payer, ctx, (_baseSide ? E.eBase : E.eV2),
                                       ds.eventInst('Night Sky', seg, payer),
                                       'Daily Night Sky Prize'));
 }
