@@ -103,6 +103,7 @@ function fmtNum(x){ return (Math.round(x * 100) / 100).toFixed(2); }
 function rebuildCtx_(){
   _sheetValsCache = {};
   _measSptCache = {};
+  if (typeof resetModuleCaches_ === 'function') resetModuleCaches_();   // D62: every module memo
   Context = (function(){ let c = null; return { get: function(){
     if (c) return c;
     const cur = sanitizeCal_(parseCalendarInstances_(CAL_CUR));
@@ -1626,6 +1627,101 @@ console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
   eval(engineSrc); rebuildCtx_(); resetSheetCache();
   gate('D61 fixture restored (Kite canary diff is non-zero again)',
     Math.abs(ECOGAINS_DIFF('NONPAYER', '0-9')[CATEGORY_ORDER.indexOf('Kite Festival')][0]) > 1e-9);
+}
+
+
+// ---------------------------------------------------------------- D62. ORDER INDEPENDENCE
+// The ToF <-> Season Pass cycle must price the same whichever row a fresh execution asks for first.
+// Before D62 the in-flight totals were cached under the full key, so Core-before-ToF and Season-
+// Pass-before-ToF sat one tier apart at 20-39 PAYER (paid HC 145 vs 200) - and the D26 cutoff gate
+// read that as a drift. Rule gates: (1) four evaluation orders x three cells give bit-identical
+// rows and totals; (2) the inner (noToF) totals differ from the full ones by exactly the ToF row,
+// on both sides, without touching the full key; (3) a reset leaves no memo behind.
+{
+  const cold = () => { rebuildCtx_(); resetSheetCache(); return Context.get(); };
+  const CATS = ['Season Pass (Paid)', 'Season Pass (Free)', 'ToF', 'Core', 'Rainbow Maker'];
+  const ORDERS = {
+    'SP first': CATS.slice(),
+    'ToF first': ['ToF'].concat(CATS.filter(c => c !== 'ToF')),
+    'Core first': ['Core'].concat(CATS.filter(c => c !== 'Core')),
+    'CATEGORY_ORDER': CATEGORY_ORDER.slice()
+  };
+  let worst = 0, worstAt = '';
+  [['20-39', 'PAYER'], ['100+', 'PAYER'], ['0-9', 'NONPAYER']].forEach(([seg, payer]) => {
+    const got = {};
+    Object.keys(ORDERS).forEach(name => {
+      const ctx = cold(), rows = {};
+      ORDERS[name].forEach(cat => { rows[cat] = resultRow_(cat, seg, payer, ctx); });
+      CATS.forEach(cat => { if (!rows[cat]) rows[cat] = resultRow_(cat, seg, payer, ctx); });
+      const t = sptTotals_(seg, payer, ctx);
+      got[name] = { rows, meas: measuredSptTotal_(seg, payer, ctx.ds), tMeas: t.meas, tSim: t.sim,
+                    mrows: CATS.map(cat => measuredRow_(cat, seg, payer, ctx.ds)) };
+    });
+    const ref = got['SP first'];
+    Object.keys(got).forEach(name => {
+      const g = got[name];
+      [['measuredSptTotal_', g.meas - ref.meas], ['sptTotals_.meas', g.tMeas - ref.tMeas], ['sptTotals_.sim', g.tSim - ref.tSim]]
+        .forEach(([what, d]) => { if (Math.abs(d) > worst) { worst = Math.abs(d); worstAt = seg + ' ' + payer + ' ' + name + ' ' + what; } });
+      CATS.forEach((cat, k) => RESOURCES.forEach(r => {
+        const d1 = Math.abs(num(g.rows[cat][r]) - num(ref.rows[cat][r]));
+        const d2 = Math.abs(num(g.mrows[k][r]) - num(ref.mrows[k][r]));
+        if (d1 > worst) { worst = d1; worstAt = seg + ' ' + payer + ' ' + name + ' sim ' + cat + ' ' + r; }
+        if (d2 > worst) { worst = d2; worstAt = seg + ' ' + payer + ' ' + name + ' measured ' + cat + ' ' + r; }
+      }));
+    });
+  });
+  gate('D62: ToF / Season Pass / Core / RM rows and both SPT totals are identical whichever row a fresh execution asks for first',
+    worst < 1e-9, worst < 1e-9 ? 'bit-identical over 4 orders x 3 cells' : 'max drift ' + worst.toFixed(4) + ' at ' + worstAt);
+  // (2) is a MUTATION fixture: the ECO dump has no ToF sheet and no ToF export rows, so the ToF
+  // row pays 0 SPT there and the exclusion would pass vacuously. Inject a measured ToF SPT row into
+  // data_gains (the export wins over the synth, and with no ToF sheet the simulated row carries it)
+  // so both sides have a ToF row to leave out; restore afterwards.
+  {
+    const seg = '20-39', payer = 'PAYER';
+    const orig = JSON.parse(JSON.stringify(data['data_gains']));
+    const hdr = data['data_gains'].values[0], col = (n) => hdr.indexOf(n);
+    const inj = new Array(hdr.length).fill('');
+    inj[col('engagement_segment')] = SEG_TO_GAINS[seg]; inj[col('payer_flag')] = payer;
+    inj[col('resource')] = 'SPT'; inj[col('category')] = TOF_CAT; inj[col('amount_per_earner')] = 77;
+    data['data_gains'].values.push(inj);
+    eval(engineSrc); const ctx = cold();
+    const full = sptTotals_(seg, payer, ctx), fullM = measuredSptTotal_(seg, payer, ctx.ds);
+    let inner, innerM;
+    _tofInFlight = true;
+    try { inner = sptTotals_(seg, payer, ctx); innerM = measuredSptTotal_(seg, payer, ctx.ds); } finally { _tofInFlight = false; }
+    const tof = resultRow_('ToF', seg, payer, ctx), mtof = measuredRow_('ToF', seg, payer, ctx.ds);
+    const okSim = Math.abs((full.sim - inner.sim) - sptScore_(tof)) < 1e-9;
+    const okMeas = Math.abs((full.meas - inner.meas) - sptScore_(mtof)) < 1e-9 && Math.abs((fullM - innerM) - sptScore_(mtof)) < 1e-9;
+    const untouched = Math.abs(sptTotals_(seg, payer, ctx).sim - full.sim) < 1e-9 && Math.abs(measuredSptTotal_(seg, payer, ctx.ds) - fullM) < 1e-9;
+    gate('D62: the inner (noToF) totals differ from the full ones by exactly the ToF row on both sides, and the full key is untouched by an inner read (injected ToF SPT row)',
+      okSim && okMeas && untouched && sptScore_(mtof) >= 77 - 1e-9,
+      'full ' + full.sim.toFixed(1) + ' inner ' + inner.sim.toFixed(1) + ' ToF SPT sim ' + sptScore_(tof).toFixed(1) + ' meas ' + sptScore_(mtof).toFixed(1) + ' | measured total ' + fullM.toFixed(1) + ' / ' + innerM.toFixed(1));
+    data['data_gains'] = orig;
+    eval(engineSrc); cold();
+  }
+  {
+    cold(); resultRow_('ToF', '20-39', 'PAYER', Context.get()); resultRow_('Season Pass (Paid)', '20-39', 'PAYER', Context.get());
+    const count = () => Object.keys(_tofSynthCache).length + Object.keys(_tofIncomeCache).length + Object.keys(_measSptCache).length + Object.keys(_packAnchorCache).length + Object.keys(_sheetValsCache).length;
+    const before = count(); resetModuleCaches_(); const after = count();
+    gate('D62: resetModuleCaches_ (what Context.reset runs) leaves no memo behind', before > 0 && after === 0, before + ' -> ' + after);
+  }
+  // (4) the measured tier total IS the sum of the measured rows, whichever row warmed it. Before
+  // D62b the total was memoised from inside the Core row's buff-minutes walk, where Core's SPT
+  // reads 0 minutes, and the measured Season Pass tier was priced 105 short at 20-39 PAYER.
+  {
+    let worst = 0, at = '';
+    [['Core', 'Season Pass (Paid)'], ['Season Pass (Paid)', 'Core'], ['Rainbow Maker', 'ToF', 'Season Pass (Free)']].forEach(order => {
+      const ctx = cold(), seg = '20-39', payer = 'PAYER';
+      order.forEach(cat => resultRow_(cat, seg, payer, ctx));
+      const total = measuredSptTotal_(seg, payer, ctx.ds);
+      let sum = 0;
+      CATEGORY_ORDER.forEach(cat => { if (cat !== 'Season Pass (Paid)') sum += sptScore_(measuredRow_(cat, seg, payer, ctx.ds)); });
+      const d = Math.abs(total - sum);
+      if (d > worst) { worst = d; at = order.join(' > ') + ': total ' + total.toFixed(1) + ' vs rows ' + sum.toFixed(1); }
+    });
+    gate('D62b: the memoised measured SPT total equals the sum of the measured rows whichever row warmed it (no short total from inside the buff-minutes walk)', worst < 1e-9, worst < 1e-9 ? 'identical over 3 orders' : at);
+  }
+  cold();
 }
 
 process.exit(failures ? 1 : 0);

@@ -1096,7 +1096,7 @@ function baseCtx_(ctx){
   var c = {};
   for (var k in ctx) c[k] = ctx[k];
   c.calNew = ctx.calCur; c.calNewOk = ctx.calCurOk;
-  c._spt = {}; c._sptBusy = false; c._baseSide = true;
+  c._spt = {}; c._sptBusyKeys = {}; c._x2min = {}; c._baseSide = true;   // fresh bags: never shared with the live side
   return c;
 }
 function bottomUpHasData_(row){
@@ -1757,6 +1757,33 @@ function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun, measured){
 // FLAGGED here rather than buried: if ToF ever becomes a large SPT faucet, revisit.
 var _tofInFlight = false;
 
+// ---- the cycle's inner level is a MODE, not an accident (D62, 2026-10-14) --------------------
+// "While ToF is being computed, ToF contributes nothing" was implemented by guards: tofSynth_
+// returned null in flight, simToF returned zeros, and the SPT totals summed whatever those gave.
+// But the totals computed in that state were CACHED under the same key as the full ones, so which
+// value stuck depended on which row a caller happened to ask for first. Core before ToF (the Core
+// row's SPTx2-minutes read walks every measured row, which reaches the ToF anchor, whose ticket
+// income reaches the Season Pass rows, whose tier reads the totals while ToF is still in flight)
+// left 2960 in the cache at 20-39 PAYER; Season Pass before ToF left 3168 - one tier apart, a
+// 175-coin swing in the paid row from evaluation order alone, which the D26 cutoff gate then read
+// as a drift no sheet edit had caused. Now: the inner level is the `noToF` mode, every total in
+// the cycle keys its cache on it, and the loops exclude the ToF row BY RULE on both sides while it
+// is on. The full totals are only ever written by a computation that is not inside the cycle, so
+// the order of asking cannot change what any row reads.
+function tofCycleMode_(){ return (_tofInFlight || _tofSynthBusy) ? '|noToF' : ''; }
+
+// Every module-level memo the engine keeps within one execution. Production never calls this (an
+// execution starts empty); Context.reset() does, so an offline harness that mutates a sheet and
+// sweeps again starts from exactly what a fresh recalculation would. A memo that outlives the
+// state it was computed from is how the D26 cutoff gate read the 175 above (D62).
+function resetModuleCaches_(){
+  _sheetValsCache = {}; _packAnchorCache = {}; _tofSynthCache = {}; _tofIncomeCache = {};
+  _measSptCache = {}; _measSptBusyKeys = {}; _x2MinCache = {}; _x2MinBusyKeys = {};
+  _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null;
+  if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
+  if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
+}
+
 // ---- the MEASURED side of the ToF row (D61, 2026-10-14) -------------------------------------
 // data_gains has no ToF category, so the row's anchor was 0 and the DIFF carried the whole event
 // as an addition - on a workbook whose cal_curr runs ToF on every day, exactly as cal_new does.
@@ -1768,7 +1795,9 @@ var _tofInFlight = false;
 var TOF_ANCHORED = true;
 var _tofSynthBusy = false, _tofSynthCache = {};
 function tofSynth_(seg, payer){
-  if (!TOF_ANCHORED || _tofSynthBusy || _tofInFlight) return null;
+  // D62: only its OWN re-entry stops it. The simulated ToF being in flight is no reason - the anchor
+  // walks measured rows only - and a value that depended on the caller could not be cached.
+  if (!TOF_ANCHORED || _tofSynthBusy) return null;
   var key = seg + '|' + payer;
   if (_tofSynthCache[key] !== undefined) return _tofSynthCache[key];
   var ctx;
@@ -2867,7 +2896,7 @@ function rmSynth_(seg, payer, ctx){
 // flagged assumption).
 function simSeasonPass(seg, payer, ctx){
   var meas = measuredRow_('Season Pass (Free)', seg, payer, ctx.ds);
-  if (ctx._sptBusy) return meas;                       // defensive re-entry guard (see header)
+  if (sptTotalsBusy_(ctx, seg, payer)) return meas;    // defensive re-entry guard (see header)
   if (!ctx.calCurOk || !ctx.calNewOk) return meas;     // parse fail -> carry (canary catches)
   var cur = ctx.calCur['Season Pass'] || [], nw = ctx.calNew['Season Pass'] || [];
   if (!nw.length) return zeroRow_();                   // removed from the new calendar
@@ -2986,21 +3015,33 @@ function spPaidSynth_(seg, payer, ds){
 // Per-earner MEASURED SPT + 2xSPTx2 across every category. The measured half of sptTotals_, pulled
 // out so it needs only `ds` (no calendars, no ctx) and can therefore be reached from measuredRow_.
 // Cached per (seg, payer) on the module, alongside the per-execution sheet cache.
-var _measSptCache = {}, _measSptBusy = false;
+// D62: keyed on the ToF cycle mode like sptTotals_ - inside the ToF anchor's own ticket walk the
+// total leaves the ToF row out by rule. Same-key re-entry (the Season Pass pack synths ask for the
+// total while it is being summed) contributes 0: packs and tickets carry no SPT, so the total
+// itself is unaffected, and the busy map is per key so the inner mode is never mistaken for it.
+var _measSptCache = {}, _measSptBusyKeys = {};
 function measuredSptTotal_(seg, payer, ds){
-  var key = seg + '|' + payer;
+  var mode = tofCycleMode_(), noToF = !!mode;
+  var key = seg + '|' + payer + mode;
   if (_measSptCache[key] != null) return _measSptCache[key];
-  if (_measSptBusy) return 0;                          // re-entry via measuredRow_ -> contribute 0
+  if (_measSptBusyKeys[key]) return 0;
+  // Reached from inside the buff-minutes walk of the same key (the Core row's SPTx2 read walks
+  // every measured row, and the Season Pass pack synths ask for this total on the way): Core's
+  // SPT reads 0 minutes in there (the walk's own busy backstop), so this sum is short by the buff
+  // conversion (105 at 20-39 PAYER). Serve it - the walk only wants the SPTx2 column, which packs
+  // never touch - but never memo it, or the measured Season Pass tier is priced off it for good.
+  var volatile = !!_x2MinBusyKeys[key];
   var total = 0;
-  _measSptBusy = true;
+  _measSptBusyKeys[key] = true;
   try {
     CATEGORY_ORDER.forEach(function(cat){
       if (cat === 'Season Pass (Paid)') return;        // the row being anchored; pays no SPT anyway
+      if (noToF && cat === TOF_CAT) return;
       var row = measuredRow_(cat, seg, payer, ds);
       total += sptScore_(row);
     });
-  } finally { _measSptBusy = false; }
-  return (_measSptCache[key] = total);
+  } finally { delete _measSptBusyKeys[key]; }
+  return volatile ? total : (_measSptCache[key] = total);
 }
 
 // Season Pass packs, tier by tier, for the card sim's day-by-day log (2026-08-20).
@@ -3211,14 +3252,21 @@ var COL_REWARD_COLS = [
 // Per-earner SPT window totals, measured vs simulated, summed over every category (additive-
 // projection convention). Cached on ctx: computed once per execution, shared by the SIM and
 // DIFF spills. 'Season Pass (Free)' itself contributes measured to BOTH sides (no recursion).
+// D62: keyed on the ToF cycle mode. In `noToF` mode (ToF's own inputs are being built) the ToF
+// row is left out on BOTH sides by rule, so the Season Pass rows inside ToF's ticket income are
+// priced off a total that is the same whoever triggered it; the full total has its own key.
 function sptTotals_(seg, payer, ctx){
   ctx._spt = ctx._spt || {};
-  var key = seg + '|' + payer;
+  var mode = tofCycleMode_(), noToF = !!mode;
+  var key = seg + '|' + payer + mode;
   if (ctx._spt[key]) return ctx._spt[key];
+  ctx._sptBusyKeys = ctx._sptBusyKeys || {};
+  if (ctx._sptBusyKeys[key]) return { meas: 0, sim: 0 };   // same-key re-entry: none by design (backstop)
   var ds = ctx.ds, meas = 0, sim = 0;
-  ctx._sptBusy = true;
+  ctx._sptBusyKeys[key] = true;
   try {
     CATEGORY_ORDER.forEach(function(cat){
+      if (noToF && cat === TOF_CAT) return;
       // measuredRow_ (not raw ds.gains) so the D18 synthetic Core SPT anchor enters the
       // measured total too — both sides then price the same level-completion faucet.
       var mrow = measuredRow_(cat, seg, payer, ds);
@@ -3233,8 +3281,13 @@ function sptTotals_(seg, payer, ctx){
       var row = resultRow_(cat, seg, payer, ctx);
       sim += sptScore_(row);
     });
-  } finally { ctx._sptBusy = false; }
+  } finally { delete ctx._sptBusyKeys[key]; }
   return (ctx._spt[key] = { meas: meas, sim: sim });
+}
+// True while the total THIS call would read is being computed (the keyed form of the old
+// ctx._sptBusy backstop in simSeasonPass).
+function sptTotalsBusy_(ctx, seg, payer){
+  return !!(ctx._sptBusyKeys && ctx._sptBusyKeys[seg + '|' + payer + tofCycleMode_()]);
 }
 
 // '<base>_v2' when that sheet exists and is non-empty, else the base sheet (ratios degrade to 1).
@@ -3473,29 +3526,34 @@ function coreBaseSpt_(seg, payer, ds){
 // than through measuredRow_ / resultRow_, because Core is the row this total is about to be added
 // to - going through the choke point would recurse. Core pays no SPTx2 today (measured 0), and
 // reading it raw means a future real row still counts without reopening the cycle.
-var _x2MinCache = {}, _x2MinBusy = false;
+var _x2MinCache = {}, _x2MinBusyKeys = {};
 function sptx2MinutesMeas_(seg, payer, ds){
-  var key = seg + '|' + payer;
+  var mode = tofCycleMode_(), noToF = !!mode;          // D62: same keying as the SPT totals
+  var key = seg + '|' + payer + mode;
   if (_x2MinCache[key] != null) return _x2MinCache[key];
-  if (_x2MinBusy) return 0;                              // defensive backstop; no cycle by design
+  if (_x2MinBusyKeys[key]) return 0;                     // defensive backstop; no cycle by design
   var total = 0;
-  _x2MinBusy = true;
+  _x2MinBusyKeys[key] = true;
   try {
     CATEGORY_ORDER.forEach(function(cat){
       if (cat === 'Season Pass (Paid)' || cat === 'Col - Sets' || cat === 'Col - Albums') return;
+      if (noToF && cat === TOF_CAT) return;
       if (cat === 'Core'){ total += num(ds.dataRow('Core', seg, payer)['SPTx2']); return; }
       total += num(measuredRow_(cat, seg, payer, ds)['SPTx2']);
     });
-  } finally { _x2MinBusy = false; }
+  } finally { delete _x2MinBusyKeys[key]; }
   return (_x2MinCache[key] = total);
 }
 function sptx2MinutesSim_(seg, payer, ctx){
   ctx._x2min = ctx._x2min || {};
   var key = seg + '|' + payer;
+  var mode = tofCycleMode_(), noToF = !!mode;          // D62
+  key += mode;
   if (ctx._x2min[key] != null) return ctx._x2min[key];
   var ds = ctx.ds, total = 0;
   CATEGORY_ORDER.forEach(function(cat){
     if (cat === 'Season Pass (Paid)' || cat === 'Col - Sets' || cat === 'Col - Albums') return;
+    if (noToF && cat === TOF_CAT) return;
     if (cat === 'Core'){ total += num(ds.dataRow('Core', seg, payer)['SPTx2']); return; }
     if (cat === 'Season Pass (Free)'){ total += num(measuredRow_(cat, seg, payer, ds)['SPTx2']); return; }
     total += num(resultRow_(cat, seg, payer, ctx)['SPTx2']);
@@ -3651,7 +3709,9 @@ var Context = (function(){
   // real recalculation would start from, and their only other way to get it was to re-eval the
   // whole engine. That has to happen at module scope or the engine's `var`s become function-local
   // and the memo survives - a trap that has silently passed a gate with a zero anchor before.
-  reset: function(){ _c = null; }};
+  // D62: the module-level memos go too (resetModuleCaches_) - a sweep after a sheet mutation must
+  // start from what a fresh execution starts from, or a memo computed under the old state leaks.
+  reset: function(){ _c = null; resetModuleCaches_(); }};
 })();
 
 // Defensive: Apps Script files share ONE global namespace, so another project file defining
