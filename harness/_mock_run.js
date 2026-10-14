@@ -1565,4 +1565,67 @@ console.log('\n================ RM SPLIT GATES ================');
 }
 
 console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
+
+// ---------------------------------------------------------------- D61. NO CHANGE => NO DIFF
+// The property the user asked for on 2026-10-14 and the one every anchor exists to deliver: two
+// IDENTICAL calendars with IDENTICAL configs must give a DIFF of exactly nothing, for every source
+// and every resource - packs, tickets and ToF included. Fixture: cal_curr := cal_new on the parsed
+// calendar, every _v2 sheet := its base sheet, NS_v2_weekday removed; then restore everything.
+{
+  const dataSnap = JSON.stringify(data);
+  const cp = data['cal_parsed'];
+  if (cp && cp.values && cp.values.length > 1) {
+    const hdr = cp.values[0];
+    const cal = hdr.indexOf('calendar');
+    const newRows = cp.values.slice(1).filter(r => String(r[cal]).trim() === 'cal_new');
+    cp.values = [hdr].concat(cp.values.slice(1).filter(r => String(r[cal]).trim() !== 'cal_curr'))
+                     .concat(newRows.map(r => { const c = r.slice(); c[cal] = 'cal_curr'; return c; }));
+    Object.keys(data).filter(n => n.endsWith('_v2') && data[n.slice(0, -3)])
+      .forEach(n => { data[n] = JSON.parse(JSON.stringify(data[n.slice(0, -3)])); });
+    // the weekday ladder pair too: NS_v2_weekday := NS_weekday when the base sheet exists
+    if (data['NS_weekday']) data['NS_v2_weekday'] = JSON.parse(JSON.stringify(data['NS_weekday'])); else delete data['NS_v2_weekday'];
+    eval(engineSrc); rebuildCtx_(); resetSheetCache();
+    const cx = Context.get();
+    const sameCal = Object.keys(cx.calNew).every(l => JSON.stringify(cx.calCur[l] || []) === JSON.stringify(cx.calNew[l] || []));
+    gate('D61 fixture: cal_curr == cal_new lane for lane and every _v2 sheet is its base', sameCal && cx.calCurOk);
+    // Col - Sets / Col - Albums are the card sim's own rows (measured 0 by construction, not a
+    // calendar source) - everything else must read 0.
+    const skip = { 'Col - Sets': 1, 'Col - Albums': 1 };
+    let worst = 0, worstAt = '', nz = 0;
+    for (const payer of ['NONPAYER', 'PAYER']) for (const seg of ['0-9', '40-99', '100+']) {
+      const dif = ECOGAINS_DIFF(payer, seg);
+      CATEGORY_ORDER.forEach((cat, i) => {
+        if (skip[cat]) return;
+        RESOURCES.forEach((r, j) => {
+          const v = Math.abs(dif[i][j]);
+          if (v > 1e-6) nz++;
+          if (v > worst) { worst = v; worstAt = seg + ' ' + payer + ' ' + cat + ' ' + r; }
+        });
+      });
+    }
+    gate('D61: identical calendars + identical configs -> DIFF == 0 for every source and resource (packs, tickets, ToF, RM included)',
+      nz === 0, nz ? nz + ' non-zero cells, worst ' + worst.toFixed(4) + ' at ' + worstAt : 'all zero');
+    // and the anchors are NOT what makes the NEW side move: flags off -> NEW identical, measured packs 0
+    const simOn = ['NONPAYER', 'PAYER'].map(pay => ECOGAINS_SIM(pay, '40-99'));
+    PACK_ANCHORED = false; TOF_ANCHORED = false; _packAnchorCache = {}; _tofSynthCache = {}; rebuildCtx_(); resetSheetCache();
+    const simOff = ['NONPAYER', 'PAYER'].map(pay => ECOGAINS_SIM(pay, '40-99'));
+    let moved = 0, measPacks = 0;
+    for (let k = 0; k < 2; k++) for (let i = 0; i < simOn[k].length; i++) for (let j = 0; j < RESOURCES.length; j++)
+      if (Math.abs(simOn[k][i][j] - simOff[k][i][j]) > 1e-9) moved++;
+    CATEGORY_ORDER.forEach(cat => { const m = measuredRow_(cat, '40-99', 'PAYER', Context.get().ds);
+      BOTTOMUP_RES.forEach(r => { if (cat !== 'Rainbow Maker' && cat !== 'Season Pass (Paid)' && num(m[r]) > 0) measPacks++; }); });
+    gate('D61: PACK_ANCHORED / TOF_ANCHORED off -> the simulated side is bit-identical (anchors touch the measured side only)', moved === 0, moved + ' cells moved');
+    gate('D61: flags off -> measured pack / ticket columns read 0 again (pre-D61 anchor restored)', measPacks === 0, measPacks + ' cells');
+    PACK_ANCHORED = true; TOF_ANCHORED = true; _packAnchorCache = {}; _tofSynthCache = {};
+  } else {
+    gate('D61 fixture needs cal_parsed in the dump', false, 'absent');
+  }
+  const restored = JSON.parse(dataSnap);
+  Object.keys(data).forEach(k => { delete data[k]; });
+  Object.keys(restored).forEach(k => { data[k] = restored[k]; });
+  eval(engineSrc); rebuildCtx_(); resetSheetCache();
+  gate('D61 fixture restored (Kite canary diff is non-zero again)',
+    Math.abs(ECOGAINS_DIFF('NONPAYER', '0-9')[CATEGORY_ORDER.indexOf('Kite Festival')][0]) > 1e-9);
+}
+
 process.exit(failures ? 1 : 0);
