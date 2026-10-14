@@ -313,14 +313,18 @@ function measuredRow_(cat, seg, payer, ds){
   if (cat === 'Rainbow Maker' && seg !== 'A. 0' && seg !== 'A.0'){
     var rmReal = false;
     RESOURCES.forEach(function(r){ if (num(row[r]) > 0) rmReal = true; });
-    if (!(rmReal && RM_REAL_DATA_WINS)){
-      var rmSyn = rmSynth_(seg, payer, Context.get());
-      if (rmSyn){
+    var rmSyn = rmSynth_(seg, payer, Context.get());
+    if (rmSyn){
+      if (!RM_REAL_DATA_WINS){
         if (rmReal) try { Logger.log('Rainbow Maker: data_gains HAS rows for ' + seg + '/' + payer +
               ' but RM_REAL_DATA_WINS is false, so the synthetic cal_curr anchor is used instead. ' +
               'Flip that flag to price the anchor off the export.'); } catch(e){}
         return rmSyn;
       }
+      // D61: resource by resource - the export where it has a number, the walk where it is silent.
+      var rmMerged = zeroRow_();
+      RESOURCES.forEach(function(r){ rmMerged[r] = (num(row[r]) > 0) ? num(row[r]) : num(rmSyn[r]); });
+      return rmMerged;
     }
   }
   // Core SPT = the level-completion faucet, plus the SPTx2 buff minutes every OTHER source paid
@@ -2533,11 +2537,53 @@ function simRainbowMaker(seg, payer, ctx){
   if (!rmSortedInsts_(ctx.calNew).length) return zeroRow_();
   var parts = rmInstanceRows_(seg, payer, ctx);
   if (!parts) return meas;                               // no ladder / no matchables -> carry
-  var out = zeroRow_();
+  var walkNew = zeroRow_();
   parts.forEach(function(p){
-    RESOURCES.forEach(function(r){ out[r] = num(out[r]) + num(p.row[r]); });
+    RESOURCES.forEach(function(r){ walkNew[r] = num(walkNew[r]) + num(p.row[r]); });
+  });
+  if (!RM_REAL_DATA_WINS) return walkNew;                // pre-D61: the walk IS the row
+  // D61: anchored on the export, resource by resource (see RM_REAL_DATA_WINS). walkCur is the
+  // same walk over cal_curr on the base ladder - the thing the measured side is made of where the
+  // export is silent - so the ratio walkNew / walkCur is the model's own statement of what the
+  // redesign changes, applied to the level the data measured.
+  var walkCur = rmSynth_(seg, payer, ctx);
+  if (!walkCur) return walkNew;                          // cal_curr does not run RM: an ADD, as before
+  var data = ctx.ds.dataRow('Rainbow Maker', seg, payer), out = zeroRow_();
+  RESOURCES.forEach(function(r){
+    var m = num(data[r]), c = num(walkCur[r]), n = num(walkNew[r]);
+    if (m > 0 && c > 1e-9)  out[r] = m * n / c;          // anchored
+    else if (m > 0)         out[r] = m + n;              // export has it, the base ladder never paid it: additive
+    else                    out[r] = n;                  // export silent (packs, tickets, traces): the walk, both sides
   });
   return out;
+}
+
+// The per-instance rows of ONE side, scaled so they sum to that side's row - what the daily view
+// places day by day (D60b/D61). Under RM_REAL_DATA_WINS the row is the export-anchored number and
+// the walk is only its SHAPE, so each resource is scaled walk -> row; a resource the walk does not
+// carry at all (export has it, base ladder never paid it) is returned as `residual` for the caller
+// to place generically. Scale 1 and no residual whenever the walk IS the row, which is every
+// pre-D61 case - the caller then sees exactly the parts it always saw.
+function rmDailyParts_(seg, payer, ctx, isNew){
+  var parts = isNew ? rmInstanceRows_(seg, payer, ctx)
+                    : (ctx.calCurOk ? rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCur, useBase: true }) : null);
+  if (!parts || !parts.length) return null;
+  var target = isNew ? resultRow_('Rainbow Maker', seg, payer, ctx)
+                     : measuredRow_('Rainbow Maker', seg, payer, ctx.ds);
+  var walk = zeroRow_();
+  parts.forEach(function(p){ RESOURCES.forEach(function(r){ walk[r] = num(walk[r]) + num(p.row[r]); }); });
+  var scale = {}, residual = zeroRow_(), anyResid = false;
+  RESOURCES.forEach(function(r){
+    var w = num(walk[r]), t = num(target[r]);
+    if (w > 1e-12) scale[r] = t / w;
+    else { scale[r] = 0; if (Math.abs(t) > 1e-9){ residual[r] = t; anyResid = true; } }
+  });
+  var scaled = parts.map(function(p){
+    var row = {};
+    RESOURCES.forEach(function(r){ row[r] = num(p.row[r]) * scale[r]; });
+    return { inst: p.inst, row: row };
+  });
+  return { parts: scaled, residual: anyResid ? residual : null };
 }
 
 // Per-instance contributions over cal_new (start-sorted): [{inst, row}] — simRainbowMaker sums
@@ -2609,12 +2655,25 @@ function rmInstanceRows_(seg, payer, ctx, opts){
 // lane in the diff. That is the correct reading of a calendar that does not run the event, and it
 // is why turning this on changes nothing about the current workbook.
 var RM_ANCHORED = true;          // false -> pre-D29: measured comes from data_gains alone
-// When data_gains eventually carries real Rainbow Maker rows, do they replace the synthetic
-// anchor? Shipped FALSE on the user's call: the changeover is a decision, not a side effect of a
-// re-pull. While it is false and real rows exist, measuredRow_ LOGS that they are being ignored -
-// a silent preference for synthetic data over measured data is exactly the thing that goes
-// unnoticed for months.
-var RM_REAL_DATA_WINS = false;
+// When data_gains carries real Rainbow Maker rows, do they replace the synthetic anchor?
+// Shipped FALSE on 2026-09-03 (the changeover is a decision, not a side effect of a re-pull);
+// flipped TRUE on 2026-10-14 (D61, user decision) once the export carried the live event:
+// 40-99 PAYER HC 147 / SPT 897 measured against a synthetic 1,582 / 4,153 - the bottom-up walk
+// overshoots the real event 4.6-10.8x, and that overshoot was the whole excess of the sim's SPT
+// faucet over data_econ (2.3x at 0-9, 1.4x at 100+).
+//
+// WHAT 'WINS' MEANS - PER RESOURCE, never per row. The export can be silent on a resource for
+// three different reasons (packs and tickets it cannot see; soft-launch traces, as on the ECO
+// workbook where the RM rows are 0.02 SPTx2 and nothing else; a resource the base ladder does not
+// pay), and in all of them the synthetic walk stays for THAT resource on BOTH sides. Where the
+// export has a number:
+//     measured[r] = export[r]
+//     sim[r]      = export[r] x walk_new[r] / walk_cur[r]      (level from the data, change from
+//                                                               the walk - the measured x R x T
+//                                                               shape every anchored source has)
+// so identical calendars with identical ladders give DIFF 0, and a reward or cadence edit moves
+// the row by the walk's RATIO rather than its absolute level. See simRainbowMaker.
+var RM_REAL_DATA_WINS = true;
 
 function rmSynth_(seg, payer, ctx){
   if (!RM_ANCHORED || !ctx || !ctx.calCurOk) return null;

@@ -208,14 +208,12 @@ function dailySeries_(cat, seg, payer, ctx, isNew, opts){
   // measured side); when data_gains rows win (RM_REAL_DATA_WINS) or cal_curr has no RM, the generic
   // placement stays, because then the parts are not what the row is made of.
   if (cat === 'Rainbow Maker'){
-    var parts = isNew ? rmInstanceRows_(seg, payer, ctx)
-                      : (ctx.calCurOk ? rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCur, useBase: true }) : null);
-    if (parts && parts.length && !isNew){
-      var tot = {}, same = true;
-      parts.forEach(function(p){ RESOURCES.forEach(function(r){ tot[r] = num(tot[r]) + num(p.row[r]); }); });
-      RESOURCES.forEach(function(r){ if (Math.abs(num(tot[r]) - num(W[r])) > 1e-9) same = false; });
-      if (!same) parts = null;
-    }
+    // D61: the parts come back SCALED to this side's row (rmDailyParts_), so the walk is only the
+    // shape and the export-anchored level is what lands on the days; a resource the walk does not
+    // carry comes back as `residual` and is spread generically below. A v4 that predates
+    // rmDailyParts_ (not re-pasted) keeps the NEW-only placement it always had.
+    var rmd = (typeof rmDailyParts_ === 'function') ? rmDailyParts_(seg, payer, ctx, isNew) : null;
+    var parts = rmd ? rmd.parts : (isNew ? rmInstanceRows_(seg, payer, ctx) : null);
     if (parts && parts.length){
       var bb = ds.beh(seg, payer);
       var qWd = num(bb.weekday_active_rate), qWe = num(bb.weekend_active_rate);
@@ -243,6 +241,16 @@ function dailySeries_(cat, seg, payer, ctx, isNew, opts){
           });
         });
       });
+      if (rmd && rmd.residual){
+        var labelR = DAILY_CAL_LABEL[cat];
+        var instsR = labelR ? ((isNew ? ctx.calNew : ctx.calCur)[labelR] || []) : [];
+        var bR = ds.beh(seg, payer);
+        var rWd = num(bR.weekday_active_rate), rWe = num(bR.weekend_active_rate);
+        if (!(rWd > 0) && !(rWe > 0)){ rWd = 1; rWe = 1; }
+        var wR = dayWeights_(cat, instsR, rWd, rWe, ds, seg, payer, opts);
+        for (var dR = 0; dR < DAILY_DAYS; dR++)
+          RESOURCES.forEach(function(r){ if (rmd.residual[r]) days[dR][r] += num(rmd.residual[r]) * wR[dR]; });
+      }
       return days;
     }
   }
@@ -268,7 +276,9 @@ function dailySeries_(cat, seg, payer, ctx, isNew, opts){
   // collection season ends at SEASON_LAST_DAY, so packs are placed only on in-season instances and
   // any pack landing past the cutoff settles on its last day. Everything else keeps the full
   // 33-day placement, because only envelopes stop being rewarded.
-  var packW = isNew ? packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer, opts) : weights;
+  // D61: the measured side carries anchored packs now, and the season cutoff is a property of
+  // the game - so the pack placement is the same on both sides.
+  var packW = packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer, opts);
   for (var d = 0; d < DAILY_DAYS; d++){
     if (!weights[d] && !packW[d]) continue;
     RESOURCES.forEach(function(r){
