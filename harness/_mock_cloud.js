@@ -1268,7 +1268,12 @@ function GATES() {
   //   * IFERROR INSIDE ArrayFormula              -> one erroring day cannot blank all 33
   //   * a duplicate key averages, never doubles  -> AVERAGEIFS rather than SUMIFS
   // Each is asserted on the formula text, which is the only honest offline check for them.
-  {
+  // The ACT-formula gates need a data_col_daily sheet in the dump (the adjust lineage carries
+  // it; the collections one does not). Skip loudly rather than crash - a crash here would hide
+  // every gate after it on the default dump.
+  if (!data[SHEET_COL_DAILY]) {
+    console.log('SKIP ACT-formula gates: no ' + SHEET_COL_DAILY + ' sheet in this dump (run with --data adjust)');
+  } else {
     const SEG = '100+', PAY = 'PAYER', LABEL = SEG + ' ' + PAY;
     const dailySnap = JSON.stringify(data[SHEET_COL_DAILY].values);
     const cloudRows = () => data['Col_Cards_Cloud'].values;
