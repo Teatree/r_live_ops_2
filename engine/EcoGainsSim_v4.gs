@@ -295,7 +295,11 @@ function measuredRow_(cat, seg, payer, ds){
   if (_baseSide || seg === 'A. 0' || seg === 'A.0') return row;
   // D61: the bottom-up columns of the MEASURED side (see PACK_ANCHORED). Only where the export is
   // silent on every one of them - a pull that one day carries real pack rows takes over by itself.
-  if (!PACK_ANCHORED || cat === 'Rainbow Maker' || cat === TOF_CAT || bottomUpHasData_(row)) return row;
+  if (cat === TOF_CAT){
+    if (TOF_ANCHORED && !anyAmount_(row)){ var ts = tofSynth_(seg, payer); if (ts) return ts; }
+    return row;
+  }
+  if (!PACK_ANCHORED || cat === 'Rainbow Maker' || bottomUpHasData_(row)) return row;
   var pk = (cat === 'Season Pass (Free)') ? spFreePacksSynth_(seg, payer, ds) : packAnchorRow_(cat, seg, payer);
   return pk ? overlayPacks_(copyRow_(row), pk) : row;
 }
@@ -1676,15 +1680,17 @@ function tofBalances_(seg, payer){
 // `skip` (D31): categories to leave OUT - the card sim draws those per rung and would otherwise
 // count them twice. The ENGINE never passes it, so the ToF run budget still sees the whole faucet.
 var _tofIncomeCache = {};
-function tofTicketIncome_(seg, payer, ctx, skip){
-  var key = seg + '|' + payer;
+// `measured` (D61): the ticket income of the MEASURED side - dailySeries_ isNew = false - for the
+// anchor run; cached under its own key so the two sides never read each other's stream.
+function tofTicketIncome_(seg, payer, ctx, skip, measured){
+  var key = seg + '|' + payer + (measured ? '|meas' : '');
   if (!skip && _tofIncomeCache[key]) return _tofIncomeCache[key];
   var days = [], d;
   for (d = 0; d < DAILY_DAYS; d++) days.push(0);
   CATEGORY_ORDER.forEach(function(cat){
     if (cat === TOF_CAT) return;
     if (skip && skip[cat]) return;
-    var series = dailySeries_(cat, seg, payer, ctx, true);
+    var series = dailySeries_(cat, seg, payer, ctx, !measured);
     for (var i = 0; i < DAILY_DAYS; i++) days[i] += num(series[i][TOF_TICKET]);
   });
   if (skip) return days;                    // partial sum - never cached under the plain key
@@ -1693,7 +1699,7 @@ function tofTicketIncome_(seg, payer, ctx, skip){
 
 // Runs over the window: walk the days, bank the tickets earned, spend what the player is willing
 // and able to spend. Returns { runs, perDay[], ticketsEarned, ticketsLeft }.
-function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun){
+function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun, measured){
   var cfg = tofConfig_();
   if (!cfg) return null;
   var beh = cfg.beh[seg];
@@ -1707,7 +1713,7 @@ function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun){
   var b = ctx.ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   if (!(pWd > 0) && !(pWe > 0)) return { runs: 0, perDay: [], ticketsEarned: 0, ticketsLeft: 0 };
-  var income = tofTicketIncome_(seg, payer, ctx);
+  var income = tofTicketIncome_(seg, payer, ctx, null, measured);
   var perRun = (cfg.ticketsPerRun > 0) ? cfg.ticketsPerRun : 1;
   var cap = (beh.runsPerDay > 0) ? beh.runsPerDay : Infinity;
   var bal = 0, runs = 0, earned = 0, perDay = [];
@@ -1750,6 +1756,47 @@ function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun){
 // ladder is coarse -- and it is the only resolution that terminates without a second full pass.
 // FLAGGED here rather than buried: if ToF ever becomes a large SPT faucet, revisit.
 var _tofInFlight = false;
+
+// ---- the MEASURED side of the ToF row (D61, 2026-10-14) -------------------------------------
+// data_gains has no ToF category, so the row's anchor was 0 and the DIFF carried the whole event
+// as an addition - on a workbook whose cal_curr runs ToF on every day, exactly as cal_new does.
+// The anchor is the same run budget walked over cal_curr (calNew := calCur), with the ticket
+// income taken from the MEASURED side of every other source (dailySeries_ isNew = false, which
+// now carries the anchored tickets), on the same ToF sheet the simulated side reads. Identical
+// calendars therefore give DIFF 0; when a ToF_v2 sheet is wired into tofConfig_ the anchor keeps
+// reading the base one. TOF_ANCHORED = false restores the pre-D61 anchor (0) bit for bit.
+var TOF_ANCHORED = true;
+var _tofSynthBusy = false, _tofSynthCache = {};
+function tofSynth_(seg, payer){
+  if (!TOF_ANCHORED || _tofSynthBusy || _tofInFlight) return null;
+  var key = seg + '|' + payer;
+  if (_tofSynthCache[key] !== undefined) return _tofSynthCache[key];
+  var ctx;
+  try { ctx = Context.get(); } catch (e){ return null; }
+  if (!ctx || !ctx.calCurOk || !((ctx.calCur[TOF_CAT] || []).length)) return (_tofSynthCache[key] = null);
+  var cfg = tofConfig_();
+  if (!cfg) return (_tofSynthCache[key] = null);
+  var run = tofRun_(seg, payer, ctx.ds);
+  if (!run) return (_tofSynthCache[key] = null);
+  var budget;
+  _tofSynthBusy = true;
+  try { budget = tofRunBudget_(seg, payer, baseCtx_(ctx), num(run.bank[TOF_TICKET]), true); }
+  finally { _tofSynthBusy = false; }
+  if (!budget || !(budget.runs > 0)) return (_tofSynthCache[key] = zeroRow_());
+  var out = zeroRow_();
+  RESOURCES.forEach(function(r){ out[r] = num(run.bank[r]) * budget.runs; });
+  if (SEASON_CUTOFF && budget.perDay && budget.perDay.length){        // D26, as in simToF
+    var inSeason = 0, allRuns = 0;
+    for (var di = 0; di < budget.perDay.length; di++){
+      allRuns += num(budget.perDay[di]);
+      if (di + 1 <= SEASON_LAST_DAY) inSeason += num(budget.perDay[di]);
+    }
+    var share = (allRuns > 0) ? inSeason / allRuns : 0;
+    PACK_RES.forEach(function(r){ out[r] = num(out[r]) * share; });
+  }
+  if (TOF_SPEND_IN_ROW) out['HC'] = num(out['HC']) - run.spend * budget.runs;
+  return (_tofSynthCache[key] = out);
+}
 function simToF(seg, payer, ctx, cat){
   if (_tofInFlight) return zeroRow_();
   var cfg = tofConfig_();
