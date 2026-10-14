@@ -198,6 +198,9 @@ differences. It showed plenty. None of them were the placement model:
 | ToF read 0 on the measured side (no `data_gains` category) | `TOF_ANCHORED`: the run budget over `cal_curr`, measured ticket income | D61c `a9f650e` |
 | Night Sky's base side ignored the authored `NS_weekday` ladder | base pair blended like the redesign pair; daily view places both sides by day type | D61d |
 | `data_econ_daily!A1` reads `EcoGainsSim_Daily` instead of `segment` | **workbook edit** — the daily reader finds no segment column otherwise | — |
+| Season Pass (Paid) NEW total moved 175 with the pack cutoff at `20-39 PAYER` — the SPT totals were memoised while ToF was in flight (ToF contributes 0 there), so the cached tier depended on which row was asked for first | explicit `noToF` mode keyed into every cache in the cycle; `Context.reset()` clears module memos | D62 `5af1108` |
+| the measured Season Pass tier total memoised from inside the Core row's buff-minutes walk, 105 short | served there, never memoised | D62b (same commit) |
+| the data blocks read the August sheet although the live feed had landed | `data_econ_daily_live` preferred when usable, base sheet as fallback | D63 `cac0544` |
 
 After D61 the live dump's NEW-vs-CURRENT list is empty, and `harness/_mock_run.js` proves the
 rule by fixture (calendars and every `_v2` sheet made identical → `DIFF == 0` everywhere; anchors
@@ -219,3 +222,37 @@ under every ±1-day shift), so the two pulls are not on the same footing. Decisi
 2026-10-14): leave the data blocks alone until `data_econ_daily_live` arrives from the new
 calendar's day 1; ask the analyst to re-pull both on the Wednesday start with the §10
 reconciliation test actually run.
+
+## 13. Live feed, day 1 (2026-10-14, 16:19 workbook) — what it showed
+
+`data_econ_daily_live` landed with one day (`window_start_date` 2026-10-13, Tuesday; 130 rows,
+10 cells × 13 currencies, `status = MEASURED`). The reader takes it over the August sheet by itself
+(D63); day 1 fills, days 2..33 stay ''. But the numbers are not comparable yet:
+
+| cell | live d1 HC per earner | live d1 HC per active | NEW sim d1 (per window earner) | Aug HC per earner-day | Aug window earners / daily actives | live d1 / Aug, per active |
+|---|---|---|---|---|---|---|
+| 0-9 NONPAYER | 73.6 | 68.7 | 14.4 | 15.6 | 3.06 | 1.44 |
+| 20-39 NONPAYER | 202.3 | 199.0 | 43.8 | 50.8 | 2.74 | 1.43 |
+| 100+ NONPAYER | 761.7 | 758.3 | 137.3 | 155.5 | 3.03 | 1.61 |
+| 0-9 PAYER | 90.3 | 84.9 | 18.9 | 23.1 | 2.95 | 1.25 |
+| 20-39 PAYER | 346.3 | 340.8 | 50.4 | 78.2 | 2.97 | 1.47 |
+| 100+ PAYER | 1301.9 | 1301.9 | 145.7 | 221.9 | 2.96 | 1.98 |
+
+Two effects stack. **The denominator:** `gain_per_earner_day = gain_total / resource_earners_window`,
+and the window is *to date* — on day 1 that is the day's actives, by day 33 it is ~3× more people, so
+every row is revised down on each re-pull and the series only reaches the sim's footing (per
+window earner, the `data_gains` unit the sim is anchored on) when the window completes. **The day
+itself:** per active player, day 1 pays 1.25–1.98× an August average day (a season/calendar start,
+or the Tuesday before it — see below). The sim's day 1 sits on the August level, as it should.
+
+**Decision needed (recommended first):**
+1. Re-define `resource_earners_window` as the unique earners in the trailing 33 days ending on
+   `calendar_date`. Fixed per day, never revised, same footing as `data_gains`. No engine change.
+2. Or compare per active player-day (`gain_per_active_player_day`, stable) and convert the sim by
+   `earners_window / active_players_day` (2.7–3.1 from August, or `data_seg_beh`). That puts a model
+   factor inside a block meant to be pure data — flagged, not recommended.
+
+**Also found:** `window_start_date` is a Tuesday while both calendars' day 1 is a Wednesday
+(`isWeekend_` assumes it); the workbook's live sheet carries ~63,800 by-source rows pasted beneath
+the 130 live ones in a different column layout (skipped by the reader, but walked on every recalc);
+`data_econ_daily!A1` still reads `EcoGainsSim_Daily`.
