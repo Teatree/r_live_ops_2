@@ -184,3 +184,38 @@ River Rush injected on `cal_curr`; DATA/DATADIFF and the 14-of-33-day truncation
 | 2026-10-14 | the 7-day A/B window compares on **earn** day |
 | 2026-10-14 | NEW NET keeps the anchored form (data gain + sim shift − data spend) |
 | 2026-10-14 | all five measured changes approved; lag vector ships as identity until the lag data exists |
+
+## 12. Addendum (D61, 2026-10-14) — what the no-change check found
+
+The user's workbook deliberately runs `cal_curr == cal_new` with identical configs and expects no
+differences. It showed plenty. None of them were the placement model:
+
+| cause | fix | commit |
+|---|---|---|
+| Rainbow Maker placed per instance on NEW only; CURRENT fell through to the reach split (same totals, days 10 HC apart) | both sides place per instance; pack cutoff folds on both sides | D60b `0114f2a` |
+| Rainbow Maker anchored on a synthetic walk 4.6–10.8× the export — **the SPT excess over `data_econ`** | `RM_REAL_DATA_WINS = true`, per resource: `sim = export × walk_new / walk_cur` | D61a `2b6df6a` |
+| packs and `ToF_Ticket` read 0 on the measured side by construction | `PACK_ANCHORED`: the source's own sim over `cal_curr` on the base config | D61b `921a510` |
+| ToF read 0 on the measured side (no `data_gains` category) | `TOF_ANCHORED`: the run budget over `cal_curr`, measured ticket income | D61c `a9f650e` |
+| Night Sky's base side ignored the authored `NS_weekday` ladder | base pair blended like the redesign pair; daily view places both sides by day type | D61d |
+| `data_econ_daily!A1` reads `EcoGainsSim_Daily` instead of `segment` | **workbook edit** — the daily reader finds no segment column otherwise | — |
+
+After D61 the live dump's NEW-vs-CURRENT list is empty, and `harness/_mock_run.js` proves the
+rule by fixture (calendars and every `_v2` sheet made identical → `DIFF == 0` everywhere; anchors
+off → the simulated side bit-identical and the measured bottom-up columns 0 again).
+
+**Config diffs, re-checked with the engine's own readers.** Of the differing cells across the
+`_v2` pairs, the engine saw exactly one: `SP_lb_v2` row 17 (Rank 11, Slingshot 0 → 1), which is
+the Season Pass Slingshot 1.75 → 2.18. `RM_1st_v2` cols 28–45 ("New Matchables Req",
+"Polynomial Power", the `<seg>_reward` panel), `Ph_v2` rows 17–19, `AlbumConfig_v2` Q:V, `TaD_v2`
+row 7, `Ki_v2` row 89, `Race_v2` row 92, `BB_v2` col 23 are helper and visual blocks the ladder
+readers never touch — confirmed by per-category sim == measured on identical calendars.
+
+**The data in this workbook is not from this calendar.** `data_econ_daily` and the by-source feed
+cover **Tue 2026-08-11 → 09-13** (a Tuesday start, where the calendar convention is Wednesday —
+`isWeekend_` is then off by one against that data) and run the OLD calendar: Bomb Challenge mass
+sits on days 2/4/30/32 while this `cal_curr` ends it on 14/16. Per source the by-source feed
+also does not reconcile with `data_econ_daily` day by day even for boosters (Chuck 0.6–4.5×
+under every ±1-day shift), so the two pulls are not on the same footing. Decision (user,
+2026-10-14): leave the data blocks alone until `data_econ_daily_live` arrives from the new
+calendar's day 1; ask the analyst to re-pull both on the Wednesday start with the §10
+reconciliation test actually run.
