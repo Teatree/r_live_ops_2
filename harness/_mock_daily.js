@@ -60,9 +60,67 @@ for (const payer of ['NONPAYER', 'PAYER']) {
 
 // ---- 2. placement checks (0-9 NONPAYER) ----
 const HC = 0;
-const kite = ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'NEW');
-const kiteDays = kite.map((row, d) => row.reduce((s, x) => s + Math.abs(x), 0) > 1e-12 ? d + 1 : 0).filter(Boolean);
-check('Kite NEW pays only on last days {5,12,19,26,33}', JSON.stringify(kiteDays) === JSON.stringify([5, 12, 19, 26, 33]), 'got ' + JSON.stringify(kiteDays));
+// ---- D60: rank-family lumps land the DATE AFTER the grid cell -------------------------------
+// Asserted as the RULE from the parsed calendar, never as a frozen day list: the pre-D60 gate
+// froze {5,12,19,26,33} and went red the moment the rule changed, which is the failure CLAUDE.md
+// warns about. Fixtured in every direction: default (+1, day-34 lump folded back by
+// renormalisation - never a day 34, never a pile on day 33), legacy (end days), an authored
+// settle_days = 0 (end days again), an authored lag (each lump split over +1 and +2), and the
+// earn-day option the 7-day view uses (end days, whatever the model).
+const daysPaidGrid = g => g.map((row, d) => row.reduce((s, x) => s + Math.abs(x), 0) > 1e-12 ? d + 1 : 0).filter(Boolean);
+const daysPaidSeries = ds => ds.map((o, d) => RESOURCES.reduce((s, r) => s + Math.abs(num(o[r])), 0) > 1e-12 ? d + 1 : 0).filter(Boolean);
+const kiteEnds = (Context.get().calNew['Kite Festival'] || []).map(i => i.days[i.days.length - 1]).sort((a, b) => a - b);
+const expectShift = (ends, off, lagN) =>
+  [...new Set(ends.flatMap(e => Array.from({ length: lagN }, (_, k) => e + off + k))
+                  .filter(d => d >= 1 && d <= DAILY_DAYS))].sort((a, b) => a - b);
+const resetAlloc = () => { _sheetValsCache = {}; _settleCache = null; };
+check('Kite instance ends read off the parsed calendar (fixture is live)', kiteEnds.length >= 2, JSON.stringify(kiteEnds));
+{
+  const got = daysPaidGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'NEW'));
+  check('settle (default +1): every Kite lump exactly one day after its instance end, day-34 lump folded back',
+    JSON.stringify(got) === JSON.stringify(expectShift(kiteEnds, 1, 1)),
+    'ends ' + JSON.stringify(kiteEnds) + ' -> ' + JSON.stringify(got) + (kiteEnds.indexOf(DAILY_DAYS) >= 0 ? ' (a day-33 close is folded, not placed on 33)' : ''));
+  check('settle: nothing is ever written past day 33', got.every(d => d <= DAILY_DAYS));
+}
+{
+  DAILY_ALLOC_MODEL = 'legacy'; resetAlloc();
+  const got = daysPaidGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'NEW'));
+  check('legacy model: lumps on the instance end days (pre-D60 placement restored)',
+    JSON.stringify(got) === JSON.stringify(expectShift(kiteEnds, 0, 1)), JSON.stringify(got));
+  DAILY_ALLOC_MODEL = 'settle'; resetAlloc();
+}
+{
+  data['sim_settle'] = { values: [['source', 'settle_days', 'lag_0', 'lag_1', 'lag_2'], ['Kite Festival', 0, '', '', '']] };
+  resetAlloc();
+  const got0 = daysPaidGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'NEW'));
+  check('authored settle_days = 0 on sim_settle puts Kite back on its end days (sheet beats default)',
+    JSON.stringify(got0) === JSON.stringify(expectShift(kiteEnds, 0, 1)), JSON.stringify(got0));
+  data['sim_settle'].values[1] = ['Kite Festival', 1, 0.5, 0.5, ''];
+  resetAlloc();
+  const gLag = ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'NEW');
+  const gotL = daysPaidGrid(gLag);
+  check('authored lag [.5,.5]: each lump split over end+1 AND end+2',
+    JSON.stringify(gotL) === JSON.stringify(expectShift(kiteEnds, 1, 2)), JSON.stringify(gotL));
+  const e0 = kiteEnds[0];
+  check('authored lag halves split the lump equally (end+1 == end+2)',
+    e0 + 2 <= DAILY_DAYS && Math.abs(gLag[e0][HC] - gLag[e0 + 1][HC]) < 1e-9,
+    `day ${e0 + 1}: ${gLag[e0][HC].toFixed(6)} vs day ${e0 + 2}: ${gLag[e0 + 1][HC].toFixed(6)}`);
+  // the other rank families keep their DEFAULT while Kite is authored
+  const tr = (Context.get().calNew['Team Race'] || []).map(i => i.days[i.days.length - 1]).sort((a, b) => a - b);
+  if (tr.length){
+    const gotTR = daysPaidGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Team Race', 'NEW'));
+    check('an authored row changes ONLY its own source (Team Race still on default +1)',
+      JSON.stringify(gotTR) === JSON.stringify(expectShift(tr, 1, 1)), JSON.stringify(gotTR));
+  }
+  delete data['sim_settle']; resetAlloc();
+  const back = daysPaidGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'NEW'));
+  check('sim_settle fixture removed -> default +1 again', JSON.stringify(back) === JSON.stringify(expectShift(kiteEnds, 1, 1)));
+}
+{
+  const earn = daysPaidSeries(dailySeries_('Kite Festival', '0-9', 'NONPAYER', Context.get(), true, { earnDay: true }));
+  check('earnDay option (the 7-day view) places on the instance END days under the settle model',
+    JSON.stringify(earn) === JSON.stringify(expectShift(kiteEnds, 0, 1)), JSON.stringify(earn));
+}
 
 const ns = ECOGAINS_DAILY('NONPAYER', '0-9', 'Daily Night Sky Prize', 'NEW');
 check('Night Sky NEW pays every day', ns.every(row => row[HC] > 0));
@@ -133,18 +191,95 @@ if (rrOnCur && !rrOnNew){
   check('River Rush carried -> DIFF = 0 all days', rrDif.every(row => row.every(x => Math.abs(x) < 1e-9)));
 }
 
+// ---- D60 change #1: River Rush ON the grid -----------------------------------------------------
+// The measured SPTx2 actuals are ON days 2-8 / 16-22 / 30-33 in all ten cells and ~0 otherwise,
+// and 99% of SPTx2 data_gains mass is River Rush - yet cal_curr has no River Rush lane, so the
+// whole total is spread flat. The fix is a calendar edit (draw the lane); this fixture proves what
+// the engine does once it is drawn: the mass lands on exactly those days, prop p_day inside each
+// block (NOT the accrual marginal, which fits worse here), and the window total is conserved.
+{
+  const ctx = Context.get();
+  const saved = ctx.calCur['River Rush'];
+  ctx.calCur['River Rush'] = [mkInst_(2, 7), mkInst_(16, 7), mkInst_(30, 4)];
+  resetAlloc();
+  const cur = dailySeries_('River Rush', '100+', 'NONPAYER', ctx, false);
+  const want = [...mkInst_(2, 7).days, ...mkInst_(16, 7).days, ...mkInst_(30, 4).days];
+  const got = daysPaidSeries(cur);
+  const rrRes = RESOURCES.find(r => Math.abs(cur.reduce((t, o) => t + num(o[r]), 0)) > 1e-9);
+  check('River Rush drawn on cal_curr -> CURRENT pays on exactly those days', !!rrRes && JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got));
+  if (rrRes){
+    // inside one block, weights are prop p_day: two weekdays of the same block carry equal mass
+    const b = ctx.ds.beh('100+', 'NONPAYER');
+    const wd = [16, 17, 18, 19, 20, 21, 22].filter(d => !isWeekend_(d));
+    check('inside a block the placement is prop p_day (two weekdays carry equal mass)',
+      wd.length >= 2 && Math.abs(num(cur[wd[0] - 1][rrRes]) - num(cur[wd[1] - 1][rrRes])) < 1e-9,
+      `days ${wd[0]}/${wd[1]}: ${num(cur[wd[0] - 1][rrRes]).toFixed(6)} / ${num(cur[wd[1] - 1][rrRes]).toFixed(6)}`);
+    const err = Math.max(...RESOURCES.map(r => Math.abs(cur.reduce((t, o) => t + num(o[r]), 0) - num(measuredRow_('River Rush', '100+', 'NONPAYER', ctx.ds)[r]))));
+    check('River Rush on-grid conserves the window total', err < 1e-9, 'max err ' + err.toExponential(2));
+    check('River Rush is not a rank family: no settle shift (first paid day is day 2, not 3)', got[0] === 2);
+  }
+  if (saved === undefined) delete ctx.calCur['River Rush']; else ctx.calCur['River Rush'] = saved;
+  resetAlloc();
+}
+
 const rm = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'NEW');
 const rmDays = rm.map((row, d) => row[HC] > 1e-12 ? d + 1 : 0).filter(Boolean);
 // expectation derived from the parsed calendar itself (clipped instance position varies)
 const rmExpect = [...new Set((Context.get().calNew['Rainbow Maker'] || []).flatMap(i => i.days))].sort((a, b) => a - b);
 check('RM NEW pays only on its instance days', JSON.stringify(rmDays) === JSON.stringify(rmExpect), 'got ' + JSON.stringify(rmDays) + ' expect ' + JSON.stringify(rmExpect));
 
-const hh = ECOGAINS_DAILY('NONPAYER', '0-9', 'Hatchling Hideaway', 'NEW');
-// marginal spread on a full 4-day HH instance: curve 0.18/0.71/1.00/1.00 -> day2 biggest, day4 ~0
-const hhInst = (Context.get().calNew['Hatchling Hideaway'] || []).find(i => i.dur === 4);
-const [h1, h2, h3, h4] = hhInst.days.map(d => hh[d - 1][10]);   // UL Lives
-check('HH marginal spread (4d instance): day2 > day1 and day4 ≈ 0',
-  h2 > h1 && h4 < 1e-9, `days ${hhInst.days}: ${[h1, h2, h3, h4].map(x => x.toFixed(3)).join(' / ')}`);
+// ---- D60 (4): the marginal family spreads by the MEAN accrual curve, p50 under legacy ----------
+// The pre-D60 gate froze the p50 shape (0.18/0.71/1.00/1.00 -> 'day2 > day1 and day4 ~ 0'); the
+// rule is asserted instead: within a full instance the day weights equal the normalised marginal
+// of whichever curve the model names, and the two columns really differ on this data.
+{
+  const hhInst = (Context.get().calNew['Hatchling Hideaway'] || []).find(i => i.dur === 4);
+  const ds = Context.get().ds;
+  const marg = curve => { const out = []; for (let j = 1; j <= hhInst.dur; j++) out.push(Math.max(0, curveRaw_(curve, j) - curveRaw_(curve, j - 1))); return normalize_(out); };
+  const cMean = ds.accrualCurveMean('Hatchling Hideaway', '0-9', 'NONPAYER');
+  const cP50  = ds.accrualCurve('Hatchling Hideaway', '0-9', 'NONPAYER', false);
+  check('data_event_accrual carries a MEAN column (fixture is live)', cMean.length > 0 && cMean[0].share !== cP50[0].share,
+    'mean day1 ' + (cMean[0] && cMean[0].share) + ' vs p50 day1 ' + (cP50[0] && cP50[0].share));
+  const shape = grid => normalize_(hhInst.days.map(d => grid[d - 1][10]));   // UL Lives
+  const maxDiff = (a, b) => Math.max(...a.map((x, i) => Math.abs(x - b[i])));
+  const hhS = ECOGAINS_DAILY('NONPAYER', '0-9', 'Hatchling Hideaway', 'NEW');
+  check('settle: HH 4-day instance follows the MEAN marginal exactly', maxDiff(shape(hhS), marg(cMean)) < 1e-9,
+    `got ${shape(hhS).map(x => x.toFixed(3)).join('/')} expect ${marg(cMean).map(x => x.toFixed(3)).join('/')}`);
+  DAILY_ALLOC_MODEL = 'legacy'; resetAlloc();
+  const hhL = ECOGAINS_DAILY('NONPAYER', '0-9', 'Hatchling Hideaway', 'NEW');
+  check('legacy: HH 4-day instance follows the p50 marginal exactly (bit-identical pre-D60)', maxDiff(shape(hhL), marg(cP50)) < 1e-9,
+    `got ${shape(hhL).map(x => x.toFixed(3)).join('/')} expect ${marg(cP50).map(x => x.toFixed(3)).join('/')}`);
+  DAILY_ALLOC_MODEL = 'settle'; resetAlloc();
+}
+
+// ---- D60 (3): a continuous-track lane spreads prop p_day over the UNION of its days -------------
+// Fixture: a synthetic two-piece lane [1..30] + [31..33] for Season Pass (Free), the shape cal_curr
+// draws. Under settle a Wednesday in the stub (day 29 is also a Wednesday) carries the same weight
+// as day 1; under legacy the reach split hands the 3-day stub a per-day weight several times
+// larger - the artefact the change removes.
+{
+  const ctx = Context.get();
+  const saved = ctx.calCur['Season Pass'];
+  ctx.calCur['Season Pass'] = [mkInst_(1, 30), mkInst_(31, 3)];
+  const cur = dailySeries_('Season Pass (Free)', '0-9', 'NONPAYER', ctx, false);
+  const res = RESOURCES.find(r => Math.abs(num(cur.reduce((t, o) => t + num(o[r]), 0))) > 1e-9);
+  check('Season Pass (Free) has measured mass to place (fixture is live)', !!res, res || 'none');
+  if (res){
+    const pd = d => isWeekend_(d) ? 1 : 0;
+    const same = [1, 29].every(d => pd(d) === pd(1));
+    check('settle: stub day 32 and day 4 carry equal weight when they are the same day type',
+      same && Math.abs(num(cur[31][res]) - num(cur[3][res])) < 1e-9 && pd(32) === pd(4),
+      `day 32 ${num(cur[31][res]).toFixed(6)} vs day 4 ${num(cur[3][res]).toFixed(6)}`);
+    DAILY_ALLOC_MODEL = 'legacy'; resetAlloc();
+    const leg = dailySeries_('Season Pass (Free)', '0-9', 'NONPAYER', ctx, false);
+    check('legacy: the reach split still piles the 3-day stub (rule asserted on the old model too)',
+      num(leg[31][res]) > 2 * num(leg[3][res]), `day 32 ${num(leg[31][res]).toFixed(6)} vs day 4 ${num(leg[3][res]).toFixed(6)}`);
+    DAILY_ALLOC_MODEL = 'settle'; resetAlloc();
+    const tot = RESOURCES.map(r => Math.abs(cur.reduce((t, o) => t + num(o[r]), 0) - num(measuredRow_('Season Pass (Free)', '0-9', 'NONPAYER', ctx.ds)[r])));
+    check('track lane conserves the window total', Math.max(...tot) < 1e-9, 'max err ' + Math.max(...tot).toExponential(2));
+  }
+  ctx.calCur['Season Pass'] = saved;
+}
 
 // ---- 3. source filter consistency: sum of all single-source series == ALL ----
 {

@@ -54,7 +54,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D38  2026-09-07';
+var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D60  2026-10-14';
 
 
 var DAILY_DAYS = 33;
@@ -73,6 +73,49 @@ var DAILY_LASTDAY = { 'Bomb Challenge':1, 'Chuck Challenge':1, 'Red Challenge':1
 var DAILY_MARGINAL = { 'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":'Bombs Ballet',
                        'Jigsaw':'Jigsaw', 'Photoshoot':'Photoshoot' };
 var DAILY_PDAY_INST = { 'Rainbow Maker':1, 'Daily Night Sky Prize':1 };
+
+// ============================== DAY PLACEMENT MODEL (D60, 2026-10-14) =========================
+// MEASURED BEFORE IT WAS BUILT. harness/_probe_daily_alloc.js and _probe_daily_alloc_toggles.js
+// scored every candidate rule against the real 33-day data_econ_daily, one at a time
+// (analysis/out/daily_alloc_toggles.json, TV = share of a resource's mass sitting on the wrong
+// day). The pre-D60 allocation misplaced 19.6% (HC 13.9%); the rules below take the measured
+// combination to 12.1% (HC 9.6%, against an HC noise floor of 6.7%), 116 of 130 cell x resource
+// series improving, every window total conserved to the bit. Two ideas that LOOKED right were
+// measured and dropped: a geometric attendance "collect" kernel (the data shows NO +2/+3 tail
+// after a close; a symmetric box scored the same, so it was de-lumping a population average, not
+// modelling collection) and Season Pass on tier-crossing days (+32% WORSE on both dumps - a
+// mean-player crossing model is a 7-tooth comb against a smooth population average).
+// See DAILY_REWIRE_PLAN.md.
+//
+//   'settle'  (1) RANK-FAMILY LUMPS LAND THE DATE AFTER THE GRID CELL. A 1-day calendar cell is a
+//                 2-date event (user-confirmed 2026-10-14; data_event_accrual carries
+//                 instance_length_days = 2 for every leaderboard the grid draws as one cell), so
+//                 the board closes and pays on the NEXT date. Team Race shows it in all ten cells:
+//                 Sunday closes 5/12/19/26 read 0.83-0.94x of the mean on the close day and
+//                 1.15-1.23x the Monday after. Authored per category on the optional 'sim_settle'
+//                 sheet (DAILY_SETTLE_SHEET); default DAILY_SETTLE_DEFAULT for every DAILY_LASTDAY
+//                 family, 0 for everything else.
+//             (2) AN AUTHORED LAG VECTOR de-lumps a settled payout over +0 / +1 / +2 days. It is
+//                 the IDENTITY until the grant-vs-balance lag data exists to fit it (change #4 of
+//                 the approved plan): the totals cannot identify its width, so nothing is guessed.
+//             (3) CONTINUOUS-TRACK LANES (DAILY_TRACK: both Season Pass rows) spread prop
+//                 SUM p_day over the lane's days instead of splitting by reach. cal_curr draws the
+//                 pass as [1..30]+[31..33]; splitting by reach handed the 3-day stub ~39% of the
+//                 window, so days 31-33 carried 4.7-7.3x the per-day HC of days 1-30.
+//             (4) THE MARGINAL FAMILY READS cum_token_share_MEAN, not p50 - the median player's
+//                 progress (1.0 on day 1 of every 2-day event) is not the cohort's share of
+//                 tokens (0.81-0.96). accrualD_ keeps p50: that is the D multiplier's own
+//                 validated choice and this does not move it.
+//   'legacy'  bit-identical to the pre-D60 engine, random stream and all (gated).
+//
+// EARN DAY vs BALANCE DAY. data_econ_daily records the day a reward reached the BALANCE, so the
+// daily view places on balance day. The 7-day A/B window is compared on the day a reward is
+// EARNED (user decision 2026-10-14), so EcoGainsSim_7Day.gs asks for opts.earnDay and the settle
+// and lag stages are skipped there. Days 1..33 sum to the same window total either way.
+var DAILY_ALLOC_MODEL    = 'settle';
+var DAILY_SETTLE_SHEET   = 'sim_settle';     // optional: source | settle_days | lag_0 | lag_1 | lag_2
+var DAILY_SETTLE_DEFAULT = 1;                // days after the grid cell, every DAILY_LASTDAY family
+var DAILY_TRACK = { 'Season Pass (Free)':1, 'Season Pass (Paid)':1 };
 
 // category -> calendar row label (same wiring as the per-source sims in EcoGainsSim_v4.gs)
 var DAILY_CAL_LABEL = {
@@ -134,7 +177,8 @@ function ECOGAINS_DAILY(payer, segment, source, block){
 }
 
 // 33-day series for one source on one side. isNew: true -> simulated totals + cal_new.
-function dailySeries_(cat, seg, payer, ctx, isNew){
+// opts.earnDay (D60): place on the EARN day - skip settle and lag. The 7-day view asks for it.
+function dailySeries_(cat, seg, payer, ctx, isNew, opts){
   var ds = ctx.ds;
   var W = isNew ? resultRow_(cat, seg, payer, ctx) : measuredRow_(cat, seg, payer, ds);
   var days = emptyDays_();
@@ -191,12 +235,12 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }        // no rate data -> even weighting
 
-  var weights = dayWeights_(cat, insts, pWd, pWe, ds, seg, payer);
+  var weights = dayWeights_(cat, insts, pWd, pWe, ds, seg, payer, opts);
   // D26: the six envelope resources follow a DIFFERENT day distribution from the other 13 — the
   // collection season ends at SEASON_LAST_DAY, so packs are placed only on in-season instances and
   // any pack landing past the cutoff settles on its last day. Everything else keeps the full
   // 33-day placement, because only envelopes stop being rewarded.
-  var packW = isNew ? packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer) : weights;
+  var packW = isNew ? packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer, opts) : weights;
   for (var d = 0; d < DAILY_DAYS; d++){
     if (!weights[d] && !packW[d]) continue;
     RESOURCES.forEach(function(r){
@@ -213,16 +257,16 @@ function dailySeries_(cat, seg, payer, ctx, isNew){
 // filter, so its whole share is still distributed — just never onto a day after the album closed.
 // An instance wholly past the cutoff is already gone from packLane_'s reach sum, so dropping it
 // here keeps the per-day series summing to the (reduced) window total.
-function packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer){
+function packDayWeights_(cat, insts, pWd, pWe, ds, seg, payer, opts){
   if (typeof SEASON_CUTOFF === 'undefined' || !SEASON_CUTOFF)
-    return dayWeights_(cat, insts, pWd, pWe, ds, seg, payer);
+    return dayWeights_(cat, insts, pWd, pWe, ds, seg, payer, opts);
   var lane = DAILY_CAL_LABEL[cat];
   var live = seasonInsts_(insts, lane);
   if (insts.length && !live.length){                    // every instance is outside the season
     var zero = []; for (var i = 0; i < DAILY_DAYS; i++) zero.push(0);
     return zero;
   }
-  var w = dayWeights_(cat, live, pWd, pWe, ds, seg, payer);
+  var w = dayWeights_(cat, live, pWd, pWe, ds, seg, payer, opts);
   var out = [], d;
   for (d = 0; d < DAILY_DAYS; d++) out.push(0);
   for (d = 0; d < DAILY_DAYS; d++)
@@ -294,7 +338,22 @@ function nsSplitDays_(insts, pWd, pWe){
 }
 
 // normalized weight per day (sums to 1) implementing the placement rules above.
-function dayWeights_(cat, insts, pWd, pWe, ds, seg, payer){
+function dayWeights_(cat, insts, pWd, pWe, ds, seg, payer, opts){
+  var w = placeWeights_(cat, insts, pWd, pWe, ds, seg, payer);
+  if (DAILY_ALLOC_MODEL !== 'settle' || (opts && opts.earnDay)) return w;
+  if (DAILY_ALWAYS[cat] || !insts.length) return w;      // nothing settles on an always-on or off-grid lane
+  var sc = settleFor_(cat);
+  if (!sc.offset && sc.lag.length <= 1) return w;
+  var shifted = lagShift_(w, sc.offset, sc.lag), s = 0, d;
+  for (d = 0; d < DAILY_DAYS; d++) s += shifted[d];
+  // Every lump fell past day 33 (a single instance closing on the window's last day): keep the
+  // earn-day placement rather than spreading the lump flat, which normalize_ would otherwise do.
+  return (s > 0) ? normalize_(shifted) : w;
+}
+
+// WHERE the mass is EARNED, per category: the pre-D60 dayWeights_ with one addition, the
+// continuous-track branch. Everything the 'settle' model does on top is a shift of this vector.
+function placeWeights_(cat, insts, pWd, pWe, ds, seg, payer){
   var w = [], d;
   for (d = 0; d < DAILY_DAYS; d++) w.push(0);
   function pDay(day){ return isWeekend_(day) ? pWe : pWd; }
@@ -305,6 +364,17 @@ function dayWeights_(cat, insts, pWd, pWe, ds, seg, payer){
   }
   if (!insts.length){                                        // flat (non-calendar / off-grid)
     for (d = 0; d < DAILY_DAYS; d++) w[d] = 1;
+    return normalize_(w);
+  }
+  // D60 (3): a continuous track is climbed on every day the lane is open, so its total is spread
+  // prop p_day over the UNION of the lane's days - no per-instance reach split, because the
+  // instances are not separate events, they are one track the calendar happens to draw in pieces.
+  if (DAILY_TRACK[cat] && DAILY_ALLOC_MODEL === 'settle'){
+    var open = {};
+    insts.forEach(function(inst){
+      ((inst && inst.days) || []).forEach(function(day){ if (day >= 1 && day <= DAILY_DAYS) open[day] = 1; });
+    });
+    for (d = 1; d <= DAILY_DAYS; d++) if (open[d]) w[d-1] = pDay(d);
     return normalize_(w);
   }
   // timed: split the total across instances prop reach, then place within each instance
@@ -320,6 +390,67 @@ function dayWeights_(cat, insts, pWd, pWe, ds, seg, payer){
   return normalize_(w);
 }
 
+// The authored settle / lag table, read off the optional DAILY_SETTLE_SHEET by HEADER (trimmed,
+// case-insensitive): source | settle_days | lag_0 | lag_1 | lag_2. A blank settle_days keeps the
+// default; blank lag cells keep the identity. Missing sheet -> every category on its default, so
+// a workbook that never imports the sheet still runs the measured rule. No numbers live here
+// except the two defaults above (D12).
+var _settleCache = null;
+function settleConfig_(){
+  if (_settleCache !== null) return _settleCache;
+  var out = {}, v = sheetVals_(DAILY_SETTLE_SHEET);
+  if (!v || v.length < 2) return (_settleCache = out);
+  var h = {}, c;
+  for (c = 0; c < (v[0] || []).length; c++){
+    var hd = String(v[0][c] == null ? '' : v[0][c]).trim().toLowerCase();
+    if (hd && h[hd] == null) h[hd] = c;
+  }
+  if (h['source'] == null) return (_settleCache = out);
+  for (var i = 1; i < v.length; i++){
+    var r = v[i] || [], cat = String(r[h['source']] == null ? '' : r[h['source']]).trim();
+    if (!cat) continue;
+    var o = { offset: null, lag: null };
+    if (h['settle_days'] != null && r[h['settle_days']] !== '' && r[h['settle_days']] != null)
+      o.offset = Math.round(num(r[h['settle_days']]));
+    var lag = [], any = false, sum = 0;
+    ['lag_0', 'lag_1', 'lag_2'].forEach(function(k){
+      var x = (h[k] != null) ? r[h[k]] : '';
+      var val = (x !== '' && x != null) ? Math.max(0, num(x)) : 0;
+      if (x !== '' && x != null) any = true;
+      lag.push(val); sum += val;
+    });
+    if (any && sum > 0) o.lag = lag.map(function(x){ return x / sum; });
+    out[cat] = o;
+  }
+  return (_settleCache = out);
+}
+
+/** {offset, lag} for one category under the 'settle' model: the authored row if there is one,
+ *  else DAILY_SETTLE_DEFAULT for a rank family and 0 for everything else, with the identity lag. */
+function settleFor_(cat){
+  var cfg = settleConfig_()[cat] || {};
+  var off = (cfg.offset != null) ? cfg.offset : (DAILY_LASTDAY[cat] ? DAILY_SETTLE_DEFAULT : 0);
+  return { offset: off, lag: cfg.lag || [1] };
+}
+
+/** Shift a day-weight vector by `offset` days and spread each day's mass over `lag` (k = 0,1,2
+ *  further days). Mass that leaves the window is DROPPED here and the caller renormalises, so the
+ *  window total is conserved and a lump settling on day 34 is carried by the days that remain
+ *  (the user's conservation decision, 2026-10-13: never a 34th row, never a fold onto day 33). */
+function lagShift_(w, offset, lag){
+  var out = [], d, k;
+  for (d = 0; d < DAILY_DAYS; d++) out.push(0);
+  for (d = 0; d < DAILY_DAYS; d++){
+    if (!w[d]) continue;
+    for (k = 0; k < lag.length; k++){
+      if (!lag[k]) continue;
+      var t = d + offset + k;
+      if (t >= 0 && t < DAILY_DAYS) out[t] += w[d] * lag[k];
+    }
+  }
+  return out;
+}
+
 // weight of each day WITHIN one instance (sums to 1 over inst.days)
 function innerWeights_(cat, inst, pDay, ds, seg, payer){
   var days = (inst && inst.days) || [], n = days.length, out = [], j;
@@ -329,7 +460,11 @@ function innerWeights_(cat, inst, pDay, ds, seg, payer){
     return out;
   }
   if (DAILY_MARGINAL[cat]){
-    var curve = ds.accrualCurve(DAILY_MARGINAL[cat], seg, payer, false);
+    // D60 (4): the MEAN curve under the settle model; p50 under legacy (bit-identical). A v4 that
+    // predates accrualCurveMean (not re-pasted) falls back to p50 rather than failing.
+    var curve = (DAILY_ALLOC_MODEL === 'settle' && typeof ds.accrualCurveMean === 'function')
+      ? ds.accrualCurveMean(DAILY_MARGINAL[cat], seg, payer)
+      : ds.accrualCurve(DAILY_MARGINAL[cat], seg, payer, false);
     if (curve.length){
       for (j = 1; j <= n; j++) out.push(Math.max(0, curveRaw_(curve, j) - curveRaw_(curve, j-1)));
       return normalize_(out);

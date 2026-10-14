@@ -143,23 +143,58 @@ const PAYERS = ['NONPAYER', 'PAYER'];
 }
 
 // ---------------------------------------------------------------- 5. equals a hand-rolled day sum
-// Independent recomputation straight off ECOGAINS_DAILY, which is what a human would do by hand:
-// sum rows 6..13 of the daily grid. Must match cell for cell.
+// D60 (2026-10-14): the 7-day view sums the EARN-day placement (user decision - the A/B window
+// is compared on the day a reward is earned), while ECOGAINS_DAILY shows BALANCE day (rank lumps
+// settle the date after the grid cell). So the hand-rolled sum is over dailySeries_(..., {earnDay})
+// - and the pre-D60 identity against the daily GRID is asserted under the legacy model, where the
+// two coincide bit for bit. A third check proves the earn-day choice is live: a rank family that
+// closes ON the window's last day counts inside it here and one day past it on the daily sheet.
 {
+  const sumWin = (series, j) => { let t = 0; for (let d = 6; d <= 13; d++) t += num(series[d - 1][RESOURCES[j]]); return t; };
   let maxE = 0;
+  for (const seg of ['0-9', '100+']) {
+    const win = ECOGAINS_SIM_7_DAY('NONPAYER', seg);
+    for (let i = 0; i < CATEGORY_ORDER.length; i++) {
+      const series = dailySeries_(CATEGORY_ORDER[i], seg, 'NONPAYER', Context.get(), true, { earnDay: true });
+      for (let j = 0; j < RESOURCES.length; j++) maxE = Math.max(maxE, Math.abs(win[i][j] - sumWin(series, j)));
+    }
+  }
+  check('SIM_7 == Σ days 6..13 of the EARN-day series per source', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
+
+  DAILY_ALLOC_MODEL = 'legacy'; _sheetValsCache = {}; _settleCache = null;
+  let maxL = 0;
   for (const seg of ['0-9', '100+']) {
     const win = ECOGAINS_SIM_7_DAY('NONPAYER', seg);
     for (let i = 0; i < CATEGORY_ORDER.length; i++) {
       const grid = ECOGAINS_DAILY('NONPAYER', seg, CATEGORY_ORDER[i], 'NEW');
       for (let j = 0; j < RESOURCES.length; j++) {
-        let s = 0;
-        for (let d = 6; d <= 13; d++) s += grid[d - 1][j];
-        maxE = Math.max(maxE, Math.abs(win[i][j] - s));
+        let t = 0; for (let d = 6; d <= 13; d++) t += grid[d - 1][j];
+        maxL = Math.max(maxL, Math.abs(win[i][j] - t));
       }
     }
   }
-  check('SIM_7 == Σ rows 6..13 of ECOGAINS_DAILY(..., "NEW") per source',
-    maxE < 1e-9, 'max err ' + maxE.toExponential(2));
+  check('legacy model: SIM_7 == Σ rows 6..13 of ECOGAINS_DAILY(..., "NEW") (pre-D60 identity, bit for bit)',
+    maxL < 1e-9, 'max err ' + maxL.toExponential(2));
+  DAILY_ALLOC_MODEL = 'settle'; _sheetValsCache = {}; _settleCache = null;
+
+  // the earn-day choice is LIVE: a rank family closing on day 13 is inside the window here and
+  // on day 14 on the daily sheet. Fixtured by injecting the instance, so it cannot depend on the
+  // calendar happening to close something on day 13.
+  {
+    const ctx = Context.get();
+    const saved = ctx.calNew['Kite Festival'];
+    ctx.calNew['Kite Festival'] = [mkInst_(11, 3)];                  // days 11..13, closes ON day 13
+    _sheetValsCache = {}; _settleCache = null;
+    const ki = CATEGORY_ORDER.indexOf('Kite Festival');
+    const win = ECOGAINS_SIM_7_DAY('NONPAYER', '0-9');
+    const grid = ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'NEW');
+    const j = RESOURCES.indexOf('HC');
+    let inGrid = 0; for (let d = 6; d <= 13; d++) inGrid += grid[d - 1][j];
+    check('earn-day is live: a Kite close on day 13 counts IN the 7-day window but lands on day 14 on the daily sheet',
+      win[ki][j] > 1e-9 && inGrid < 1e-9 && grid[13][j] > 1e-9,
+      `window ${win[ki][j].toFixed(4)}, daily rows 6..13 ${inGrid.toFixed(4)}, daily day 14 ${grid[13][j].toFixed(4)}`);
+    ctx.calNew['Kite Festival'] = saved; _sheetValsCache = {}; _settleCache = null;
+  }
 }
 
 // ---------------------------------------------------------------- 6. placement sanity
@@ -209,21 +244,22 @@ const PAYERS = ['NONPAYER', 'PAYER'];
 }
 
 // ---------------------------------------------------------------- 7. DIFF identity
+// Both sides on EARN day (D60), so the identity is against the earn-day CURRENT series.
 {
   let maxE = 0;
   for (const seg of ['0-9', '40-99']) {
     const sim = ECOGAINS_SIM_7_DAY('NONPAYER', seg);
     const dif = ECOGAINS_DIFF_7_DAY('NONPAYER', seg);
     for (let i = 0; i < CATEGORY_ORDER.length; i++) {
-      const cur = ECOGAINS_DAILY('NONPAYER', seg, CATEGORY_ORDER[i], 'CURRENT');
+      const cur = dailySeries_(CATEGORY_ORDER[i], seg, 'NONPAYER', Context.get(), false, { earnDay: true });
       for (let j = 0; j < RESOURCES.length; j++) {
         let c = 0;
-        for (let d = 6; d <= 13; d++) c += cur[d - 1][j];
+        for (let d = 6; d <= 13; d++) c += num(cur[d - 1][RESOURCES[j]]);
         maxE = Math.max(maxE, Math.abs(dif[i][j] - (sim[i][j] - c)));
       }
     }
   }
-  check('DIFF_7 == SIM_7 - (measured over the SAME days)', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
+  check('DIFF_7 == SIM_7 - (measured over the SAME days, earn day)', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
 }
 
 // ---------------------------------------------------------------- 8. eyeball

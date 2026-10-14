@@ -120,7 +120,11 @@ function win7Bounds_(){
 // One category's per-resource total over the window, on one side.
 // isNew: true -> simulated over cal_new; false -> measured over cal_curr.
 function win7Row_(cat, seg, payer, ctx, isNew){
-  var days = dailySeries_(cat, seg, payer, ctx, isNew);
+  // EARN day, not balance day (D60, user decision 2026-10-14): the A/B window compares what
+  // was earned on days FIRST..LAST, so the daily engine's settle and lag stages are skipped
+  // here. A board that closes on the window's last day therefore counts IN the window, where
+  // the balance-day view would carry it one day past it.
+  var days = dailySeries_(cat, seg, payer, ctx, isNew, { earnDay: true });
   var w = win7Bounds_(), out = {};
   RESOURCES.forEach(function(r){ out[r] = 0; });
   for (var d = w.a; d <= w.b; d++){

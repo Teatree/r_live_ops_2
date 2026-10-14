@@ -3474,7 +3474,9 @@ var DataStore = (function(){
       for (var k = 1; k < vals.length; k++){ var r = vals[k], ev = r[h['event_name']];
         if (!ev) continue;
         var key = [ev, r[h['payer_flag']], r[h['segment']]].join('|');
-        (m[key] = m[key] || []).push({day: num(r[h['event_day']]), share: num(r[h['cum_token_share_p50']])}); }
+        (m[key] = m[key] || []).push({day: num(r[h['event_day']]), share: num(r[h['cum_token_share_p50']]),
+          // D60: the MEAN column too (null when the pull predates it)
+          shareMean: (h['cum_token_share_mean'] != null) ? num(r[h['cum_token_share_mean']]) : null}); }
       for (var kk in m) m[kk].sort(function(a,b){ return a.day - b.day; });
       return m; }
     var aMap = accIndex(accVals), kMap = accIndex(kiteVals);
@@ -3505,7 +3507,18 @@ var DataStore = (function(){
       eventInst: function(ev, seg, payer){ return eMap[[ev, seg, payer].join('|')] || null; },
       rmPct: function(seg, payer){ return rMap[[seg, payer].join('|')] || null; },
       accrualCurve: function(ev, seg, payer, kite){ var m = kite ? kMap : aMap;
-        return m[[ev, payer, seg].join('|')] || m[[ev, payer, '0-9'].join('|')] || []; }
+        return m[[ev, payer, seg].join('|')] || m[[ev, payer, '0-9'].join('|')] || []; },
+      // The MEAN column of the same curve (D60, 2026-10-14). cum_token_share_p50 is the median
+      // PLAYER's progress - for every 2-day event it reads 1.0 on day 1 while the mean reads
+      // 0.81-0.96 - whereas a day ALLOCATION of a cohort total needs the cohort's share of
+      // tokens by day, which is the mean. accrualD_ (the D multiplier) keeps reading p50:
+      // that is a separate, validated decision and this accessor must not move it.
+      // Falls back to the p50 curve when the pull carries no mean column, so an older export
+      // still places every instance.
+      accrualCurveMean: function(ev, seg, payer){
+        var c = this.accrualCurve(ev, seg, payer, false);
+        if (!c.length || c[0].shareMean == null) return c;
+        return c.map(function(pt){ return { day: pt.day, share: pt.shareMean }; }); }
     };
   }
   return {
