@@ -369,6 +369,54 @@ function synthEconDaily() {
   check('NET blank when Source != ALL', isBlankGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'CURNET')));
   // per-key missing -> blank (fixture has no 10-19 rows)
   check('NET blank for segment missing from data_econ_daily', isBlankGrid(ECOGAINS_DAILY('NONPAYER', '10-19', 'ALL', 'CURNET')));
+
+  // ---- D60: the measured side as blocks, and INCOMPLETE PULLS BY DESIGN -----------------------
+  // DATA = data_econ_daily gains per earner per day; DATADIFF = DATA - NEW (positive = data above
+  // the sim). Every data-anchored block is BLANK past the last day the pull carries - a day with
+  // no row is 'not pulled yet', never 0. Fixtured by truncating the synthetic feed to 14 days for
+  // one cell and asserting rows 15..33 are '' on all five data blocks while rows 1..14 are
+  // untouched; then restoring and asserting all 33 come back.
+  {
+    _sheetValsCache = {};
+    const dat = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATA');
+    const ddf = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATADIFF');
+    const nw  = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'NEW');
+    let eD = 0, eF = 0, leak = 0;
+    for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) {
+      const gain = 10 + 0.1 * (d + 1) + j;
+      if (isGainsOnlyRes_(RESOURCES[j])) { if (dat[d][j] !== '' || ddf[d][j] !== '') leak++; continue; }
+      eD = Math.max(eD, Math.abs(dat[d][j] - gain));
+      eF = Math.max(eF, Math.abs(ddf[d][j] - (gain - nw[d][j])));
+    }
+    check('DATA == data_econ_daily gains per earner per day', eD < 1e-9, 'max err ' + eD.toExponential(2));
+    check('DATADIFF == DATA - NEW, day by day (positive = data above the sim)', eF < 1e-9, 'max err ' + eF.toExponential(2));
+    check('DATA / DATADIFF leave the gains-only columns blank (no pack telemetry is not a measured 0)', leak === 0, leak + ' numeric cells');
+    check('DATA blank when Source != ALL (the measured side is game-wide)', isBlankGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'DATA')));
+
+    // truncate the feed: keep days 1..14 for 0-9 NONPAYER only
+    const full = data['data_econ_daily'].values;
+    data['data_econ_daily'] = { values: full.filter((r, i) => i === 0 || !(r[0] === '0-9' && r[1] === 'NONPAYER' && Number(r[3]) > 14)), merges: [] };
+    _sheetValsCache = {};
+    const blocks = ['DATA', 'DATADIFF', 'SPEND', 'CURNET', 'NEWNET'];
+    let pastNumeric = 0, withinChanged = 0, pastCells = 0;
+    const before = { DATA: dat, DATADIFF: ddf };
+    blocks.forEach(b => {
+      const g = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', b);
+      for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) {
+        if (d >= 14) { pastCells++; if (g[d][j] !== '') pastNumeric++; }
+        else if (before[b] && Math.abs(num(g[d][j]) - num(before[b][d][j])) > 1e-9) withinChanged++;
+      }
+    });
+    check('a 14-of-33-day pull: every data-anchored block is BLANK (not 0) past day 14',
+      pastNumeric === 0 && pastCells === 19 * RESOURCES.length * blocks.length, pastNumeric + ' numeric cells past the last pulled day');
+    check('a 14-of-33-day pull: days 1..14 are unchanged', withinChanged === 0, withinChanged + ' cells moved');
+    // the other cell still has all 33 days
+    const other = ECOGAINS_DAILY('PAYER', '0-9', 'ALL', 'DATA');
+    check('truncation is per cell: 0-9 PAYER still carries all 33 days', other.every(row => row[0] !== ''));
+    data['data_econ_daily'] = { values: full, merges: [] };
+    _sheetValsCache = {};
+    check('feed restored -> 33 days again', ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATA').every(row => row[0] !== ''));
+  }
   if (stash !== undefined) data['data_econ_daily'] = stash; else delete data['data_econ_daily'];
   _sheetValsCache = {};
 }

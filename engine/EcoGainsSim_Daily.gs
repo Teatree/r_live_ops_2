@@ -60,6 +60,10 @@ var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D60  2026-10-14';
 var DAILY_DAYS = 33;
 var DAILY_ECON_SHEET = 'data_econ_daily';                 // actual per-day gain/spend (per earner)
 var DAILY_NET_BLOCKS = { 'SPEND':1, 'CURNET':1, 'NEWNET':1 };
+// D60 (2026-10-14): the measured side as its own blocks. DATA = data_econ_daily gains per earner
+// per day; DATADIFF = DATA - NEW (data minus sim, positive = data above the sim). Both are
+// game-wide (Source = ALL only) until a per-source daily feed exists.
+var DAILY_DATA_BLOCKS = { 'DATA':1, 'DATADIFF':1 };
 
 // how each source's window total is placed on days (anything not listed = flat)
 var DAILY_ALWAYS  = { 'Core':1, 'Saga':1, 'Daily Gift':1 };
@@ -143,26 +147,31 @@ function ECOGAINS_DAILY(payer, segment, source, block){
   var s = String(segment || '0-9').trim();
   var src = String(source || 'ALL').trim();
   var blk = String(block  || 'NEW').trim().toUpperCase();
-  if (blk !== 'CURRENT' && blk !== 'NEW' && blk !== 'DIFF' && !DAILY_NET_BLOCKS[blk])
-    return [['Unknown block: ' + blk + " (use CURRENT / NEW / DIFF / SPEND / CURNET / NEWNET)"]];
+  if (blk !== 'CURRENT' && blk !== 'NEW' && blk !== 'DIFF' && !DAILY_NET_BLOCKS[blk] && !DAILY_DATA_BLOCKS[blk])
+    return [['Unknown block: ' + blk + " (use CURRENT / NEW / DIFF / DATA / DATADIFF / SPEND / CURNET / NEWNET)"]];
   if (src.toUpperCase() !== 'ALL' && CATEGORY_ORDER.indexOf(src) === -1)
     return [['Unknown source: ' + src]];
 
-  if (DAILY_NET_BLOCKS[blk]){
-    if (src.toUpperCase() !== 'ALL') return blankGrid_();  // spend is game-wide: NET only for ALL
+  if (DAILY_NET_BLOCKS[blk] || DAILY_DATA_BLOCKS[blk]){
+    if (src.toUpperCase() !== 'ALL') return blankGrid_();  // the measured side is game-wide: ALL only
     var econ = econDaily_(s, p);
     if (!econ) return blankGrid_();                        // no data_econ_daily (yet) -> blank
-    if (blk === 'SPEND')  return netGrid_(econ.spend);
-    if (blk === 'CURNET') return netGrid_(diffSeries_(econ.gain, econ.spend));
+    // INCOMPLETE PULLS BY DESIGN (D60): every data-anchored block is BLANK past the last day
+    // the pull carries. A day with no row is 'not pulled yet', never 0 - a 0 there would read
+    // as a collapse on DATA and as the whole simulated value on DATADIFF.
+    if (blk === 'DATA')   return clipGrid_(netGrid_(econ.gain), econ.lastDay);
+    if (blk === 'SPEND')  return clipGrid_(netGrid_(econ.spend), econ.lastDay);
+    if (blk === 'CURNET') return clipGrid_(netGrid_(diffSeries_(econ.gain, econ.spend)), econ.lastDay);
     // NEWNET = actual net + the sim's per-day gain shift (NEW - CURRENT over all categories)
     var ctxN = Context.get(), curN = emptyDays_(), nwN = emptyDays_();
     CATEGORY_ORDER.forEach(function(cat){
       addSeries_(curN, dailySeries_(cat, s, p, ctxN, false));
       addSeries_(nwN,  dailySeries_(cat, s, p, ctxN, true ));
     });
+    if (blk === 'DATADIFF') return clipGrid_(netGrid_(diffSeries_(econ.gain, nwN)), econ.lastDay);
     var net = diffSeries_(econ.gain, econ.spend);
     addSeries_(net, diffSeries_(nwN, curN));
-    return netGrid_(net);
+    return clipGrid_(netGrid_(net), econ.lastDay);
   }
 
   var cats = (src.toUpperCase() === 'ALL') ? CATEGORY_ORDER : [src];
@@ -504,7 +513,7 @@ function econDaily_(seg, payer){
   var h = headerIndex_(v[0]);
   if (h['currency'] == null || h['day_index'] == null ||
       h['gain_per_earner_day'] == null || h['spend_per_earner_day'] == null) return null;
-  var gain = emptyDays_(), spend = emptyDays_(), found = false;
+  var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0;
   for (var i = 1; i < v.length; i++){ var r = v[i];
     if (String(r[h['segment']]).trim() !== seg || String(r[h['payer_flag']]).trim() !== payer) continue;
     var res = String(r[h['currency']]).trim();
@@ -514,13 +523,21 @@ function econDaily_(seg, payer){
     gain[d-1][res]  += num(r[h['gain_per_earner_day']]);
     spend[d-1][res] += num(r[h['spend_per_earner_day']]);
     found = true;
+    if (d > lastDay) lastDay = d;                             // last day the pull carries
   }
-  return found ? { gain: gain, spend: spend } : null;
+  return found ? { gain: gain, spend: spend, lastDay: lastDay } : null;
 }
 
 // 33x13 grid of '' — the NET blocks' blank spill. MUST be '' text cells, not an empty/1x1 array:
 // the display sheet's net-delta formulas subtract these cells, and truly-empty cells coerce to 0
 // (net delta would read 0 instead of blank); '' makes the subtraction error into its IFERROR "".
+// Rows past `lastDay` become '' text cells (the blankGrid_ convention): a day the pull has not
+// reached yet is unknown, not zero, and the sheet's net-delta / total formulas IFERROR / COUNT
+// their way around '' but would happily add a 0.
+function clipGrid_(grid, lastDay){
+  var cut = Math.max(0, Math.min(DAILY_DAYS, Math.round(num(lastDay))));
+  return grid.map(function(row, d){ return (d < cut) ? row : row.map(function(){ return ''; }); });
+}
 function blankGrid_(){
   var out = [];
   for (var d = 0; d < DAILY_DAYS; d++){
