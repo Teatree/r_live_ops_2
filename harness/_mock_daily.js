@@ -465,6 +465,39 @@ function synthEconDaily() {
     let maxE = 0;
     for (let j = 0; j < RESOURCES.length; j++) maxE = Math.max(maxE, Math.abs(colSum(g, j) - win[j]));
     check('RM split: daily sums == 33-day RM row (incl. SPTx2)', maxE < 1e-9, 'max err ' + maxE.toExponential(2));
+
+    // ---- D60b: the CURRENT side places per instance too --------------------------------------
+    // Fixture: cal_curr runs the SAME RM instances as cal_new. The synthetic anchor (rmSynth_, base
+    // ladder) is then the measured row, and its parts must place the CURRENT side exactly as the
+    // NEW parts place the NEW side: SPTx2 only on instance #4-#5 days, nothing outside the
+    // instances, window total conserved. Before D60b the CURRENT side fell through to the generic
+    // reach split and the two sides disagreed on days with equal totals.
+    {
+      const ctx = Context.get();
+      const savedCur = ctx.calCur['Rainbow Maker'];
+      ctx.calCur['Rainbow Maker'] = (ctx.calNew['Rainbow Maker'] || []).map(i => mkInst_(i.start, i.dur));
+      _sheetValsCache = {};
+      const cur = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'CURRENT');
+      const x2Cur = cur.map((row, d) => row[iX2] > 1e-12 ? d + 1 : 0).filter(Boolean);
+      const anyCur = cur.map((row, d) => row.reduce((t, x) => t + Math.abs(x), 0) > 1e-12 ? d + 1 : 0).filter(Boolean);
+      const instDays = new Set(rmSortedInsts_(ctx.calCur).flatMap(i => i.days));
+      check('RM CURRENT (cal_curr runs RM): SPTx2 only on instance #4-#5 days, same rule as NEW',
+        x2Cur.length > 0 && x2Cur.every(d => lastDays.has(d)) && x2Cur.length === lastDays.size,
+        `days ${JSON.stringify(x2Cur)} expect ${JSON.stringify([...lastDays].sort((a, b) => a - b))}`);
+      check('RM CURRENT pays only on cal_curr RM instance days', anyCur.length > 0 && anyCur.every(d => instDays.has(d)), JSON.stringify(anyCur));
+      const meas = measuredRow_('Rainbow Maker', '0-9', 'NONPAYER', ctx.ds);
+      let eC = 0;
+      for (let j = 0; j < RESOURCES.length; j++) eC = Math.max(eC, Math.abs(colSum(cur, j) - num(meas[RESOURCES[j]])));
+      check('RM CURRENT per-instance placement conserves the measured (synthetic) row', eC < 1e-9, 'max err ' + eC.toExponential(2));
+      // identical calendars + identical ladders would give identical days; here the ladders differ
+      // (RM_1st vs RM_1st_v2), so assert the SHAPE agrees where both sides pay: same paid-day set.
+      const nw = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'NEW');
+      const anyNew = nw.map((row, d) => row.reduce((t, x) => t + Math.abs(x), 0) > 1e-12 ? d + 1 : 0).filter(Boolean);
+      check('RM CURRENT and NEW pay on the same days when the calendars are identical',
+        JSON.stringify(anyCur) === JSON.stringify(anyNew), `cur ${JSON.stringify(anyCur)} new ${JSON.stringify(anyNew)}`);
+      if (savedCur === undefined) delete ctx.calCur['Rainbow Maker']; else ctx.calCur['Rainbow Maker'] = savedCur;
+      _sheetValsCache = {};
+    }
     if (stash1 !== undefined) data['RM_1st'] = stash1; else delete data['RM_1st'];
     if (stash2 !== undefined) data['RM_2nd'] = stash2; else delete data['RM_2nd'];
     eval(v4Src); eval(dailySrc); _sheetValsCache = {};

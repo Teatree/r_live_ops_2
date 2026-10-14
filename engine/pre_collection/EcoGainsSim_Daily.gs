@@ -184,8 +184,25 @@ function dailySeries_(cat, seg, payer, ctx, isNew, opts){
   // (from the engine's per-instance breakdown) on its days prop p_day, so RM_2nd-only
   // resources (SPTx2) never land on RM_1st instance days. Sums stay exactly the 33-day RM row.
   // parts == null (carried: no matchables/ladder) falls through to the generic placement.
-  if (isNew && cat === 'Rainbow Maker'){
-    var parts = rmInstanceRows_(seg, payer, ctx);
+  //
+  // BOTH SIDES since D60b (2026-10-14). The CURRENT side used to fall through to the generic
+  // placement (reach split, p_day inside each instance) while NEW placed per instance, so on two
+  // IDENTICAL calendars with identical ladders the two sides put RM's HC on different days - up to
+  // 10 HC/day apart at 0-9 NONPAYER with equal window totals - and the daily DIFF showed a change
+  // where nothing had changed. The measured side IS the same per-instance walk over cal_curr on the
+  // BASE ladder (rmSynth_, D29), so its parts place the CURRENT side exactly as the NEW parts place
+  // the NEW side. They are used only when they reproduce the row W (i.e. the synthetic anchor is the
+  // measured side); when data_gains rows win (RM_REAL_DATA_WINS) or cal_curr has no RM, the generic
+  // placement stays, because then the parts are not what the row is made of.
+  if (cat === 'Rainbow Maker'){
+    var parts = isNew ? rmInstanceRows_(seg, payer, ctx)
+                      : (ctx.calCurOk ? rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCur, useBase: true }) : null);
+    if (parts && parts.length && !isNew){
+      var tot = {}, same = true;
+      parts.forEach(function(p){ RESOURCES.forEach(function(r){ tot[r] = num(tot[r]) + num(p.row[r]); }); });
+      RESOURCES.forEach(function(r){ if (Math.abs(num(tot[r]) - num(W[r])) > 1e-9) same = false; });
+      if (!same) parts = null;
+    }
     if (parts && parts.length){
       var bb = ds.beh(seg, payer);
       var qWd = num(bb.weekday_active_rate), qWe = num(bb.weekend_active_rate);
