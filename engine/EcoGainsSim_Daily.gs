@@ -59,6 +59,12 @@ var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D60  2026-10-14';
 
 var DAILY_DAYS = 33;
 var DAILY_ECON_SHEET = 'data_econ_daily';                 // actual per-day gain/spend (per earner)
+// D63 (2026-10-14): the LIVE feed - the same schema pulled from the new calendar's day 1 onward,
+// landing one day at a time. When this sheet exists and carries usable rows it is what the DATA /
+// SPEND / NET blocks read; otherwise they fall back to DAILY_ECON_SHEET (the August pull, old
+// calendar). The choice is logged, never silent, and '' past the last pulled day applies as before.
+var DAILY_ECON_SHEET_LIVE = 'data_econ_daily_live';
+var DAILY_ECON_PREFER_LIVE = true;
 var DAILY_NET_BLOCKS = { 'SPEND':1, 'CURNET':1, 'NEWNET':1 };
 // D60 (2026-10-14): the measured side as its own blocks. DATA = data_econ_daily gains per earner
 // per day; DATADIFF = DATA - NEW (data minus sim, positive = data above the sim). Both are
@@ -541,7 +547,7 @@ function curveRaw_(curve, d){
 // (33 x {resource: value}) or null when the sheet is missing, lacks the expected headers, or has
 // no rows for this (segment, payer) — callers then spill the blank grid (fail-safe).
 function econDaily_(seg, payer){
-  var v = sheetVals_(DAILY_ECON_SHEET);
+  var v = sheetVals_(econSheet_());
   if (!v.length) return null;
   var h = headerIndex_(v[0]);
   if (h['currency'] == null || h['day_index'] == null ||
@@ -559,6 +565,20 @@ function econDaily_(seg, payer){
     if (d > lastDay) lastDay = d;                             // last day the pull carries
   }
   return found ? { gain: gain, spend: spend, lastDay: lastDay } : null;
+}
+
+// Which sheet the data-anchored blocks read (D63): the live feed when it is there and usable
+// (header row with the four columns the reader needs + at least one data row), else the base
+// sheet. Decided per execution, so the day the live sheet is pasted in it takes over by itself.
+function econUsable_(v){
+  if (!v || v.length < 2) return false;
+  var h = headerIndex_(v[0]);
+  return h['currency'] != null && h['day_index'] != null &&
+         h['gain_per_earner_day'] != null && h['spend_per_earner_day'] != null;
+}
+function econSheet_(){
+  if (DAILY_ECON_PREFER_LIVE && econUsable_(sheetVals_(DAILY_ECON_SHEET_LIVE))) return DAILY_ECON_SHEET_LIVE;
+  return DAILY_ECON_SHEET;
 }
 
 // 33x13 grid of '' — the NET blocks' blank spill. MUST be '' text cells, not an empty/1x1 array:

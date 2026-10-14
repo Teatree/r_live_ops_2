@@ -418,6 +418,48 @@ function synthEconDaily() {
     check('feed restored -> 33 days again', ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATA').every(row => row[0] !== ''));
   }
   if (stash !== undefined) data['data_econ_daily'] = stash; else delete data['data_econ_daily'];
+
+// ---- 5c. D63: the live feed takes over when present and usable; falls back otherwise ----------
+// Fixture: a one-day data_econ_daily_live for (0-9, NONPAYER) with values that cannot be confused
+// with the base sheet's; the base sheet stays in place throughout. Rule gates, then restore.
+{
+  const stashLive = data['data_econ_daily_live'];
+  const stashBase = data['data_econ_daily'];
+  data['data_econ_daily'] = synthEconDaily();            // the base sheet: 33 days, every cell
+  const hdr = ['segment', 'payer_flag', 'currency', 'day_index', 'calendar_date', 'dow', 'gain_total', 'spend_total',
+               'players_in_cell', 'active_players_day', 'resource_earners_window', 'gain_per_active_player_day',
+               'spend_per_active_player_day', 'gain_per_earner_day', 'spend_per_earner_day', 'days_available',
+               'window_start_date', 'status'];
+  const live = [hdr];
+  RESOURCES.slice(0, 13).forEach((r, k) => live.push(['0-9', 'NONPAYER', r, 1, '2026-10-13', 'Tue', 0, 0, 1, 1, 1, 0, 0, 1000 + k, 500 + k, 1, '2026-10-13', 'MEASURED']));
+  data['data_econ_daily_live'] = { values: live, merges: [] };
+  _sheetValsCache = {};
+  const iHC = RESOURCES.indexOf('HC');
+  const gD = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATA');
+  const gS = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'SPEND');
+  const day1ok = Math.abs(num(gD[0][iHC]) - 1000) < 1e-9 && Math.abs(num(gS[0][iHC]) - 500) < 1e-9;
+  let restBlank = true;
+  for (let d = 1; d < DAILY_DAYS; d++) for (let j = 0; j < RESOURCES.length; j++) if (gD[d][j] !== '' || gS[d][j] !== '') restBlank = false;
+  check('D63: with a usable data_econ_daily_live the DATA / SPEND blocks read IT (day 1 = the live row), not the base sheet', day1ok, 'day-1 HC data ' + gD[0][iHC] + ' spend ' + gS[0][iHC]);
+  check("D63: a one-day live pull leaves days 2..33 '' (not pulled yet, never 0) although the base sheet has all 33", restBlank);
+  // a cell the live pull has not reached yet is BLANK, not the base sheet's value
+  check('D63: a (segment, payer) absent from the live pull spills blank even though the base sheet has it',
+    isBlankGrid(ECOGAINS_DAILY('PAYER', '100+', 'ALL', 'DATA')));
+  // not usable (header-only) -> fall back to the base sheet
+  data['data_econ_daily_live'] = { values: [hdr], merges: [] };
+  _sheetValsCache = {};
+  const gF = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATA');
+  check('D63: a header-only live sheet is not usable -> the base sheet serves (fallback)', Math.abs(num(gF[0][iHC]) - num(synthEconDaily().values.find(r => r[0] === '0-9' && r[1] === 'NONPAYER' && r[2] === 'HC' && Number(r[3]) === 1)[4])) < 1e-9 || num(gF[0][iHC]) > 0, 'day-1 HC ' + gF[0][iHC]);
+  // flag off -> base sheet even with a usable live sheet
+  data['data_econ_daily_live'] = { values: live, merges: [] };
+  DAILY_ECON_PREFER_LIVE = false; _sheetValsCache = {};
+  const gOff = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATA');
+  check('D63: DAILY_ECON_PREFER_LIVE = false -> the base sheet serves although the live one is usable', Math.abs(num(gOff[0][iHC]) - 1000) > 1e-9 && gOff[1][iHC] !== '');
+  DAILY_ECON_PREFER_LIVE = true;
+  if (stashLive !== undefined) data['data_econ_daily_live'] = stashLive; else delete data['data_econ_daily_live'];
+  if (stashBase !== undefined) data['data_econ_daily'] = stashBase; else delete data['data_econ_daily'];
+  _sheetValsCache = {};
+}
   _sheetValsCache = {};
 }
 

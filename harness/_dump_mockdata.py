@@ -82,6 +82,7 @@ SHEETS = [
     # NET inputs (SimPerSegmentFill per-earner NET / ECOGAINS_DAILY net blocks) — expected MISSING
     # until the per-earner data_econ re-pull and the new data_econ_daily sheet land in the workbook
     'data_econ', 'data_econ_daily', 'data_econ_daily_by_source',   # by_source: D60 per-source daily feed
+    'data_econ_daily_live',   # D63: the live feed from the new calendar's day 1, one day at a time
     # Season Pass (D16): track + challenge configs. The _v2 pair is expected MISSING until the
     # user duplicates SP -> SP_v2 / SP_lb -> SP_lb_v2 in the live workbook (the engine then falls
     # back to the base sheets — that fallback path is exactly what the offline gates exercise).
