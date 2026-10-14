@@ -67,6 +67,7 @@ SHEETS = [
     # Expected MISSING in workbooks predating the split; the engine then reads 'NS_v2' every
     # day, which is the D22 behaviour, and the harness gates exercise exactly that fallback.
     'NS_v2_weekday',
+    'NS_weekday',      # D61d: the BASE weekday ladder ('NS' is then the weekend one); missing in older workbooks
     'Sim per Segment',
     # The display sheet itself, so a gate can check CATEGORY_ORDER against the row LABELS the
     # spill lands next to. Those labels are static text nothing validated, so a row added to

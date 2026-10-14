@@ -236,8 +236,10 @@ function dailySeries_(cat, seg, payer, ctx, isNew, opts){
   // the total with (E_wd x Σweekday p_day vs E_we x Σweekend p_day), so the 33 days still sum to
   // exactly the 33-day NS row for every resource, including packs and the carried resources whose
   // E is 0 on both sides (those fall back to the plain p_day split, i.e. the pre-D23 behaviour).
-  if (isNew && cat === 'Daily Night Sky Prize' && typeof nsE_ === 'function'){
-    var nsRows = nsDayTypeRows_(W, seg, payer, ctx);
+  // D61d: BOTH sides place by day type when that side has a weekday ladder (NS_v2_weekday for the
+  // redesign, NS_weekday for the base). A side with one ladder keeps the generic placement.
+  if (cat === 'Daily Night Sky Prize' && typeof nsE_ === 'function'){
+    var nsRows = nsDayTypeRows_(W, seg, payer, ctx, isNew);
     if (nsRows) return nsRows;
   }
   var label = DAILY_CAL_LABEL[cat];
@@ -262,11 +264,13 @@ function dailySeries_(cat, seg, payer, ctx, isNew, opts){
 // which is the same weighting nsE_ used to build the window total; a resource with E = 0 on both
 // sides (carried, or paid outside the ladder) has no ladder opinion and falls back to the day
 // split itself, which reproduces the plain p_day spread.
-function nsDayTypeRows_(W, seg, payer, ctx){
+function nsDayTypeRows_(W, seg, payer, ctx, isNew){
   var ds = ctx.ds;
   var E = nsE_(seg, payer, ds, ctx);
-  if (!E || !E.hasWeekdayVariant) return null;
-  var insts = (ctx.calNewOk && ctx.calNew['Night Sky']) || [];
+  if (isNew === undefined) isNew = true;
+  if (!E || !(isNew ? E.hasWeekdayVariant : E.hasBaseWeekdayVariant)) return null;
+  var eWd = isNew ? E.eV2Weekday : E.eBaseWeekday, eWe = isNew ? E.eV2Weekend : E.eBaseWeekend;
+  var insts = (isNew ? (ctx.calNewOk && ctx.calNew['Night Sky']) : (ctx.calCurOk && ctx.calCur['Night Sky'])) || [];
   if (!insts.length) return null;
   var b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
@@ -284,7 +288,7 @@ function nsDayTypeRows_(W, seg, payer, ctx){
   RESOURCES.forEach(function(r){
     var tot = num(W[r]);
     if (!tot) return;
-    var mWd = num(E.eV2Weekday[r]) * sumWd, mWe = num(E.eV2Weekend[r]) * sumWe;
+    var mWd = num(eWd[r]) * sumWd, mWe = num(eWe[r]) * sumWe;
     var shWe = (mWd + mWe > 1e-12) ? mWe / (mWd + mWe) : sumWe / (sumWd + sumWe);
     place(weDays, weW, sumWe, tot * shWe);
     place(wdDays, wdW, sumWd, tot * (1 - shWe));

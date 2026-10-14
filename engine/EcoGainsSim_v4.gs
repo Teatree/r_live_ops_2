@@ -2463,6 +2463,12 @@ var NS_V2_SHEET = 'NS_v2';   // redesign config; missing sheet / missing segment
 // Missing 'NS_v2_weekday' sheet, or no block for this segment -> there is no weekday variant and
 // 'NS_v2' runs every day: the blend collapses to E_v2 and the model is byte-identical to D22.
 var NS_V2_WEEKDAY_SHEET = 'NS_v2_weekday';
+// The BASE weekday ladder (D61d, 2026-10-14). The live game runs two Night Sky ladders too, and the
+// workbook authors them as NS (weekend) + NS_weekday (weekday); until D61d the engine read NS alone
+// for the anchor while blending the two _v2 sheets for the redesign, so IDENTICAL ladders on the
+// two sides still produced a Night Sky difference. Missing sheet / no block for the segment -> the
+// base is one ladder on every day, exactly as before.
+var NS_WEEKDAY_SHEET = 'NS_weekday';
 // Master switch for the split. false -> 'NS_v2' is the only redesign ladder and every day reads
 // it (the D22 behaviour), whatever 'NS_v2_weekday' happens to contain.
 var NS_DAYTYPE_SPLIT = true;
@@ -2548,8 +2554,24 @@ function nsE_(seg, payer, ds, ctx){
   var sh = nsDayTypeSplit_(seg, payer, ds, ctx);
   var eV2 = zeroRow_();
   RESOURCES.forEach(function(r){ eV2[r] = num(wd[r]) * sh.wd + num(we[r]) * sh.we; });
-  return { eBase: nsEDay_(base, S), eV2: eV2, eV2Weekday: wd, eV2Weekend: we,
-           split: sh, hasWeekdayVariant: !!wdLad };
+  // D61d: the base side blends the same way, over cal_curr's day types, when NS_weekday exists.
+  var bWe = nsEDay_(base, S);
+  var bWdLad = nsBaseWeekdayLadder_(seg);
+  var bWd = bWdLad ? nsEDay_(bWdLad, S) : bWe;
+  var bsh = bWdLad ? nsDayTypeSplit_(seg, payer, ds, ctx, 'cur') : sh;
+  var eBase = zeroRow_();
+  RESOURCES.forEach(function(r){ eBase[r] = num(bWd[r]) * bsh.wd + num(bWe[r]) * bsh.we; });
+  return { eBase: eBase, eV2: eV2, eV2Weekday: wd, eV2Weekend: we,
+           eBaseWeekday: bWd, eBaseWeekend: bWe,
+           split: sh, baseSplit: bsh, hasWeekdayVariant: !!wdLad, hasBaseWeekdayVariant: !!bWdLad };
+}
+
+// The BASE weekday ladder for one segment, or null when there is none (same rule as
+// nsWeekdayLadder_: never fall back to NS, because an absent sheet means ONE base ladder).
+function nsBaseWeekdayLadder_(seg){
+  if (!NS_DAYTYPE_SPLIT) return null;
+  var l = nsLadderOn_(NS_WEEKDAY_SHEET, seg);
+  return l.length ? l : null;
 }
 
 // The weekday redesign ladder for one segment, or null when there is no weekday variant.
@@ -2568,12 +2590,14 @@ function nsWeekdayLadder_(seg){
 // total for the daily view) without double-counting. No calendar / no rate data -> the day COUNT
 // split of the 33-day block, so the split degrades to "15 of 33 days are weekend" instead of
 // collapsing to a single side.
-function nsDayTypeSplit_(seg, payer, ds, ctx){
+// `which` (D61d): 'cur' reads cal_curr's Night Sky slots for the base-side blend; default cal_new.
+function nsDayTypeSplit_(seg, payer, ds, ctx, which){
   var b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }
   try { ctx = ctx || Context.get(); } catch(e){ ctx = null; }
-  var insts = (ctx && ctx.calNewOk && ctx.calNew['Night Sky']) || null;
+  var insts = (which === 'cur') ? ((ctx && ctx.calCurOk && ctx.calCur['Night Sky']) || null)
+                                : ((ctx && ctx.calNewOk && ctx.calNew['Night Sky']) || null);
   var wd = 0, we = 0;
   if (insts && insts.length){
     insts.forEach(function(inst){
@@ -3872,7 +3896,7 @@ function onOpen(){
 
 // ---- auto-refresh (AUTO_REFRESH switch) ----
 // Every sheet the engine reads; a user edit on any of them re-touches the sim formulas.
-var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','RM_1st_v2','RM_2nd_v2','NS','NS_v2','NS_v2_weekday','Race','Race_v2',
+var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','RM_1st_v2','RM_2nd_v2','NS','NS_weekday','NS_v2','NS_v2_weekday','Race','Race_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
   'F','F_v2','TE','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,   // TE: D19 pack lane
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
