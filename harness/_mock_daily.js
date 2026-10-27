@@ -23,6 +23,7 @@ function mkSheet(name) { const sh = data[name]; if (!sh) return null;
         return mkRange(name, +m[2], col, 1, 1); } return mkRange(name, a, b, c||1, d||1); } };
 }
 global.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: (n) => mkSheet(n) }) };
+global.Logger = global.Logger || { log: () => {} };   // the engine logs (D64: a weekday mismatch between feed and calendar)
 eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
 eval(fs.readFileSync(ENGINE('EcoGainsSim_Daily.gs'), 'utf8'));
 

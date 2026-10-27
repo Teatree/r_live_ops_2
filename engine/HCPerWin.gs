@@ -59,7 +59,7 @@
 // because Apps Script loads files alphabetically and a load-time read of another file's var is
 // undefined. harness/_mock_run.js gates that they match — change them together.
 var HCW_DAYS = 33;
-var HCW_DAY_ONE_DOW = 3;          // 1 = Monday .. 7 = Sunday; the 33-day calendars start Wednesday
+var HCW_DAY_ONE_DOW = 3;          // 1 = Monday .. 7 = Sunday; FALLBACK only (D64: the engine reads it off cal_new)
 var HCW_SEEDS = 3;                // card-sim runs to average (fixed seeds -> deterministic)
 var HCW_SEED_BASE = 101;
 
@@ -148,8 +148,11 @@ function hcwCollections_(seg, payer, nSeeds){
 }
 var _hcwCollCache = {};
 
-// Weekend rule (Fri/Sat/Sun), same shape as the engine's isWeekend_.
+// Weekend rule (Fri/Sat/Sun), same shape as the engine's isWeekend_. D64: when the engine is in
+// the project its rule is used (it reads day 1's weekday off the calendar sheet); the constant
+// above is only the fallback that keeps this file standalone.
 function hcwWeekend_(day){
+  if (typeof isWeekend_ === 'function') return isWeekend_(day);
   var dow = ((HCW_DAY_ONE_DOW - 1 + (day - 1)) % 7) + 1;
   return dow >= 5;
 }

@@ -70,7 +70,8 @@
  *
  * CALENDARS drive cadence + duration: merge = one instance (width = duration), lone filled
  * cell = one 1-day instance, neighbours never collapsed, day = column - 1, weekend =
- * (day-1)%7 in {2,3,4} (both calendars start Wednesday).
+ * Fri/Sat/Sun counted from the weekday the calendar's own weekday-name row gives day 1 (D64;
+ * it was a hardcoded Wednesday start).
  *   T = Σ_new reach / Σ_cur reach, reach(inst) = 1 - Π_days(1 - p_day)
  *   D = curveShare(newDur) / curveShare(curDur)   (normalised at curDur)
  *   Removal semantics: a simulated event with no cal_new instances → SIMULATED 0.
@@ -1779,7 +1780,7 @@ function tofCycleMode_(){ return (_tofInFlight || _tofSynthBusy) ? '|noToF' : ''
 function resetModuleCaches_(){
   _sheetValsCache = {}; _packAnchorCache = {}; _tofSynthCache = {}; _tofIncomeCache = {};
   _measSptCache = {}; _measSptBusyKeys = {}; _x2MinCache = {}; _x2MinBusyKeys = {};
-  _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null;
+  _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null; _calDowCache = null;
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
 }
@@ -3634,7 +3635,64 @@ function reachOne_(inst, pWd, pWe){
   inst.days.forEach(function(d){ q *= (1 - (isWeekend_(d) ? pWe : pWd)); });
   return 1 - q;
 }
-function isWeekend_(day){ var m = (day-1) % 7; return m === 2 || m === 3 || m === 4; } // Fri/Sat/Sun
+// ---- the calendar's START WEEKDAY (D64, 2026-10-14) -------------------------------------------
+// Every weekday/weekend split in the engine goes through isWeekend_, and until D64 it assumed each
+// calendar starts on a Wednesday. The live calendar's day 1 is Tuesday 2026-10-13 (user), which put
+// the weekend one day early in every view that uses the two activity rates - T, reach, Night Sky's
+// day-type blend, the daily placement, the card sim's attendance. The calendar sheets have carried
+// a weekday-name row all along (row 3: 'Wednesday', 'Thursday', ...); it is now the source. The
+// first row of CAL_NEW whose day-1 cell is a weekday name and which carries at least seven of them
+// names day 1; cal_curr is checked for agreement and logged when it differs (cal_new wins - the two
+// describe the same window). No such row -> Wednesday, i.e. the pre-D64 rule, bit for bit.
+// Memoised per execution (resetModuleCaches_ clears it), because isWeekend_ runs in every day loop.
+var CAL_DAY1_DOW_DEFAULT = 3;                              // 1 = Monday .. 7 = Sunday: Wednesday
+var DOW_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+var _calDowCache = null;
+function dowIndex_(x){
+  var s = String(x == null ? '' : x).trim().toLowerCase();
+  if (!s) return 0;
+  for (var i = 0; i < DOW_NAMES.length; i++)
+    if (s === DOW_NAMES[i] || s === DOW_NAMES[i].slice(0, 3)) return i + 1;
+  return 0;
+}
+// {dow, row} of the weekday-name row on one calendar sheet, or null.
+function calDay1DowOn_(sheetName){
+  var v;
+  try { v = sheetVals_(sheetName); } catch (e){ return null; }
+  if (!v || !v.length) return null;
+  for (var r = 0; r < Math.min(v.length, 12); r++){
+    var row = v[r] || [];
+    var d1 = dowIndex_(row[1]);                            // column B = day 1
+    if (!d1) continue;
+    var n = 0, ok = true;
+    for (var c = 1; c < row.length && c <= 33; c++){
+      var d = dowIndex_(row[c]);
+      if (!d) break;
+      if (d !== ((d1 - 1 + (c - 1)) % 7) + 1){ ok = false; break; }   // must run consecutively
+      n++;
+    }
+    if (ok && n >= 7) return { dow: d1, row: r + 1 };
+  }
+  return null;
+}
+function calDay1Dow_(){
+  if (_calDowCache !== null) return _calDowCache;
+  var nw = calDay1DowOn_(CAL_NEW), cur = calDay1DowOn_(CAL_CUR);
+  var dow = nw ? nw.dow : (cur ? cur.dow : CAL_DAY1_DOW_DEFAULT);
+  if (nw && cur && nw.dow !== cur.dow)
+    Logger.log(CAL_NEW + ' says day 1 is a ' + DOW_NAMES[nw.dow - 1] + ' but ' + CAL_CUR + ' says ' +
+               DOW_NAMES[cur.dow - 1] + ' - the two calendars describe one window, so they should ' +
+               'agree. Using ' + CAL_NEW + '. Retype the weekday row on the other sheet.');
+  if (!nw && !cur)
+    Logger.log('Neither calendar sheet carries a weekday-name row (e.g. Wednesday, Thursday, ... ' +
+               'from column B), so day 1 is taken as a Wednesday (the pre-D64 rule).');
+  return (_calDowCache = dow);
+}
+// Fri / Sat / Sun, counted from whatever weekday the calendar says day 1 is.
+function isWeekend_(day){
+  var dow = ((calDay1Dow_() - 1 + (day - 1)) % 7) + 1;
+  return dow >= 5;
+}
 
 function modalDur_(list){
   if (!list || !list.length) return 0;

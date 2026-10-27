@@ -1724,4 +1724,71 @@ console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
   cold();
 }
 
+
+// ---------------------------------------------------------------- D64. THE CALENDAR'S START WEEKDAY
+// isWeekend_ reads day 1's weekday off the calendar sheet's weekday-name row. Rule gates:
+// (1) a sheet that says Wednesday is bit-identical to the old (day-1)%7 in {2,3,4} rule;
+// (2) retyping the row Tuesday-first moves the weekend to days 4/5/6 ... and 14 of 33 days;
+// (3) no weekday row at all -> the Wednesday fallback; (4) cal_curr disagreeing -> cal_new wins;
+// (5) HCPerWin's standalone rule follows the engine's; (6) the DIFF on identical calendars stays 0
+// under the Tuesday start (both sides move together).
+{
+  const snapNew = JSON.stringify(data['cal_new']), snapCur = JSON.stringify(data['cal_curr']);
+  const dowRow = (sheet) => data[sheet].values.findIndex(r => /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(String((r || [])[1] || '').trim()));
+  const names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const retype = (sheet, firstDow) => {
+    const i = dowRow(sheet); if (i < 0) return false;
+    const row = data[sheet].values[i];
+    for (let c = 1; c <= 33 && c < row.length; c++) row[c] = names[(firstDow - 1 + (c - 1)) % 7];
+    return true;
+  };
+  const oldRule = (day) => { const m = (day - 1) % 7; return m === 2 || m === 3 || m === 4; };
+  const weekendDays = () => { const out = []; for (let d = 1; d <= 33; d++) if (isWeekend_(d)) out.push(d); return out; };
+  rebuildCtx_(); resetSheetCache();
+  gate('D64 fixture: both calendar sheets carry a weekday-name row starting Wednesday', dowRow('cal_new') >= 0 && dowRow('cal_curr') >= 0 && calDay1Dow_() === 3, 'cal_new row ' + (dowRow('cal_new') + 1) + ', day 1 = ' + calDay1Dow_());
+  let same = true; for (let d = 1; d <= 33; d++) if (isWeekend_(d) !== oldRule(d)) same = false;
+  gate('D64: a Wednesday weekday row reproduces the old (day-1)%7 in {2,3,4} rule on all 33 days', same, weekendDays().join(','));
+  // (2) Tuesday start
+  retype('cal_new', 2); retype('cal_curr', 2); rebuildCtx_(); resetSheetCache();
+  const tue = weekendDays();
+  gate('D64: a Tuesday weekday row moves the weekend to days 4/5/6, 11/12/13, ..., 32/33 (14 of 33)',
+    calDay1Dow_() === 2 && tue.join(',') === '4,5,6,11,12,13,18,19,20,25,26,27,32,33', tue.join(','));
+  const hcwOk = (typeof hcwWeekend_ === 'function') ? [1, 4, 6, 7, 33].every(d => hcwWeekend_(d) === isWeekend_(d)) : true;
+  gate('D64: HCPerWin.gs hcwWeekend_ follows the engine rule (Tuesday start: day 4 weekend, day 7 not)', hcwOk);
+  // (6) identical calendars still give DIFF 0 under the Tuesday start
+  {
+    const cp = data['cal_parsed'];
+    const snapParsed = JSON.stringify(cp), snapV2 = {};
+    const hdr = cp.values[0], cal = hdr.indexOf('calendar');
+    const newRows = cp.values.slice(1).filter(r => String(r[cal]).trim() === 'cal_new');
+    cp.values = [hdr].concat(cp.values.slice(1).filter(r => String(r[cal]).trim() !== 'cal_curr'))
+                     .concat(newRows.map(r => { const c = r.slice(); c[cal] = 'cal_curr'; return c; }));
+    Object.keys(data).filter(n => n.endsWith('_v2') && data[n.slice(0, -3)]).forEach(n => { snapV2[n] = data[n]; data[n] = JSON.parse(JSON.stringify(data[n.slice(0, -3)])); });
+    const hadWd = data['NS_v2_weekday'];
+    if (data['NS_weekday']) data['NS_v2_weekday'] = JSON.parse(JSON.stringify(data['NS_weekday'])); else delete data['NS_v2_weekday'];
+    eval(engineSrc); rebuildCtx_(); resetSheetCache();
+    let nz = 0, worst = 0, at = '';
+    const skip = { 'Col - Sets': 1, 'Col - Albums': 1 };
+    for (const payer of ['NONPAYER', 'PAYER']) for (const seg of ['0-9', '100+']) {
+      const dif = ECOGAINS_DIFF(payer, seg);
+      CATEGORY_ORDER.forEach((cat, i) => { if (skip[cat]) return; RESOURCES.forEach((r, j) => { const v = Math.abs(dif[i][j]); if (v > 1e-6) nz++; if (v > worst) { worst = v; at = seg + ' ' + payer + ' ' + cat + ' ' + r; } }); });
+    }
+    gate('D64: identical calendars + configs -> DIFF == 0 under the Tuesday start too (both sides move together)', nz === 0 && calDay1Dow_() === 2, nz ? nz + ' cells, worst ' + worst.toFixed(4) + ' at ' + at : 'all zero, day 1 = ' + calDay1Dow_());
+    data['cal_parsed'] = JSON.parse(snapParsed);
+    Object.keys(snapV2).forEach(n => { data[n] = snapV2[n]; });
+    if (hadWd) data['NS_v2_weekday'] = hadWd; else delete data['NS_v2_weekday'];
+  }
+  // (4) cal_curr disagreeing -> cal_new wins
+  retype('cal_curr', 3); eval(engineSrc); rebuildCtx_(); resetSheetCache();
+  gate('D64: cal_curr saying Wednesday while cal_new says Tuesday -> cal_new wins (logged)', calDay1Dow_() === 2);
+  // (3) no weekday row -> Wednesday fallback
+  { const i = dowRow('cal_curr'); if (i >= 0) data['cal_curr'].values[i] = data['cal_curr'].values[i].map(() => ''); }
+  { const i = dowRow('cal_new'); if (i >= 0) data['cal_new'].values[i] = data['cal_new'].values[i].map(() => ''); }
+  rebuildCtx_(); resetSheetCache();
+  gate('D64: no weekday-name row on either calendar -> Wednesday fallback (the pre-D64 rule)', calDay1Dow_() === 3 && isWeekend_(3) && !isWeekend_(6));
+  data['cal_new'] = JSON.parse(snapNew); data['cal_curr'] = JSON.parse(snapCur);
+  eval(engineSrc); rebuildCtx_(); resetSheetCache();
+  gate('D64 fixture restored (Wednesday start, weekend days 3/4/5 again)', calDay1Dow_() === 3 && isWeekend_(3));
+}
+
 process.exit(failures ? 1 : 0);

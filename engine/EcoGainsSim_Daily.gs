@@ -553,6 +553,7 @@ function econDaily_(seg, payer){
   if (h['currency'] == null || h['day_index'] == null ||
       h['gain_per_earner_day'] == null || h['spend_per_earner_day'] == null) return null;
   var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0;
+  var dowChecked = false, feedDow = null;
   for (var i = 1; i < v.length; i++){ var r = v[i];
     if (String(r[h['segment']]).trim() !== seg || String(r[h['payer_flag']]).trim() !== payer) continue;
     var res = String(r[h['currency']]).trim();
@@ -563,6 +564,16 @@ function econDaily_(seg, payer){
     spend[d-1][res] += num(r[h['spend_per_earner_day']]);
     found = true;
     if (d > lastDay) lastDay = d;                             // last day the pull carries
+    if (d === 1 && h['dow'] != null && !dowChecked){ dowChecked = true; feedDow = r[h['dow']]; }
+  }
+  // D64: the feed carries each day's real weekday; the calendar's weekday row is what the engine
+  // runs on. A mismatch means one of them is a day off - logged, never corrected here.
+  if (feedDow != null && typeof dowIndex_ === 'function' && typeof calDay1Dow_ === 'function'){
+    var fd = dowIndex_(feedDow), cd = calDay1Dow_();
+    if (fd && cd && fd !== cd)
+      Logger.log(econSheet_() + ' says day 1 is a ' + String(feedDow) + ' but the calendar sheet ' +
+                 'says ' + DOW_NAMES[cd - 1] + ' - retype the weekday row on cal_curr / cal_new ' +
+                 '(or re-pull the feed from the right start date).');
   }
   return found ? { gain: gain, spend: spend, lastDay: lastDay } : null;
 }
