@@ -300,6 +300,16 @@ function measuredRow_(cat, seg, payer, ds){
     if (TOF_ANCHORED && !anyAmount_(row)){ var ts = tofSynth_(seg, payer); if (ts) return ts; }
     return row;
   }
+  // D67: the collection rows - the card sim over cal_curr on the base ladders, resource by
+  // resource wherever the export is silent (see COL_ANCHORED).
+  if (COL_CATS[cat]){
+    if (!COL_ANCHORED) return row;
+    var cs = colSimSeasons_(seg, payer, null, 'cur');
+    if (!cs) return row;
+    var walkC = (cat === 'Col - Sets') ? cs.sets : cs.albums, outC = zeroRow_();
+    RESOURCES.forEach(function(r){ outC[r] = (num(row[r]) > 0) ? num(row[r]) : num(walkC[r]); });
+    return outC;
+  }
   if (!PACK_ANCHORED || cat === 'Rainbow Maker' || bottomUpHasData_(row)) return row;
   var pk = (cat === 'Season Pass (Free)') ? spFreePacksSynth_(seg, payer, ds) : packAnchorRow_(cat, seg, payer);
   return pk ? overlayPacks_(copyRow_(row), pk) : row;
@@ -1691,6 +1701,10 @@ function tofTicketIncome_(seg, payer, ctx, skip, measured){
   CATEGORY_ORDER.forEach(function(cat){
     if (cat === TOF_CAT) return;
     if (skip && skip[cat]) return;
+    // D67: set / album rewards carry no ToF_Ticket (the reward block has no ticket column), so the
+    // two collection rows contribute nothing here - and asking for them would run a whole card-sim
+    // batch from inside the ToF cycle, where the Season Pass tier is the noToF one (D62).
+    if (COL_CATS[cat]) return;
     var series = dailySeries_(cat, seg, payer, ctx, !measured);
     for (var i = 0; i < DAILY_DAYS; i++) days[i] += num(series[i][TOF_TICKET]);
   });
@@ -1783,6 +1797,7 @@ function resetModuleCaches_(){
   _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null; _calDowCache = null;
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
+  if (typeof DataStore !== 'undefined' && DataStore.reset) DataStore.reset();   // D67: the data_* memo too
 }
 
 // ---- the MEASURED side of the ToF row (D61, 2026-10-14) -------------------------------------
@@ -3038,6 +3053,7 @@ function measuredSptTotal_(seg, payer, ds){
     CATEGORY_ORDER.forEach(function(cat){
       if (cat === 'Season Pass (Paid)') return;        // the row being anchored; pays no SPT anyway
       if (noToF && cat === TOF_CAT) return;
+      if (COL_CATS[cat]) return;                       // D67: priced off this tier, out of it (as in sptTotals_)
       var row = measuredRow_(cat, seg, payer, ds);
       total += sptScore_(row);
     });
@@ -3179,11 +3195,24 @@ function colGainsToRow_(gains){
 // set up, these two rows contribute zero. That very slightly understates the ticket income used to
 // price ToF runs inside those seasons (collection rewards can carry tickets), which is second order
 // and the only resolution that terminates without a second full pass.
-function colSimSeasons_(seg, payer, ctx){
+// D67: `side` 'new' (default) runs the seasons over cal_new on the _v2 ladders - the simulated
+// row; 'cur' runs the SAME seasons (same seeds, same PackConfig / AlbumConfig) over cal_curr on the
+// base ladders - the measured row where the export is silent. Identical calendars and identical
+// ladders therefore give two identical batches, and a calendar change is priced on common random
+// numbers rather than on two independent noisy draws. The busy flag is module-level because the
+// 'cur' run works on a CLONE of ctx (baseCtx_), and a flag on one object is invisible on the other.
+var COL_ANCHORED = true;
+var COL_CATS = { 'Col - Sets': 1, 'Col - Albums': 1 };
+var _colSimBusy = false;
+function colSimSeasons_(seg, payer, ctx, side){
+  side = (side === 'cur') ? 'cur' : 'new';
+  try { ctx = ctx || Context.get(); } catch (e){ return null; }
+  if (!ctx) return null;
   ctx._colSim = ctx._colSim || {};
-  var key = seg + '|' + payer;
+  var key = seg + '|' + payer + (side === 'cur' ? '|cur' : '');
   if (ctx._colSim[key] !== undefined) return ctx._colSim[key];
-  if (ctx._colBusy) return null;                       // re-entry: contribute nothing to our input
+  if (_colSimBusy || ctx._colBusy) return null;        // re-entry: contribute nothing to our input
+  if (side === 'cur' && !ctx.calCurOk) return (ctx._colSim[key] = null);
   // No card sim in the project (or an older workbook with no PackConfig worth reading) means there
   // is no card collection to pay out. Zero, and say so - not a formula nobody asked for.
   if (typeof runOneCardSeason_ !== 'function' || typeof loadPackConfig_ !== 'function'){
@@ -3191,14 +3220,17 @@ function colSimSeasons_(seg, payer, ctx){
                      'two collection rows read 0. Paste it to simulate them.'); } catch(e){}
     return (ctx._colSim[key] = null);
   }
-  var out = null;
-  ctx._colBusy = true;
+  var out = null, wasBase = _baseSide;
+  _colSimBusy = true;
   try {
     var cfg = loadPackConfig_();
     var album = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AlbumConfig');
     if (!album) throw new Error("sheet 'AlbumConfig' not found");
     var cat = loadCardCatalog_(cfg, album);
-    var pre = cardSeasonPre_(seg, payer, ctx);
+    // the measured side: cal_curr on both calendar slots, every pack ladder read off the BASE sheet
+    var runCtx = ctx;
+    if (side === 'cur'){ runCtx = baseCtx_(ctx); _baseSide = true; }
+    var pre = cardSeasonPre_(seg, payer, runCtx);
     var n = (COL_SIM_SEASONS > 0) ? Math.round(COL_SIM_SEASONS) : 1;
     var sets = zeroRow_(), albums = zeroRow_(), albumsDone = 0;
     for (var i = 0; i < n; i++){
@@ -3219,15 +3251,30 @@ function colSimSeasons_(seg, payer, ctx){
     try { Logger.log('Col - Sets / Col - Albums could not be simulated (' + e.message +
                      ') - both rows read 0.'); } catch(e2){}
     out = null;
-  } finally { ctx._colBusy = false; }
+  } finally { _colSimBusy = false; _baseSide = wasBase; }
   return (ctx._colSim[key] = out);
 }
 
 function colRewardRow_(which, seg, payer, ctx){
   if (seg === 'A. 0' || seg === 'A.0') return zeroRow_();   // no behaviour telemetry -> no packs
-  var sim = colSimSeasons_(seg, payer, ctx);
+  var sim = colSimSeasons_(seg, payer, ctx, 'new');
   if (!sim) return zeroRow_();
-  return (which === 'sets') ? sim.sets : sim.albums;
+  var walkNew = (which === 'sets') ? sim.sets : sim.albums;
+  if (!COL_ANCHORED || _baseSide) return walkNew;
+  // D67: where the export has a number it is the level, and the two batches are the change
+  // (the RM rule, D61a). Where it is silent the walk stands on both sides.
+  var data = ctx.ds.dataRow((which === 'sets') ? 'Col - Sets' : 'Col - Albums', seg, payer);
+  if (!anyAmount_(data)) return walkNew;
+  var cur = colSimSeasons_(seg, payer, ctx, 'cur');
+  var walkCur = cur ? ((which === 'sets') ? cur.sets : cur.albums) : null;
+  var out = zeroRow_();
+  RESOURCES.forEach(function(r){
+    var m = num(data[r]), c = walkCur ? num(walkCur[r]) : 0, n = num(walkNew[r]);
+    if (m > 0 && c > 1e-9) out[r] = m * n / c;
+    else if (m > 0)        out[r] = m + n;
+    else                   out[r] = n;
+  });
+  return out;
 }
 function simColSets  (seg, payer, ctx){ return colRewardRow_('sets',   seg, payer, ctx); }
 function simColAlbums(seg, payer, ctx){ return colRewardRow_('albums', seg, payer, ctx); }
@@ -3268,6 +3315,11 @@ function sptTotals_(seg, payer, ctx){
   try {
     CATEGORY_ORDER.forEach(function(cat){
       if (noToF && cat === TOF_CAT) return;
+      // D67: the collection rows are priced OFF this tier, so they are out of it on BOTH sides.
+      // Until D67 they were out of the simulated side only, which was invisible while their
+      // measured side was a silent export (0) and would have lifted the measured tier by the
+      // collection's own SPT the moment it was anchored.
+      if (COL_CATS[cat]) return;
       // measuredRow_ (not raw ds.gains) so the D18 synthetic Core SPT anchor enters the
       // measured total too — both sides then price the same level-completion faucet.
       var mrow = measuredRow_(cat, seg, payer, ds);
@@ -3865,7 +3917,10 @@ var DataStore = (function(){
                      vals_(ss,'data_event_inst'));
       return _cache;
     },
-    fromRanges: function(g,b,a,k,rm,st,ei){ return build(g,b,a,k,rm,st,ei); }
+    fromRanges: function(g,b,a,k,rm,st,ei){ return build(g,b,a,k,rm,st,ei); },
+    // D67: dropped by resetModuleCaches_ (Context.reset), so a harness that mutates a data_* sheet
+    // and resets reads the mutation - a memo that survives the reset served the OLD export.
+    reset: function(){ _cache = null; }
   };
   function vals_(ss, name){ var sh = ss.getSheetByName(name); return sh ? sh.getDataRange().getValues() : []; }
 })();

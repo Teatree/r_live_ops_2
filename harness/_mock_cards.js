@@ -3100,5 +3100,113 @@ function logCol(name){
   }
 }
 
+// ================================================================ D67. THE COLLECTION ROWS' MEASURED SIDE
+// 'Col - Sets' / 'Col - Albums' are the card sim; until D67 their measured side was the export, which
+// has no collection rows, so identical calendars + identical configs showed the whole payout as a
+// DIFF. Rule gates, each a fixture: (1) identical calendars + every _v2 := base -> DIFF exactly 0 on
+// EVERY row, the collection rows included; (2) COL_ANCHORED = false -> the simulated side is
+// bit-identical and the collection rows' measured side is the export again; (3) the collection rows
+// are out of both sides of the SPT totals; (4) a real export row anchors the simulated side
+// (export x new / cur); (5) a real calendar change moves the collection DIFF (the anchor does not
+// freeze it).
+{
+  console.log('\n================ D67: COLLECTION ROWS MEASURED SIDE ================');
+  const snap = JSON.stringify(data);
+  const restoreAll = () => {
+    const back = JSON.parse(snap);
+    Object.keys(data).forEach(k => { delete data[k]; });
+    Object.keys(back).forEach(k => { data[k] = back[k]; });
+    COL_ANCHORED = true; _sheetValsCache = {}; Context.reset();
+  };
+  const fresh = () => { _sheetValsCache = {}; Context.reset(); return Context.get(); };
+  const CELLS = [['20-39', 'PAYER'], ['0-9', 'NONPAYER'], ['100+', 'PAYER']];
+  const iS = CATEGORY_ORDER.indexOf('Col - Sets'), iA = CATEGORY_ORDER.indexOf('Col - Albums');
+  const iHC = RESOURCES.indexOf('HC');
+  // ---- fixture: cal_curr := cal_new on the parsed calendar, every _v2 sheet := its base
+  const cp = data['cal_parsed'];
+  if (cp && cp.values && cp.values.length > 1) {
+    const hdr = cp.values[0], cal = hdr.indexOf('calendar');
+    const newRows = cp.values.slice(1).filter(r => String(r[cal]).trim() === 'cal_new');
+    cp.values = [hdr].concat(cp.values.slice(1).filter(r => String(r[cal]).trim() !== 'cal_curr'))
+                     .concat(newRows.map(r => { const c = r.slice(); c[cal] = 'cal_curr'; return c; }));
+    Object.keys(data).filter(n => n.endsWith('_v2') && data[n.slice(0, -3)])
+      .forEach(n => { data[n] = JSON.parse(JSON.stringify(data[n.slice(0, -3)])); });
+    if (data['NS_weekday']) data['NS_v2_weekday'] = JSON.parse(JSON.stringify(data['NS_weekday'])); else delete data['NS_v2_weekday'];
+    fresh();
+    let nz = 0, worst = 0, at = '', colSim = 0;
+    CELLS.forEach(([seg, payer]) => {
+      const dif = ECOGAINS_DIFF(payer, seg), sim = ECOGAINS_SIM(payer, seg);
+      colSim += Math.abs(num(sim[iS][iHC])) + Math.abs(num(sim[iA][iHC]));
+      CATEGORY_ORDER.forEach((cat, i) => RESOURCES.forEach((r, j) => {
+        const v = Math.abs(num(dif[i][j]));
+        if (v > 1e-6) nz++;
+        if (v > worst) { worst = v; at = seg + ' ' + payer + ' ' + cat + ' ' + r; }
+      }));
+    });
+    check('D67: identical calendars + identical configs -> DIFF exactly 0 on EVERY row, the card-sim collection rows included',
+      nz === 0 && colSim > 0, nz ? nz + ' cells, worst ' + worst.toFixed(4) + ' at ' + at : 'all zero; collection rows simulate ' + colSim.toFixed(1) + ' HC across 3 cells');
+    // (2) anchors off: the simulated side is bit-identical, the measured side is the export again
+    const simOn = CELLS.map(([seg, payer]) => ECOGAINS_SIM(payer, seg));
+    COL_ANCHORED = false; fresh();
+    const simOff = CELLS.map(([seg, payer]) => ECOGAINS_SIM(payer, seg));
+    let moved = 0;
+    for (let k = 0; k < CELLS.length; k++) for (let i = 0; i < simOn[k].length; i++) for (let j = 0; j < RESOURCES.length; j++)
+      if (Math.abs(num(simOn[k][i][j]) - num(simOff[k][i][j])) > 1e-9) moved++;
+    const ds = Context.get().ds;
+    const measOff = CELLS.every(([seg, payer]) => ['Col - Sets', 'Col - Albums'].every(cat => {
+      const m = measuredRow_(cat, seg, payer, ds), e = ds.dataRow(cat, seg, payer);
+      return RESOURCES.every(r => Math.abs(num(m[r]) - num(e[r])) < 1e-12);
+    }));
+    check('D67: COL_ANCHORED = false -> the simulated side is bit-identical (the anchor touches the measured side only)', moved === 0, moved + ' cells moved');
+    check('D67: COL_ANCHORED = false -> the collection rows read the export on the measured side (pre-D67)', measOff);
+    COL_ANCHORED = true; fresh();
+    // (3) out of both sides of the SPT totals: inflating the collection SPT moves neither total
+    {
+      const [seg, payer] = CELLS[0];
+      const cx = Context.get();
+      const t0 = sptTotals_(seg, payer, cx), m0 = measuredSptTotal_(seg, payer, cx.ds);
+      const ms = measuredRow_('Col - Sets', seg, payer, cx.ds);
+      check('D67: the collection rows are out of BOTH SPT totals (their SPT pays, it does not price the tier)',
+        num(ms['SPT']) >= 0 && Math.abs(t0.meas - t0.sim) < 1e-9 && Math.abs(m0 - t0.meas) < 1e-9,
+        'meas ' + t0.meas.toFixed(2) + ' sim ' + t0.sim.toFixed(2) + ' measuredSptTotal_ ' + m0.toFixed(2) + ' (Col - Sets measured SPT ' + num(ms['SPT']).toFixed(2) + ')');
+    }
+    // (4) a real export row anchors the simulated side: sim = export x new / cur
+    {
+      const [seg, payer] = CELLS[0];
+      const g = data['data_gains'], h = g.values[0], col = (n) => h.indexOf(n);
+      const inj = new Array(h.length).fill('');
+      inj[col('engagement_segment')] = SEG_TO_GAINS[seg]; inj[col('payer_flag')] = payer;
+      inj[col('resource')] = 'HC'; inj[col('category')] = 'Col - Sets'; inj[col('amount_per_earner')] = 40;
+      g.values.push(inj);
+      const cx = fresh();
+      const nw = colSimSeasons_(seg, payer, cx, 'new'), cu = colSimSeasons_(seg, payer, cx, 'cur');
+      const simHC = num(ECOGAINS_SIM(payer, seg)[iS][iHC]), measHC = num(measuredRow_('Col - Sets', seg, payer, cx.ds)['HC']);
+      const want = 40 * num(nw.sets['HC']) / num(cu.sets['HC']);
+      check('D67: a real export row is the level - measured = export, simulated = export x new / cur (identical calendars: = export)',
+        Math.abs(num(cx.ds.dataRow('Col - Sets', seg, payer)['HC']) - 40) < 1e-9 &&
+        Math.abs(measHC - 40) < 1e-9 && Math.abs(simHC - want) < 1e-9 && Math.abs(simHC - 40) < 1e-9,
+        'measured ' + measHC + ' simulated ' + simHC.toFixed(4) + ' want ' + want.toFixed(4));
+      g.values.pop(); fresh();
+    }
+  } else {
+    check('D67 fixture needs cal_parsed in the dump', false, 'absent');
+  }
+  restoreAll();
+  // (5) the dump's own calendars: if they differ, the collection DIFF must be able to move
+  {
+    const cx = fresh();
+    const same = Object.keys(Object.assign({}, cx.calCur, cx.calNew)).every(l => JSON.stringify(cx.calCur[l] || []) === JSON.stringify(cx.calNew[l] || []));
+    if (same) {
+      console.log('SKIP D67 calendar-change gate: this dump runs identical calendars');
+    } else {
+      const [seg, payer] = CELLS[0];
+      const nw = colSimSeasons_(seg, payer, cx, 'new'), cu = colSimSeasons_(seg, payer, cx, 'cur');
+      check('D67: on two different calendars the two batches differ (the anchor does not freeze the collection DIFF)',
+        nw && cu && Math.abs(num(nw.sets['HC']) - num(cu.sets['HC'])) > 1e-9, 'new ' + (nw ? nw.sets['HC'] : '-') + ' cur ' + (cu ? cu.sets['HC'] : '-'));
+    }
+  }
+  check('D67 fixture restored', JSON.stringify(data) === snap);
+}
+
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures ? 1 : 0);
