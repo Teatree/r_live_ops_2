@@ -94,7 +94,7 @@ for g in GAPS:
     ws.column_dimensions[g].width = 2.88
 ws.column_dimensions[CL(DROP_COL)].width = 21.0
 
-ws['B1'] = 'DAILY RESOURCE GAINS + NET — data vs sim, 33-day calendar, per earner (day 1 = Wednesday)'
+ws['B1'] = 'DAILY RESOURCE GAINS + NET — data vs sim, 33-day calendar, per earner (weekdays from the calendar sheets)'
 ws['B1'].font = Font(name='Arial', size=13, bold=True)
 
 # ---- filters ----
@@ -162,13 +162,16 @@ for c0, key, *_ in BLOCKS + NET_SPILL + [VALID]:
     ws.cell(D0, c0).value = (f'=LET(payer,$C$3, segment,$C$4, source,$C$5, '
                              f'ECOGAINS_DAILY(payer, segment, source, "{key}", sim_refresh!$A$1))')
 
-# Δ NET block: per-cell formulas CURNET − NEWNET (data − sim). IFERROR is load-bearing: when NET
-# is blank (source ≠ ALL, no data_econ_daily, or a day past the pull) the spills emit '' text
-# cells, the subtraction errors, and the Δ shows blank instead of a false 0.
+# Δ NET block: per-cell formulas CURNET − NEWNET (data − sim), BLANK when either side is blank
+# (source ≠ ALL, no data_econ_daily, or a day past the pull). The blank test is explicit since
+# 2026-10-27: IFERROR alone relied on the LIVE spill emitting '' text cells, so the subtraction
+# errored and the Δ came out blank - but Fill all sims writes VALUES, a written '' is an empty
+# cell, an empty cell subtracts as 0, and days 2..33 read a false 0.00 on LIVE_OPS_V3.
+# `X=""` is TRUE for an empty cell and for '' text alike, so this reads the same either way.
 for r in range(D0, DN + 1):
     for j in range(len(RES)):
-        ws.cell(r, NETD[0] + j).value = \
-            f'=IFERROR({CL(NET_SPILL[1][0]+j)}{r}-{CL(NET_SPILL[2][0]+j)}{r},"")'
+        cur, new = f'{CL(NET_SPILL[1][0]+j)}{r}', f'{CL(NET_SPILL[2][0]+j)}{r}'
+        ws.cell(r, NETD[0] + j).value = f'=IF(OR({cur}="",{new}=""),"",IFERROR({cur}-{new},""))'
 
 # ---- TOTAL row ----
 tc = ws.cell(TOT, 2, 'TOTAL')
