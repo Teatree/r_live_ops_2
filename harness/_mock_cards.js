@@ -24,7 +24,9 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // telemetry sheets the collection change simulation anchors on.
                        adjust: '_mockdata_adjust.json',
                        // D65: the LIVE_OPS_V3 lineage (2026-10-27) - filled values, no formulas anywhere
-                       v3: '_mockdata_v3.json' };
+                       v3: '_mockdata_v3.json',
+                       // the 16:20 re-export, saved as '🏮LIVE_OPS_V3 (1).xlsx'
+                       v3b: '_mockdata_v3b.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
