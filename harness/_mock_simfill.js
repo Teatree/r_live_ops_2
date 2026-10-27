@@ -99,7 +99,10 @@ function GATES() {
   });
 
   // the two companions whose spills the layouts locate (cal_new's counts, the so_far window)
-  ['CalStats.gs', 'EcoGainsSim_7Day.gs'].forEach(f => eval(fs.readFileSync(ENGINE(f), 'utf8')));
+  // DIRECT evals at this scope: an eval inside a callback defines its functions in the callback,
+  // where neither the fill nor these gates can see them.
+  eval(fs.readFileSync(ENGINE('CalStats.gs'), 'utf8'));
+  eval(fs.readFileSync(ENGINE('EcoGainsSim_7Day.gs'), 'utf8'));
   eval(fillSrc);
 
   const cellVal = (sheet, r, c) => {
@@ -380,10 +383,12 @@ function GATES() {
     });
   }
 
-  // ---------------------------------------------------------------- 8. CLIP AND REPORT (D65)
-  // Mount the HC_v4 display (built for 25 categories: 27 rows between blocks) and fill it with
-  // today's 29-category engine: the spill must be clipped to the room, the block below untouched,
-  // and the clip named in the pop-up. User decision: fill what fits, say what did not.
+  // ---------------------------------------------------------------- 8. WRITTEN BY LABEL (D68)
+  // Mount the HC_v4 display (built for the old 25-source / 19-resource list) and fill it with
+  // today's 29-source / 20-resource engine. Rule: every labelled row receives ITS OWN source's
+  // values (the positional writer put Season Pass (Paid) in Target Day's row and everything below
+  // it one source off), the sources and resources the layout lacks are NAMED in the pop-up, and
+  // nothing outside the labelled cells moves - the next block's tag row included.
   {
     clearAll();
     const disp = JSON.parse(fs.readFileSync(path.join(__dirname, '_display_formulas.json'), 'utf8'));
@@ -393,25 +398,93 @@ function GATES() {
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('EcoGainsSim_HC');
     const lay = simFillLayoutAnchors_('EcoGainsSim_HC', sh.getDataRange().getValues(), sh.getMaxRows(), sh.getMaxColumns());
     const first = lay.anchors.find(a => a.formula.indexOf('ECOGAINS_SIM(') >= 0);
-    const nextTagRow = first.row + first.room.rows;                   // the row of the next block's tag
+    const labels = Object.keys(first.map.rows);
+    const missingSrc = CATEGORY_ORDER.filter(c => first.map.rows[c] === undefined);
+    const missingRes = RESOURCES.filter(r => first.map.cols[r] === undefined);
+    const nextTagRow = first.row + first.room.rows;
     const belowBefore = JSON.stringify(data['EcoGainsSim_HC'].values[nextTagRow - 1]);
     const want = ECOGAINS_SIM(String(sh.getRange('C3').getValue()), String(sh.getRange('B6').getValue()));
-    const n = fillAllSims();
-    const roomRows = first.room.rows;
-    const writtenLast = Number(cellVal('EcoGainsSim_HC', first.row + roomRows - 1, first.col));
-    const pastRoom = cellVal('EcoGainsSim_HC', first.row + roomRows, first.col);
-    check('CLIP: the spill is written only as far as the room (' + roomRows + ' rows for a ' + want.length + '-row spill)',
-      want.length > roomRows && Math.abs(writtenLast - Number(want[roomRows - 1][0])) < 1e-9 && String(pastRoom) !== String(want[roomRows] ? want[roomRows][0] : 'x'),
-      'last in room ' + writtenLast + ' want ' + (want[roomRows - 1] || [])[0] + ' | first past room ' + JSON.stringify(pastRoom) + ' filled ' + n);
-    check('CLIP: the block below is untouched', JSON.stringify(data['EcoGainsSim_HC'].values[nextTagRow - 1]) === belowBefore);
-    check('CLIP: the pop-up names the clipped block and the missing rows',
-      alerts.some(t => /CLIPPED/.test(t) && t.indexOf('EcoGainsSim_HC!' + simFillColA1_(first.col) + first.row) >= 0 && /room for/.test(t)),
-      alerts.join(' | ').slice(0, 400));
+    fillAllSims();
+    let wrong = [];
+    labels.forEach(lab => {
+      const i = CATEGORY_ORDER.indexOf(lab); if (i < 0) return;
+      RESOURCES.forEach((r, j) => {
+        const c = first.map.cols[r]; if (c === undefined) return;
+        const got = cellVal('EcoGainsSim_HC', first.map.rows[lab], c);
+        if (Math.abs(Number(got) - Number(want[i][j])) > 1e-9) wrong.push(lab + '/' + r + ' got ' + got + ' want ' + want[i][j]);
+      });
+    });
+    check('LABEL MAP: every labelled row holds ITS OWN source\'s value, column by resource header (old 25-source layout, 29-source engine)',
+      labels.length > 0 && missingSrc.length > 0 && wrong.length === 0, wrong.slice(0, 3).join(' | ') || (labels.length + ' labelled rows, all correct'));
+    check('LABEL MAP: the sources and resources the layout has no label for are NAMED in the pop-up',
+      alerts.some(t => /NOT ON THE SHEET/.test(t) && missingSrc.every(m => t.indexOf(m) >= 0) && missingRes.every(m => t.indexOf(m) >= 0)),
+      'missing ' + missingSrc.join(', ') + ' / ' + missingRes.join(', ') + ' | ' + alerts.join(' | ').slice(0, 300));
+    check('LABEL MAP: the next block\'s tag row is untouched', JSON.stringify(data['EcoGainsSim_HC'].values[nextTagRow - 1]) === belowBefore);
     if (had) data['EcoGainsSim_HC'] = had; else delete data['EcoGainsSim_HC'];
+  }
+  // a PERMUTED label list: swap two source labels on the sheet -> the values follow the labels
+  {
+    clearAll();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const snapMain = JSON.stringify(data['EcoGainsSim'].values);
+    const sim = ss.getSheetByName('EcoGainsSim');
+    const lay0 = simFillLayoutAnchors_('EcoGainsSim', sim.getDataRange().getValues(), sim.getMaxRows(), sim.getMaxColumns());
+    const a0 = lay0.anchors.find(a => a.formula.indexOf('ECOGAINS_SIM(') >= 0);
+    const rA = a0.map.rows['Ads'], rC = a0.map.rows['Core'];
+    const labCol = (() => { const v = data['EcoGainsSim'].values; for (let c = 0; c < 3; c++) if (String((v[rA - 1] || [])[c]).trim() === 'Ads') return c; return 0; })();
+    data['EcoGainsSim'].values[rA - 1][labCol] = 'Core'; data['EcoGainsSim'].values[rC - 1][labCol] = 'Ads';
+    const segCell = sim.getRange(a0.formula.match(/segment, (\$[A-Z]+\$\d+)/)[1].replace(/\$/g, '')).getValue();
+    const want = ECOGAINS_SIM(String(sim.getRange('B3').getValue()), String(segCell));
+    fillAllSims();
+    const hcCol = a0.map.cols['HC'];
+    check('LABEL MAP: swap the "Ads" and "Core" labels on the sheet -> each row receives the source its label names',
+      Math.abs(Number(cellVal('EcoGainsSim', rA, hcCol)) - Number(want[CATEGORY_ORDER.indexOf('Core')][0])) < 1e-9 &&
+      Math.abs(Number(cellVal('EcoGainsSim', rC, hcCol)) - Number(want[CATEGORY_ORDER.indexOf('Ads')][0])) < 1e-9,
+      'row ' + rA + ' (now "Core") ' + cellVal('EcoGainsSim', rA, hcCol) + ' / row ' + rC + ' (now "Ads") ' + cellVal('EcoGainsSim', rC, hcCol));
+    data['EcoGainsSim'].values = JSON.parse(snapMain);
+  }
+  // a sheet label the engine does not produce: left as it was, and named
+  {
+    clearAll();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const snapMain = JSON.stringify(data['EcoGainsSim'].values);
+    const sim = ss.getSheetByName('EcoGainsSim');
+    const lay0 = simFillLayoutAnchors_('EcoGainsSim', sim.getDataRange().getValues(), sim.getMaxRows(), sim.getMaxColumns());
+    const a0 = lay0.anchors.find(a => a.formula.indexOf('ECOGAINS_SIM(') >= 0);
+    const rI = a0.map.rows['IAPs'];
+    const v = data['EcoGainsSim'].values;
+    const labCol = [0, 1, 2].find(c => String((v[rI - 1] || [])[c]).trim() === 'IAPs');
+    v[rI - 1][labCol] = 'Retired Event';
+    const hcCol = a0.map.cols['HC'];
+    v[rI - 1][hcCol - 1] = 777;
+    fillAllSims();
+    check('LABEL MAP: a sheet label the engine does not produce keeps its cells, and is named in the pop-up',
+      Number(cellVal('EcoGainsSim', rI, hcCol)) === 777 && alerts.some(t => /Labels on the sheet the engine does not produce/.test(t) && t.indexOf('Retired Event') >= 0),
+      'cell ' + cellVal('EcoGainsSim', rI, hcCol));
+    data['EcoGainsSim'].values = JSON.parse(snapMain);
   }
 
   // ---------------------------------------------------------------- 9. the so_far twin (when the dump has it)
   {
+    if (data['EcoGainsSim_so_far'] && data['cal_new']) {
+      // LIVE_OPS_V3's own old-layout sheets (25 sources): after a fill, the cal_new summary row
+      // labelled "Target Day" carries Target Day's counts, not Season Pass (Paid)'s (D68).
+      clearAll();
+      const snapCal = JSON.stringify(data['cal_new'].values);
+      fillAllSims();
+      const want = ECOGAINS_CAL_COUNTS();
+      const cv = data['cal_new'].values;
+      const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('cal_new');
+      const lay = simFillLayoutAnchors_('cal_new', JSON.parse(snapCal), sh.getMaxRows(), sh.getMaxColumns());
+      const a = lay.anchors[0];
+      const bad = Object.keys(a.map.rows).filter(lab => {
+        const i = CATEGORY_ORDER.indexOf(lab); if (i < 0) return false;
+        return String(cv[a.map.rows[lab] - 1][a.col - 1]) !== String(want[i][0]);
+      });
+      check('LABEL MAP on the workbook\'s own cal_new summary: every source row carries its own counts',
+        bad.length === 0 && Object.keys(a.map.rows).length >= 20, bad.slice(0, 4).join(', ') || Object.keys(a.map.rows).length + ' rows correct');
+      data['cal_new'].values = JSON.parse(snapCal);
+    }
     if (data['EcoGainsSim_so_far']) {
       const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('EcoGainsSim_so_far');
       const lay = simFillLayoutAnchors_('EcoGainsSim_so_far', sh.getDataRange().getValues(), sh.getMaxRows(), sh.getMaxColumns());
@@ -445,6 +518,44 @@ function GATES() {
       check('cal_new: the summary block yields the ECOGAINS_CAL_COUNTS anchor at its first instances column, room = the category rows',
         lay.anchors.length === 1 && lay.anchors[0].room.rows >= 20 && lay.anchors[0].room.cols >= 7,
         JSON.stringify(lay.anchors.map(a => [a.row, a.col, a.room])) + ' ' + JSON.stringify(lay.notes));
+    }
+  }
+
+  // ---------------------------------------------------------------- 9b. A SHORTER TABLE CLEARS ITS OWN TAIL (D68)
+  {
+    if (data['ToF']) {
+      clearAll();
+      const snapT = JSON.stringify(data['ToF'].values);
+      const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ToF');
+      const lay = simFillLayoutAnchors_('ToF', sh.getDataRange().getValues(), sh.getMaxRows(), sh.getMaxColumns());
+      const payerOf = (a) => String(sh.getRange(a.formula.match(/\$([A-Z]+)\$(\d+)/)[0].replace(/\$/g, '')).getValue());
+      const blockOf = (a) => a.formula.match(/"([A-Z]+)"/)[1];
+      // the anchor with the most spare room under its table
+      let best = null, bestSpare = -1, bestLen = 0;
+      lay.anchors.forEach(a => { const n = ECOGAINS_TOF(payerOf(a), blockOf(a)).length; const sp = a.room.rows - n; if (sp > bestSpare) { bestSpare = sp; best = a; bestLen = n; } });
+      if (best && bestSpare >= 6) {
+        const v = data['ToF'].values, r0 = best.row + bestLen;          // 1-based first row past the table
+        const put = (r, a, b) => { v[r - 1] = v[r - 1] || []; v[r - 1][0] = a; v[r - 1][1] = b; };
+        put(r0, 'old 0', 99); put(r0 + 1, 'old 1', 99); put(r0 + 2, 'old 2', 99);
+        v[r0 + 2] = (v[r0 + 2] || []).map(() => '');                    // row r0+3 (1-based) blank
+        put(r0 + 4, 'SENTINEL', 1);
+        fillAllSims();
+        const gone = [0, 1, 2].every(k => String(cellVal('ToF', r0 + k, 1)) === '');
+        check('TAIL: a table that came back shorter clears the old rows directly under it, up to the first blank row',
+          gone && alerts.some(t => /Shorter than last time/.test(t)), 'block ' + blockOf(best) + ' rows ' + r0 + '..' + (r0 + 2) + ': ' + JSON.stringify([0, 1, 2].map(k => cellVal('ToF', r0 + k, 1))));
+        check('TAIL: nothing past the first blank row is touched', String(cellVal('ToF', r0 + 4, 1)) === 'SENTINEL');
+        // a row that starts a table stops the tail even with no blank row between
+        data['ToF'].values = JSON.parse(snapT);
+        const v2 = data['ToF'].values;
+        const put2 = (r, a, b) => { v2[r - 1] = v2[r - 1] || []; v2[r - 1][0] = a; v2[r - 1][1] = b; };
+        put2(r0, 'Stage', 'Type'); put2(r0 + 1, 1, 'Safe');
+        clearAll(); fillAllSims();
+        check('TAIL: a row starting a new table (a header word) stops the tail - butted blocks are separate tables',
+          String(cellVal('ToF', r0, 1)) === 'Stage' && String(cellVal('ToF', r0 + 1, 2)) === 'Safe');
+      } else {
+        console.log('SKIP tail gate: no ToF block has room for the fixture (best spare ' + bestSpare + ' rows)');
+      }
+      data['ToF'].values = JSON.parse(snapT);
     }
   }
 

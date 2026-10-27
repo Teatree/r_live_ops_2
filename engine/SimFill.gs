@@ -46,6 +46,15 @@
  * guessed at. Which sheet gets which rule is decided by its NAME (SIMFILL_FAMILIES): the two
  * names each sheet has had in this project's workbooks are both listed.
  *
+ * WRITTEN BY LABEL, NOT BY POSITION (D68, 2026-10-27). The engine returns its rows in
+ * CATEGORY_ORDER (or day order) and its columns in RESOURCES order; a sheet built for an older
+ * list (LIVE_OPS_V3's EcoGainsSim_so_far and cal_new summary: 25 sources, no 'Season Pass (Paid)'
+ * between Season Pass (Free) and Target Day) took that grid one source off from Target Day down,
+ * so its IAPs row showed Rainbow Maker. Each located anchor therefore carries a MAP - source label
+ * -> sheet row, resource header -> sheet column (day number -> row on the daily view) - and every
+ * engine cell goes to the cell its labels name. What the layout has no row or column for is named
+ * in the pop-up, never squeezed in; a sheet label the engine does not know is left as it was.
+ *
  * REVERSIBLE. Every fill snapshots the formula it replaced into document properties, so
  * `Restore sim formulas` puts the workbook back exactly as it was. refreshSims_ keeps its own
  * snapshot too, and its MANIFEST HEAL cannot fight this one: heal only restores a formula into a
@@ -63,7 +72,7 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD() like every other engine file.
-var SIMFILL_BUILD = 'SimFill.gs          D65  2026-10-27';
+var SIMFILL_BUILD = 'SimFill.gs          D68  2026-10-27';
 
 /**
  * The sheets to scan. REFRESH_SHEETS (EcoGainsSim_v4.gs) is the list refreshSims_ already
@@ -302,8 +311,31 @@ function simFillRunW_(v, r, c){
   for (var k = c; k <= row.length && simFillTxt_(row[k - 1]) !== ''; k++) n++;
   return n;
 }
-function simFillAnchor_(sheet, r, c, formula, rows, cols, how){
-  return { sheet: sheet, row: r, col: c, formula: formula, room: { rows: rows, cols: cols }, how: how };
+function simFillAnchor_(sheet, r, c, formula, rows, cols, how, map){
+  return { sheet: sheet, row: r, col: c, formula: formula, room: { rows: rows, cols: cols }, how: how,
+           map: map || null };
+}
+/** label -> sheet row for column `c`: the CONTIGUOUS run of labels from r1 (at most to r2),
+ *  first occurrence wins. A block's labels end at the first blank label cell - past it are spacer
+ *  rows, leftover values from an older fill, or the legend under the last block, none of which is
+ *  a row the engine owns. */
+function simFillRowMap_(v, c, r1, r2){
+  var m = {};
+  for (var r = r1; r <= r2; r++){
+    var t = simFillTxt_((v[r - 1] || [])[c - 1]);
+    if (t === '') break;
+    if (m[t] === undefined) m[t] = r;
+  }
+  return m;
+}
+/** header text -> sheet column on row `r` over columns c1..c2. */
+function simFillColMap_(v, r, c1, c2){
+  var m = {}, row = v[r - 1] || [];
+  for (var c = c1; c <= c2; c++){
+    var t = simFillTxt_(row[c - 1]);
+    if (t !== '' && m[t] === undefined) m[t] = c;
+  }
+  return m;
 }
 
 /**
@@ -344,13 +376,19 @@ function simFillLayoutAnchors_(sheetName, v, maxRows, maxCols){
       if (!hc.length){ notes.push(sheetName + ' row ' + hdr + ": header has no 'HC' column"); return; }
       var roomRows = ((i + 1 < tags.length) ? tags[i + 1].r : maxRows + 1) - d0;
       var segRef = simFillRef_(t.r, t.c);
+      var rowMap = simFillRowMap_(v, t.c, d0, d0 + roomRows - 1);
+      var w0 = simFillRunW_(v, hdr, hc[0]);
       out.push(simFillAnchor_(sheetName, d0, hc[0],
         '=LET(payer, ' + payRef + ', segment, ' + segRef + ', ' + fam.sim + '(payer, segment, ' + SIMFILL_NONCE_REF + '))',
-        roomRows, simFillRunW_(v, hdr, hc[0]), 'labels'));
-      if (hc.length > 1)
+        roomRows, w0, 'labels',
+        { rowKeys: 'CATEGORY_ORDER', colKeys: 'RESOURCES', rows: rowMap, cols: simFillColMap_(v, hdr, hc[0], hc[0] + w0 - 1) }));
+      if (hc.length > 1){
+        var w1 = simFillRunW_(v, hdr, hc[1]);
         out.push(simFillAnchor_(sheetName, d0, hc[1],
           '=LET(payer, ' + payRef + ', segment, ' + segRef + ', ' + fam.diff + '(payer, segment, ' + SIMFILL_NONCE_REF + '))',
-          roomRows, simFillRunW_(v, hdr, hc[1]), 'labels'));
+          roomRows, w1, 'labels',
+          { rowKeys: 'CATEGORY_ORDER', colKeys: 'RESOURCES', rows: rowMap, cols: simFillColMap_(v, hdr, hc[1], hc[1] + w1 - 1) }));
+      }
     });
   } else if (fam.kind === 'daily'){
     var refs = {}, missing = [];
@@ -385,10 +423,17 @@ function simFillLayoutAnchors_(sheetName, v, maxRows, maxCols){
       if (!hit || !key) continue;                           // unknown text, or the formula block
       if (seenKey[key]){ notes.push(sheetName + ': a second "' + txt + '" bar - only the first is filled'); continue; }
       seenKey[key] = true;
+      var wd = simFillRunW_(v, hdrRow, c), dayMap = {};
+      for (var rd = d0d; rd < d0d + nDays; rd++){
+        var dv = (v[rd - 1] || [])[dayCol - 1];
+        var dn = String(Math.round(Number(dv)));
+        if (dayMap[dn] === undefined) dayMap[dn] = rd;
+      }
       out.push(simFillAnchor_(sheetName, d0d, c,
         '=LET(payer,' + refs.Payer + ', segment,' + refs.Segment + ', source,' + refs.Source + ', ' +
         'ECOGAINS_DAILY(payer, segment, source, "' + key + '", ' + SIMFILL_NONCE_REF + '))',
-        nDays, simFillRunW_(v, hdrRow, c), 'labels'));
+        nDays, wd, 'labels',
+        { rowKeys: 'DAYS', colKeys: 'RESOURCES', rows: dayMap, cols: simFillColMap_(v, hdrRow, c, c + wd - 1) }));
     }
     SIMFILL_DAILY_BARS.forEach(function(sp){
       if (sp[1] && !seenKey[sp[1]]) notes.push(sheetName + ': no bar matching ' + String(sp[0]).replace(/^\/|\/i$/g, '') + ' on row ' + barRow + ', so the ' + sp[1] + ' block is not filled');
@@ -467,7 +512,8 @@ function simFillLayoutAnchors_(sheetName, v, maxRows, maxCols){
     var hrowC = v[hdrC.r - 1] || [], lastHdr = hdrC.inst;
     for (c = hdrC.inst; c <= hrowC.length; c++) if (simFillTxt_(hrowC[c - 1]) !== '') lastHdr = c;
     out.push(simFillAnchor_(sheetName, first, hdrC.inst,
-      '=ECOGAINS_CAL_COUNTS(' + SIMFILL_NONCE_REF + ')', nCat, lastHdr - hdrC.inst + 1, 'labels'));
+      '=ECOGAINS_CAL_COUNTS(' + SIMFILL_NONCE_REF + ')', nCat, lastHdr - hdrC.inst + 1, 'labels',
+      { rowKeys: 'CATEGORY_ORDER', colKeys: null, rows: simFillRowMap_(v, hdrC.src, first, first + nCat - 1) }));
   }
   return { anchors: out, notes: notes };
 }
@@ -507,18 +553,18 @@ function simFillAnchors_(ss, sheetName, props, notes){
   // D65: the sheet's own labels. Anything the first two sources did not name is taken from here,
   // and every anchor gets the ROOM the layout leaves for it, so an oversize spill is clipped and
   // reported instead of written over the block below.
-  var room = {};
+  var room = {}, map = {};
   var lay = simFillLayoutAnchors_(sheetName, sh.getDataRange().getValues(), sh.getMaxRows(), sh.getMaxColumns());
   lay.anchors.forEach(function(a){
     var id = a.row + ',' + a.col;
-    room[id] = a.room;
+    room[id] = a.room; map[id] = a.map;
     if (!found[id]){ found[id] = a.formula; how[id] = 'labels'; }
   });
   if (notes) lay.notes.forEach(function(n){ notes.push(n); });
   return Object.keys(found).map(function(id){
     var rc = id.split(',');
     return { sheet: sheetName, row: Number(rc[0]), col: Number(rc[1]), formula: found[id],
-             how: how[id], room: room[id] || null };
+             how: how[id], room: room[id] || null, map: map[id] || null };
   }).sort(function(a, b){ return a.row - b.row || a.col - b.col; });
 }
 
@@ -620,11 +666,26 @@ function fillAllSims(){
   // D65: a spill is written into the ROOM its layout leaves and nothing more. The rows past the
   // next block (or the columns past the header) are dropped and the clip is reported - the user
   // decides whether to widen the sheet, never this file.
-  var cells = 0, overflow = [], perSheet = {};
+  var cells = 0, overflow = [], perSheet = {}, unplaced = [], stale = [], tails = [];
   done.forEach(function(d){
     var sh = ss.getSheetByName(d.job.sheet);
     if (!sh) return;
     var grid = d.grid, room = d.job.room, at = d.job.sheet + '!' + simFillColA1_(d.job.col) + d.job.row;
+    // D68: BY LABEL where the layout gave a map and the grid has the engine's own shape
+    var placed = simFillPlace_(d.job, grid);
+    if (placed){
+      var nw = simFillWriteMapped_(sh, d.job, placed);
+      cells += nw;
+      perSheet[d.job.sheet] = (perSheet[d.job.sheet] || 0) + 1;
+      if (placed.missRows.length || placed.missCols.length)
+        unplaced.push(at + ' (' + d.fn + '): ' +
+          (placed.missRows.length ? 'no row for ' + placed.missRows.join(', ') : '') +
+          (placed.missRows.length && placed.missCols.length ? '; ' : '') +
+          (placed.missCols.length ? 'no column for ' + placed.missCols.join(', ') : ''));
+      if (placed.staleRows.length)
+        stale.push(at + ': ' + placed.staleRows.map(function(x){ return '"' + x + '"'; }).join(', '));
+      return;
+    }
     if (room && (grid.length > room.rows || grid[0].length > room.cols)){
       overflow.push(at + ': ' + d.fn + ' returns ' + grid.length + ' x ' + grid[0].length +
                     ' but the layout has room for ' + room.rows + ' x ' + room.cols +
@@ -637,6 +698,15 @@ function fillAllSims(){
     sh.getRange(d.job.row, d.job.col, grid.length, grid[0].length).setValues(grid);
     cells += grid.length * grid[0].length;
     perSheet[d.job.sheet] = (perSheet[d.job.sheet] || 0) + 1;
+    // D68: a table that came back SHORTER than last time leaves its old tail under it (ToF's stage
+    // table on LIVE_OPS_V3 still lists stages to 60). A live spill would have shrunk, so the fill
+    // does the same: the contiguous non-empty rows directly below the new grid, inside its room
+    // and its columns, up to the first blank row - never a row holding a formula, never past it.
+    if (d.job.room){
+      var tail = simFillTail_(sh, d.job.row + grid.length, d.job.col, grid[0].length,
+                              d.job.row + d.job.room.rows - 1, grid[0][0]);
+      if (tail) tails.push(at + ': ' + tail + ' leftover row(s) of the previous, longer table cleared');
+    }
   });
 
   var stampTxt = 'values filled ' + stamp_() + ' by Fill all sims (NOT live formulas)';
@@ -656,6 +726,7 @@ function fillAllSims(){
             (derived ? ' - ' + derived + ' anchor(s) located from the sheet labels' : '') +
             (stoppedAt ? '  --  STOPPED EARLY on the time budget: ' + stoppedAt +
                          '. Run it again to finish.' : '') +
+            (unplaced.length ? '  --  ' + unplaced.length + ' block(s) with rows/columns NOT ON THE SHEET: ' + unplaced.join('; ') : '') +
             (overflow.length ? '  --  ' + overflow.length + ' CLIPPED: ' + overflow.join('; ') : '') +
             (skipped.length ? '  --  ' + skipped.length + ' LEFT AS FORMULAS: ' +
                               skipped.join('; ') : '') +
@@ -669,7 +740,11 @@ function fillAllSims(){
   var lines = [done.length + ' of ' + jobs.length + ' sim blocks filled as values in ' + secs + 's.'];
   Object.keys(perSheet).forEach(function(n){ lines.push('   ' + n + ': ' + perSheet[n] + ' block(s)'); });
   if (derived) lines.push(derived + ' anchor(s) were located from the sheet labels (no formula, no snapshot).');
+  if (unplaced.length) lines.push('', 'NOT ON THE SHEET - the engine has rows / columns this layout has no label for (not written):',
+                                  '   ' + unplaced.join('\n   '));
+  if (stale.length) lines.push('', 'Labels on the sheet the engine does not produce (left as they were):', '   ' + stale.join('\n   '));
   if (overflow.length) lines.push('', 'CLIPPED - more values than the layout has room for:', '   ' + overflow.join('\n   '));
+  if (tails.length) lines.push('', 'Shorter than last time (old rows under the table cleared):', '   ' + tails.join('\n   '));
   if (skipped.length) lines.push('', 'Left as formulas:', '   ' + skipped.join('\n   '));
   if (stoppedAt) lines.push('', 'STOPPED EARLY on the time budget: ' + stoppedAt + '. Run it again to finish.');
   if (notes.length) lines.push('', 'Not located:', '   ' + notes.join('\n   '));
@@ -677,6 +752,115 @@ function fillAllSims(){
   lines.push('', 'These blocks no longer follow a config edit - re-run this after every edit.');
   simFillPopup_('Fill all sims', lines.join('\n'));
   return done.length;
+}
+
+/**
+ * D68: where each cell of an engine grid goes, by label. Returns null when the job has no map, or
+ * the grid is not the engine's own shape (an error message, a resized list) - the caller then
+ * places it positionally inside the room, as before.
+ *   { cells: [[sheetRow, sheetCol, value], ...], missRows, missCols, staleRows }
+ */
+function simFillPlace_(job, grid){
+  var m = job && job.map;
+  if (!m) return null;
+  var rowKeys;
+  if (m.rowKeys === 'CATEGORY_ORDER') rowKeys = (typeof CATEGORY_ORDER !== 'undefined') ? CATEGORY_ORDER : null;
+  else if (m.rowKeys === 'DAYS'){ rowKeys = []; for (var k = 1; k <= grid.length; k++) rowKeys.push(String(k)); }
+  if (!rowKeys || rowKeys.length !== grid.length) return null;
+  var colKeys = null;
+  if (m.colKeys === 'RESOURCES'){
+    colKeys = (typeof RESOURCES !== 'undefined') ? RESOURCES : null;
+    if (!colKeys || colKeys.length !== grid[0].length) return null;
+  }
+  var cells = [], missRows = [], missCols = [], seenRow = {}, colOf = [];
+  for (var j = 0; j < grid[0].length; j++){
+    var cc = colKeys ? m.cols[colKeys[j]] : ((job.room && j >= job.room.cols) ? undefined : job.col + j);
+    colOf.push(cc);
+    if (cc === undefined && colKeys) missCols.push(colKeys[j]);
+  }
+  for (var i = 0; i < grid.length; i++){
+    var rr = m.rows[rowKeys[i]];
+    if (rr === undefined){ if (m.rowKeys !== 'DAYS') missRows.push(rowKeys[i]); continue; }
+    seenRow[rowKeys[i]] = true;
+    for (var jj = 0; jj < grid[i].length; jj++)
+      if (colOf[jj] !== undefined) cells.push([rr, colOf[jj], grid[i][jj]]);
+  }
+  if (m.rowKeys === 'DAYS'){
+    var nd = 0;
+    for (var ii = 0; ii < rowKeys.length; ii++) if (m.rows[rowKeys[ii]] === undefined) nd++;
+    if (nd) missRows.push(nd + ' day(s) past the sheet\'s last Day row');
+  }
+  if (!colKeys && job.room && grid[0].length > job.room.cols)
+    missCols.push((grid[0].length - job.room.cols) + ' column(s) past the header');
+  var staleRows = [], known = {};
+  rowKeys.forEach(function(x){ known[x] = true; });
+  Object.keys(m.rows).forEach(function(lab){ if (!known[lab]) staleRows.push(lab); });
+  return { cells: cells, missRows: missRows, missCols: missCols, staleRows: staleRows };
+}
+
+/** Write placed cells: ONE read and ONE write over their bounding rectangle, every cell in it that
+ *  the engine does not own written back exactly as it was - unless one of those holds a FORMULA,
+ *  which a values write would destroy; then it goes row by row in contiguous runs. A live spill at
+ *  the anchor is collapsed first. Returns the number of cells written. */
+function simFillWriteMapped_(sh, job, placed){
+  var anchor = sh.getRange(job.row, job.col);
+  if (anchor.getFormula()) anchor.clearContent();
+  if (!placed.cells.length) return 0;
+  var r1 = Infinity, r2 = -1, c1 = Infinity, c2 = -1;
+  placed.cells.forEach(function(x){
+    if (x[0] < r1) r1 = x[0]; if (x[0] > r2) r2 = x[0];
+    if (x[1] < c1) c1 = x[1]; if (x[1] > c2) c2 = x[1];
+  });
+  var rect = sh.getRange(r1, c1, r2 - r1 + 1, c2 - c1 + 1);
+  var vals = rect.getValues(), fml = rect.getFormulas(), own = {};
+  placed.cells.forEach(function(x){ own[x[0] + ',' + x[1]] = true; vals[x[0] - r1][x[1] - c1] = x[2]; });
+  var foreignFormula = false;
+  for (var r = 0; r < fml.length && !foreignFormula; r++)
+    for (var c = 0; c < fml[r].length; c++)
+      if (fml[r][c] && !own[(r1 + r) + ',' + (c1 + c)]){ foreignFormula = true; break; }
+  if (!foreignFormula){ rect.setValues(vals); return placed.cells.length; }
+  // row by row, contiguous runs of owned cells only
+  var byRow = {};
+  placed.cells.forEach(function(x){ (byRow[x[0]] = byRow[x[0]] || []).push(x); });
+  Object.keys(byRow).forEach(function(rk){
+    var xs = byRow[rk].sort(function(a, b){ return a[1] - b[1]; });
+    var start = 0;
+    for (var q = 1; q <= xs.length; q++){
+      if (q < xs.length && xs[q][1] === xs[q - 1][1] + 1) continue;
+      var run = xs.slice(start, q);
+      sh.getRange(Number(rk), run[0][1], 1, run.length).setValues([run.map(function(x){ return x[2]; })]);
+      start = q;
+    }
+  });
+  return placed.cells.length;
+}
+
+/** Clear the leftover tail of a table: rows `r0`.. (at most `rMax`) in columns c0..c0+w-1, while
+ *  each row has at least one value and no formula. Stops at the first blank row, and at a row that
+ *  STARTS A TABLE - its first cell is this table's own header word (`head`, a stacked older copy),
+ *  one of the spills' header words, or a bar - because blocks butted together with no blank row
+ *  between them are separate tables, not one table's tail (LIVE_OPS_V3's ToF: the stage table
+ *  sits directly under REWARD PER RUN). Returns the number of rows cleared (0 -> nothing done). */
+var SIMFILL_HEADER_WORDS = ['segment', 'resource', 'stage', 'row', 'event', 'source', 'day', 'metric'];
+function simFillTail_(sh, r0, c0, w, rMax, head){
+  if (!(rMax >= r0) || !(w > 0)) return 0;
+  var n = Math.min(rMax, sh.getMaxRows()) - r0 + 1;
+  if (!(n > 0)) return 0;
+  var rng = sh.getRange(r0, c0, n, w), vals = rng.getValues(), fml = rng.getFormulas(), k = 0;
+  var headLc = simFillTxt_(head).toLowerCase();
+  for (; k < vals.length; k++){
+    var any = false, hasF = false;
+    for (var c = 0; c < w; c++){
+      if (fml[k][c]) hasF = true;
+      if (vals[k][c] !== '' && vals[k][c] != null) any = true;
+    }
+    if (!any || hasF) break;
+    var first = simFillTxt_(vals[k][0]), firstLc = first.toLowerCase();
+    if ((headLc && firstLc === headLc) || SIMFILL_HEADER_WORDS.indexOf(firstLc) >= 0 ||
+        SIMFILL_TOF_STOPS.test(first) || SIMFILL_PBP_STOPS.test(first)) break;
+  }
+  if (k > 0) sh.getRange(r0, c0, k, w).clearContent();
+  return k;
 }
 
 /** The end-of-run pop-up. A menu run has a UI; a trigger or the harness does not, and neither
