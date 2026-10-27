@@ -201,6 +201,7 @@ differences. It showed plenty. None of them were the placement model:
 | Season Pass (Paid) NEW total moved 175 with the pack cutoff at `20-39 PAYER` — the SPT totals were memoised while ToF was in flight (ToF contributes 0 there), so the cached tier depended on which row was asked for first | explicit `noToF` mode keyed into every cache in the cycle; `Context.reset()` clears module memos | D62 `5af1108` |
 | the measured Season Pass tier total memoised from inside the Core row's buff-minutes walk, 105 short | served there, never memoised | D62b (same commit) |
 | the data blocks read the August sheet although the live feed had landed | `data_econ_daily_live` preferred when usable, base sheet as fallback | D63 `cac0544` |
+| the weekend was a hardcoded Wednesday start; the live calendar starts on a Tuesday | `isWeekend_` reads day 1's weekday off the calendar's weekday row; Wednesday is the fallback | D64 |
 
 After D61 the live dump's NEW-vs-CURRENT list is empty, and `harness/_mock_run.js` proves the
 rule by fixture (calendars and every `_v2` sheet made identical → `DIFF == 0` everywhere; anchors
@@ -252,7 +253,13 @@ or the Tuesday before it — see below). The sim's day 1 sits on the August leve
    `earners_window / active_players_day` (2.7–3.1 from August, or `data_seg_beh`). That puts a model
    factor inside a block meant to be pure data — flagged, not recommended.
 
-**Also found:** `window_start_date` is a Tuesday while both calendars' day 1 is a Wednesday
-(`isWeekend_` assumes it); the workbook's live sheet carries ~63,800 by-source rows pasted beneath
-the 130 live ones in a different column layout (skipped by the reader, but walked on every recalc);
-`data_econ_daily!A1` still reads `EcoGainsSim_Daily`.
+**Also found:** `window_start_date` is a Tuesday — **confirmed by the user (2026-10-14): the live
+calendar's day 1 IS Tuesday 2026-10-13.** Both calendar sheets still say Wednesday on their weekday
+row and `isWeekend_` was a hardcoded Wednesday start, so the weekend sat one day early for this
+calendar. D64 reads the start weekday off the calendar's weekday-name row (`calDay1Dow_`); the one
+workbook edit is to retype that row Tuesday-first on `cal_curr` and `cal_new` (the engine then runs
+the weekend on days 4/5/6 … 32/33). Measured on the adjust dump: 33-day totals move < 0.1%, the
+identical-calendar DIFF stays 0, the day placement moves. The feed's `dow` column is cross-checked
+against the calendar in `econDaily_` and a mismatch is logged. The workbook's live sheet also carries
+~63,800 by-source rows pasted beneath the 130 live ones in a different column layout (skipped by the
+reader, but walked on every recalc); `data_econ_daily!A1` still reads `EcoGainsSim_Daily`.
