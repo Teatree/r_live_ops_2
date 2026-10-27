@@ -559,6 +559,51 @@ function GATES() {
     }
   }
 
+  // ---------------------------------------------------------------- 9c. STALE REMEMBERED ANCHORS (D69)
+  // A sheet rebuilt since its last fill: the snapshot remembers anchors one row and one column off
+  // the blocks the labels now place. They must be DROPPED (named in the pop-up, gone from the new
+  // snapshot), and the block must come out exactly as the engine computes it.
+  {
+    clearAll();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const snapMain = JSON.stringify(data['EcoGainsSim'].values);
+    const sim = ss.getSheetByName('EcoGainsSim');
+    const lay = simFillLayoutAnchors_('EcoGainsSim', sim.getDataRange().getValues(), sim.getMaxRows(), sim.getMaxColumns());
+    const a0 = lay.anchors.find(a => a.formula.indexOf('ECOGAINS_SIM(') >= 0);
+    const staleR = a0.row + 1, staleC = a0.col + 1;
+    props[SIMFILL_PROP + 'EcoGainsSim'] = JSON.stringify([[staleR, staleC, a0.formula]]);
+    const segCell = sim.getRange(a0.formula.match(/segment, (\$[A-Z]+\$\d+)/)[1].replace(/\$/g, '')).getValue();
+    const want = ECOGAINS_SIM(String(sim.getRange('B3').getValue()), String(segCell));
+    fillAllSims();
+    let wrong = 0;
+    Object.keys(a0.map.rows).forEach(lab => { const i = CATEGORY_ORDER.indexOf(lab); if (i < 0) return;
+      RESOURCES.forEach((r, j) => { const c = a0.map.cols[r]; if (c === undefined) return;
+        if (Math.abs(Number(cellVal('EcoGainsSim', a0.map.rows[lab], c)) - Number(want[i][j])) > 1e-9) wrong++; }); });
+    const at = 'EcoGainsSim!' + simFillColA1_(staleC) + staleR;
+    check('STALE SNAPSHOT: an anchor the labels do not support is not filled - the block is exactly the engine\'s', wrong === 0, wrong + ' wrong cells');
+    check('STALE SNAPSHOT: it is named in the pop-up and gone from the new snapshot',
+      alerts.some(t => t.indexOf('older layout') >= 0 && t.indexOf(at) >= 0) &&
+      !JSON.parse(props[SIMFILL_PROP + 'EcoGainsSim'] || '[]').some(t => t[0] === staleR && t[1] === staleC),
+      alerts.join(' | ').slice(0, 200));
+    data['EcoGainsSim'].values = JSON.parse(snapMain);
+  }
+  // a legend directly under the last block (no blank row) is not reported as an unknown label
+  {
+    clearAll();
+    const snapMain = JSON.stringify(data['EcoGainsSim'].values);
+    const sim = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('EcoGainsSim');
+    const lay = simFillLayoutAnchors_('EcoGainsSim', sim.getDataRange().getValues(), sim.getMaxRows(), sim.getMaxColumns());
+    const last = lay.anchors.filter(a => a.formula.indexOf('ECOGAINS_SIM(') >= 0).pop();
+    const lastRow = Math.max.apply(null, Object.values(last.map.rows));
+    const v = data['EcoGainsSim'].values, labCol = [0, 1].find(c => String((v[lastRow - 1] || [])[c] || '').trim() !== '');
+    v[lastRow] = v[lastRow] || []; v[lastRow][labCol] = 'LEGEND / ASSUMPTIONS';
+    v[lastRow + 1] = v[lastRow + 1] || []; v[lastRow + 1][labCol] = 'Colors: blue = measured';
+    fillAllSims();
+    check('LEGEND: text directly under the last block is not reported as a label the engine does not produce',
+      !alerts.some(t => t.indexOf('LEGEND / ASSUMPTIONS') >= 0), alerts.join(' | ').slice(0, 200));
+    data['EcoGainsSim'].values = JSON.parse(snapMain);
+  }
+
   // ---------------------------------------------------------------- 10. V2Diff derives its pairs (D66)
   {
     const v2Src = fs.readFileSync(ENGINE('V2Diff.gs'), 'utf8');

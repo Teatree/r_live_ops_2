@@ -72,7 +72,7 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD() like every other engine file.
-var SIMFILL_BUILD = 'SimFill.gs          D68  2026-10-27';
+var SIMFILL_BUILD = 'SimFill.gs          D69  2026-10-27';
 
 /**
  * The sheets to scan. REFRESH_SHEETS (EcoGainsSim_v4.gs) is the list refreshSims_ already
@@ -528,7 +528,7 @@ function simFillLayoutAnchors_(sheetName, v, maxRows, maxCols){
  * and do nothing - which looks exactly like success. The snapshots are the memory of where the
  * formulas were.
  */
-function simFillAnchors_(ss, sheetName, props, notes){
+function simFillAnchors_(ss, sheetName, props, notes, dropped){
   var sh = ss.getSheetByName(sheetName);
   if (!sh) return [];
   var found = {}, how = {};                         // "r,c" -> formula text / where it came from
@@ -561,6 +561,19 @@ function simFillAnchors_(ss, sheetName, props, notes){
     if (!found[id]){ found[id] = a.formula; how[id] = 'labels'; }
   });
   if (notes) lay.notes.forEach(function(n){ notes.push(n); });
+  // D69: once the labels place this sheet's blocks, a REMEMBERED anchor they do not support is
+  // stale - the sheet was rebuilt or moved since it was snapshotted (LIVE_OPS_V3 (2): the old
+  // so_far's C8 / W8 survived a rebuild in the document properties and were written one row and
+  // one column off the new blocks). Dropped and named. A live ECOGAINS_ formula is never dropped:
+  // someone put it there.
+  if (lay.anchors.length){
+    Object.keys(found).forEach(function(id){
+      if (how[id] !== 'snapshot' || room[id]) return;
+      var rc = id.split(',');
+      if (dropped) dropped.push(sheetName + '!' + simFillColA1_(Number(rc[1])) + rc[0]);
+      delete found[id];
+    });
+  }
   return Object.keys(found).map(function(id){
     var rc = id.split(',');
     return { sheet: sheetName, row: Number(rc[0]), col: Number(rc[1]), formula: found[id],
@@ -606,13 +619,13 @@ function fillAllSims(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var props = PropertiesService.getDocumentProperties();
   var sheets = simFillSheets_(ss);
-  var jobs = [], skipped = [], stoppedAt = '', notes = [], derived = 0, present = [];
+  var jobs = [], skipped = [], stoppedAt = '', notes = [], derived = 0, present = [], dropped = [];
 
   // ---- 1. collect every anchor, and snapshot the formulas BEFORE anything is replaced --------
   sheets.forEach(function(name){
     if (!ss.getSheetByName(name)) return;
     present.push(name);
-    var anchors = simFillAnchors_(ss, name, props, notes);
+    var anchors = simFillAnchors_(ss, name, props, notes, dropped);
     if (!anchors.length) return;
     props.setProperty(SIMFILL_PROP + name, JSON.stringify(anchors.map(function(a){
       return [a.row, a.col, a.formula];
@@ -724,6 +737,7 @@ function fillAllSims(){
   var msg = done.length + ' of ' + jobs.length + ' sim blocks filled as values (' +
             cells.toLocaleString() + ' cells) in ' + secs + 's' +
             (derived ? ' - ' + derived + ' anchor(s) located from the sheet labels' : '') +
+            (dropped.length ? '  --  ' + dropped.length + ' remembered anchor(s) from an older layout dropped: ' + dropped.join(', ') : '') +
             (stoppedAt ? '  --  STOPPED EARLY on the time budget: ' + stoppedAt +
                          '. Run it again to finish.' : '') +
             (unplaced.length ? '  --  ' + unplaced.length + ' block(s) with rows/columns NOT ON THE SHEET: ' + unplaced.join('; ') : '') +
@@ -740,6 +754,8 @@ function fillAllSims(){
   var lines = [done.length + ' of ' + jobs.length + ' sim blocks filled as values in ' + secs + 's.'];
   Object.keys(perSheet).forEach(function(n){ lines.push('   ' + n + ': ' + perSheet[n] + ' block(s)'); });
   if (derived) lines.push(derived + ' anchor(s) were located from the sheet labels (no formula, no snapshot).');
+  if (dropped.length) lines.push('', 'Remembered from an older layout of the sheet and NOT filled (the labels place the blocks elsewhere now):',
+                                 '   ' + dropped.join(', '));
   if (unplaced.length) lines.push('', 'NOT ON THE SHEET - the engine has rows / columns this layout has no label for (not written):',
                                   '   ' + unplaced.join('\n   '));
   if (stale.length) lines.push('', 'Labels on the sheet the engine does not produce (left as they were):', '   ' + stale.join('\n   '));
@@ -792,9 +808,13 @@ function simFillPlace_(job, grid){
   }
   if (!colKeys && job.room && grid[0].length > job.room.cols)
     missCols.push((grid[0].length - job.room.cols) + ' column(s) past the header');
-  var staleRows = [], known = {};
+  var staleRows = [], known = {}, lastKnown = -1;
   rowKeys.forEach(function(x){ known[x] = true; });
-  Object.keys(m.rows).forEach(function(lab){ if (!known[lab]) staleRows.push(lab); });
+  Object.keys(m.rows).forEach(function(lab){ if (known[lab] && m.rows[lab] > lastKnown) lastKnown = m.rows[lab]; });
+  // D69: an unknown label BELOW the last recognised source row is not a block row - it is the
+  // legend or a note that sits under the last block with no blank row between (LIVE_OPS_V3's
+  // EcoGainsSim). Only unknown labels among the block's rows are reported.
+  Object.keys(m.rows).forEach(function(lab){ if (!known[lab] && m.rows[lab] < lastKnown) staleRows.push(lab); });
   return { cells: cells, missRows: missRows, missCols: missCols, staleRows: staleRows };
 }
 
