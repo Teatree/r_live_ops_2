@@ -22,13 +22,15 @@
  * generic diff works — the saga HC changes get marked like any other config edit). If a future
  * _v2 is ever a structural rewrite again, add its base name to V2DIFF_STRUCTURAL_SKIP below.
  *
- * PAIR LIST (2026-08-18): when the engine defines a CONFIG_PAIRED registry (the liveops20_fixes
- * copy does; this main-stack engine does not), the pairs are DERIVED from it at run time — menu
- * handlers run after every file has loaded, so the registry is populated (a top-level read would
- * hit the var-hoisting trap). A config sheet added to that model gets diff-marking for free.
- * Without the registry, the static V2DIFF_PAIRS list below serves — it now includes the RM split
- * sheets (RM_1st/RM_2nd gained _v2 proposal twins in the liveops20_fixes workbook; in a workbook
- * without them the pair just lands in the pop-up's "no _v2 twin" line).
+ * PAIR LIST (D66, 2026-10-27): the pairs are DERIVED FROM THE WORKBOOK at run time - every sheet
+ * named `X_v2` whose base `X` exists is a pair - unioned with the static V2DIFF_PAIRS below, so a
+ * config sheet that gains a _v2 twin (PackConfig, AlbumConfig, ToF, Ki_Tr, RM_1st, RM_2nd ...) is
+ * diffed with no code change. Two sheets whose names do not follow that rule are mapped by hand:
+ *   NS_v2_weekday  <-  NS_weekday when the workbook has it (the live WEEKDAY ladder, D61d),
+ *                      else NS (the pre-D61d reading). Against NS it showed 18 red cells on
+ *                      LIVE_OPS_V3 that were the weekday design, not edits; against NS_weekday, 0.
+ * A CONFIG_PAIRED registry (the liveops20_fixes engine defines one) still takes precedence,
+ * read at run time because menu handlers run after every file has loaded.
  *
  * Re-run any time. It is non-destructive: it preserves every other cell's existing font colour and
  * only turns changed cells red. Use "Clear v2 config diff marks" to reset the compared region's
@@ -49,11 +51,34 @@ var V2DIFF_PAIRS = [
   ['RM_1st','RM_1st_v2'], ['RM_2nd','RM_2nd_v2']   // RM anchored pairs (2026-08-18)
 ];
 
-// [ [base, base_v2], ... ]: the engine's CONFIG_PAIRED registry when present, else the static list.
+// The hand-mapped twins: a _v2 sheet whose base is not simply its name minus '_v2'. Each entry
+// lists the base candidates in order of preference; the first one the workbook has wins.
+var V2DIFF_TWINS = { 'NS_v2_weekday': ['NS_weekday', 'NS'] };
+
+// [ [base, base_v2], ... ]: the CONFIG_PAIRED registry when present; else every `X_v2` sheet in
+// the workbook whose `X` exists, plus the hand-mapped twins, plus the static list (deduplicated,
+// static order first so the pop-up reads the same way it always has).
 function v2diffPairs_(){
   if (typeof CONFIG_PAIRED !== 'undefined' && CONFIG_PAIRED)
     return Object.keys(CONFIG_PAIRED).map(function(b){ return [b, b + '_v2']; });
-  return V2DIFF_PAIRS;
+  var names = {};
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function(sh){ names[sh.getName()] = true; });
+  } catch (e){ return V2DIFF_PAIRS; }                     // no workbook to read -> the static list
+  var out = [], seen = {};
+  function add(b, v){ var k = b + '>' + v; if (seen[k]) return; seen[k] = true; out.push([b, v]); }
+  // a twin's _v2 sheet must not ALSO be paired with a base the static list names for it
+  var twinned = {};
+  Object.keys(V2DIFF_TWINS).forEach(function(v){
+    if (!names[v]) return;
+    for (var i = 0; i < V2DIFF_TWINS[v].length; i++)
+      if (names[V2DIFF_TWINS[v][i]]){ add(V2DIFF_TWINS[v][i], v); twinned[v] = true; break; }
+  });
+  V2DIFF_PAIRS.forEach(function(p){ if (!twinned[p[1]]) add(p[0], p[1]); });
+  Object.keys(names).forEach(function(n){
+    if (n.length > 3 && n.slice(-3) === '_v2' && names[n.slice(0, -3)] && !twinned[n]) add(n.slice(0, -3), n);
+  });
+  return out;
 }
 // base sheets whose _v2 is a structural rewrite (not cell-aligned) -> skip the cell diff.
 // Empty now: c_saga was re-aligned with c_saga_v2, so it is compared like every other pair.
@@ -102,6 +127,9 @@ function markV2ConfigDiffs(){
   if (skipped.length)    lines.push('Skipped (structural rewrite): ' + skipped.join(', '));
   if (missing.length)    lines.push('Missing base sheet(s): ' + missing.join(', '));
 
+  lines.push('', 'Pairs are derived from the workbook: every X_v2 with a base X' +
+             (typeof V2DIFF_TWINS !== 'undefined' ? ', NS_v2_weekday against ' +
+              (v2diffPairs_().filter(function(p){ return p[1] === 'NS_v2_weekday'; }).map(function(p){ return p[0]; })[0] || '(absent)') : '') + '.');
   var ui = SpreadsheetApp.getUi();
   ui.alert('v2 config diff — old vs new', lines.join('\n'), ui.ButtonSet.OK);
 }
