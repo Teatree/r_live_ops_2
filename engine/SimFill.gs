@@ -30,6 +30,22 @@
  * and named in the toast - the formula is left alone rather than replaced by a number computed
  * from a guess. That is the whole safety story: an unparseable formula stays live and loud.
  *
+ * THE THIRD SOURCE OF ANCHORS - THE SHEET'S OWN LABELS (D65, 2026-10-27). A live formula and a
+ * properties snapshot are both things a workbook loses: the first fill turns every formula into
+ * a value, and a COPY of the workbook (LIVE_OPS_V3) starts with empty document properties. The
+ * fill then found "no ECOGAINS_ formula and no snapshot" and did nothing, while the sheet kept
+ * showing numbers from whichever engine last filled it. So the display layouts are now READ off
+ * the sheets themselves - the segment tag and 'Source | HC ...' header of each 33-day block, the
+ * bar row and 'Day' column of the daily view, the SIM PART bars of the ToF sheet, the three bars
+ * of the play-by-play sheet, the 'instances | event-days' summary on cal_new - and each anchor's
+ * formula is rebuilt in the exact text the builder writes (builders/_build_*.py), so Restore puts
+ * back a builder-identical formula and the fill's own parser reads it. Nothing is regenerated:
+ * the fill writes the spill into the room the layout leaves and NOTHING else. A spill larger
+ * than that room is CLIPPED to it and reported in the end-of-run pop-up (user decision) rather
+ * than written over the next block. A sheet whose layout is not recognised is reported, not
+ * guessed at. Which sheet gets which rule is decided by its NAME (SIMFILL_FAMILIES): the two
+ * names each sheet has had in this project's workbooks are both listed.
+ *
  * REVERSIBLE. Every fill snapshots the formula it replaced into document properties, so
  * `Restore sim formulas` puts the workbook back exactly as it was. refreshSims_ keeps its own
  * snapshot too, and its MANIFEST HEAL cannot fight this one: heal only restores a formula into a
@@ -47,7 +63,7 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD() like every other engine file.
-var SIMFILL_BUILD = 'SimFill.gs          D52  2026-09-10';
+var SIMFILL_BUILD = 'SimFill.gs          D65  2026-10-27';
 
 /**
  * The sheets to scan. REFRESH_SHEETS (EcoGainsSim_v4.gs) is the list refreshSims_ already
@@ -221,6 +237,241 @@ function simFillFn_(name){
   catch (e){ return null; }
 }
 
+// ============================== layout anchors (D65) =========================================
+// Sheet NAME -> which layout rule reads it. Both names each sheet has carried are listed; a sheet
+// not in this map gets no derived anchors and is named in the pop-up when nothing else found one.
+var SIMFILL_FAMILIES = {
+  'EcoGainsSim':          { kind: 'grid',  sim: 'ECOGAINS_SIM',       diff: 'ECOGAINS_DIFF' },
+  'EcoGainsSim_HC':       { kind: 'grid',  sim: 'ECOGAINS_SIM',       diff: 'ECOGAINS_DIFF' },
+  'EcoGainsSim_so_far':   { kind: 'grid',  sim: 'ECOGAINS_SIM_7_DAY', diff: 'ECOGAINS_DIFF_7_DAY' },
+  'EcoGainsSim_HC_7d':    { kind: 'grid',  sim: 'ECOGAINS_SIM_7_DAY', diff: 'ECOGAINS_DIFF_7_DAY' },
+  'EcoGainsSim_Daily':    { kind: 'daily' },
+  'EcoGainsSim_PlybyPly': { kind: 'pbp' },
+  'ToF':                  { kind: 'tof' },
+  'MD':                   { kind: 'tof' },
+  'cal_new':              { kind: 'cal' }
+};
+var SIMFILL_SEGMENT_TAGS = ['0-9', '10-19', '20-39', '40-99', '100+', 'A. 0'];
+var SIMFILL_NONCE_REF = 'sim_refresh!$A$1';
+// The daily view's bars -> the ECOGAINS_DAILY block key. Matched in THIS order: 'NEW NET' must not
+// be read as 'NET', and the two delta bars ('GAINS data - sim', 'NET data - sim') come last.
+var SIMFILL_DAILY_BARS = [
+  [/CURRENT GAINS/i, 'DATA'], [/NEW GAINS/i, 'NEW'], [/CURRENT SPEND/i, 'SPEND'],
+  [/CURRENT NET/i, 'CURNET'], [/NEW NET/i, 'NEWNET'], [/SIM of cal_curr/i, 'CURRENT'],
+  [/GAINS/i, 'DATADIFF'], [/NET/i, null]                      // the NET delta is sheet formulas
+];
+// The ToF sheet's SIM PART bars -> the ECOGAINS_TOF block, and the first cell the spill itself
+// writes (the anchor is the row under the bar that holds that word, or is empty).
+var SIMFILL_TOF_BARS = [
+  [/RUN ECONOMICS/i, 'RUN', 'Segment'], [/REWARD PER RUN/i, 'REWARD', 'Resource'],
+  [/GAIN VS SPEND/i, 'GAINSPEND', 'Stage']
+];
+var SIMFILL_TOF_STOPS = /RUN ECONOMICS|REWARD PER RUN|GAIN VS SPEND|SEGMENT BEHAVIOUR|^SIM PART/i;
+// The play-by-play sheet: input labels (column A, prefix match) in the order the three functions
+// take them, and the three bars.
+var SIMFILL_PBP_INPUTS = ['Calendar', 'Day to Simulate', 'Player Segment', 'Payer', 'Mode',
+                          'Luck', 'Seed', 'Levels Played', 'Starting Saga Level'];
+var SIMFILL_PBP_BARS = [
+  [/^Player Profile/i,            'ECOGAINS_PBP_PROFILE', [2, 3]],
+  [/^Active Events on This Day/i, 'ECOGAINS_PBP_EVENTS',  [0, 1, 2, 3, 5]],
+  [/^Play-by-Play Sim/i,          'ECOGAINS_PBP',         [0, 1, 2, 3, 4, 5, 6, 7, 8]]
+];
+var SIMFILL_PBP_STOPS = /^Player Profile|^Active Events on This Day|^Play-by-Play Sim|^Assumptions/i;
+
+function simFillTxt_(x){ return String(x == null ? '' : x).trim(); }
+function simFillColA1_(c){
+  var sN = '';
+  while (c > 0){ var m = (c - 1) % 26; sN = String.fromCharCode(65 + m) + sN; c = (c - m - 1) / 26; }
+  return sN;
+}
+function simFillRef_(r, c){ return '$' + simFillColA1_(c) + '$' + r; }
+/** First cell whose trimmed text equals `label` (case-insensitive), searching rows r1..r2 and
+ *  columns c1..c2 (1-based, inclusive), or null. */
+function simFillFind_(v, label, r1, r2, c1, c2){
+  var want = String(label).toLowerCase();
+  for (var r = Math.max(1, r1); r <= Math.min(r2, v.length); r++){
+    var row = v[r - 1] || [];
+    for (var c = Math.max(1, c1); c <= Math.min(c2, row.length); c++)
+      if (simFillTxt_(row[c - 1]).toLowerCase() === want) return { r: r, c: c };
+  }
+  return null;
+}
+/** Consecutive non-empty cells on row `r` from column `c` (1-based), i.e. a header's width. */
+function simFillRunW_(v, r, c){
+  var row = v[r - 1] || [], n = 0;
+  for (var k = c; k <= row.length && simFillTxt_(row[k - 1]) !== ''; k++) n++;
+  return n;
+}
+function simFillAnchor_(sheet, r, c, formula, rows, cols, how){
+  return { sheet: sheet, row: r, col: c, formula: formula, room: { rows: rows, cols: cols }, how: how };
+}
+
+/**
+ * The anchors a sheet's LABELS imply: { anchors: [...], notes: [...] }. Pure over `v` (the
+ * sheet's values), so the harness can run it over a builder's own xlsx and compare with the
+ * formulas that builder wrote. `maxRows`/`maxCols` bound the room of a block nothing follows.
+ */
+function simFillLayoutAnchors_(sheetName, v, maxRows, maxCols){
+  var fam = SIMFILL_FAMILIES[sheetName], out = [], notes = [];
+  if (!fam) return { anchors: out, notes: ['no layout rule for sheet "' + sheetName + '"'] };
+  if (!v || !v.length) return { anchors: out, notes: [sheetName + ' is empty'] };
+  maxRows = Math.max(maxRows || 0, v.length);
+  maxCols = Math.max(maxCols || 0, v.reduce(function(m, row){ return Math.max(m, row.length); }, 0));
+  var r, c, row;
+
+  if (fam.kind === 'grid'){
+    // Payer: the cell right of the 'Payer' label in the top rows. Segment blocks: a tag cell
+    // ('0-9' ...) in one of the first two columns with 'Source' in the same column one row down;
+    // the first 'HC' on that header row is the SIM block, the second the DIFF block.
+    var pay = simFillFind_(v, 'Payer', 1, 8, 1, 4);
+    if (!pay){ notes.push(sheetName + ": no 'Payer' label in rows 1-8"); return { anchors: out, notes: notes }; }
+    var payRef = simFillRef_(pay.r, pay.c + 1);
+    var tags = [];
+    for (r = 1; r <= v.length; r++){
+      row = v[r - 1] || [];
+      for (c = 1; c <= Math.min(2, row.length); c++){
+        if (SIMFILL_SEGMENT_TAGS.indexOf(simFillTxt_(row[c - 1])) < 0) continue;
+        var below = v[r] || [];
+        if (simFillTxt_(below[c - 1]).toLowerCase() !== 'source') continue;
+        tags.push({ r: r, c: c });
+      }
+    }
+    if (!tags.length) notes.push(sheetName + ": no segment block found (a '0-9'.. tag with 'Source' under it)");
+    tags.forEach(function(t, i){
+      var hdr = t.r + 1, d0 = t.r + 2, hrow = v[hdr - 1] || [];
+      var hc = [];
+      for (c = 1; c <= hrow.length; c++) if (simFillTxt_(hrow[c - 1]).toUpperCase() === 'HC') hc.push(c);
+      if (!hc.length){ notes.push(sheetName + ' row ' + hdr + ": header has no 'HC' column"); return; }
+      var roomRows = ((i + 1 < tags.length) ? tags[i + 1].r : maxRows + 1) - d0;
+      var segRef = simFillRef_(t.r, t.c);
+      out.push(simFillAnchor_(sheetName, d0, hc[0],
+        '=LET(payer, ' + payRef + ', segment, ' + segRef + ', ' + fam.sim + '(payer, segment, ' + SIMFILL_NONCE_REF + '))',
+        roomRows, simFillRunW_(v, hdr, hc[0]), 'labels'));
+      if (hc.length > 1)
+        out.push(simFillAnchor_(sheetName, d0, hc[1],
+          '=LET(payer, ' + payRef + ', segment, ' + segRef + ', ' + fam.diff + '(payer, segment, ' + SIMFILL_NONCE_REF + '))',
+          roomRows, simFillRunW_(v, hdr, hc[1]), 'labels'));
+    });
+  } else if (fam.kind === 'daily'){
+    var refs = {}, missing = [];
+    ['Payer', 'Segment', 'Source'].forEach(function(l){
+      var f = simFillFind_(v, l, 1, 8, 1, 4);
+      if (f) refs[l] = simFillRef_(f.r, f.c + 1); else missing.push(l);
+    });
+    if (missing.length){ notes.push(sheetName + ': no ' + missing.join(' / ') + ' label in rows 1-8'); return { anchors: out, notes: notes }; }
+    var barRow = 0;
+    for (r = 1; r <= v.length && !barRow; r++){
+      row = v[r - 1] || [];
+      for (c = 1; c <= row.length; c++) if (/CURRENT GAINS/i.test(simFillTxt_(row[c - 1]))){ barRow = r; break; }
+    }
+    if (!barRow){ notes.push(sheetName + ": no 'CURRENT GAINS' bar"); return { anchors: out, notes: notes }; }
+    var hdrRow = barRow + 1, d0d = barRow + 2;
+    var dayCell = simFillFind_(v, 'Day', hdrRow, hdrRow, 1, 6);
+    var dayCol = dayCell ? dayCell.c : 2;
+    var nDays = 0;
+    for (r = d0d; r <= v.length; r++){
+      var x = (v[r - 1] || [])[dayCol - 1];
+      if (typeof x !== 'number' && !/^\d+$/.test(simFillTxt_(x))) break;
+      nDays++;
+    }
+    row = v[barRow - 1] || [];
+    var seenKey = {};
+    for (c = 1; c <= row.length; c++){
+      var txt = simFillTxt_(row[c - 1]);
+      if (!txt) continue;
+      var key, hit = false;
+      for (var k = 0; k < SIMFILL_DAILY_BARS.length; k++)
+        if (SIMFILL_DAILY_BARS[k][0].test(txt)){ key = SIMFILL_DAILY_BARS[k][1]; hit = true; break; }
+      if (!hit || !key) continue;                           // unknown text, or the formula block
+      if (seenKey[key]){ notes.push(sheetName + ': a second "' + txt + '" bar - only the first is filled'); continue; }
+      seenKey[key] = true;
+      out.push(simFillAnchor_(sheetName, d0d, c,
+        '=LET(payer,' + refs.Payer + ', segment,' + refs.Segment + ', source,' + refs.Source + ', ' +
+        'ECOGAINS_DAILY(payer, segment, source, "' + key + '", ' + SIMFILL_NONCE_REF + '))',
+        nDays, simFillRunW_(v, hdrRow, c), 'labels'));
+    }
+    SIMFILL_DAILY_BARS.forEach(function(sp){
+      if (sp[1] && !seenKey[sp[1]]) notes.push(sheetName + ': no bar matching ' + String(sp[0]).replace(/^\/|\/i$/g, '') + ' on row ' + barRow + ', so the ' + sp[1] + ' block is not filled');
+    });
+  } else if (fam.kind === 'tof'){
+    var simBar = 0;
+    for (r = 1; r <= v.length; r++) if (/^SIM PART/i.test(simFillTxt_((v[r - 1] || [])[0]))){ simBar = r; break; }
+    if (!simBar){ notes.push(sheetName + ": no 'SIM PART' bar in column A"); return { anchors: out, notes: notes }; }
+    var payT = simFillFind_(v, 'Payer', simBar, v.length, 1, 1);
+    if (!payT){ notes.push(sheetName + ": no 'Payer' label under the SIM PART bar"); return { anchors: out, notes: notes }; }
+    var payRefT = simFillRef_(payT.r, payT.c + 1), seenBar = {};
+    for (r = simBar + 1; r <= v.length; r++){
+      var a = simFillTxt_((v[r - 1] || [])[0]), spec = null;
+      for (var b = 0; b < SIMFILL_TOF_BARS.length; b++) if (SIMFILL_TOF_BARS[b][0].test(a)){ spec = SIMFILL_TOF_BARS[b]; break; }
+      if (!spec) continue;
+      if (seenBar[spec[1]]){ notes.push(sheetName + ' row ' + r + ': a second "' + a + '" bar - only the first is filled'); continue; }
+      seenBar[spec[1]] = true;
+      // the anchor: under the bar, the first row that is empty or already holds the spill's own
+      // first cell; note rows (long italic text) in between are stepped over
+      var anchorRow = 0;
+      for (var q = r + 1; q <= Math.min(r + 8, maxRows); q++){
+        var t = simFillTxt_((v[q - 1] || [])[0]);
+        if (t === '' || t.toLowerCase() === spec[2].toLowerCase()){ anchorRow = q; break; }
+        if (SIMFILL_TOF_STOPS.test(t)) break;
+      }
+      if (!anchorRow){ notes.push(sheetName + ' row ' + r + ' (' + a + '): no room under the bar'); continue; }
+      var stop = maxRows + 1;
+      for (var q2 = anchorRow + 1; q2 <= v.length; q2++)
+        if (SIMFILL_TOF_STOPS.test(simFillTxt_((v[q2 - 1] || [])[0]))){ stop = q2; break; }
+      out.push(simFillAnchor_(sheetName, anchorRow, 1,
+        '=ECOGAINS_TOF(' + payRefT + ', "' + spec[1] + '", ' + SIMFILL_NONCE_REF + ')',
+        stop - anchorRow, maxCols, 'labels'));
+    }
+    // a block with no bar is not guessed at - it is named, so the sheet can be given the bar
+    SIMFILL_TOF_BARS.forEach(function(sp){
+      if (!seenBar[sp[1]]) notes.push(sheetName + ': no bar matching ' + String(sp[0]).replace(/^\/|\/i$/g, '') + ' under SIM PART, so the ' + sp[1] + ' block is not filled - add that bar text in column A above its "' + sp[2] + '" header row');
+    });
+  } else if (fam.kind === 'pbp'){
+    var inRefs = [], miss = [];
+    SIMFILL_PBP_INPUTS.forEach(function(l){
+      var found = null;
+      for (r = 1; r <= Math.min(14, v.length) && !found; r++)
+        if (simFillTxt_((v[r - 1] || [])[0]).toLowerCase().indexOf(l.toLowerCase()) === 0) found = r;
+      if (found) inRefs.push(simFillRef_(found, 2)); else { inRefs.push(null); miss.push(l); }
+    });
+    for (r = 1; r <= v.length; r++){
+      var aP = simFillTxt_((v[r - 1] || [])[0]), specP = null;
+      for (var bp = 0; bp < SIMFILL_PBP_BARS.length; bp++) if (SIMFILL_PBP_BARS[bp][0].test(aP)){ specP = SIMFILL_PBP_BARS[bp]; break; }
+      if (!specP) continue;
+      var args = specP[2].map(function(i){ return inRefs[i]; });
+      if (args.some(function(x){ return !x; })){ notes.push(sheetName + ' (' + aP.slice(0, 30) + '): input label(s) missing: ' + miss.join(', ')); continue; }
+      var stopP = maxRows + 1;
+      for (var q3 = r + 2; q3 <= v.length; q3++)
+        if (SIMFILL_PBP_STOPS.test(simFillTxt_((v[q3 - 1] || [])[0]))){ stopP = q3; break; }
+      out.push(simFillAnchor_(sheetName, r + 1, 1, '=' + specP[1] + '(' + args.join(',') + ')',
+        stopP - (r + 1), maxCols, 'labels'));
+    }
+    if (!out.length) notes.push(sheetName + ': none of the three bars found (Player Profile / Active Events / Play-by-Play Sim)');
+  } else if (fam.kind === 'cal'){
+    // the 'Summary of old vs new' block: a header row with 'instances' and 'event-days', the
+    // category names in the column under 'source', the spill at the first 'instances' column
+    var hdrC = null;
+    for (r = 1; r <= v.length && !hdrC; r++){
+      row = v[r - 1] || [];
+      var inst = -1, src = -1;
+      for (c = 1; c <= row.length; c++){
+        var tt = simFillTxt_(row[c - 1]).toLowerCase();
+        if (tt === 'instances' && inst < 0) inst = c;
+        if (tt === 'source' && src < 0) src = c;
+      }
+      if (inst > 0 && src > 0) hdrC = { r: r, inst: inst, src: src };
+    }
+    if (!hdrC){ notes.push(sheetName + ": no 'source | instances | event-days' summary header"); return { anchors: out, notes: notes }; }
+    var first = hdrC.r + 1, nCat = 0;
+    for (r = first; r <= v.length && simFillTxt_((v[r - 1] || [])[hdrC.src - 1]) !== ''; r++) nCat++;
+    var hrowC = v[hdrC.r - 1] || [], lastHdr = hdrC.inst;
+    for (c = hdrC.inst; c <= hrowC.length; c++) if (simFillTxt_(hrowC[c - 1]) !== '') lastHdr = c;
+    out.push(simFillAnchor_(sheetName, first, hdrC.inst,
+      '=ECOGAINS_CAL_COUNTS(' + SIMFILL_NONCE_REF + ')', nCat, lastHdr - hdrC.inst + 1, 'labels'));
+  }
+  return { anchors: out, notes: notes };
+}
+
 // ============================== the anchors ==================================================
 
 /**
@@ -231,30 +482,43 @@ function simFillFn_(name){
  * and do nothing - which looks exactly like success. The snapshots are the memory of where the
  * formulas were.
  */
-function simFillAnchors_(ss, sheetName, props){
+function simFillAnchors_(ss, sheetName, props, notes){
   var sh = ss.getSheetByName(sheetName);
   if (!sh) return [];
-  var found = {};                                   // "r,c" -> formula text
+  var found = {}, how = {};                         // "r,c" -> formula text / where it came from
   var grid = sh.getDataRange().getFormulas();
   for (var r = 0; r < grid.length; r++)
     for (var c = 0; c < grid[r].length; c++)
-      if (grid[r][c] && grid[r][c].indexOf('ECOGAINS_') !== -1)
-        found[(r + 1) + ',' + (c + 1)] = grid[r][c];
+      if (grid[r][c] && grid[r][c].indexOf('ECOGAINS_') !== -1){
+        found[(r + 1) + ',' + (c + 1)] = grid[r][c]; how[(r + 1) + ',' + (c + 1)] = 'formula';
+      }
   [SIMFILL_PROP, 'simFormulas.'].forEach(function(prefix){
     var raw = props.getProperty(prefix + sheetName);
     if (!raw) return;
     try {
       JSON.parse(raw).forEach(function(t){                       // t = [row, col, formula]
         var id = t[0] + ',' + t[1];
-        if (!found[id]) found[id] = t[2];
+        if (!found[id]){ found[id] = t[2]; how[id] = 'snapshot'; }
       });
     } catch (e){
       Logger.log('SimFill: unreadable snapshot ' + prefix + sheetName + ' (' + e + ') - ignored.');
     }
   });
+  // D65: the sheet's own labels. Anything the first two sources did not name is taken from here,
+  // and every anchor gets the ROOM the layout leaves for it, so an oversize spill is clipped and
+  // reported instead of written over the block below.
+  var room = {};
+  var lay = simFillLayoutAnchors_(sheetName, sh.getDataRange().getValues(), sh.getMaxRows(), sh.getMaxColumns());
+  lay.anchors.forEach(function(a){
+    var id = a.row + ',' + a.col;
+    room[id] = a.room;
+    if (!found[id]){ found[id] = a.formula; how[id] = 'labels'; }
+  });
+  if (notes) lay.notes.forEach(function(n){ notes.push(n); });
   return Object.keys(found).map(function(id){
     var rc = id.split(',');
-    return { sheet: sheetName, row: Number(rc[0]), col: Number(rc[1]), formula: found[id] };
+    return { sheet: sheetName, row: Number(rc[0]), col: Number(rc[1]), formula: found[id],
+             how: how[id], room: room[id] || null };
   }).sort(function(a, b){ return a.row - b.row || a.col - b.col; });
 }
 
@@ -296,22 +560,25 @@ function fillAllSims(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var props = PropertiesService.getDocumentProperties();
   var sheets = simFillSheets_(ss);
-  var jobs = [], skipped = [], stoppedAt = '';
+  var jobs = [], skipped = [], stoppedAt = '', notes = [], derived = 0, present = [];
 
   // ---- 1. collect every anchor, and snapshot the formulas BEFORE anything is replaced --------
   sheets.forEach(function(name){
-    var anchors = simFillAnchors_(ss, name, props);
+    if (!ss.getSheetByName(name)) return;
+    present.push(name);
+    var anchors = simFillAnchors_(ss, name, props, notes);
     if (!anchors.length) return;
     props.setProperty(SIMFILL_PROP + name, JSON.stringify(anchors.map(function(a){
       return [a.row, a.col, a.formula];
     })));
-    anchors.forEach(function(a){ jobs.push(a); });
+    anchors.forEach(function(a){ jobs.push(a); if (a.how === 'labels') derived++; });
   });
   if (!jobs.length){
-    var none = 'No ECOGAINS_ formula found on ' + sheets.join(', ') + ', and no snapshot of one. ' +
-               'Nothing to fill.';
+    var none = 'No ECOGAINS_ formula found on ' + present.join(', ') + ', no snapshot of one, and ' +
+               'no layout the labels could be read off (' + notes.join('; ') + '). Nothing to fill.';
     Logger.log(none);
     try { SpreadsheetApp.getActive().toast(none, 'Fill all sims', 10); } catch (e){}
+    simFillPopup_('Fill all sims', none);
     return 0;
   }
 
@@ -350,30 +617,75 @@ function fillAllSims(){
   }
 
   // ---- 3. write. Clear the anchor first so the old spill collapses, then lay the grid down. ----
-  var cells = 0;
+  // D65: a spill is written into the ROOM its layout leaves and nothing more. The rows past the
+  // next block (or the columns past the header) are dropped and the clip is reported - the user
+  // decides whether to widen the sheet, never this file.
+  var cells = 0, overflow = [], perSheet = {};
   done.forEach(function(d){
     var sh = ss.getSheetByName(d.job.sheet);
     if (!sh) return;
+    var grid = d.grid, room = d.job.room, at = d.job.sheet + '!' + simFillColA1_(d.job.col) + d.job.row;
+    if (room && (grid.length > room.rows || grid[0].length > room.cols)){
+      overflow.push(at + ': ' + d.fn + ' returns ' + grid.length + ' x ' + grid[0].length +
+                    ' but the layout has room for ' + room.rows + ' x ' + room.cols +
+                    ' - the rest was NOT written');
+      grid = grid.slice(0, Math.max(0, Math.min(grid.length, room.rows)))
+                 .map(function(rw){ return rw.slice(0, Math.max(0, Math.min(rw.length, room.cols))); });
+      if (!grid.length || !grid[0].length) return;
+    }
     sh.getRange(d.job.row, d.job.col).clearContent();
-    sh.getRange(d.job.row, d.job.col, d.grid.length, d.grid[0].length).setValues(d.grid);
-    cells += d.grid.length * d.grid[0].length;
+    sh.getRange(d.job.row, d.job.col, grid.length, grid[0].length).setValues(grid);
+    cells += grid.length * grid[0].length;
+    perSheet[d.job.sheet] = (perSheet[d.job.sheet] || 0) + 1;
   });
 
   var stampTxt = 'values filled ' + stamp_() + ' by Fill all sims (NOT live formulas)';
   simFillStamp_(ss, sheets, stampTxt);
 
+  // ---- 4. Sim per Segment, in the SAME execution (user decision 2026-10-27): its reads share
+  // this run's caches, and one menu item leaves no sheet behind.
+  var spsLine = '';
+  if (typeof fillSimPerSegment === 'function'){
+    try { fillSimPerSegment(); spsLine = 'Sim per Segment filled.'; }
+    catch (e){ spsLine = 'Sim per Segment NOT filled: ' + e; }
+  }
+
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
   var msg = done.length + ' of ' + jobs.length + ' sim blocks filled as values (' +
             cells.toLocaleString() + ' cells) in ' + secs + 's' +
+            (derived ? ' - ' + derived + ' anchor(s) located from the sheet labels' : '') +
             (stoppedAt ? '  --  STOPPED EARLY on the time budget: ' + stoppedAt +
                          '. Run it again to finish.' : '') +
+            (overflow.length ? '  --  ' + overflow.length + ' CLIPPED: ' + overflow.join('; ') : '') +
             (skipped.length ? '  --  ' + skipped.length + ' LEFT AS FORMULAS: ' +
                               skipped.join('; ') : '') +
+            (notes.length ? '  --  not located: ' + notes.join('; ') : '') +
+            (spsLine ? '  |  ' + spsLine : '') +
             '  |  these blocks no longer follow a config edit - re-run this after every edit. ' +
             'EcoGainsSim > Restore sim formulas puts them back.';
   Logger.log(msg);
   try { SpreadsheetApp.getActive().toast(msg, 'Fill all sims', 15); } catch (e){}
+  // The pop-up (user decision): the toast vanishes in 15s and a clipped block looks filled.
+  var lines = [done.length + ' of ' + jobs.length + ' sim blocks filled as values in ' + secs + 's.'];
+  Object.keys(perSheet).forEach(function(n){ lines.push('   ' + n + ': ' + perSheet[n] + ' block(s)'); });
+  if (derived) lines.push(derived + ' anchor(s) were located from the sheet labels (no formula, no snapshot).');
+  if (overflow.length) lines.push('', 'CLIPPED - more values than the layout has room for:', '   ' + overflow.join('\n   '));
+  if (skipped.length) lines.push('', 'Left as formulas:', '   ' + skipped.join('\n   '));
+  if (stoppedAt) lines.push('', 'STOPPED EARLY on the time budget: ' + stoppedAt + '. Run it again to finish.');
+  if (notes.length) lines.push('', 'Not located:', '   ' + notes.join('\n   '));
+  if (spsLine) lines.push('', spsLine);
+  lines.push('', 'These blocks no longer follow a config edit - re-run this after every edit.');
+  simFillPopup_('Fill all sims', lines.join('\n'));
   return done.length;
+}
+
+/** The end-of-run pop-up. A menu run has a UI; a trigger or the harness does not, and neither
+ *  should cost the run its result - so it falls back to the log. */
+function simFillPopup_(title, text){
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert(title, text, ui.ButtonSet.OK);
+  } catch (e){ Logger.log(title + ': ' + text); }
 }
 
 /**

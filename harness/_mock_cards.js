@@ -22,7 +22,9 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // D56: the ADJUSTMENT CHECKER lineage - the only workbook carrying
                        // AlbumConfig_v2 / PackConfig_v2 / ToF_v2 and the four data_col_*/data_tof_*
                        // telemetry sheets the collection change simulation anchors on.
-                       adjust: '_mockdata_adjust.json' };
+                       adjust: '_mockdata_adjust.json',
+                       // D65: the LIVE_OPS_V3 lineage (2026-10-27) - filled values, no formulas anywhere
+                       v3: '_mockdata_v3.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';

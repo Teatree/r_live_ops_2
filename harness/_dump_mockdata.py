@@ -73,7 +73,8 @@ SHEETS = [
     # spill lands next to. Those labels are static text nothing validated, so a row added to
     # the sheet without a matching CATEGORY_ORDER entry shifted every row below it onto the
     # wrong source in silence (found 2026-08-21).
-    'EcoGainsSim', 'EcoGainsSim_HC',
+    'EcoGainsSim', 'EcoGainsSim_HC', 'EcoGainsSim_so_far',   # so_far: the 8-day window view (D65 fill rule)
+    'Ki_Tr', 'Ki_Tr_v2',   # D66: a _v2 pair V2Diff derives from the workbook
     # PBP engine additions
     'data_streaks', 'data_event_inst',
     'J_v2', 'HH_v2', 'BB_v2', 'Ph_v2', 'Ki_v2', 'TaD_v2', 'Race_v2', 'F_v2',
