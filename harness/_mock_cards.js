@@ -35,7 +35,10 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        w28: '_mockdata_v3d_w28.json',
                        // 2026-10-28 14:19 export '🏮LIVE_OPS_V3 (5).xlsx': cal_new swapped in, row 4
                        // renumbered, data_rm_pace and a re-pulled data_econ_daily_live
-                       v3e: '_mockdata_v3e.json' };
+                       v3e: '_mockdata_v3e.json',
+                       // 2026-10-28 16:32 export '🏮LIVE_OPS_V3 (8).xlsx': cal_curr/cal_new B..F restored
+                       // (values, not merges), data_rm_pace with the live matchables columns
+                       v3f: '_mockdata_v3f.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
