@@ -165,19 +165,19 @@ function ECOGAINS_DAILY(payer, segment, source, block){
     // INCOMPLETE PULLS BY DESIGN (D60): every data-anchored block is BLANK past the last day
     // the pull carries. A day with no row is 'not pulled yet', never 0 - a 0 there would read
     // as a collapse on DATA and as the whole simulated value on DATADIFF.
-    if (blk === 'DATA')   return clipGrid_(netGrid_(econ.gain), econ.lastDay);
-    if (blk === 'SPEND')  return clipGrid_(netGrid_(econ.spend), econ.lastDay);
-    if (blk === 'CURNET') return clipGrid_(netGrid_(diffSeries_(econ.gain, econ.spend)), econ.lastDay);
+    if (blk === 'DATA')   return clipGrid_(netGrid_(econ.gain), econ.lastDay, econ.firstDay);
+    if (blk === 'SPEND')  return clipGrid_(netGrid_(econ.spend), econ.lastDay, econ.firstDay);
+    if (blk === 'CURNET') return clipGrid_(netGrid_(diffSeries_(econ.gain, econ.spend)), econ.lastDay, econ.firstDay);
     // NEWNET = actual net + the sim's per-day gain shift (NEW - CURRENT over all categories)
     var ctxN = Context.get(), curN = emptyDays_(), nwN = emptyDays_();
     CATEGORY_ORDER.forEach(function(cat){
       addSeries_(curN, dailySeries_(cat, s, p, ctxN, false));
       addSeries_(nwN,  dailySeries_(cat, s, p, ctxN, true ));
     });
-    if (blk === 'DATADIFF') return clipGrid_(netGrid_(diffSeries_(econ.gain, nwN)), econ.lastDay);
+    if (blk === 'DATADIFF') return clipGrid_(netGrid_(diffSeries_(econ.gain, nwN)), econ.lastDay, econ.firstDay);
     var net = diffSeries_(econ.gain, econ.spend);
     addSeries_(net, diffSeries_(nwN, curN));
-    return clipGrid_(netGrid_(net), econ.lastDay);
+    return clipGrid_(netGrid_(net), econ.lastDay, econ.firstDay);
   }
 
   var cats = (src.toUpperCase() === 'ALL') ? CATEGORY_ORDER : [src];
@@ -554,7 +554,37 @@ function curveRaw_(curve, d){
 // window's day 1) or the window offset (pulled from the grid's first column), whichever makes its
 // weekdays agree with the calendar's; neither -> 0, and the D64 mismatch is logged.
 //   'auto'   as above          'window'   always 0          'grid'   always the window offset
+// D76 (2026-10-28): the EXACT rule, first. A date typed above day 1 on the calendar (any row above
+// the day-number row, in the column holding the 1 - cal_new first, then cal_curr) is the calendar
+// date of window day 1; a feed that carries `calendar_date` is then aligned by it, whatever day it
+// was pulled from. LIVE_OPS_V3 (5)'s live feed starts Tue 2026-10-13 while the window's day 1 is a
+// Monday, which neither the window rule nor the grid rule fits - only the date can say which
+// Monday. A window day the feed does not reach, at either end, is blank, never 0.
 var DAILY_ECON_ALIGN = 'auto';
+/** days since 1970-01-01 of a calendar date: a Date (the cell as Apps Script returns it) or a
+ *  'YYYY-MM-DD...' string (how a dump carries it); null for anything else. */
+function ymdDay_(x){
+  if (x && Object.prototype.toString.call(x) === '[object Date]' && !isNaN(x.getTime()))
+    return Math.round(Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()) / 86400000);
+  var m = /^\s*(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(x == null ? '' : x));
+  return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000) : null;
+}
+/** The calendar date of window day 1, typed above it on cal_new (else cal_curr), or null. */
+function calWindowDate_(){
+  if (typeof calWindow_ !== 'function') return null;
+  var w = calWindow_();
+  if (!w || !w.col1 || !w.row) return null;
+  var names = (typeof CAL_NEW !== 'undefined' ? [CAL_NEW] : []).concat(typeof CAL_CUR !== 'undefined' ? [CAL_CUR] : []);
+  for (var k = 0; k < names.length; k++){
+    var v;
+    try { v = sheetVals_(names[k]); } catch (e){ continue; }
+    for (var r = 0; r < w.row - 1 && r < (v || []).length; r++){
+      var d = ymdDay_((v[r] || [])[w.col1 - 1]);
+      if (d != null) return d;
+    }
+  }
+  return null;
+}
 /** weekday index (1 = Monday .. 7 = Sunday, DOW_NAMES) of window day d; pre-window days d <= 0. */
 function windowDow_(d){
   var k = (calDay1Dow_() - 1 + (d - 1)) % 7;
@@ -563,7 +593,17 @@ function windowDow_(d){
 }
 function econShift_(v, h){
   var off = (typeof calWindow_ === 'function') ? num(calWindow_().offset) : 0;
-  if (!off || DAILY_ECON_ALIGN === 'window') return 0;
+  if (DAILY_ECON_ALIGN === 'window') return 0;
+  if (DAILY_ECON_ALIGN !== 'grid' && h['calendar_date'] != null){
+    var wd = calWindowDate_();
+    if (wd != null){
+      for (var j = 1; j < v.length; j++){
+        var fdj = Math.round(num(v[j][h['day_index']])), dt = ymdDay_(v[j][h['calendar_date']]);
+        if (fdj >= 1 && dt != null) return fdj - 1 - (dt - wd);   // window day = day_index - shift
+      }
+    }
+  }
+  if (!off) return 0;
   if (DAILY_ECON_ALIGN === 'grid' || h['dow'] == null) return off;
   for (var i = 1; i < v.length; i++){
     var fd = Math.round(num(v[i][h['day_index']])), w = dowIndex_(v[i][h['dow']]);
@@ -581,7 +621,7 @@ function econDaily_(seg, payer){
   var h = headerIndex_(v[0]);
   if (h['currency'] == null || h['day_index'] == null ||
       h['gain_per_earner_day'] == null || h['spend_per_earner_day'] == null) return null;
-  var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0;
+  var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0, firstDay = 0;
   var dowChecked = false, feedDow = null;
   var shift = econShift_(v, h);                            // D74: feed day = window day + shift
   for (var i = 1; i < v.length; i++){ var r = v[i];
@@ -594,6 +634,7 @@ function econDaily_(seg, payer){
     spend[d-1][res] += num(r[h['spend_per_earner_day']]);
     found = true;
     if (d > lastDay) lastDay = d;                             // last day the pull carries
+    if (!firstDay || d < firstDay) firstDay = d;              // D76: and the first
     if (d === 1 && h['dow'] != null && !dowChecked){ dowChecked = true; feedDow = r[h['dow']]; }
   }
   // D64: the feed carries each day's real weekday; the calendar's weekday row is what the engine
@@ -606,7 +647,7 @@ function econDaily_(seg, payer){
                  'says ' + DOW_NAMES[cd - 1] + ' - retype the weekday row on cal_curr / cal_new ' +
                  '(or re-pull the feed from the right start date).');
   }
-  return found ? { gain: gain, spend: spend, lastDay: lastDay } : null;
+  return found ? { gain: gain, spend: spend, lastDay: lastDay, firstDay: firstDay || 1 } : null;
 }
 
 // Which sheet the data-anchored blocks read (D63): the live feed when it is there and usable
@@ -629,9 +670,10 @@ function econSheet_(){
 // Rows past `lastDay` become '' text cells (the blankGrid_ convention): a day the pull has not
 // reached yet is unknown, not zero, and the sheet's net-delta / total formulas IFERROR / COUNT
 // their way around '' but would happily add a 0.
-function clipGrid_(grid, lastDay){
+function clipGrid_(grid, lastDay, firstDay){
   var cut = Math.max(0, Math.min(DAILY_DAYS, Math.round(num(lastDay))));
-  return grid.map(function(row, d){ return (d < cut) ? row : row.map(function(){ return ''; }); });
+  var from = Math.max(1, Math.round(num(firstDay) || 1));   // D76: days before the feed starts
+  return grid.map(function(row, d){ return (d < cut && d + 1 >= from) ? row : row.map(function(){ return ''; }); });
 }
 function blankGrid_(){
   var out = [];

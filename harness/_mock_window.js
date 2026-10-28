@@ -574,6 +574,56 @@ function GATES() {
     if (snap === undefined) delete data['data_rm_pace']; else data['data_rm_pace'] = snap;
     fresh();
   }
+
+  // ================================================================ D76: THE LIVE FEED BY DATE
+  console.log('\n================ D76: A DATE ABOVE DAY 1 ALIGNS A FEED THAT CARRIES calendar_date ================');
+  {
+    const c = fresh(), N = c.window.days, col1 = c.window.col1, seg = '20-39', payer = 'PAYER';
+    const snapB = data['data_econ_daily'], snapL = data['data_econ_daily_live'], snapC = JSON.stringify(data['cal_new'].values[0]);
+    // a 14-day feed from Tue 2026-10-13 whose HC gain on feed day k is 10 k (dates and weekdays real)
+    const feed = () => {
+      const hdr = ['segment', 'payer_flag', 'currency', 'day_index', 'calendar_date', 'dow', 'gain_per_earner_day', 'spend_per_earner_day'];
+      const rows = [hdr];
+      for (let k = 1; k <= 14; k++) { const dt = new Date(Date.UTC(2026, 9, 12 + k));
+        rows.push([seg, payer, 'HC', k, dt.toISOString().slice(0, 10) + ' 00:00:00', ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getUTCDay()], 10 * k, 1]); }
+      return { values: rows, merges: [] };
+    };
+    const dataHC = () => { fresh(); return ECOGAINS_DAILY(payer, seg, 'ALL', 'DATA').map(r => r[0]); };
+    data['data_econ_daily_live'] = feed();
+    // (1) window day 1 = Mon 2026-10-19 = feed day 7, typed as a date string above day 1
+    data['cal_new'].values[0][col1 - 1] = '2026-10-19';
+    const a = dataHC();
+    check('D76: a date above day 1 aligns the feed by calendar_date - window day 1 (2026-10-19) reads feed day 7, and the days past the pull are blank',
+      a[0] === 70 && a[7] === 140 && a.slice(8).every(x => x === ''), 'day 1 ' + a[0] + ', day 8 ' + a[7] + ', day 9 ' + JSON.stringify(a[8]));
+    // (2) the same date as a real Date object (how Apps Script returns a date cell)
+    data['cal_new'].values[0][col1 - 1] = new Date(2026, 9, 19);
+    const b = dataHC();
+    check('D76: a Date cell reads the same as a typed date', b[0] === 70, 'day 1 ' + b[0]);
+    // (3) a window day 1 BEFORE the feed starts: that day is blank, not 0
+    data['cal_new'].values[0][col1 - 1] = '2026-10-12';
+    const e = dataHC();
+    check('D76: window days before the feed starts are blank (2026-10-12 -> day 1 blank, day 2 = feed day 1)',
+      e[0] === '' && e[1] === 10, 'day 1 ' + JSON.stringify(e[0]) + ', day 2 ' + e[1]);
+    // (4) a feed with no calendar_date ignores the date (the D74 rule decides)
+    const nd = feed(); nd.values = nd.values.map(r => r.filter((x, i) => i !== 4));
+    data['data_econ_daily_live'] = nd;
+    const f = dataHC();
+    check('D76: a feed without calendar_date is not aligned by the date', f[0] !== 70, 'day 1 ' + f[0]);
+    // (5) no date typed -> unchanged from D74 (the live feed reads day for day when its weekdays fit neither rule)
+    data['data_econ_daily_live'] = feed();
+    data['cal_new'].values[0] = JSON.parse(snapC);
+    const g = dataHC();
+    const sh = econShift_(data['data_econ_daily_live'].values, headerIndex_(data['data_econ_daily_live'].values[0]));
+    check('D76: no date above day 1 -> the D74 rule, unchanged (shift ' + sh + ')', g[0] === 10 * (1 + sh), 'day 1 ' + g[0]);
+    // (6) the switch
+    data['cal_new'].values[0][col1 - 1] = '2026-10-19';
+    DAILY_ECON_ALIGN = 'window'; const w = dataHC(); DAILY_ECON_ALIGN = 'auto';
+    check("D76: DAILY_ECON_ALIGN = 'window' reads day for day even with a date", w[0] === 10, 'day 1 ' + w[0]);
+    data['cal_new'].values[0] = JSON.parse(snapC);
+    data['data_econ_daily'] = snapB;
+    if (snapL === undefined) delete data['data_econ_daily_live']; else data['data_econ_daily_live'] = snapL;
+    fresh();
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `
