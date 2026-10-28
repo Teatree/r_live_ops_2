@@ -3004,6 +3004,12 @@ function rmInstanceRows_(seg, payer, ctx, opts){
           for (var res in ms.rew) row[res] = num(row[res]) + ms.rew[res] * P(ms.req, res) * reach;
         });
       }
+      // D26, applied to Rainbow Maker too (2026-10-28): an instance WHOLLY past the album's last day
+      // pays no envelopes - every other source drops it from packLane_'s reach and the card sim
+      // drops it from the plan, but RM's packs come from this walk, which never asked. Latent on the
+      // 33-day grid (its last RM instance straddled day 28). Tickets and every other resource keep
+      // paying; a straddler pays in full. Both sides, so identical calendars still cancel.
+      if (!instInSeason_(inst)) PACK_RES.forEach(function(r){ row[r] = 0; });
     }
     return { inst: inst, row: row };
   });
