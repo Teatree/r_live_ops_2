@@ -99,6 +99,50 @@ function GATES() {
     data['cal_new'].values[3] = JSON.parse(k); data['cal_curr'].values[3] = JSON.parse(kc);
     fresh();
   }
+
+  // ================================================================ D71: THE MEASURED RESCALE
+  console.log('\n================ D71: THE MEASURED SIDE, RESCALED TO THE WINDOW ================');
+  {
+    const c = fresh(), w = c.window, whole = windowIsWholeGrid_(w);
+    // (1) exactly the scale, on the export: measured core row = raw export x windowScale_
+    const seg = '20-39', payer = 'PAYER', cat = 'Daily Gift';
+    const raw = (() => { const fn = c.ds.scaleFn; c.ds.scaleFn = null; const v = c.ds.gains(seg, payer, cat, 'HC'); c.ds.scaleFn = fn; return v; })();
+    const k = windowScale_(cat, seg, payer, c), got = c.ds.gains(seg, payer, cat, 'HC');
+    check('D71: an export amount is read at the window level - raw x windowScale_ (' + k.toFixed(4) + ')',
+      Math.abs(got - raw * k) < 1e-9 && (whole ? k === 1 : (k < 1 && k > 0)), 'raw ' + raw + ' read ' + got);
+    // (2) an always-on source scales by the window's share of expected active days
+    const b = c.ds.beh(seg, payer), pWd = Number(b.weekday_active_rate), pWe = Number(b.weekend_active_rate);
+    let pf = 0, pw = 0; for (let d = 1 - w.offset; d <= 33 - w.offset; d++) { const p = isWeekend_(d) ? pWe : pWd; pf += p; if (d >= 1 && d <= w.days) pw += p; }
+    check('D71: an always-on source (Daily Gift) scales by Σ p_day over the window / over the whole grid', Math.abs(k - pw / pf) < 1e-12, k + ' vs ' + (pw / pf));
+    // (3) an event lane scales by the reach ratio of cal_curr's in-window instances
+    const lane = DAILY_CAL_LABEL['Target Day'];
+    const sf = reachSum_(c.calCurFull[lane] || [], pWd, pWe), sw = reachSum_(c.calCur[lane] || [], pWd, pWe);
+    check('D71: an event lane (Target Day) scales by Σ reach in the window / Σ reach on the whole grid',
+      Math.abs(windowScale_('Target Day', seg, payer, c) - (sf > 0 ? sw / sf : 1)) < 1e-12, windowScale_('Target Day', seg, payer, c) + ' vs ' + (sw / sf));
+    // (4) the rule the user asked for: identical calendars + identical configs -> DIFF exactly 0,
+    //     on the window. Fixture: cal_curr := cal_new (parsed), every _v2 := its base.
+    const snap = JSON.stringify(data);
+    const cp = data['cal_parsed'], hdr = cp.values[0], ci = hdr.indexOf('calendar');
+    const nRows = cp.values.slice(1).filter(r => String(r[ci]) === 'cal_new');
+    cp.values = [hdr].concat(cp.values.slice(1).filter(r => String(r[ci]) !== 'cal_curr')).concat(nRows.map(r => { const x = r.slice(); x[ci] = 'cal_curr'; return x; }));
+    Object.keys(data).filter(n => n.endsWith('_v2') && data[n.slice(0, -3)]).forEach(n => { data[n] = JSON.parse(JSON.stringify(data[n.slice(0, -3)])); });
+    if (data['NS_weekday']) data['NS_v2_weekday'] = JSON.parse(JSON.stringify(data['NS_weekday']));
+    if (data['Ki_2d_v2'] && data['Ki']) data['Ki_2d_v2'] = JSON.parse(JSON.stringify(data['Ki']));
+    fresh();
+    let nz = 0, worst = 0, at = '';
+    [['NONPAYER', '0-9'], ['PAYER', '20-39'], ['PAYER', '100+']].forEach(([p, s2]) => {
+      const dif = ECOGAINS_DIFF(p, s2);
+      CATEGORY_ORDER.forEach((ct, i) => RESOURCES.forEach((r, j) => { const v = Math.abs(Number(dif[i][j])); if (v > 1e-6) nz++; if (v > worst) { worst = v; at = s2 + ' ' + p + ' ' + ct + ' ' + r; } }));
+    });
+    check('D71: identical calendars + identical configs -> DIFF exactly 0 on the ' + w.days + '-day window', nz === 0, nz ? nz + ' cells, worst ' + worst.toFixed(4) + ' at ' + at : 'all zero');
+    const back = JSON.parse(snap); Object.keys(data).forEach(x => { delete data[x]; }); Object.keys(back).forEach(x => { data[x] = back[x]; });
+    fresh();
+    // (5) off-switch: WINDOW_RESCALE = false -> the export is read raw again
+    WINDOW_RESCALE = false; const c5 = fresh();
+    const raw5 = c5.ds.gains(seg, payer, cat, 'HC');
+    WINDOW_RESCALE = true; fresh();
+    check('D71: WINDOW_RESCALE = false reads the export raw (the measured side at its data-window level)', Math.abs(raw5 - raw) < 1e-12, raw5 + ' vs ' + raw);
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `

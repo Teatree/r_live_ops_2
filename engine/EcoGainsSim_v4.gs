@@ -3759,6 +3759,61 @@ function windowClip_(cal, n){
   }
   return out;
 }
+// ---- the MEASURED side, rescaled to the window (D71, 2026-10-28) -------------------------------
+// The export (data_gains) is a total over its own 33/34-day pull, which the model treats as
+// cal_curr's whole grid. Once the window is shorter (D70), the measured side has to be the share of
+// that total that falls inside it, or every CURRENT number is a 33-day total labelled 28-day and
+// every always-on row carries ~18% that is not in the window. User decision 2026-10-28: rescale
+// (keep the data, do not wait for a 28-day re-pull). Applied ONCE, to export amounts only, by the
+// hook DataStore.gains reads - so measuredRow_, the RM real-data rule, the Core buff minutes and
+// every other export consumer agree. Synthetic anchors are built on the window already.
+var WINDOW_RESCALE = true;
+// continuous lanes: one long instance (or one a day) whose payout follows activity, not reach
+var WINDOW_PDAY_LANES = { 'Season Pass':1, 'Night Sky':1, 'ToF':1 };
+// the collections' accrual key (the D of collectionSim_), so a clipped collection scales as its sim does
+var WINDOW_ACCR = { 'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":'Bombs Ballet',
+                    'Jigsaw':'Jigsaw', 'Photoshoot':'Photoshoot', 'River Rush':'River Rush' };
+function windowIsWholeGrid_(w){ return !w || (!w.offset && w.days === CAL_LAST_COL - CAL_FIRST_COL + 1); }
+/** Σ p_day over window days d0..d1 (window coordinates; pre-window days are <= 0). */
+function pDaySum_(d0, d1, pWd, pWe){
+  var s = 0;
+  for (var d = d0; d <= d1; d++) s += isWeekend_(d) ? pWe : pWd;
+  return s;
+}
+function windowScale_(cat, seg, payer, ctx){
+  if (!WINDOW_RESCALE || !ctx || windowIsWholeGrid_(ctx.window)) return 1;
+  ctx._wScale = ctx._wScale || {};
+  var key = cat + '|' + seg + '|' + payer;
+  if (ctx._wScale[key] != null) return ctx._wScale[key];
+  var w = ctx.window, ds = ctx.ds, b = ds.beh(seg, payer) || {};
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }      // no behaviour row (A. 0): day counts
+  var gridFirst = 1 - w.offset, gridLast = (CAL_LAST_COL - CAL_FIRST_COL + 1) - w.offset;
+  var lane = (typeof DAILY_CAL_LABEL !== 'undefined' && DAILY_CAL_LABEL[cat]) || CAL_LABEL[cat] || null;
+  var full = (lane && ctx.calCurFull && ctx.calCurFull[lane]) || [];
+  var win = (lane && ctx.calCur && ctx.calCur[lane]) || [];
+  var s;
+  if (full.length && !WINDOW_PDAY_LANES[lane]){
+    var sf = reachSum_(full, pWd, pWe), sw = reachSum_(win, pWd, pWe);
+    s = (sf > 0) ? sw / sf : 1;
+    if (WINDOW_ACCR[cat] && win.length && modalDur_(full) !== modalDur_(win))
+      s *= accrualD_(ds, WINDOW_ACCR[cat], modalDur_(full), modalDur_(win), seg, payer, false);
+  } else if (full.length){
+    var pf = 0, pw = 0;
+    full.forEach(function(x){ (x.days || []).forEach(function(d){ var p = isWeekend_(d) ? pWe : pWd; pf += p; if (d >= 1 && d <= w.days) pw += p; }); });
+    s = (pf > 0) ? pw / pf : 1;
+  } else {
+    var gf = pDaySum_(gridFirst, gridLast, pWd, pWe), gw = pDaySum_(1, w.days, pWd, pWe);
+    s = (gf > 0) ? gw / gf : 1;
+  }
+  return (ctx._wScale[key] = s);
+}
+/** The activity share of the window for a (segment, payer) - what a per-earner window total from
+ *  the data (data_econ) is scaled by. */
+function windowActivityScale_(seg, payer, ctx){
+  return windowScale_('__activity__', seg, payer, ctx);
+}
+
 /** Both calendars in window coordinates: { calCur, calNew, calCurFull, calNewFull, window }. */
 function windowCals_(rawCur, rawNew){
   var w = calWindow_();
@@ -3897,6 +3952,10 @@ var Context = (function(){
     _c = { ds: DataStore.get(), calCur: calCur, calNew: calNew,
            calCurFull: wc.calCurFull, calNewFull: wc.calNewFull, window: wc.window,
            calCurOk: hasKeys_(calCur), calNewOk: hasKeys_(calNew) };
+    // D71: export amounts are read at the window's level (windowScale_); none on a whole-grid window
+    var _ctxRef = _c;
+    _c.ds.scaleFn = windowIsWholeGrid_(wc.window) ? null
+                  : function(cat, seg, payer){ return windowScale_(cat, seg, payer, _ctxRef); };
     return _c;
   },
   // Drop the memo, so the next get() re-reads the calendars and hands out a fresh per-execution
@@ -3973,7 +4032,11 @@ var DataStore = (function(){
       var eo = {}; for (var en in eh) eo[en] = x[eh[en]];
       eMap[[x[eh['event_name']], x[eh['segment']], x[eh['payer_flag']]].join('|')] = eo; }
     return {
-      gains: function(seg, payer, cat, res){ return num(gMap[[SEG_TO_GAINS[seg]||seg, payer, cat, res].join('|')]); },
+      // D71: the window rescale hook (null = none). Only EXPORT amounts pass through here.
+      scaleFn: null,
+      gains: function(seg, payer, cat, res){
+        var v = num(gMap[[SEG_TO_GAINS[seg]||seg, payer, cat, res].join('|')]);
+        return (v && this.scaleFn) ? v * this.scaleFn(cat, seg, payer) : v; },
       dataRow: function(cat, seg, payer){ var o = {}, self = this;
         RESOURCES.forEach(function(r){ o[r] = self.gains(seg, payer, cat, r); }); return o; },
       beh: function(seg, payer){ return bMap[[seg, payer].join('|')] || {}; },

@@ -150,8 +150,12 @@ function fillSimPerSegment(){
     if (!ec) return null;
     var G = 0, M = 0;
     for (var i = 0; i < gs.cur.length; i++){ G += gs.cur[i]; M += gs.sim[i]; }
-    var curNet = ec.gain - ec.spend, newNet = ec.gain + (M - G) - ec.spend;
-    return { spend: round2_(ec.spend), curNet: round2_(curNet), newNet: round2_(newNet),
+    // D71: data_econ is a total over its own pull, like data_gains - scaled to the counted window
+    // (1 on a whole-grid window) so the spend sits on the same footing as the gains beside it
+    var k = (typeof windowActivityScale_ === 'function') ? windowActivityScale_(seg, payer, ctx) : 1;
+    var eg = ec.gain * k, es = ec.spend * k;
+    var curNet = eg - es, newNet = eg + (M - G) - es;
+    return { spend: round2_(es), curNet: round2_(curNet), newNet: round2_(newNet),
              earners: ec.earners };
   }
 
