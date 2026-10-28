@@ -1243,19 +1243,25 @@ flowchart TD
   I["cal_new RM instances — 🗓️ cal_new"] -->|none| ZERO["return 0"]
   I -->|some| LOOP["for each instance"]
   LAD["ladder (Req Accum + rewards) — ⚙️ RM"] --> LOOP
-  PCT["matchables p10..p90 × scale — 📊 data_RM; scale = min(1, dur/EventDuration)"] --> LOOP
+  PCT["matchables p10..p90 × scale — 📊 data_RM; scale = min(1, dur / measured RM length) (D72)"] --> LOOP
   LOOP --> EI["E_inst[res] = Σ_k S(ReqAccum_k) × reward_k[res] × reach(inst)"]
   EI --> OUT["SIMULATED[res] = Σ_instances E_inst[res]"]
 ```
 
 **Step by step (`simRainbowMaker` → `rmInstanceRows_`).**
 1. instances ← 🗓️ `cal_new['Rainbow Maker']`, start-sorted; none → 0.
-2. Per instance i: config ← `rmConfigFor_(i)` (⚙️ `RM_1st` for #1–#3, ⚙️ `RM_2nd` for #4–#5,
-   fallback ⚙️ `RM`): ladder (`Req Accum` gate) + that sheet's own `EventDuration` (default 4).
-   Matchables `pct` ← 📊 `data_RM` (shared — the split changes REWARDS, not player behaviour).
-3. Per instance: `scale = min(1, inst.dur / cfgDur)` (a clipped 2-day instance halves the matchables
-   axis — flagged linear assumption). Build [S](#s-survival-function) over `p10..p90 × scale`.
-   `reach = ` [reach(inst)](#reach-and-p_day) (📊 `data_seg_beh`).
+2. Per instance: config ← `rmConfigForInst_(inst)` — by DATE since D72 (2026-10-28): a start on
+   days 1..floor(N/2) of the counted window → ⚙️ `RM_1st`, later → ⚙️ `RM_2nd`, fallback ⚙️ `RM`;
+   the ladder (`Req Accum` gate). Matchables `pct` ← 📊 `data_RM` (shared — the split changes
+   REWARDS, not player behaviour).
+3. Per instance: `scale = min(1, inst.dur / Dm)`, **Dm = the length data_RM was measured over** —
+   🗓️ `cal_curr`'s usual RM instance, not the sheet's `EventDuration` (D72: the calendar wins on
+   length; `RM_1st` says 4 and `RM_2nd` says 2 over the same ladder). Build
+   [S](#s-survival-function) over `p10..p90 × scale`. `reach = ` [reach(inst)](#reach-and-p_day)
+   (📊 `data_seg_beh`). **A cut-off** (an instance at a window edge shorter than its calendar's usual
+   length L) is priced at the claim pace: end cut-off of k days → S at scale `(L/Dm) × pace(k)`;
+   start cut-off → `S_full − S((L/Dm) × pace(L−k))`; pace = 📊 `data_rm_pace` when pulled, else the
+   📊 `Milestone` matchables curve (`data_event_accrual`, mean).
 4. `E_inst[res] = Σ_k S(ReqAccum_k) × reward_k[res] × reach` **using instance i's own ladder**;
    sum over instances. (`rmInstanceRows_` keeps the per-instance rows for the daily view.)
 5. **Tail sensitivity:** milestones past p90 (e.g. m30 = 1000 HC for 100+) are priced by the
@@ -1282,7 +1288,7 @@ the composite terms expand to:
 
 > **E_inst\[res] = Σₖ [S](#s-survival-function)(ReqAccum_k) × reward_k\[res] × [reach](#reach-and-p_day)(inst)** over the ⚙️ `RM` milestones k
 >
-> **S(x) = 1 − [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)(x)** over the matchables [percentiles](https://en.wikipedia.org/wiki/Percentile) **p10…p90 × scale** (📊 `data_RM`), with **scale = min(1, run length ÷ ⚙️ `RM` EventDuration)**
+> **S(x) = 1 − [CDF](https://en.wikipedia.org/wiki/Cumulative_distribution_function)(x)** over the matchables [percentiles](https://en.wikipedia.org/wiki/Percentile) **p10…p90 × scale** (📊 `data_RM`), with **scale = min(1, run length ÷ the measured RM length)** (🗓️ `cal_curr`'s usual instance — D72; it was ⚙️ `EventDuration`)
 >
 > **reach(inst) = 1 − [Π](https://en.wikipedia.org/wiki/Product_%28mathematics%29) over the run's days of (1 − p_day)**
 
@@ -1310,8 +1316,10 @@ scale — this is a pure bottom-up pricing of the new calendar, run by run. Firs
 (#1–#3 → ⚙️ `RM_1st`, #4–#5 → ⚙️ `RM_2nd` — the hardcoded split; a missing sheet falls back to
 ⚙️ `RM`). Then, per run: 📊 `data_RM` tells me how many matchables (pieces cleared during normal
 level play) players of this segment collect in a standard 4-day window, as percentiles p10…p90.
-If the run is shorter than the sheet's `EventDuration` I shrink that whole matchables axis
-proportionally (a 2-day run = half the matchables — flagged linear assumption). I build the
+If the run is shorter than the measured 4-day window I shrink that whole matchables axis
+proportionally (a 2-day run = half the matchables — flagged linear assumption; since D72 the
+denominator is the calendar's measured length, never the sheet's `EventDuration`). A run cut by
+the window's edge is priced at the claim pace instead (see step 3 above). I build the
 [survival function](#s-survival-function) over the scaled percentiles and walk the milestone
 ladder: S(requirement) × reward, summed — the expected haul of a player who participates in that
 run. Then the calendar enters exactly once, as an absolute: multiply by
