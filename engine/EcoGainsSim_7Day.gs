@@ -74,8 +74,21 @@
 // The window, INCLUSIVE on both ends, in calendar days (day 1 = the first column of cal_new, a
 // Wednesday). 6..13 = 8 days, Monday through the following Monday.
 // Set to 1 and 33 to reproduce the full-window ECOGAINS_SIM / ECOGAINS_DIFF exactly.
-var WIN7_FIRST_DAY = 6;
-var WIN7_LAST_DAY  = 13;
+// D70 (2026-10-28): 0 / 0 = AUTO - the first MONDAY of the counted window through the Monday after
+// it, 8 days (user decision: the 7-day view is the first Monday-to-Monday span). On the old
+// Wednesday-start 33-day grid that is exactly 6..13, the values these constants used to hold; on the
+// Monday-start 28-day window it is 1..8. Set both to numbers to pin a window by hand.
+var WIN7_FIRST_DAY = 0;
+var WIN7_LAST_DAY  = 0;
+function win7Range_(){
+  var pinA = Math.round(num(WIN7_FIRST_DAY)), pinB = Math.round(num(WIN7_LAST_DAY));
+  if (pinA > 0 && pinB > 0) return [pinA, pinB];
+  var n = (typeof windowDays_ === 'function') ? windowDays_() : DAILY_DAYS, first = 1;
+  // Monday = the first day that is not a weekend day while the day before it is (Fri/Sat/Sun rule)
+  for (var d = 1; d <= Math.min(7, n); d++)
+    if (!isWeekend_(d) && isWeekend_(d - 1)){ first = d; break; }
+  return [first, Math.min(n, first + 7)];
+}
 
 /**
  * Per-source simulated gains for the window, on cal_new. Same arguments, same 25 x 19 spill and
@@ -110,7 +123,7 @@ function ECOGAINS_DIFF_7_DAY(payer, segment){
 // Resolved window bounds, clamped to the calendar and ordered. Returns {a, b} 1-based inclusive.
 // Guards against a mis-typed constant silently producing an empty or out-of-range window.
 function win7Bounds_(){
-  var a = Math.round(num(WIN7_FIRST_DAY)), b = Math.round(num(WIN7_LAST_DAY));
+  var _r7 = win7Range_(), a = _r7[0], b = _r7[1];     // D70: auto (first Monday + 7) unless pinned
   if (!(a > 0)) a = 1;
   if (!(b > 0)) b = DAILY_DAYS;
   if (a > b){ var t = a; a = b; b = t; }                  // tolerate reversed bounds

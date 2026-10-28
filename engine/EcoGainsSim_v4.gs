@@ -320,7 +320,7 @@ function measuredRow_(cat, seg, payer, ds){
 function spFreePacksSynth_(seg, payer, ds){
   var sp = spPaidTracks_();
   if (!sp) return null;
-  var Tm = spTier_(measuredSptTotal_(seg, payer, ds) * sp.daysBase / 33, sp.base.cum);
+  var Tm = spTier_(measuredSptTotal_(seg, payer, ds) * sp.daysBase / windowDays_(), sp.base.cum);
   if (!(Tm > 0)) return null;
   var cb = spCumTo_(sp.base, Tm, 'NONPAYER'), out = {};
   BOTTOMUP_RES.forEach(function(r){ out[r] = num(cb[r]); });
@@ -1794,7 +1794,7 @@ function tofCycleMode_(){ return (_tofInFlight || _tofSynthBusy) ? '|noToF' : ''
 function resetModuleCaches_(){
   _sheetValsCache = {}; _packAnchorCache = {}; _tofSynthCache = {}; _tofIncomeCache = {};
   _measSptCache = {}; _measSptBusyKeys = {}; _x2MinCache = {}; _x2MinBusyKeys = {};
-  _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null; _calDowCache = null;
+  _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null; _calDowCache = null; _calWinCache = null;
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
   if (typeof DataStore !== 'undefined' && DataStore.reset) DataStore.reset();   // D67: the data_* memo too
@@ -2651,7 +2651,7 @@ function nsDayTypeSplit_(seg, payer, ds, ctx, which){
       });
     });
   } else {
-    for (var d = 1; d <= 33; d++){ if (isWeekend_(d)) we += pWe; else wd += pWd; }
+    for (var d = 1; d <= windowDays_(); d++){ if (isWeekend_(d)) we += pWe; else wd += pWd; }
   }
   var tot = wd + we;
   if (!(tot > 0)) return { wd: 1, we: 0, weekdayDays: 0, weekendDays: 0 };
@@ -2922,11 +2922,11 @@ function simSeasonPass(seg, payer, ctx){
   var v2Name = spV2Sheet_('SP');
   var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
   if (!v2.cum.length) v2 = base;
-  var daysBase = readSPSeasonDays_('SP') || 33;        // no config panel yet -> season = window
+  var daysBase = readSPSeasonDays_('SP') || windowDays_();   // no config panel yet -> season = window
   var daysV2   = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
   var t  = sptTotals_(seg, payer, ctx);
-  var Tm = spTier_(t.meas * daysBase / 33, base.cum);
-  var Ts = spTier_(t.sim  * daysV2   / 33, v2.cum);
+  var Tm = spTier_(t.meas * daysBase / windowDays_(), base.cum);
+  var Ts = spTier_(t.sim  * daysV2   / windowDays_(), v2.cum);
   // FREE TRACK ONLY, both sides. Until 2026-08-21 this row folded the PAID track in for payers,
   // because the workbook had a single 'Season Pass (Free)' row and the measured category was
   // assumed to contain payers' paid claims too. The sheet now carries a separate
@@ -2979,7 +2979,7 @@ function simSeasonPassPaid(seg, payer, ctx){
   var sp = spPaidTracks_();
   if (!sp) return zeroRow_();
   var t = sptTotals_(seg, payer, ctx);
-  var Ts = spTier_(t.sim * sp.daysV2 / 33, sp.v2.cum);
+  var Ts = spTier_(t.sim * sp.daysV2 / windowDays_(), sp.v2.cum);
   if (!(Ts > 0)) return zeroRow_();
   var Rlb = spChallengeR_();
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
@@ -3007,7 +3007,7 @@ function spPaidTracks_(){
   var v2Name = spV2Sheet_('SP');
   var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
   if (!v2.cum.length) v2 = base;
-  var daysBase = readSPSeasonDays_('SP') || 33;
+  var daysBase = readSPSeasonDays_('SP') || windowDays_();
   var daysV2 = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
   return { base: base, v2: v2, daysBase: daysBase, daysV2: daysV2 };
 }
@@ -3023,7 +3023,7 @@ function spPaidSynth_(seg, payer, ds){
   if (payer !== 'PAYER' || !ds) return null;
   var sp = spPaidTracks_();
   if (!sp) return null;
-  var Tm = spTier_(measuredSptTotal_(seg, payer, ds) * sp.daysBase / 33, sp.base.cum);
+  var Tm = spTier_(measuredSptTotal_(seg, payer, ds) * sp.daysBase / windowDays_(), sp.base.cum);
   if (!(Tm > 0)) return zeroRow_();
   return spPaidCum_(sp.base, Tm);
 }
@@ -3088,10 +3088,10 @@ function spPackTiers_(seg, payer, ctx, prof){
   var v2Name = spV2Sheet_('SP');
   var v2 = (v2Name === 'SP') ? base : readSPTrack_(v2Name);
   if (!v2.cum.length) v2 = base;
-  var daysBase = readSPSeasonDays_('SP') || 33;
+  var daysBase = readSPSeasonDays_('SP') || windowDays_();
   var daysV2 = (v2Name !== 'SP' && readSPSeasonDays_(v2Name)) || daysBase;
   var t = sptTotals_(seg, payer, ctx);
-  var Ts = spTier_(t.sim * daysV2 / 33, v2.cum);
+  var Ts = spTier_(t.sim * daysV2 / windowDays_(), v2.cum);
   // A full-pass profile owns the WHOLE track rather than the tier its SPT income reaches. Set from
   // the ladder's own length, so a 30-tier pass and a 50-tier pass both work with no constant here.
   if (prof && prof.fullPass) Ts = v2.free.length;
@@ -3481,8 +3481,8 @@ function coreSptSynth_(seg, payer, ds){
   if (!(lvl > 0) || (pWd <= 0 && pWe <= 0)) return null;
   var eBase = coreSptE_('SP', coreSptMix_('SP'));
   if (!(eBase > 1e-9)) return null;
-  var days = 0;                                   // expected active days over the 33-day window
-  for (var d = 1; d <= 33; d++) days += isWeekend_(d) ? pWe : pWd;
+  var days = 0;                                   // expected active days over the window (D70)
+  for (var d = 1; d <= windowDays_(); d++) days += isWeekend_(d) ? pWe : pWd;
   var L = lvl * days;
   return { meas: L * eBase, L: L };
 }
@@ -3687,6 +3687,86 @@ function reachOne_(inst, pWd, pWe){
   inst.days.forEach(function(d){ q *= (1 - (isWeekend_(d) ? pWe : pWd)); });
   return 1 - q;
 }
+// ---- the COUNTED WINDOW (D70, 2026-10-28) ------------------------------------------------------
+// The grid is B5:AH25 - 33 columns - but which of them COUNT is read off the calendar's own
+// day-number row (row 4): the FIRST column holding 1 is day 1, and the window runs over every
+// contiguous numbered column from there (user decision 2026-10-28: number G4 = 1 .. AH4 = 28, black
+// out and clear B:F, and the count starts on a Monday). The numbers may restart inside the run -
+// today's sheets read 1..30 then 1, 2, 3 for the next Season Pass season - so the window is the
+// numbered span, not the highest number. Columns before day 1 are PRE-WINDOW days: still
+// parsed and kept in window coordinates (day <= 0) on ctx.calCurFull / ctx.calNewFull - cal_curr's
+// are what the measured side is scaled to the window with (D71) - but clipped out of ctx.calCur /
+// ctx.calNew, so out of every T, every total and every daily row. An instance that crosses a window
+// edge keeps its in-window days and carries clipStart / clipEnd / fullDur.
+// cal_new is the source of truth (the two calendars describe one window); cal_curr is checked for
+// agreement and a mismatch is logged. No day-number row -> the whole grid, i.e. the pre-D70 engine.
+var _calWinCache = null;
+function calWindowOn_(sheetName){
+  var v;
+  try { v = sheetVals_(sheetName); } catch (e){ return null; }
+  if (!v || !v.length) return null;
+  for (var r = 0; r < Math.min(v.length, CAL_FIRST_ROW - 1); r++){
+    var row = v[r] || [];
+    for (var c = CAL_FIRST_COL - 1; c <= CAL_LAST_COL - 1 && c < row.length; c++){
+      if (String(row[c] == null ? '' : row[c]).trim() === '' || num(row[c]) !== 1) continue;
+      // every CONTIGUOUS numbered column from the first 1 counts - the numbers may restart (today's
+      // sheets read 1..30 then 1, 2, 3: the next Season Pass season), which keeps the whole grid
+      var n = 0;
+      while (c + n <= CAL_LAST_COL - 1 && c + n < row.length &&
+             String(row[c + n] == null ? '' : row[c + n]).trim() !== '' && isFinite(parseFloat(row[c + n]))) n++;
+      if (n >= 7) return { col1: c + 1, days: n, offset: (c + 1) - CAL_FIRST_COL, row: r + 1 };
+      break;                                               // a 1 that starts no run: not this row
+    }
+  }
+  return null;
+}
+function calWindow_(){
+  if (_calWinCache !== null) return _calWinCache;
+  var nw = calWindowOn_(CAL_NEW), cur = calWindowOn_(CAL_CUR);
+  var w = nw || cur || { col1: CAL_FIRST_COL, days: CAL_LAST_COL - CAL_FIRST_COL + 1, offset: 0, row: 0 };
+  if (nw && cur && (nw.offset !== cur.offset || nw.days !== cur.days))
+    try { Logger.log(CAL_NEW + ' numbers its window from column ' + nw.col1 + ' for ' + nw.days +
+                     ' days but ' + CAL_CUR + ' from column ' + cur.col1 + ' for ' + cur.days +
+                     ' - one window describes both calendars, so ' + CAL_NEW + ' is used. ' +
+                     'Renumber row ' + cur.row + ' of ' + CAL_CUR + ' to match.'); } catch (e){}
+  return (_calWinCache = w);
+}
+/** Days in the counted window (28 once row 4 is renumbered G = 1 .. AH = 28; 33 before). */
+function windowDays_(){ return calWindow_().days; }
+// grid day -> window day for a whole parsed calendar (no-op when the window starts at column B).
+function windowShift_(cal, off){
+  if (!off) return cal;
+  var out = {};
+  for (var ev in cal) out[ev] = (cal[ev] || []).map(function(x){ return mkInst_(num(x.start) - off, num(x.dur)); });
+  return out;
+}
+// The in-window part of every instance; an instance wholly outside drops, one that crosses an edge
+// keeps its in-window days and says how many it lost at each end. Unclipped instances are passed
+// through as the same objects, so a full-grid window is bit-identical to the pre-D70 engine.
+function windowClip_(cal, n){
+  var out = {};
+  for (var ev in cal){
+    var list = [];
+    (cal[ev] || []).forEach(function(x){
+      var s = num(x.start), e = s + num(x.dur) - 1, cs = Math.max(1, s), ce = Math.min(n, e);
+      if (cs > ce) return;
+      if (cs === s && ce === e){ list.push(x); return; }
+      var y = mkInst_(cs, ce - cs + 1);
+      y.clipStart = cs - s; y.clipEnd = e - ce; y.fullDur = num(x.dur);
+      list.push(y);
+    });
+    if (list.length) out[ev] = list;
+  }
+  return out;
+}
+/** Both calendars in window coordinates: { calCur, calNew, calCurFull, calNewFull, window }. */
+function windowCals_(rawCur, rawNew){
+  var w = calWindow_();
+  var curFull = windowShift_(rawCur, w.offset), newFull = windowShift_(rawNew, w.offset);
+  return { window: w, calCurFull: curFull, calNewFull: newFull,
+           calCur: windowClip_(curFull, w.days), calNew: windowClip_(newFull, w.days) };
+}
+
 // ---- the calendar's START WEEKDAY (D64, 2026-10-14) -------------------------------------------
 // Every weekday/weekend split in the engine goes through isWeekend_, and until D64 it assumed each
 // calendar starts on a Wednesday. The live calendar's day 1 is Tuesday 2026-10-13 (user), which put
@@ -3714,13 +3794,14 @@ function calDay1DowOn_(sheetName){
   if (!v || !v.length) return null;
   for (var r = 0; r < Math.min(v.length, 12); r++){
     var row = v[r] || [];
-    var d1 = dowIndex_(row[1]);                            // column B = day 1
+    var c0 = calWindow_().col1 - 1;                         // D70: the window's day-1 column (B before)
+    var d1 = dowIndex_(row[c0]);
     if (!d1) continue;
     var n = 0, ok = true;
-    for (var c = 1; c < row.length && c <= 33; c++){
+    for (var c = c0; c < row.length && c <= CAL_LAST_COL - 1; c++){
       var d = dowIndex_(row[c]);
       if (!d) break;
-      if (d !== ((d1 - 1 + (c - 1)) % 7) + 1){ ok = false; break; }   // must run consecutively
+      if (d !== ((d1 - 1 + (c - c0)) % 7) + 1){ ok = false; break; }  // must run consecutively
       n++;
     }
     if (ok && n >= 7) return { dow: d1, row: r + 1 };
@@ -3742,8 +3823,9 @@ function calDay1Dow_(){
 }
 // Fri / Sat / Sun, counted from whatever weekday the calendar says day 1 is.
 function isWeekend_(day){
-  var dow = ((calDay1Dow_() - 1 + (day - 1)) % 7) + 1;
-  return dow >= 5;
+  var k = (calDay1Dow_() - 1 + (day - 1)) % 7;
+  if (k < 0) k += 7;                                     // D70: pre-window days are day <= 0
+  return k + 1 >= 5;
 }
 
 function modalDur_(list){
@@ -3806,9 +3888,14 @@ var Context = (function(){
   var _c = null;
   return { get: function(){
     if (_c) return _c;
-    var calCur = sanitizeCal_(parseCalendarInstances_(CAL_CUR));
-    var calNew = sanitizeCal_(parseCalendarInstances_(CAL_NEW));
+    // D70: parsed in GRID days, then shifted to the counted window and clipped to it (windowCals_).
+    var wc = windowCals_(sanitizeCal_(parseCalendarInstances_(CAL_CUR)),
+                         sanitizeCal_(parseCalendarInstances_(CAL_NEW)));
+    var calCur = wc.calCur, calNew = wc.calNew;
+    // the per-day views size every array by DAILY_DAYS (EcoGainsSim_Daily.gs): it IS the window
+    if (typeof DAILY_DAYS !== 'undefined') DAILY_DAYS = wc.window.days;
     _c = { ds: DataStore.get(), calCur: calCur, calNew: calNew,
+           calCurFull: wc.calCurFull, calNewFull: wc.calNewFull, window: wc.window,
            calCurOk: hasKeys_(calCur), calNewOk: hasKeys_(calNew) };
     return _c;
   },

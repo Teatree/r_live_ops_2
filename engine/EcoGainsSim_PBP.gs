@@ -155,7 +155,7 @@ function pbpArgs_(calendar, day, segment, payer, mode, luck, seed, levels, start
   if (cal !== CAL_CUR && cal !== CAL_NEW) throw new Error('calendar must be cal_curr / cal_new');
   var lk = String(luck||'p50').trim().toLowerCase();
   if (['p25','p50','p75'].indexOf(lk) < 0) throw new Error('luck must be p25 / p50 / p75');
-  return { cal: cal, day: Math.max(1, Math.min(33, Math.round(num(day)||1))),
+  return { cal: cal, day: Math.max(1, Math.min((typeof windowDays_ === 'function') ? windowDays_() : 33, Math.round(num(day)||1))),
            seg: String(segment||'0-9').trim(), payer: String(payer||'NONPAYER').trim(),
            sampled: String(mode||'Expected').trim().toLowerCase() === 'sampled',
            luck: lk, seed: Math.round(num(seed)) || 42, levels: Math.round(num(levels)) || 0,

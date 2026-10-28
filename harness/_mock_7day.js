@@ -82,7 +82,10 @@ const PAYERS = ['NONPAYER', 'PAYER'];
   const w = ECOGAINS_WINDOW_7_DAY();
   check('window reports days 6-13 = 8 days',
     w[0][0] === 6 && w[0][1] === 13 && w[0][2] === 8, JSON.stringify(w[0]));
-  check('constants say what the docs say', WIN7_FIRST_DAY === 6 && WIN7_LAST_DAY === 13);
+  // D70: the window is AUTO (first Monday of the counted window + 7 days). On this dump's
+  // Wednesday-start 33-day grid that must resolve to 6..13, the constants' pre-D70 values.
+  check('auto window = the first Monday-to-Monday span (6..13 on a Wednesday-start grid)',
+    WIN7_FIRST_DAY === 0 && WIN7_LAST_DAY === 0 && JSON.stringify(win7Range_()) === '[6,13]', JSON.stringify(win7Range_()));
 }
 
 // ---------------------------------------------------------------- 2. spill shape
@@ -105,8 +108,8 @@ const PAYERS = ['NONPAYER', 'PAYER'];
 // Widen the window to the whole calendar; the windowed functions must then equal the full-window
 // ones exactly. Re-eval with the constants patched, then restore.
 {
-  const wideSrc = winSrc.replace('var WIN7_FIRST_DAY = 6;', 'var WIN7_FIRST_DAY = 1;')
-                        .replace('var WIN7_LAST_DAY  = 13;', 'var WIN7_LAST_DAY  = 33;');
+  const wideSrc = winSrc.replace('var WIN7_FIRST_DAY = 0;', 'var WIN7_FIRST_DAY = 1;')
+                        .replace('var WIN7_LAST_DAY  = 0;', 'var WIN7_LAST_DAY  = 33;');
   check('window-widening fixture applied', wideSrc !== winSrc);
   eval(wideSrc);
   let maxSim = 0, maxDiff = 0;
