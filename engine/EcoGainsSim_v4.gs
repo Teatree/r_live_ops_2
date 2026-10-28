@@ -994,7 +994,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
 
   if (cat === 'Rainbow Maker'){
     var pct = ds.rmPct(seg, payer);
-    if (!pct) return null;
+    if (!pct && !rmLive_(seg, payer)) return null;       // D77
     var insts = rmSortedInsts_(ctx.calNew);
     var idx = Math.max(0, Math.min(instOrdinal || 0, Math.max(0, insts.length - 1)));
     var rinst = insts[idx] || null;
@@ -1842,6 +1842,7 @@ function tofCycleMode_(){ return (_tofInFlight || _tofSynthBusy) ? '|noToF' : ''
 // sweeps again starts from exactly what a fresh recalculation would. A memo that outlives the
 // state it was computed from is how the D26 cutoff gate read the 175 above (D62).
 function resetModuleCaches_(){
+  _rmLiveCache = null; _rmLiveCell = {};                 // D77: data_rm_pace matchables
   _variantSpecCache = {}; _calLaneSet = null;            // D73
   _rmPaceCache = null;                                   // D72: data_rm_pace memo
   _sheetValsCache = {}; _packAnchorCache = {}; _tofSynthCache = {}; _tofIncomeCache = {};
@@ -3010,6 +3011,111 @@ function rmDailyParts_(seg, payer, ctx, isNew){
   return { parts: scaled, residual: anyResid ? residual : null };
 }
 
+// ---- Rainbow Maker on the LIVE matchables distribution (D77, 2026-10-28) --------------------
+// data_RM was measured before the event existed and puts participants on 1.3-2.6x the milestones
+// they actually claim. LIVE_OPS_V3 (8)'s data_rm_pace carries the event's OWN distribution: the
+// cumulative matchables per participant at the end of each date of the measured instances
+// (cum_matchables_p25 / p50 / p75 / mean), next to the milestones they had claimed by then. Walked
+// up the ladder, it reproduces the measured milestones within 1.5 (data_RM: 1.3-2.6x off) and the
+// claim pace within 9 pts on coins and 3 pts on SPT (data_RM: 12.6). When those columns are there:
+//   an L-day instance          = the distribution at the end of its day L, read off the measured
+//                                event: day d is date d, and the last day of an instance as long
+//                                as the measured event is its final date (the closing hours).
+//                                A 2-day instance is "the first two days of the 4-day event" - the
+//                                same-play-rate assumption the model always made, now measured.
+//   end cut-off (first k days) = the distribution at the end of day k
+//   start cut-off (last k)     = the whole instance minus what was reached by day L - k
+// The curve: piecewise linear through (0,0) (p25,.25) (p50,.5) (p75,.75) (top,1), top chosen so the
+// distribution's mean is the measured mean (the pull stops at p75); a zero percentile is the share
+// of participants with nothing yet. RM_CLAIM_CALIBRATE scales every rung by the cell's measured /
+// modelled milestones at the end of the event (claiming is manual - ~5-18% of reached milestones
+// are never claimed at the low segments); uniform, so it cancels in the export-anchored ratio and
+// moves only the walk's own levels (packs, tickets). RM_LIVE_MATCHABLES = false -> data_RM and the
+// pace curve, exactly as D72 / D75.
+var RM_LIVE_MATCHABLES = true;
+var RM_CLAIM_CALIBRATE = true;
+var _rmLiveCache = null;
+function rmLiveTab_(){
+  if (_rmLiveCache) return _rmLiveCache;
+  _rmLiveCache = {};
+  var v = sheetVals_(RM_PACE_SHEET);
+  if (!v || v.length < 2) return _rmLiveCache;
+  var h = {};
+  (v[0] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim().toLowerCase(); if (k && h[k] == null) h[k] = i; });
+  var need = ['segment', 'payer_flag', 'instance_length_days', 'instance_day',
+              'cum_matchables_p25', 'cum_matchables_p50', 'cum_matchables_p75', 'cum_matchables_mean'];
+  if (!need.every(function(k){ return h[k] != null; })) return _rmLiveCache;
+  for (var i = 1; i < v.length; i++){
+    var r = v[i];
+    if (h['status'] != null && String(r[h['status']]).trim().toUpperCase() === 'FAKE') continue;
+    // the matchables are per (player, instance), the same on every resource row: read ALL, else the first
+    var res = (h['resource'] != null) ? String(r[h['resource']]).trim() : 'ALL';
+    var sg = String(r[h['segment']]).trim(), py = String(r[h['payer_flag']]).trim().toUpperCase();
+    var len = Math.round(num(r[h['instance_length_days']])), day = Math.round(num(r[h['instance_day']]));
+    if (!sg || !(len > 1) || !(day > 0) || String(r[h['cum_matchables_p50']]).trim() === '') continue;
+    var key = sg + '|' + py, t = (_rmLiveCache[key] = _rmLiveCache[key] || {});
+    var L = (t[len] = t[len] || {});
+    if (L[day] && L[day].res === 'ALL') continue;
+    L[day] = { res: res, p25: num(r[h['cum_matchables_p25']]), p50: num(r[h['cum_matchables_p50']]),
+               p75: num(r[h['cum_matchables_p75']]), mean: num(r[h['cum_matchables_mean']]),
+               ms: (h['cum_milestones_claimed_mean'] != null) ? num(r[h['cum_milestones_claimed_mean']]) : null };
+  }
+  return _rmLiveCache;
+}
+/** The survival over one date's distribution: P(matchables >= x). */
+function rmLiveSurv_(q){
+  var top = Math.max(q.p75, 8 * q.mean - 2 * (q.p25 + q.p50 + q.p75));
+  var pts = [[0, 0], [q.p25, .25], [q.p50, .5], [q.p75, .75], [top, 1]];
+  return function(x){
+    if (!(x > 0)) return 1;
+    var cdf = 1;
+    for (var i = 1; i < pts.length; i++){
+      if (x <= pts[i][0]){
+        var a = pts[i - 1], b = pts[i];
+        cdf = (b[0] > a[0]) ? a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]) : a[1];
+        // a zero-width step (p25 = 0): the share at 0 is the upper level of the step
+        for (var j = i - 1; j >= 1 && pts[j][0] === a[0]; j--) cdf = Math.max(cdf, pts[j][1]);
+        break;
+      }
+    }
+    return Math.max(0, 1 - cdf);
+  };
+}
+/** The quantile u of one date's distribution (the play-by-play view's luck). */
+function rmLiveQuantile_(q, u){
+  var top = Math.max(q.p75, 8 * q.mean - 2 * (q.p25 + q.p50 + q.p75));
+  var pts = [[0, 0], [q.p25, .25], [q.p50, .5], [q.p75, .75], [top, 1]];
+  for (var i = 1; i < pts.length; i++)
+    if (u <= pts[i][1]) return pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * (u - pts[i - 1][1]) / Math.max(1e-12, pts[i][1] - pts[i - 1][1]);
+  return top;
+}
+/** The live distribution of one cell, or null: { Ls, at(d, L), kappa }. at(d, L) is the date
+ *  record at the end of day d of an L-day instance (null for d <= 0). */
+var _rmLiveCell = {};
+function rmLive_(seg, payer){
+  if (!RM_LIVE_MATCHABLES) return null;
+  var key = seg + '|' + String(payer).toUpperCase();
+  if (_rmLiveCell[key] !== undefined) return _rmLiveCell[key];
+  var t = rmLiveTab_()[key];
+  if (!t) return (_rmLiveCell[key] = null);
+  var Ls = 0;
+  Object.keys(t).forEach(function(k){ if (+k > Ls) Ls = +k; });    // the longest measured instance
+  var tab = t[Ls];
+  if (!tab || !tab[Ls]) return (_rmLiveCell[key] = null);
+  var at = function(d, L){
+    if (!(d > 0)) return null;
+    var dt = (d >= L && L >= Ls - 1) ? Ls : Math.min(d, Ls);
+    return tab[dt] || null;
+  };
+  var kappa = 1;
+  if (RM_CLAIM_CALIBRATE && tab[Ls].ms != null){
+    var base = rmConfigByName_(RM_HALF_SHEETS[0], true).ladder, S = rmLiveSurv_(tab[Ls]), model = 0;
+    base.forEach(function(ms){ model += S(ms.req); });
+    if (model > 0) kappa = tab[Ls].ms / model;
+  }
+  return (_rmLiveCell[key] = { Ls: Ls, at: at, kappa: kappa });
+}
+
 // Per-instance contributions over cal_new (start-sorted): [{inst, row}] — simRainbowMaker sums
 // them; the daily view places each instance's OWN row on its days (so RM_2nd-only resources
 // like SPTx2 never leak onto RM_1st instance days). Returns null when there is no matchables
@@ -3019,7 +3125,7 @@ function rmDailyParts_(seg, payer, ctx, isNew){
 // side this function has always produced, so every existing caller is unchanged.
 function rmInstanceRows_(seg, payer, ctx, opts){
   var ds = ctx.ds, pct = ds.rmPct(seg, payer);
-  if (!pct) return null;
+  if (!pct && !rmLive_(seg, payer)) return null;          // D77: the live distribution suffices
   var cal = (opts && opts.cal) || ctx.calNew, useBase = !!(opts && opts.useBase);
   // the edges of the view being priced: the window, or the whole grid (opts.full - D71's rescale)
   var w = (ctx && ctx.window) || calWindow_();
@@ -3059,6 +3165,17 @@ function rmInstanceRows_(seg, payer, ctx, opts){
 // geo = {Dm, Lcal} (rmGeo_); omitted -> read off the live context's cal_new.
 function rmRungP_(inst, cfg, pct, seg, payer, ds, first, last, geo){
   if (!geo){ var cx = Context.get(); geo = rmGeo_(cx, cx.calNew, cfg); }
+  // D77: the live distribution, when the pull carries it (see rmLive_)
+  var live = rmLive_(seg, payer);
+  if (live){
+    var cutL = rmCutoff_(inst, cfg, first, last, geo.Lcal), kap = live.kappa;
+    var S = function(d, L){ var q = live.at(d, L); return q ? rmLiveSurv_(q) : function(){ return 0; }; };
+    if (!cutL){ var Si = S(inst.dur, inst.dur); return function(req){ return kap * Si(req); }; }
+    if (cutL.side === 'end'){ var Se = S(cutL.k, cutL.L); return function(req){ return kap * Se(req); }; }
+    var Sw = S(cutL.L, cutL.L), Sb = S(cutL.L - cutL.k, cutL.L);
+    return function(req){ return kap * Math.max(0, Sw(req) - Sb(req)); };
+  }
+  if (!pct) return null;
   var Dm = num(geo.Dm) || num(cfg.cfgDur) || 4;
   function S_(scale){
     return survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],

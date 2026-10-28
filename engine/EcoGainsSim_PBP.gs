@@ -391,6 +391,12 @@ function pbpEventState_(spec, label, inst, a, ctx, st, expWins){
     var pct = ctx.ds.rmPct(a.seg, a.payer);
     var cfgDur = (typeof rmMatchDays_ === 'function') ? rmMatchDays_(ctx, rmCfg) : rmCfg.cfgDur;   // D72c
     var fb = (pct ? num(pct[a.luck]) : 0) * Math.min(1, inst.dur / cfgDur);
+    // D77: the live distribution at the end of the instance, at this luck's quantile
+    var liveRM = (typeof rmLive_ === 'function') ? rmLive_(a.seg, a.payer) : null;
+    if (liveRM){
+      var qd = liveRM.at(inst.dur, inst.dur), lu = { p25: .25, p50: .5, p75: .75 }[a.luck] || .5;
+      fb = qd ? rmLiveQuantile_(qd, lu) : 0;
+    }
     ev.ladder = rmCfg.ladder;
     ev.rmSheet = rmCfg.sheet;                                  // shown nowhere yet; debug aid
     ev.start = fb * (k - 1) / inst.dur;

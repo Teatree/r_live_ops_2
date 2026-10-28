@@ -146,6 +146,9 @@ function GATES() {
 
   // ================================================================ D72: RAINBOW MAKER
   console.log('\n================ D72: RAINBOW MAKER - HALVES AND CUT-OFFS ================');
+  // this section tests the data_RM + pace path; a pull carrying the live matchables (D77) prices
+  // ahead of it, and D77's own section tests that path - so it runs with the live path off
+  const LIVE0 = RM_LIVE_MATCHABLES; RM_LIVE_MATCHABLES = false;
   {
     const c = fresh(), N = c.window.days, half = Math.floor(N / 2);
     const seg = '20-39', payer = 'PAYER';
@@ -307,6 +310,7 @@ function GATES() {
         Math.abs(legacy - after) > 1e-6, 'legacy ' + legacy.toFixed(2) + ' vs ' + after.toFixed(2));
     }
   }
+  RM_LIVE_MATCHABLES = LIVE0; fresh();
 
   // ================================================================ D73: THE 2-DAY KITE FESTIVAL
   console.log('\n================ D73: CALENDAR VARIANTS - THE 2-DAY KITE FESTIVAL ================');
@@ -622,6 +626,75 @@ function GATES() {
     data['cal_new'].values[0] = JSON.parse(snapC);
     data['data_econ_daily'] = snapB;
     if (snapL === undefined) delete data['data_econ_daily_live']; else data['data_econ_daily_live'] = snapL;
+    fresh();
+  }
+
+  // ================================================================ D77: RM ON THE LIVE MATCHABLES
+  console.log('\n================ D77: RAINBOW MAKER ON THE LIVE MATCHABLES DISTRIBUTION ================');
+  {
+    const c0 = fresh(), N = c0.window.days, seg = '20-39', payer = 'PAYER';
+    const realLive = rmLive_(seg, payer);
+    console.log('  this dump carries the live matchables: ' + (realLive ? 'yes (' + realLive.Ls + ' dates, claim factor ' + realLive.kappa.toFixed(3) + ')' : 'no - pre-D77 pricing'));
+    if (realLive) {
+      // the real data: modelled vs measured milestones at the end of each date, every cell
+      const base = rmConfigByName_(RM_HALF_SHEETS[0], true).ladder;
+      let worst = 0, at = '';
+      ['NONPAYER', 'PAYER'].forEach(p => ['0-9', '10-19', '20-39', '40-99', '100+'].forEach(sg => {
+        const L = rmLive_(sg, p); if (!L) return;
+        const q = L.at(L.Ls - 1, L.Ls - 1), S = rmLiveSurv_(q), ms = L.kappa * base.reduce((a, m) => a + S(m.req), 0);
+        const gap = Math.abs(ms - q.ms); if (gap > worst) { worst = gap; at = sg + ' ' + p + ' ' + ms.toFixed(2) + ' vs ' + q.ms.toFixed(2); }
+      }));
+      check('D77: on the real pull, the calibrated live distribution reproduces the measured milestones at the end of the event in every cell', worst < 1e-9, 'worst ' + worst.toExponential(2) + (at ? ' (' + at + ')' : ''));
+    }
+    // ---- rule fixtures on a synthetic pull (any dump)
+    const snap = data['data_rm_pace'];
+    const hdr = ['segment', 'payer_flag', 'instance_length_days', 'instance_day', 'resource', 'cum_pooled_share',
+                 'cum_milestones_claimed_mean', 'cum_matchables_mean', 'cum_matchables_p25', 'cum_matchables_p50', 'cum_matchables_p75', 'status'];
+    const rows = [hdr];
+    const D = [[0, 4000, 12000, 10000], [5000, 15000, 30000, 20000], [10000, 24000, 42000, 29000], [15000, 30000, 52000, 38000], [16000, 31000, 53000, 39000]];
+    D.forEach((q, i) => rows.push([seg, payer, 5, i + 1, 'ALL', [0.3, 0.55, 0.75, 0.96, 1][i], 0, q[3], q[0], q[1], q[2], 'MEASURED']));
+    data['data_rm_pace'] = { values: rows, merges: [] };
+    let c = fresh();
+    const base = rmConfigByName_(RM_HALF_SHEETS[0], true).ladder;
+    const S5 = rmLiveSurv_({ p25: 16000, p50: 31000, p75: 53000, mean: 39000 });
+    const modelMs = base.reduce((a, m) => a + S5(m.req), 0);
+    // claim factor: set the measured milestones to 80% of the modelled ones
+    rows.slice(1).forEach(r => { r[6] = 0.8 * modelMs; });
+    data['data_rm_pace'] = { values: rows, merges: [] };
+    c = fresh();
+    const L = rmLive_(seg, payer);
+    check('D77: the claim factor is measured / modelled milestones at the end of the event (0.8 here)', !!L && Math.abs(L.kappa - 0.8) < 1e-12, L ? String(L.kappa) : 'none');
+    // (1) the date an instance reads
+    check('D77: a 4-day instance reads the final date (5: the closing hours), a 2-day one date 2, a 1-day one date 1',
+      L.at(4, 4).p50 === 31000 && L.at(2, 2).p50 === 15000 && L.at(1, 1).p50 === 4000 && L.at(0, 2) === null && L.at(3, 4).p50 === 24000);
+    // (2) the survival: mean-matched top, and a zero p25 is a block at zero
+    const S1 = rmLiveSurv_({ p25: 0, p50: 4000, p75: 12000, mean: 10000 });
+    check('D77: a zero p25 means a quarter of participants have nothing yet (S just above 0 is 0.75)', Math.abs(S1(1e-6) - 0.75) < 1e-6, String(S1(1e-6)));
+    const top = 8 * 39000 - 2 * (16000 + 31000 + 53000);
+    check('D77: the tail ends where the distribution mean equals the measured mean (top ' + top + ')', S5(top - 1) > 0 && S5(top + 1) === 0, S5(top - 1) + ' / ' + S5(top + 1));
+    // (3) pricing: interior / end cut-off / start cut-off, and the partition
+    const cfg = rmConfigForInst_(mkInst_(5, 2)), geo = { Dm: 4, Lcal: 2 };
+    const Pi = rmRungP_(mkInst_(5, 2), cfg, c.ds.rmPct(seg, payer), seg, payer, c.ds, 1, N, geo);
+    const Pe = rmRungP_(mkInst_(N, 1), cfg, c.ds.rmPct(seg, payer), seg, payer, c.ds, 1, N, geo);
+    const Ps = rmRungP_(mkInst_(1, 1), cfg, c.ds.rmPct(seg, payer), seg, payer, c.ds, 1, N, geo);
+    const S2 = rmLiveSurv_({ p25: 5000, p50: 15000, p75: 30000, mean: 20000 }), S1b = rmLiveSurv_({ p25: 0, p50: 4000, p75: 12000, mean: 10000 });
+    let e1 = 0, e2 = 0;
+    cfg.ladder.forEach(m => { e1 = Math.max(e1, Math.abs(Pi(m.req) - 0.8 * S2(m.req)), Math.abs(Pe(m.req) - 0.8 * S1b(m.req)));
+                              e2 = Math.max(e2, Math.abs(Pe(m.req) + Ps(m.req) - Pi(m.req))); });
+    check('D77: a 2-day instance prices at the claim factor x the date-2 distribution, its first day alone at date 1', e1 < 1e-12, 'max err ' + e1.toExponential(2));
+    check('D77: end cut-off (first day) + start cut-off (last day) = the whole 2-day instance, rung by rung', e2 < 1e-12, 'max err ' + e2.toExponential(2));
+    // (4) the play-by-play quantile
+    check('D77: the play-by-play luck reads the live quantile (p50 of the date-2 distribution = 15000)', Math.abs(rmLiveQuantile_(L.at(2, 2), 0.5) - 15000) < 1e-9);
+    // (5) the switch
+    RM_LIVE_MATCHABLES = false; const cOff = fresh();
+    const Poff = rmRungP_(mkInst_(5, 2), cfg, cOff.ds.rmPct(seg, payer), seg, payer, cOff.ds, 1, N, geo);
+    RM_LIVE_MATCHABLES = true;
+    check('D77: RM_LIVE_MATCHABLES = false prices on data_RM again', rmLive_(seg, payer) !== null && (Poff === null || cfg.ladder.some(m => Math.abs(Poff(m.req) - Pi(m.req)) > 1e-9)));
+    // (6) a pull without the matchables columns is read the pre-D77 way
+    data['data_rm_pace'] = { values: rows.map(r => r.slice(0, 7).concat([r[11]])), merges: [] };
+    fresh();
+    check('D77: a data_rm_pace without the matchables columns leaves the live path off', rmLive_(seg, payer) === null);
+    if (snap === undefined) delete data['data_rm_pace']; else data['data_rm_pace'] = snap;
     fresh();
   }
 }
