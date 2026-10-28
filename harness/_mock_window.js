@@ -397,6 +397,49 @@ function GATES() {
       check('D73: the play-by-play view reads Ki_2d_v2 for a 2-day instance and Ki_v2 for a 3-day one', got === 'Ki_2d_v2' && gotPlain === sp.cfg, got + ' / ' + gotPlain);
     }
   }
+
+  // ================================================================ D74: THE DAILY VIEW'S DATA DAYS
+  console.log('\n================ D74: WHICH FEED DAY IS WINDOW DAY d ================');
+  {
+    const c = fresh(), off = c.window.offset, N = c.window.days, seg = '20-39', payer = 'PAYER';
+    const snapB = data['data_econ_daily'], snapL = data['data_econ_daily_live'];
+    // a synthetic feed whose HC gain on feed day k is 10 k, so a misalignment reads as a wrong number
+    const feed = (withDow, dowOf) => {
+      const hdr = ['segment', 'payer_flag', 'currency', 'day_index', 'gain_per_earner_day', 'spend_per_earner_day'].concat(withDow ? ['dow'] : []);
+      const rows = [hdr];
+      for (let k = 1; k <= 33; k++) rows.push([seg, payer, 'HC', k, 10 * k, 1].concat(withDow ? [DOW_NAMES[dowOf(k) - 1].slice(0, 3)] : []));
+      return { values: rows, merges: [] };
+    };
+    const dataHC = () => { fresh(); const g = ECOGAINS_DAILY(payer, seg, 'ALL', 'DATA'); return g.map(r => r[0]); };
+    // (1) a feed with no weekday column is the August pull: aligned to the grid
+    delete data['data_econ_daily_live'];
+    data['data_econ_daily'] = feed(false);
+    const a = dataHC();
+    check('D74: a feed with no weekday column is grid-aligned - window day d reads feed day d + ' + off,
+      a.length === N && a.every((x, i) => x === 10 * (i + 1 + off)), 'day 1 reads ' + a[0] + ', day ' + N + ' reads ' + a[N - 1]);
+    // (2) a feed whose weekdays match the window: pulled from window day 1, no shift
+    data['data_econ_daily'] = feed(true, k => windowDow_(k));
+    const b = dataHC();
+    check('D74: a feed whose weekdays match the window\'s is read day for day', b.every((x, i) => x === 10 * (i + 1)), 'day 1 reads ' + b[0]);
+    // (3) a feed whose weekdays match the grid: shifted by the offset
+    data['data_econ_daily'] = feed(true, k => windowDow_(k - off));
+    const g3 = dataHC();
+    check('D74: a feed whose weekdays match the grid\'s first column is shifted by the window offset',
+      g3.every((x, i) => x === 10 * (i + 1 + off)), 'day 1 reads ' + g3[0]);
+    // (4) a feed whose weekdays match neither is read day for day (and the D64 mismatch is logged)
+    if (off % 7) {
+      data['data_econ_daily'] = feed(true, k => windowDow_(k + 1));
+      const d4 = dataHC();
+      check('D74: a feed whose weekdays match neither is read day for day', d4.every((x, i) => x === 10 * (i + 1)), 'day 1 reads ' + d4[0]);
+    }
+    // (5) the switch
+    data['data_econ_daily'] = feed(false);
+    DAILY_ECON_ALIGN = 'window'; const e5 = dataHC(); DAILY_ECON_ALIGN = 'auto';
+    check('D74: DAILY_ECON_ALIGN = \'window\' reads day for day whatever the feed', e5.every((x, i) => x === 10 * (i + 1)), 'day 1 reads ' + e5[0]);
+    data['data_econ_daily'] = snapB;
+    if (snapL === undefined) delete data['data_econ_daily_live']; else data['data_econ_daily_live'] = snapL;
+    fresh();
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `

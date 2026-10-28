@@ -546,6 +546,35 @@ function curveRaw_(curve, d){
 // gain_per_earner_day / spend_per_earner_day. Returns { gain: days[], spend: days[] }
 // (33 x {resource: value}) or null when the sheet is missing, lacks the expected headers, or has
 // no rows for this (segment, payer) — callers then spill the blank grid (fail-safe).
+// ---- which feed day is window day d (D74, 2026-10-28) ----------------------------------------
+// A feed's day_index counts from the date it was pulled from. The August pull (data_econ_daily,
+// no dow column) is aligned to the GRID - day_index 1 = the calendar's first column, verified by
+// D60's placement probes - so once the counted window starts later (D70: column G), window day d
+// is feed day d + offset. A feed that carries `dow` is aligned by it: shift 0 (pulled from the
+// window's day 1) or the window offset (pulled from the grid's first column), whichever makes its
+// weekdays agree with the calendar's; neither -> 0, and the D64 mismatch is logged.
+//   'auto'   as above          'window'   always 0          'grid'   always the window offset
+var DAILY_ECON_ALIGN = 'auto';
+/** weekday index (1 = Monday .. 7 = Sunday, DOW_NAMES) of window day d; pre-window days d <= 0. */
+function windowDow_(d){
+  var k = (calDay1Dow_() - 1 + (d - 1)) % 7;
+  if (k < 0) k += 7;
+  return k + 1;
+}
+function econShift_(v, h){
+  var off = (typeof calWindow_ === 'function') ? num(calWindow_().offset) : 0;
+  if (!off || DAILY_ECON_ALIGN === 'window') return 0;
+  if (DAILY_ECON_ALIGN === 'grid' || h['dow'] == null) return off;
+  for (var i = 1; i < v.length; i++){
+    var fd = Math.round(num(v[i][h['day_index']])), w = dowIndex_(v[i][h['dow']]);
+    if (!(fd >= 1) || !w) continue;
+    if (w === windowDow_(fd)) return 0;                   // pulled from the window's day 1
+    if (w === windowDow_(fd - off)) return off;           // pulled from the grid's first column
+    return 0;
+  }
+  return off;
+}
+
 function econDaily_(seg, payer){
   var v = sheetVals_(econSheet_());
   if (!v.length) return null;
@@ -554,11 +583,12 @@ function econDaily_(seg, payer){
       h['gain_per_earner_day'] == null || h['spend_per_earner_day'] == null) return null;
   var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0;
   var dowChecked = false, feedDow = null;
+  var shift = econShift_(v, h);                            // D74: feed day = window day + shift
   for (var i = 1; i < v.length; i++){ var r = v[i];
     if (String(r[h['segment']]).trim() !== seg || String(r[h['payer_flag']]).trim() !== payer) continue;
     var res = String(r[h['currency']]).trim();
     if (RESOURCES.indexOf(res) === -1) continue;
-    var d = Math.round(num(r[h['day_index']]));
+    var d = Math.round(num(r[h['day_index']])) - shift;
     if (d < 1 || d > DAILY_DAYS) continue;
     gain[d-1][res]  += num(r[h['gain_per_earner_day']]);
     spend[d-1][res] += num(r[h['spend_per_earner_day']]);
@@ -567,7 +597,8 @@ function econDaily_(seg, payer){
     if (d === 1 && h['dow'] != null && !dowChecked){ dowChecked = true; feedDow = r[h['dow']]; }
   }
   // D64: the feed carries each day's real weekday; the calendar's weekday row is what the engine
-  // runs on. A mismatch means one of them is a day off - logged, never corrected here.
+  // runs on. A mismatch means one of them is a day off - logged, never corrected here. `d` is the
+  // WINDOW day after the D74 shift, so day 1 here is window day 1.
   if (feedDow != null && typeof dowIndex_ === 'function' && typeof calDay1Dow_ === 'function'){
     var fd = dowIndex_(feedDow), cd = calDay1Dow_();
     if (fd && cd && fd !== cd)
