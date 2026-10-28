@@ -368,6 +368,11 @@ function pbpSimulate_(a){
 
 // one active-event state record
 function pbpEventState_(spec, label, inst, a, ctx, st, expWins){
+  // D73: an instance running a variant config ('Kite Festival (2d)') reads its own _v2 sheet
+  if (inst && inst.variant && spec.cfg && typeof variantSpec_ === 'function'){
+    var vs = variantSpec_({ base: spec.cfg.replace(/_v2$/, ''), v2: spec.cfg }, inst.variant);
+    if (vs.v2 !== spec.cfg){ var sp2 = {}; for (var kk in spec) sp2[kk] = spec[kk]; sp2.cfg = vs.v2; spec = sp2; }
+  }
   var k = a.day - inst.start + 1;
   var ev = { spec: spec, cat: spec.cat, family: spec.family, earn: spec.earn || '', label: label,
              inst: inst, k: k, endsToday: (a.day === inst.start + inst.dur - 1),

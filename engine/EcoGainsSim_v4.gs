@@ -617,6 +617,9 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
   var D = dFn(modalDur_(cur), modalDur_(nw));
   var E = rewardE_(cat, seg, payer, ctx.ds);             // absolute ladder payout, both sides
+  // D73: instances running a variant config are priced on their own sheet, reach-weighted
+  var VE = E ? laneVariantE_(cat, cur, nw, seg, payer, ctx, E) : null;
+  if (VE) E = VE;
   var R = {};
   if (E) RESOURCES.forEach(function(r){
     var b = num(E.eBase[r]);
@@ -627,7 +630,38 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
     out[r] = num(meas[r]) * ((R[r] != null) ? R[r] : 1) * D * T;
   });
   // D61: on the anchor side the pack E is the BASE ladder's; calNew is cal_curr there already.
-  return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx, E && (_baseSide ? E.eBase : E.eV2), E && E.inst, cat));
+  var side = _baseSide ? 'eBase' : 'eV2';
+  return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx,
+    E && (VE ? function(inst){ return VE.perInst(inst, side); } : E[side]), E && E.inst, cat));
+}
+
+// D73: E of a lane whose instances run different configs. Each side is the reach-weighted mean of
+// its instances' E (cal_curr on the base sheets, cal_new on the _v2 ones), so R = blend_v2 /
+// blend_base and measured x R x T carries each new instance at its own config. A side with no
+// variant instance keeps E exactly. Returns null when neither calendar has a variant instance.
+function laneVariantE_(cat, cur, nw, seg, payer, ctx, E){
+  if (!hasVariant_(cur) && !hasVariant_(nw)) return null;
+  var b = ctx.ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  var byVar = { '': E };
+  var eOf = function(v){
+    if (byVar[v] === undefined) byVar[v] = rewardE_(cat, seg, payer, ctx.ds, v) || E;
+    return byVar[v];
+  };
+  var blend = function(list, side){
+    if (!hasVariant_(list)) return E[side];
+    var acc = zeroRow_(), w = 0;
+    list.forEach(function(x){
+      var r = reachOne_(x, pWd, pWe), e = eOf(x.variant || '')[side];
+      w += r;
+      RESOURCES.forEach(function(res){ acc[res] = num(acc[res]) + r * num(e[res]); });
+    });
+    if (!(w > 0)) return E[side];
+    RESOURCES.forEach(function(res){ acc[res] = acc[res] / w; });
+    return acc;
+  };
+  return { inst: E.inst, eBase: blend(cur, 'eBase'), eV2: blend(nw, 'eV2'),
+           perInst: function(x, side){ return eOf((x && x.variant) || '')[side]; } };
 }
 
 // ============================== PACK LANE (D19 — bottom-up, simulated side only) ==============
@@ -748,6 +782,17 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
   var reachAll  = reachSum_(all, pWd, pWe);
   if (!(reachAll > 0)) return out;
   var part = packParticipation_(cat, inst);
+  if (typeof eV2 === 'function'){
+    // D73: instances on different configs - each pays its own E at its own reach
+    var accP = {}, accA = {};
+    BOTTOMUP_RES.forEach(function(r){ accP[r] = 0; accA[r] = 0; });
+    nw.forEach(function(x){ var e = eV2(x) || {}, q = reachOne_(x, pWd, pWe);
+      BOTTOMUP_RES.forEach(function(r){ accP[r] += num(e[r]) * q; }); });
+    all.forEach(function(x){ var e = eV2(x) || {}, q = reachOne_(x, pWd, pWe);
+      BOTTOMUP_RES.forEach(function(r){ accA[r] += num(e[r]) * q; }); });
+    BOTTOMUP_RES.forEach(function(r){ out[r] = part * (isPackRes_(r) ? accP[r] : accA[r]); });
+    return out;
+  }
   BOTTOMUP_RES.forEach(function(r){
     out[r] = num(eV2[r]) * part * (isPackRes_(r) ? reachPack : reachAll);
   });
@@ -838,6 +883,11 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
                        .map(function(p){ return Math.max(1, Math.round(num(p))); })
                        .filter(function(p){ return p > 0; }) : [];
     if (!pos.length) return null;                      // no rank telemetry -> leave it to packLane_
+    // D73: the instance's own config when it runs a variant (the plan's start-sorted ordinal)
+    var lbLane = (typeof DAILY_CAL_LABEL !== 'undefined' && DAILY_CAL_LABEL[cat]) || CAL_LABEL[cat];
+    var lbInsts = ((ctx.calNew && ctx.calNew[lbLane]) || []).slice().sort(function(x, y){ return x.start - y.start; });
+    var lbI = lbInsts[Math.max(0, Math.min(instOrdinal || 0, lbInsts.length - 1))];
+    if (lbI && lbI.variant) lb = variantSpec_(lb, lbI.variant);
     var v = sheetVals_(lb.v2);
     // The SAME ladder + rank CDF lbE_ prices E from, so the card sim's discrete draw and the gains
     // model's expectation reconcile by construction (see lbRankDist_).
@@ -1792,6 +1842,7 @@ function tofCycleMode_(){ return (_tofInFlight || _tofSynthBusy) ? '|noToF' : ''
 // sweeps again starts from exactly what a fresh recalculation would. A memo that outlives the
 // state it was computed from is how the D26 cutoff gate read the 175 above (D62).
 function resetModuleCaches_(){
+  _variantSpecCache = {}; _calLaneSet = null;            // D73
   _rmPaceCache = null;                                   // D72: data_rm_pace memo
   _sheetValsCache = {}; _packAnchorCache = {}; _tofSynthCache = {}; _tofIncomeCache = {};
   _measSptCache = {}; _measSptBusyKeys = {}; _x2MinCache = {}; _x2MinBusyKeys = {};
@@ -2143,9 +2194,10 @@ var COLL_R_SPECS = {
 // the pack lane needs E_v2 in ABSOLUTE units — packs have no measured anchor, so the v2/base
 // ratio the rest of the model uses is meaningless for them.
 // Returns {inst, eBase, eV2} or null (source not priceable -> carry / no packs).
-function rewardE_(cat, seg, payer, ds){
+function rewardE_(cat, seg, payer, ds, variant){
   var lb = LB_R_SPECS[cat], coll = COLL_R_SPECS[cat];
   if (!lb && !coll) return null;
+  if (variant){ lb = variantSpec_(lb, variant); coll = variantSpec_(coll, variant); }   // D73
   var inst = ds.eventInst((lb || coll).inst, seg, payer);
   if (lb){
     var pos = inst ? [inst.position_p25, inst.position_p50, inst.position_p75]
@@ -3908,7 +3960,11 @@ function windowDays_(){ return calWindow_().days; }
 function windowShift_(cal, off){
   if (!off) return cal;
   var out = {};
-  for (var ev in cal) out[ev] = (cal[ev] || []).map(function(x){ return mkInst_(num(x.start) - off, num(x.dur)); });
+  for (var ev in cal) out[ev] = (cal[ev] || []).map(function(x){
+    var y = mkInst_(num(x.start) - off, num(x.dur));
+    if (x.variant) y.variant = x.variant;                 // D73
+    return y;
+  });
   return out;
 }
 // The in-window part of every instance; an instance wholly outside drops, one that crosses an edge
@@ -3924,6 +3980,7 @@ function windowClip_(cal, n){
       if (cs === s && ce === e){ list.push(x); return; }
       var y = mkInst_(cs, ce - cs + 1);
       y.clipStart = cs - s; y.clipEnd = e - ce; y.fullDur = num(x.dur);
+      if (x.variant) y.variant = x.variant;               // D73
       list.push(y);
     });
     if (list.length) out[ev] = list;
@@ -4139,8 +4196,8 @@ var Context = (function(){
   return { get: function(){
     if (_c) return _c;
     // D70: parsed in GRID days, then shifted to the counted window and clipped to it (windowCals_).
-    var wc = windowCals_(sanitizeCal_(parseCalendarInstances_(CAL_CUR)),
-                         sanitizeCal_(parseCalendarInstances_(CAL_NEW)));
+    var wc = windowCals_(calFoldVariants_(sanitizeCal_(parseCalendarInstances_(CAL_CUR))),
+                         calFoldVariants_(sanitizeCal_(parseCalendarInstances_(CAL_NEW))));
     var calCur = wc.calCur, calNew = wc.calNew;
     // the per-day views size every array by DAILY_DAYS (EcoGainsSim_Daily.gs): it IS the window
     if (typeof DAILY_DAYS !== 'undefined') DAILY_DAYS = wc.window.days;
@@ -4276,6 +4333,67 @@ var DataStore = (function(){
 var CAL_FIRST_ROW = 5, CAL_LAST_ROW = 25, CAL_FIRST_COL = 2, CAL_LAST_COL = 34;   // grid B5:AH25
 var CAL_ALIAS = { 'Mystery Puzzle':'Jigsaw Puzzle', 'Mystery Box':'Jigsaw Puzzle',
                   "Chuck's Flash Race":'Flash Race' };
+
+// ---- calendar VARIANTS (D73, 2026-10-28) ----------------------------------------------------
+// A calendar label '<lane> (<variant>)' - 'Kite Festival (2d)' - is an instance of <lane> running
+// a different config. It is folded into the lane here, every instance carrying x.variant, so the
+// cadence ratio, the daily view, CalStats and the card sim see ONE event with more instances, and
+// pricing reads each instance's own sheet (variantSpec_). Only a label whose stem is a lane the
+// engine prices is folded, and never a label that is itself a lane.
+var CAL_VARIANT_RE = /^(.*\S)\s*\(\s*([^()]*\S)\s*\)\s*$/;
+var _calLaneSet = null;
+function calLaneKnown_(lab){
+  if (!_calLaneSet){
+    _calLaneSet = {};
+    [CAL_LABEL, (typeof DAILY_CAL_LABEL !== 'undefined') ? DAILY_CAL_LABEL : {}].forEach(function(m){
+      for (var k in m) _calLaneSet[m[k]] = true;
+    });
+  }
+  return !!_calLaneSet[lab];
+}
+function calFoldVariants_(cal){
+  var touched = {};
+  Object.keys(cal || {}).forEach(function(lab){
+    if (calLaneKnown_(lab)) return;
+    var m = CAL_VARIANT_RE.exec(lab);
+    if (!m || !calLaneKnown_(m[1])) return;
+    var lane = m[1], v = m[2];
+    (cal[lab] || []).forEach(function(x){ x.variant = v; });
+    cal[lane] = (cal[lane] || []).concat(cal[lab] || []);
+    delete cal[lab];
+    touched[lane] = true;
+  });
+  // start-sorted (stable), so an ordinal means the same instance to every reader
+  Object.keys(touched).forEach(function(l){ cal[l].sort(function(a, b){ return a.start - b.start; }); });
+  return cal;
+}
+/** true when any instance of the list runs a variant config. */
+function hasVariant_(list){
+  for (var i = 0; i < (list || []).length; i++) if (list[i] && list[i].variant) return true;
+  return false;
+}
+/** The pricing spec of one variant: '<base>_<v>_v2' on the redesign side, '<base>_<v>' then '<base>'
+ *  on the anchor side; a sheet that does not exist falls back to the lane's own (logged once). */
+var _variantSpecCache = {};
+function variantSpec_(spec, variant){
+  if (!spec || !variant) return spec;
+  // only the sheet lookup is cached: several sources share a base sheet (Race) with different
+  // row ranges, so the spec itself is cloned per call
+  var b = spec.base || spec.sheet, key = b + '|' + variant;
+  var nm = _variantSpecCache[key];
+  if (!nm){
+    var v2n = b + '_' + variant + '_v2', bvn = b + '_' + variant;
+    nm = _variantSpecCache[key] = { v2: v2n, bv: bvn, hasV2: sheetVals_(v2n).length > 0, hasB: sheetVals_(bvn).length > 0 };
+    if (!nm.hasV2){ try { Logger.log('D73: no sheet ' + v2n + ' - variant (' + variant + ') of ' + b + ' priced on ' + (spec.v2 || spec.sheet)); } catch(e){} }
+  }
+  var o = {};
+  for (var k in spec) o[k] = spec[k];
+  if (spec.v2) o.v2 = nm.hasV2 ? nm.v2 : spec.v2;
+  if (spec.base) o.base = nm.hasB ? nm.bv : spec.base;
+  if (spec.sheet && !spec.v2) o.sheet = nm.hasV2 ? nm.v2 : spec.sheet;
+  o.variant = variant;
+  return o;
+}
 var CAL_PARSED_SHEET = 'cal_parsed';
 
 // Engine entry point: prefer the precomputed hidden sheet (values — always readable in the

@@ -300,6 +300,98 @@ function GATES() {
         Math.abs(legacy - after) > 1e-6, 'legacy ' + legacy.toFixed(2) + ' vs ' + after.toFixed(2));
     }
   }
+
+  // ================================================================ D73: THE 2-DAY KITE FESTIVAL
+  console.log('\n================ D73: CALENDAR VARIANTS - THE 2-DAY KITE FESTIVAL ================');
+  {
+    const c = fresh(), seg = '20-39', payer = 'PAYER', lane = 'Kite Festival';
+    const rawLabels = (cal) => { const cp = data['cal_parsed']; if (!cp) return [];
+      const h = cp.values[0]; return cp.values.slice(1).filter(r => String(r[h.indexOf('calendar')]) === cal).map(r => String(r[h.indexOf('event')])); };
+    const nVarRaw = rawLabels('cal_new').filter(l => l === 'Kite Festival (2d)').length;
+    const kn = c.calNew[lane] || [], kc = c.calCur[lane] || [];
+    console.log('cal_new Kite Festival: ' + kn.map(i => i.start + '+' + i.dur + (i.variant ? '(' + i.variant + ')' : '')).join(' ') +
+      ' | cal_curr: ' + kc.map(i => i.start + '+' + i.dur + (i.variant ? '(' + i.variant + ')' : '')).join(' '));
+    // (1) the fold
+    check('D73: no lane is left under the label "Kite Festival (2d)" - it is folded into Kite Festival', !c.calNew['Kite Festival (2d)'] && !c.calNewFull['Kite Festival (2d)']);
+    check('D73: every "(2d)" instance on the calendar is a Kite Festival instance tagged variant 2d (in the window)',
+      kn.filter(i => i.variant === '2d').length === (c.calNewFull[lane] || []).filter(i => i.variant === '2d' && i.start + i.dur - 1 >= 1 && i.start <= c.window.days).length &&
+      (c.calNewFull[lane] || []).filter(i => i.variant === '2d').length === nVarRaw, nVarRaw + ' raw, ' + kn.filter(i => i.variant === '2d').length + ' in the window');
+    check('D73: the folded lane is start-sorted', kn.every((i, k) => k === 0 || kn[k - 1].start <= i.start));
+    check('D73: a label that is itself a lane is never folded, and an unknown stem is left alone',
+      (() => { const t = { 'Kite Festival': [], 'Nonsense (2d)': [mkInst_(1, 1)] }; calFoldVariants_(t); return !!t['Nonsense (2d)']; })());
+    // (2) the rule: measured x sum_new reach_i E_v2(variant_i) / (E_base x sum_cur reach)  (D = 1)
+    const b = c.ds.beh(seg, payer), pWd = Number(b.weekday_active_rate), pWe = Number(b.weekend_active_rate);
+    const E0 = rewardE_(lane, seg, payer, c.ds), E2 = rewardE_(lane, seg, payer, c.ds, '2d');
+    const meas = measuredRow_(lane, seg, payer, c.ds), sim = resultRow_(lane, seg, payer, c);
+    const rc = kc.reduce((a, i) => a + reachOne_(i, pWd, pWe), 0);
+    let worst = 0, n = 0;
+    RESOURCES.filter(r => !isPackRes_(r) && r !== 'ToF_Ticket').forEach(r => {
+      const eb = Number(E0.eBase[r]) || 0;
+      if (!(eb > 1e-9) || !(Number(meas[r]) > 0)) return;
+      const num_ = kn.reduce((a, i) => a + reachOne_(i, pWd, pWe) * (Number((i.variant ? E2 : E0).eV2[r]) || 0), 0);
+      const want = meas[r] * num_ / (eb * rc);
+      n++; worst = Math.max(worst, Math.abs(sim[r] - want) / Math.max(1e-9, Math.abs(want)));
+    });
+    check('D73: Kite = measured x sum over cal_new of reach_i x E_v2(instance config) / (E_base x sum reach on cal_curr)', n > 0 && worst < 1e-9,
+      n + ' resources, worst rel err ' + worst.toExponential(2));
+    // (3) mutation: a reward edit on Ki_2d_v2 moves the Kite row by the 2-day instances' reach share only
+    {
+      const snap = JSON.stringify(data['Ki_2d_v2']);
+      const spec = LB_R_SPECS[lane], hdrRow = data['Ki_2d_v2'].values[spec.hdr];
+      const hcCol = hdrRow.findIndex((x, j) => j >= spec.c0 && j <= spec.c1 && /^(HC|Coins)$/.test(String(x).trim()));
+      data['Ki_2d_v2'].values.forEach((row, ri) => { if (ri >= spec.r0 && ri <= spec.r1) row[hcCol] = (Number(row[hcCol]) || 0) * 2 + 1; });
+      const c3 = fresh();
+      const sim3 = resultRow_(lane, seg, payer, c3);
+      const E2b = rewardE_(lane, seg, payer, c3.ds, '2d');
+      const d2 = kn.filter(i => i.variant === '2d').reduce((a, i) => a + reachOne_(i, pWd, pWe), 0) * (E2b.eV2.HC - E2.eV2.HC);
+      const want = meas.HC * d2 / (Number(E0.eBase.HC) * rc);
+      data['Ki_2d_v2'] = JSON.parse(snap); fresh();
+      check('D73: an HC edit on Ki_2d_v2 moves Kite HC by measured x (2-day reach x dE) / (E_base x reach on cal_curr), nothing else',
+        hcCol >= 0 && Math.abs((sim3.HC - sim.HC) - want) < 1e-6 * Math.max(1, Math.abs(want)), (sim3.HC - sim.HC).toFixed(4) + ' vs ' + want.toFixed(4));
+    }
+    // (4) packs: a pack typed on Ki_2d_v2 pays on the 2-day instances only (lane and card sim)
+    {
+      const one = (cx) => kn.map((inst, k) => { const pr = packRungs_(lane, seg, payer, cx, k);
+        return pr ? pr.groups.reduce((a, g) => a + g.rungs.filter(x => x.packs && x.packs['1-star Pack'] > 0).length, 0) : 0; });
+      const c40 = fresh(), before = resultRow_(lane, seg, payer, c40)['1-star Pack'], E40 = rewardE_(lane, seg, payer, c40.ds, '2d'), rb = one(c40);
+      const snap = JSON.stringify(data['Ki_2d_v2']);
+      const spec = LB_R_SPECS[lane], hdrRow = data['Ki_2d_v2'].values[spec.hdr];
+      const pc = hdrRow.findIndex((x, j) => j >= spec.c0 && j <= spec.c1 && /1-star/i.test(String(x)));
+      data['Ki_2d_v2'].values.forEach((row, ri) => { if (ri >= spec.r0 && ri <= spec.r1) row[pc] = (Number(row[pc]) || 0) + 1; });
+      const c4 = fresh();
+      const after = resultRow_(lane, seg, payer, c4)['1-star Pack'];
+      const E4 = rewardE_(lane, seg, payer, c4.ds, '2d'), part = packParticipation_(lane, E4.inst);
+      const want = part * seasonInsts_(kn, lane).filter(i => i.variant === '2d').reduce((a, i) => a + reachOne_(i, pWd, pWe), 0) *
+                   (E4.eV2['1-star Pack'] - E40.eV2['1-star Pack']);
+      const ra = one(c4);
+      data['Ki_2d_v2'] = JSON.parse(snap); fresh();
+      check('D73: +1 1-star Pack on every Ki_2d_v2 rank moves the lane by part x sum of the 2-day instances\' reach x dE (the 3-day ones not at all)',
+        pc >= 0 && want > 0 && Math.abs((after - before) - want) < 1e-9, (after - before) + ' vs ' + want);
+      const moved2 = kn.filter((i, k) => i.variant === '2d' && ra[k] > rb[k]).length, moved3 = kn.filter((i, k) => !i.variant && ra[k] !== rb[k]).length;
+      check('D73: the card sim gains that pack rung on every 2-day instance and on no 3-day one',
+        moved2 === kn.filter(i => i.variant === '2d').length && moved3 === 0, moved2 + ' of 2-day moved, ' + moved3 + ' of 3-day');
+    }
+    // (5) no Ki_2d_v2 sheet -> the 2-day instances are priced on Ki_v2 (and say so)
+    {
+      const snap = data['Ki_2d_v2']; delete data['Ki_2d_v2'];
+      const c5 = fresh();
+      const E5 = rewardE_(lane, seg, payer, c5.ds, '2d'), E5b = rewardE_(lane, seg, payer, c5.ds);
+      data['Ki_2d_v2'] = snap; fresh();
+      check('D73: without a Ki_2d_v2 sheet the 2-day instances read Ki_v2', JSON.stringify(E5.eV2) === JSON.stringify(E5b.eV2));
+    }
+    // (6) the play-by-play view reads the instance's own sheet
+    {
+      eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
+      const sp = PBP_EVENTS[lane];
+      let got = '', gotPlain = '';
+      try {
+        const a = { day: 1, seg: seg, payer: payer, luck: 'p50', cal: CAL_NEW };
+        got = pbpEventState_(sp, lane, { start: 1, dur: 2, days: [1, 2], variant: '2d' }, a, c, {}, 1).spec.cfg;
+        gotPlain = pbpEventState_(sp, lane, { start: 1, dur: 3, days: [1, 2, 3] }, a, c, {}, 1).spec.cfg;
+      } catch (e) { got = 'threw ' + e.message; }
+      check('D73: the play-by-play view reads Ki_2d_v2 for a 2-day instance and Ki_v2 for a 3-day one', got === 'Ki_2d_v2' && gotPlain === sp.cfg, got + ' / ' + gotPlain);
+    }
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `
