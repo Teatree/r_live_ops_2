@@ -2882,6 +2882,15 @@ function rmMatchShare_(ds, seg, payer, t, L){
 // 3-day event's curve (4 dates). Rows marked FAKE are skipped - this
 // feeds simulated values. Returns {L, share(res, day)} or null; share() returns null for a missing
 // day so the caller can fall back resource -> ALL -> matchables curve.
+// D75 (2026-10-28): a length the pull does not carry is read off the length it does carry,
+// STRETCHED - instance day t of an L-day instance is the same fraction of the event elapsed as date
+// t x (Ls - 1) / L of the Ls-date curve. LIVE_OPS_V3 (5)'s pull covers the 4-day event only (5
+// dates) while every Rainbow Maker instance on the redesign is 2 days, so without this the cut-offs
+// never read the claim data at all and fell back to the matchables curve - which the claim data
+// contradicts (the model has 100+ players claiming ~half of the event's coins on day 1, the pull
+// says 19%). An ASSUMPTION, flagged: a 2-day event is paced like a 4-day one compressed. false ->
+// the exact-length rule only.
+var RM_PACE_STRETCH = true;
 var RM_PACE_SHEET = 'data_rm_pace';
 var _rmPaceCache = null;
 function rmClaimPace_(seg, payer, L){
@@ -2909,6 +2918,32 @@ function rmClaimPace_(seg, payer, L){
   }
   var base = seg + '|' + String(payer).toUpperCase() + '|';
   var Lp = _rmPaceCache.tab[base + (L + 1)] ? L + 1 : (_rmPaceCache.tab[base + L] ? L : 0);
+  if (!Lp && RM_PACE_STRETCH && L > 0){
+    // the carried length closest to this instance (in event days: dates spanned - 1)
+    var best = 0;
+    Object.keys(_rmPaceCache.tab).forEach(function(k){
+      if (k.indexOf(base) !== 0) return;
+      var len = Number(k.slice(base.length));
+      if (len > 1 && (!best || Math.abs((len - 1) - L) < Math.abs((best - 1) - L))) best = len;
+    });
+    if (!best) return null;
+    var src = _rmPaceCache.tab[base + best], evDays = best - 1;
+    var at = function(t, d){
+      if (d <= 0) return 0;
+      if (d >= best) return 1;
+      return (t[d] != null) ? Math.max(0, Math.min(1, t[d])) : null;
+    };
+    return { L: L, stretchedFrom: best, share: function(res, day){
+      var t = src[res];
+      if (!t) return null;
+      if (day <= 0) return 0;
+      if (day >= L) return 1;
+      var x = day * evDays / L, lo = Math.floor(x), hi = Math.ceil(x);
+      var a = at(t, lo), b = at(t, hi);
+      if (a == null || b == null) return null;
+      return (lo === hi) ? a : a + (b - a) * (x - lo);
+    } };
+  }
   if (!Lp) return null;
   var tab = _rmPaceCache.tab[base + Lp];
   return { L: Lp, share: function(res, day){

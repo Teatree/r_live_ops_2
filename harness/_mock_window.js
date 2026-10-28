@@ -525,6 +525,55 @@ function GATES() {
     check('D74e: no season has more days with a GRANTED pack than days played (spend-down chests and the D26 settle day aside)', over === 0, over + ' seasons over');
     fresh();
   }
+
+  // ================================================================ D75: THE CLAIM PACE, STRETCHED
+  console.log('\n================ D75: data_rm_pace AT A LENGTH THE PULL DOES NOT CARRY ================');
+  {
+    const c0 = fresh(), N = c0.window.days, seg = '20-39', payer = 'PAYER', pct = c0.ds.rmPct(seg, payer);
+    // what the workbook's own sheet does for this calendar's cut-offs
+    rmSortedInsts_(c0.calNew).forEach(inst => {
+      const cfg = rmConfigForInst_(inst), cut = rmCutoff_(inst, cfg, 1, N, rmCalLen_(c0.calNew, cfg));
+      if (!cut) return;
+      const p = rmClaimPace_(seg, payer, cut.L);
+      console.log('  cal_new ' + cut.side + ' cut-off days ' + inst.start + '..' + (inst.start + inst.dur - 1) + ' (' + cut.k + ' of ' + cut.L + '): pace = ' +
+        (p ? 'data_rm_pace' + (p.stretchedFrom ? ', the ' + p.stretchedFrom + '-date curve stretched' : ' at ' + p.L + ' dates') : 'matchables curve (no data_rm_pace for this cell)'));
+    });
+    const snap = data['data_rm_pace'];
+    const hdr = ['segment', 'payer_flag', 'instance_length_days', 'instance_day', 'resource', 'cum_pooled_share', 'status'];
+    const curve5 = [0.25, 0.5, 0.7, 0.95, 1];
+    const rows = [hdr];
+    curve5.forEach((x, i) => rows.push([seg, payer, 5, i + 1, 'ALL', x, 'MEASURED']));
+    data['data_rm_pace'] = { values: rows, merges: [] };
+    const c1 = fresh();
+    // (1) day t of an L-day instance = date t x 4 / L of the 5-date (4-day) curve
+    const p2 = rmClaimPace_(seg, payer, 2);
+    check('D75: a 2-day instance with only the 4-day (5-date) curve reads it stretched - its day 1 is date 2',
+      !!p2 && p2.stretchedFrom === 5 && Math.abs(p2.share('ALL', 1) - 0.5) < 1e-12, p2 ? 'share ' + p2.share('ALL', 1) : 'none');
+    const p3 = rmClaimPace_(seg, payer, 3);
+    check('D75: fractional dates interpolate (3-day instance, day 1 = date 4/3)',
+      !!p3 && Math.abs(p3.share('ALL', 1) - (0.25 + 0.25 / 3)) < 1e-12 && p3.share('ALL', 3) === 1, p3 ? String(p3.share('ALL', 1)) : 'none');
+    // (2) a cut-off prices off it: an end cut-off of 1 of 2 days claims S_full x the stretched share
+    const cfg = rmConfigForInst_(mkInst_(N, 1)), geo = { Dm: rmMatchDays_(c1, cfg), Lcal: 2 };
+    const Pe = rmRungP_(mkInst_(N, 1), cfg, pct, seg, payer, c1.ds, 1, N, geo);
+    const Ps = rmRungP_(mkInst_(1, 1), cfg, pct, seg, payer, c1.ds, 1, N, geo);
+    const Pf = rmRungP_(mkInst_(5, 2), cfg, pct, seg, payer, c1.ds, 1, N, geo);
+    let worst = 0;
+    cfg.ladder.forEach(ms => { worst = Math.max(worst, Math.abs(Pe(ms.req, 'HC') - 0.5 * Pf(ms.req, 'HC')), Math.abs(Ps(ms.req, 'HC') - 0.5 * Pf(ms.req, 'HC'))); });
+    check('D75: both 1-of-2-day cut-offs price at S_full x the stretched claim share (0.5 here), rung by rung', worst < 1e-12, 'max err ' + worst.toExponential(2));
+    // (3) the switch
+    RM_PACE_STRETCH = false; fresh();
+    check('D75: RM_PACE_STRETCH = false -> a length the pull does not carry has no pace (the matchables curve takes over)', rmClaimPace_(seg, payer, 2) === null);
+    RM_PACE_STRETCH = true;
+    // (4) a carried length always wins over a stretch
+    [0.6, 0.9, 1].forEach((x, i) => rows.push([seg, payer, 3, i + 1, 'ALL', x, 'MEASURED']));
+    data['data_rm_pace'] = { values: rows, merges: [] };
+    fresh();
+    const pE = rmClaimPace_(seg, payer, 2);
+    check('D75: when the pull carries the instance length (3 dates for a 2-day event) it is read as is, never stretched',
+      !!pE && pE.L === 3 && !pE.stretchedFrom && pE.share('ALL', 1) === 0.6, pE ? 'L ' + pE.L + ' day 1 ' + pE.share('ALL', 1) : 'none');
+    if (snap === undefined) delete data['data_rm_pace']; else data['data_rm_pace'] = snap;
+    fresh();
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `
