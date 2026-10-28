@@ -2523,6 +2523,32 @@ function logCol(name){
 // none can rot when the calendar or the authored ladders change.
 {
   console.log('\n================ SEASON CUTOFF (D26) ================');
+  // Every rule below needs days AFTER the cutoff. Since D70 the album season can be the whole
+  // counted window (user decision 2026-10-28: SEASON_LAST_DAY 28 = the 28-day window's last day),
+  // which leaves none - so the section then runs on a cutoff moved INSIDE the window: the latest
+  // day that leaves both a straddling multi-day instance and one wholly after it (mutation fixture,
+  // restored at the end of the section).
+  const SLD0 = SEASON_LAST_DAY;
+  Context.reset && Context.reset();
+  const nWin = (Context.get(), DAILY_DAYS);
+  if (SEASON_LAST_DAY >= nWin) {
+    const cx = Context.get();
+    const lanes = CATEGORY_ORDER.map(c => DAILY_CAL_LABEL[c]).filter(l => l && !SEASON_EXEMPT_LANES[l]);
+    let pick = nWin - 6;
+    for (let c = nWin - 1; c >= Math.floor(nWin / 2); c--) {
+      let st = false, wh = false;
+      lanes.forEach(l => (cx.calNew[l] || []).forEach(i => {
+        const lo = Math.min.apply(null, i.days), hi = Math.max.apply(null, i.days);
+        if (i.days.length > 1 && lo <= c && hi > c) st = true;
+        if (lo > c) wh = true;
+      }));
+      if (st && wh) { pick = c; break; }
+    }
+    SEASON_LAST_DAY = pick;
+    Context.reset && Context.reset();
+    console.log('  the album season is the whole ' + nWin + '-day window (SEASON_LAST_DAY ' + SLD0 +
+                '), so this section runs on a cutoff moved inside it: day ' + pick);
+  }
   const CUT_PAIRS = [['20-39', 'PAYER'], ['0-9', 'NONPAYER'], ['100+', 'PAYER']];
   const NONPACK = RESOURCES.filter(r => !isPackRes_(r));
 
@@ -2669,11 +2695,13 @@ function logCol(name){
   CUT_PAIRS.forEach(p => { restore = Math.max(restore, Math.abs(on[K(p)].packTot - back[K(p)].packTot)); });
   check('SEASON_CUTOFF round-trips cleanly (off -> on reproduces the same totals)', restore < 1e-9,
     'max drift ' + restore.toExponential(2));
-  check('SEASON_CUTOFF = false restores the full 33-day envelope flow',
+  check('SEASON_CUTOFF = false restores the full-window envelope flow',
     CUT_PAIRS.every(p => off[K(p)].packTot >= on[K(p)].packTot - 1e-9) &&
     CUT_PAIRS.some(p => off[K(p)].packTot > on[K(p)].packTot + 1e-9),
     CUT_PAIRS.map(p => K(p) + ' ' + off[K(p)].packTot.toFixed(2) + ' -> ' +
       on[K(p)].packTot.toFixed(2)).join(' | '));
+  SEASON_LAST_DAY = SLD0;                       // the fixture above, restored
+  Context.reset && Context.reset();
 }
 
 // ---------- 7a4. envelopes are priced off the _v2 ladders ONLY (2026-09-07) -------------------
@@ -2819,6 +2847,10 @@ function logCol(name){
     // the album cutoff stops ENVELOPES and nothing else: ToF is always-on, so its TICKETS keep
     // paying past SEASON_LAST_DAY (D26 + the D31 ticket rule)
     let lateEnv = 0, lateTick = 0;
+    // days after the cutoff are needed here too (see the D26 section): when the album season is
+    // the whole window the cutoff moves six days inside it for these 200 seasons, then back
+    const SLD1 = SEASON_LAST_DAY;
+    if (SEASON_LAST_DAY >= DAILY_DAYS) SEASON_LAST_DAY = DAILY_DAYS - 6;
     for (let k = 0; k < 200; k++) {
       const r = runOneCardSeason_('40-99', 'PAYER', 8000 + k * 7919, cfgT5, catT5,
                                   cardSeasonPre_('40-99', 'PAYER', ctxT5));
@@ -2835,6 +2867,7 @@ function logCol(name){
       lateEnv === 0, lateEnv + ' late envelopes over 200 seasons');
     check('ToF TICKETS still accrue past the cutoff (the event is always-on)',
       lateTick > 0, lateTick + ' of 200 seasons gained tickets after day ' + SEASON_LAST_DAY);
+    SEASON_LAST_DAY = SLD1;
 
     // MUTATION: make every stage survivable and every run must bank, so envelopes == in-season
     // runs x ladder. Without this the draw could be pinned at zero and every gate above would
@@ -3052,8 +3085,10 @@ function logCol(name){
           const r = runOneCardSeason_(seg, pay, COL_SIM_SEED + i * 7919, cfgC, catC, preR);
           // Set 1 pays only through setRewardGains, so infer completion from a marker column that
           // is nonzero on that row alone would be fragile - count completions from the log note
-          if (r.log.some(l => String(l[9]).indexOf('Set 1 completed') === 0 ||
-                              String(l[9]).indexOf('Set 1 completed') > 0)) rate++;
+          // COMPLETIONS, not seasons with one: a season that finishes album 1 and moves on finishes
+          // Set 1 again in album 2, and pays it again (the 28-day redesign calendar does that in a
+          // few percent of 10-19 PAYER seasons - the gate read 1040 against a 980 it could not reach)
+          rate += r.log.filter(l => String(l[9]).indexOf('Set 1 completed') >= 0).length;
         }
         rate /= COL_SIM_SEASONS;
         const wasC = vP[sr][1];
@@ -3063,7 +3098,7 @@ function logCol(name){
         check('+1000 coins on Set 1 raises Col - Sets by 1000 x its completion rate',
           Math.abs((after - before) - 1000 * rate) < 1e-6,
           'row ' + before.toFixed(1) + ' -> ' + after.toFixed(1) + ' (delta ' +
-          (after - before).toFixed(1) + '), Set 1 completed in ' + (rate * 100).toFixed(0) + '% of seasons');
+          (after - before).toFixed(1) + '), Set 1 completions per season ' + rate.toFixed(3));
         vP[sr][1] = wasC;
         resetSheetCache_mock();
         check('SET REWARDS fixture restored',
@@ -3202,10 +3237,12 @@ function logCol(name){
       const cx = fresh();
       const nw = colSimSeasons_(seg, payer, cx, 'new'), cu = colSimSeasons_(seg, payer, cx, 'cur');
       const simHC = num(ECOGAINS_SIM(payer, seg)[iS][iHC]), measHC = num(measuredRow_('Col - Sets', seg, payer, cx.ds)['HC']);
-      const want = 40 * num(nw.sets['HC']) / num(cu.sets['HC']);
-      check('D67: a real export row is the level - measured = export, simulated = export x new / cur (identical calendars: = export)',
-        Math.abs(num(cx.ds.dataRow('Col - Sets', seg, payer)['HC']) - 40) < 1e-9 &&
-        Math.abs(measHC - 40) < 1e-9 && Math.abs(simHC - want) < 1e-9 && Math.abs(simHC - 40) < 1e-9,
+      // D71: the export is read at the counted window's level (x windowScale_, 1 on a whole grid)
+      const k = windowScale_('Col - Sets', seg, payer, cx, 'HC'), lvl = 40 * k;
+      const want = lvl * num(nw.sets['HC']) / num(cu.sets['HC']);
+      check('D67: a real export row is the level - measured = export (x the D71 window scale ' + k.toFixed(4) + '), simulated = that x new / cur (identical calendars: = it)',
+        Math.abs(num(cx.ds.dataRow('Col - Sets', seg, payer)['HC']) - lvl) < 1e-9 &&
+        Math.abs(measHC - lvl) < 1e-9 && Math.abs(simHC - want) < 1e-9 && Math.abs(simHC - lvl) < 1e-9,
         'measured ' + measHC + ' simulated ' + simHC.toFixed(4) + ' want ' + want.toFixed(4));
       g.values.pop(); fresh();
     }

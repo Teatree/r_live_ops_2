@@ -365,7 +365,9 @@ function GATES() {
     const raw = Number((T2[barRow(T2, TB.ecoTotal) + 1 + REWARD_COLUMNS
       .map(rc => rc.name).indexOf(UL_ROWS[0])] || [])[1]);
     check('a filled minutes-per-unit input survives the run and converts',
-      rowUL[1] === 30 && Math.abs(Number(rowUL[2]) - raw * 30) < 0.05,
+      // tolerance FROM THE PRECISIONS: the units cell is written to 2dp (<= 0.005 off), so x 30 is
+      // up to 0.15 off before the minutes cell's own rounding (2026-10-28: 20.83 x 30 = 624.9 vs 625)
+      rowUL[1] === 30 && Math.abs(Number(rowUL[2]) - raw * 30) <= 0.005 * 30 + 0.05,
       `input kept at ${rowUL[1]}, ${raw} units x 30 = ${rowUL[2]}`);
   }
 
@@ -525,6 +527,10 @@ function GATES() {
     if (haveNew && !missing.length) {
       const get = (lab, c) => Number((T4[cadIdx[lab]] || [])[c]);
       let wCal = 0, wAct = 0, wPack = 0, atW = '';
+      // the slack each identity may show is what the sheet's rounding allows: a 2dp rate times a 1dp
+      // day count is off by up to 0.005 x days + 0.05 x rate (+ the total's own 2dp). A fixed 0.25
+      // was that bound at ~3 packs per active day and broke when the 28-day calendar paid more.
+      let rAct = 0, rPack = 0;
       let ordered = true;
       tperms.forEach((pm, j) => {
         const c = 1 + j;
@@ -537,6 +543,8 @@ function GATES() {
         wCal  = Math.max(wCal,  Math.abs(cal * DAILY_DAYS - total));
         wAct  = Math.max(wAct,  Math.abs(act * nAct - total));
         wPack = Math.max(wPack, Math.abs(pkd * nPkd - total));
+        rAct  = Math.max(rAct,  Math.abs(act * nAct - total) / (0.005 * nAct + 0.05 * act + 0.01));
+        rPack = Math.max(rPack, Math.abs(pkd * nPkd - total) / (0.005 * nPkd + 0.05 * pkd + 0.01));
         // Packs land ONLY on days the player was in the game, and they clump, so the three rates
         // can only go one way. Not decoration: this caught season-pass envelopes opening on days
         // the log itself marked '(did not play)' - days-with-a-pack came out ABOVE days-played
@@ -552,10 +560,10 @@ function GATES() {
       });
       check('packs per CALENDAR day x 33 == Total Packs Opened',
         wCal < 0.025, 'worst ' + wCal.toFixed(4));
-      check('packs per ACTIVE day x active days == Total Packs Opened',
-        wAct < 0.25, 'worst ' + wAct.toFixed(4));
-      check('packs on a PACK day x days with a pack == Total Packs Opened',
-        wPack < 0.35, 'worst ' + wPack.toFixed(4));
+      check('packs per ACTIVE day x active days == Total Packs Opened (within the sheet rounding)',
+        rAct <= 1, 'worst ' + wAct.toFixed(4) + ' = ' + (100 * rAct).toFixed(0) + '% of the rounding bound');
+      check('packs on a PACK day x days with a pack == Total Packs Opened (within the sheet rounding)',
+        rPack <= 1, 'worst ' + wPack.toFixed(4) + ' = ' + (100 * rPack).toFixed(0) + '% of the rounding bound');
       check('the three rates are ordered pack-day >= active day >= calendar day',
         ordered, ordered ? 'on all ' + tperms.length + ' permutations' : 'violated at ' + atW);
 
