@@ -86,6 +86,7 @@ var SIM_SEED_CELL  = 'G2';
 
 var OUT_START_ROW    = 57;                 // first row of the day-by-day pack log
 var TOTALS_FIRST_ROW = 6;                  // running-totals block: one row per calendar day
+var TOTALS_BLOCK_DAYS = 33;                // D74c: day rows the block holds (the 33-day grid)
 var TALLY_FIRST_ROW  = 42;                 // SIMULATION TALLY value column (B)
 // COLLECTION ECO GAINS block: labels in column D, values in column E, four rows from this one.
 // Beside the tally, not below it - the tally starts at row 42 and the pack log's bar is at row 55,
@@ -2389,6 +2390,10 @@ function SimulatePackOpenings() {
 
   // --- write running totals ------------------------------------------------------------------
   simOut.getRange(TOTALS_FIRST_ROW, 1, SEASON_DAYS, daily[0].length).setValues(daily);
+  // D74c: the block holds TOTALS_BLOCK_DAYS rows; a shorter window blanks the rest rather than
+  // leaving the last 33-day run's days 29..33 under this run's 28
+  if (TOTALS_BLOCK_DAYS > SEASON_DAYS)
+    simOut.getRange(TOTALS_FIRST_ROW + SEASON_DAYS, 1, TOTALS_BLOCK_DAYS - SEASON_DAYS, daily[0].length).clearContent();
 
   // --- write tally ---------------------------------------------------------------------------
   var tally = [

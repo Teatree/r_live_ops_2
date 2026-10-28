@@ -791,11 +791,19 @@ let firstRun = null;
     Math.abs(tally['Total Packs Opened'] - expected) <= 18 + tofExp,
     `granted ${tally['Total Packs Opened']} vs expected ${f2(expected)}`);
 
-  // running totals: 33 rows, monotonic packs-opened, album tier never decreases
+  // running totals: one row per day of the counted WINDOW (DAILY_DAYS - 33 on a whole grid, 28
+  // since D70), monotonic packs-opened, album tier never decreases; the block's rows past the
+  // window are blank (D74c), never a previous run's days
   const tot = [];
-  for (let i = 0; i < 33; i++) tot.push(data['Col_Cards_Daily'].values[5 + i]);
-  check('running totals: 33 day rows, days 1..33 in order',
-    tot.length === 33 && tot.every((r, i) => r[0] === i + 1));
+  for (let i = 0; i < DAILY_DAYS; i++) tot.push(data['Col_Cards_Daily'].values[5 + i]);
+  check('running totals: ' + DAILY_DAYS + ' day rows, days 1..' + DAILY_DAYS + ' in order',
+    tot.length === DAILY_DAYS && tot.every((r, i) => r[0] === i + 1));
+  {
+    const tail = [];
+    for (let i = DAILY_DAYS; i < 33; i++) tail.push(data['Col_Cards_Daily'].values[5 + i] || []);
+    check('running totals: the block rows past day ' + DAILY_DAYS + ' are blank',
+      tail.every(r => r.slice(0, 7).every(x => x === '' || x == null)), tail.length + ' rows past the window');
+  }
   check('running totals: packs-opened is monotonic non-decreasing',
     tot.every((r, i) => i === 0 || r[6] >= tot[i - 1][6]));
   check('running totals: album tier never goes backwards',
