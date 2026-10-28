@@ -2745,8 +2745,10 @@ function nsEDay_(ladder, S, prov){
 
 // ============================== RAINBOW MAKER (D6/D7 — bottom-up, survival-weighted) =========
 // Per cal_new instance: E[res] = Σ_k S_dur(ReqAccum_k) x reward_k[res], where S_dur uses the
-// data_RM matchables percentiles scaled by (instanceDur / configured EventDuration) — the
-// clipped 2-day instance halves the matchables axis (flagged linear-scaling assumption).
+// data_RM matchables percentiles scaled by (instanceDur / the MEASURED instance length, cal_curr's
+// usual RM instance - D72; it was the sheet's EventDuration) - a 2-day instance halves the 4-day
+// matchables axis (flagged linear-scaling assumption). A window-edge cut-off is priced at the claim
+// pace instead (rmRungP_).
 // RM[res] = Σ instances E[res] x reach(inst). Measured rows are soft-launch traces (kept in diff).
 //
 // PER-INSTANCE CONFIG SPLIT (2026-07-10, user decision — HARDCODED, see the CLAUDE.md
