@@ -561,6 +561,15 @@ function curveRaw_(curve, d){
 // Monday, which neither the window rule nor the grid rule fits - only the date can say which
 // Monday. A window day the feed does not reach, at either end, is blank, never 0.
 var DAILY_ECON_ALIGN = 'auto';
+// D78 (2026-10-28): the analyst's pulls start the day BEFORE the calendar's first column. Measured,
+// not assumed: in the August by-source feed Rainbow Maker - which pays while its instance runs
+// (under 1% is claimed after the end) - pays on data days 7-10 / 14-17 / 21-24 / 28-31 against
+// cal_curr's grid days 6-9 / 13-16 / 20-23 / 27-30, and its SPTx2 (RM_2nd only) on 21-24 / 28-31:
+// data day d is grid day d - 1, so column B was Wed 2026-08-12 (the weekday row is right) and the
+// pull started Tue 2026-08-11. The live pull does the same: day 1 = Tue 2026-10-13, column B =
+// Wed 2026-10-14. D74a read the August pull as starting AT column B and was a day off; D60's
+// placement probes made the same assumption.
+var DAILY_ECON_PULL_LEAD = 1;
 /** days since 1970-01-01 of a calendar date: a Date (the cell as Apps Script returns it) or a
  *  'YYYY-MM-DD...' string (how a dump carries it); null for anything else. */
 function ymdDay_(x){
@@ -603,16 +612,18 @@ function econShift_(v, h){
       }
     }
   }
-  if (!off) return 0;
-  if (DAILY_ECON_ALIGN === 'grid' || h['dow'] == null) return off;
+  var lead = num(DAILY_ECON_PULL_LEAD);
+  if (DAILY_ECON_ALIGN === 'grid' || h['dow'] == null) return off + lead;   // D78: the day before column B
+  // a feed that carries its weekdays: the start whose weekdays fit - the window's day 1, the grid's
+  // first column, or the day before either (D78). Distinct weekdays unless offset = 0 mod 7.
+  var cands = [off + lead, off, lead, 0];
   for (var i = 1; i < v.length; i++){
     var fd = Math.round(num(v[i][h['day_index']])), w = dowIndex_(v[i][h['dow']]);
     if (!(fd >= 1) || !w) continue;
-    if (w === windowDow_(fd)) return 0;                   // pulled from the window's day 1
-    if (w === windowDow_(fd - off)) return off;           // pulled from the grid's first column
+    for (var k = 0; k < cands.length; k++) if (w === windowDow_(fd - cands[k])) return cands[k];
     return 0;
   }
-  return off;
+  return off + lead;
 }
 
 function econDaily_(seg, payer){

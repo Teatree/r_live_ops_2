@@ -426,8 +426,10 @@ function GATES() {
     delete data['data_econ_daily_live'];
     data['data_econ_daily'] = feed(false);
     const a = dataHC();
-    check('D74: a feed with no weekday column is grid-aligned - window day d reads feed day d + ' + off,
-      a.length === N && a.every((x, i) => x === 10 * (i + 1 + off)), 'day 1 reads ' + a[0] + ', day ' + N + ' reads ' + a[N - 1]);
+    // D78: such a feed starts the day BEFORE the grid's first column (the August pull, proven by
+    // Rainbow Maker's instance days), so window day d reads feed day d + offset + 1
+    check('D78: a feed with no weekday column starts the day before the grid - window day d reads feed day d + ' + (off + 1),
+      a.length === N && a.slice(0, N - 1).every((x, i) => x === 10 * (i + 2 + off)), 'day 1 reads ' + a[0] + ', day ' + N + ' reads ' + a[N - 1]);
     // (2) a feed whose weekdays match the window: pulled from window day 1, no shift
     data['data_econ_daily'] = feed(true, k => windowDow_(k));
     const b = dataHC();
@@ -437,15 +439,23 @@ function GATES() {
     const g3 = dataHC();
     check('D74: a feed whose weekdays match the grid\'s first column is shifted by the window offset',
       g3.every((x, i) => x === 10 * (i + 1 + off)), 'day 1 reads ' + g3[0]);
-    // (4) a feed whose weekdays match neither is read day for day (and the D64 mismatch is logged)
+    // (3b) D78: weekdays that put feed day 1 the day before the grid's first column
+    data['data_econ_daily'] = feed(true, k => windowDow_(k - off - 1));
+    const g3b = dataHC();
+    check('D78: a feed whose weekdays put its day 1 the day before the grid is shifted by the offset + 1',
+      g3b.slice(0, N - 1).every((x, i) => x === 10 * (i + 2 + off)), 'day 1 reads ' + g3b[0]);
+    // (4) a feed whose weekdays match none of the four starts is read day for day (and logged)
     if (off % 7) {
-      data['data_econ_daily'] = feed(true, k => windowDow_(k + 1));
+      data['data_econ_daily'] = feed(true, k => windowDow_(k - 3));
       const d4 = dataHC();
       check('D74: a feed whose weekdays match neither is read day for day', d4.every((x, i) => x === 10 * (i + 1)), 'day 1 reads ' + d4[0]);
     }
     // (5) the switch
     data['data_econ_daily'] = feed(false);
     DAILY_ECON_ALIGN = 'window'; const e5 = dataHC(); DAILY_ECON_ALIGN = 'auto';
+    data['data_econ_daily'] = feed(false);
+    DAILY_ECON_PULL_LEAD = 0; const e6 = dataHC(); DAILY_ECON_PULL_LEAD = 1;
+    check('D78: DAILY_ECON_PULL_LEAD = 0 restores the D74a reading (feed day 1 = the grid\'s first column)', e6.every((x, i) => x === 10 * (i + 1 + off)), 'day 1 reads ' + e6[0]);
     check('D74: DAILY_ECON_ALIGN = \'window\' reads day for day whatever the feed', e5.every((x, i) => x === 10 * (i + 1)), 'day 1 reads ' + e5[0]);
     data['data_econ_daily'] = snapB;
     if (snapL === undefined) delete data['data_econ_daily_live']; else data['data_econ_daily_live'] = snapL;
@@ -608,11 +618,15 @@ function GATES() {
     const e = dataHC();
     check('D76: window days before the feed starts are blank (2026-10-12 -> day 1 blank, day 2 = feed day 1)',
       e[0] === '' && e[1] === 10, 'day 1 ' + JSON.stringify(e[0]) + ', day 2 ' + e[1]);
-    // (4) a feed with no calendar_date ignores the date (the D74 rule decides)
+    // (4) a feed with no calendar_date ignores the date (the D74/D78 weekday rule decides): a date a
+    //     week later than the weekdays imply makes the difference visible
+    data['cal_new'].values[0][col1 - 1] = '2026-10-26';
+    const f0 = dataHC();
     const nd = feed(); nd.values = nd.values.map(r => r.filter((x, i) => i !== 4));
     data['data_econ_daily_live'] = nd;
     const f = dataHC();
-    check('D76: a feed without calendar_date is not aligned by the date', f[0] !== 70, 'day 1 ' + f[0]);
+    check('D76: a feed without calendar_date is not aligned by the date (with it: day 1 = 2026-10-26 = feed day 14)',
+      f0[0] === 140 && f[0] !== 140, 'with calendar_date ' + f0[0] + ', without ' + f[0]);
     // (5) no date typed -> unchanged from D74 (the live feed reads day for day when its weekdays fit neither rule)
     data['data_econ_daily_live'] = feed();
     data['cal_new'].values[0] = JSON.parse(snapC);

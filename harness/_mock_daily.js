@@ -26,6 +26,10 @@ global.SpreadsheetApp = { getActiveSpreadsheet: () => ({ getSheetByName: (n) => 
 global.Logger = global.Logger || { log: () => {} };   // the engine logs (D64: a weekday mismatch between feed and calendar)
 eval(fs.readFileSync(ENGINE('EcoGainsSim_v4.gs'), 'utf8'));
 eval(fs.readFileSync(ENGINE('EcoGainsSim_Daily.gs'), 'utf8'));
+// The fixture feeds below are written with day_index 1 = the grid's first column. D78 reads a feed
+// without weekdays as starting the day BEFORE it (the analyst's pulls do); alignment is gated in
+// _mock_window.js, so these NET / truncation gates state their own convention instead.
+DAILY_ECON_PULL_LEAD = 0;
 
 let failures = 0;
 function check(name, ok, detail) {
@@ -495,7 +499,7 @@ function synthEconDaily() {
     const first = clone('RM_1st'), second = clone('RM_2nd');
     const ok = setX2(first, 0) && setX2(second, 2);
     data['RM_1st'] = first; data['RM_2nd'] = second;
-    eval(v4Src); eval(dailySrc); _sheetValsCache = {};
+    eval(v4Src); eval(dailySrc); _sheetValsCache = {}; DAILY_ECON_PULL_LEAD = 0;
     const g = ECOGAINS_DAILY('NONPAYER', '0-9', 'Rainbow Maker', 'NEW');
     const iX2 = RESOURCES.indexOf('SPTx2');
     const insts = rmSortedInsts_(Context.get().calNew);
@@ -543,7 +547,7 @@ function synthEconDaily() {
     }
     if (stash1 !== undefined) data['RM_1st'] = stash1; else delete data['RM_1st'];
     if (stash2 !== undefined) data['RM_2nd'] = stash2; else delete data['RM_2nd'];
-    eval(v4Src); eval(dailySrc); _sheetValsCache = {};
+    eval(v4Src); eval(dailySrc); _sheetValsCache = {}; DAILY_ECON_PULL_LEAD = 0;
   }
 }
 
