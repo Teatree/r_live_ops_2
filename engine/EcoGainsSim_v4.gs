@@ -947,16 +947,16 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     if (!pct) return null;
     var insts = rmSortedInsts_(ctx.calNew);
     var idx = Math.max(0, Math.min(instOrdinal || 0, Math.max(0, insts.length - 1)));
-    var cfg = rmConfigFor_(idx);
+    var rinst = insts[idx] || null;
+    var cfg = rmConfigForInst_(rinst);
     if (!cfg.ladder.length) return null;
-    // the same duration-scaled matchables axis simRainbowMaker uses, so the two agree per instance
-    var dur = insts[idx] ? insts[idx].dur : cfg.cfgDur;
-    var scale = Math.min(1, dur / cfg.cfgDur);
-    var Sr = survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],
-                        [pct.p75*scale,.75],[pct.p90*scale,.90]]);
-    if (!Sr) return null;
+    // D72: the same in-window rung probability simRainbowMaker prices (cut-offs included), so the
+    // card sim and the gains model agree per instance
+    var rgeo = rmGeo_(ctx, ctx.calNew, cfg);
+    var Pr = rmRungP_(rinst || { start: 1, dur: rgeo.Dm }, cfg, pct, seg, payer, ds, 1, windowDays_(), rgeo);
+    if (!Pr) return null;
     var rrungs = cfg.ladder.map(function(ms, k){
-      return { label: 'milestone #' + (k + 1) + ' (req accum ' + ms.req + ')', p: profP_(prof, Sr(ms.req)),
+      return { label: 'milestone #' + (k + 1) + ' (req accum ' + ms.req + ')', p: profP_(prof, Pr(ms.req, 'ALL')),
                req: ms.req, packs: packsOf(ms.rew), tickets: tkOf(ms.rew) };
     });
     return mk(1, false, rrungs);                       // RM has no participation telemetry
@@ -1045,7 +1045,7 @@ function packProvFor_(cat, seg, payer, ctx){
   if (cat === 'Rainbow Maker'){
     var pct = ds.rmPct(seg, payer);
     if (!pct) return prov;
-    var cfg = rmConfigFor_(0);
+    var cfg = rmConfigForInst_(rmSortedInsts_(ctx.calNew)[0] || null);
     var Sr = survival_([[pct.p10,.10],[pct.p25,.25],[pct.p50,.50],[pct.p75,.75],[pct.p90,.90]]);
     if (Sr) cfg.ladder.forEach(function(ms, k){
       var sv = Sr(ms.req);
@@ -1792,6 +1792,7 @@ function tofCycleMode_(){ return (_tofInFlight || _tofSynthBusy) ? '|noToF' : ''
 // sweeps again starts from exactly what a fresh recalculation would. A memo that outlives the
 // state it was computed from is how the D26 cutoff gate read the 175 above (D62).
 function resetModuleCaches_(){
+  _rmPaceCache = null;                                   // D72: data_rm_pace memo
   _sheetValsCache = {}; _packAnchorCache = {}; _tofSynthCache = {}; _tofIncomeCache = {};
   _measSptCache = {}; _measSptBusyKeys = {}; _x2MinCache = {}; _x2MinBusyKeys = {};
   _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null; _calDowCache = null; _calWinCache = null;
@@ -2705,18 +2706,37 @@ function nsEDay_(ladder, S, prov){
 // the 33-day sim + Sim per Segment via simRainbowMaker/resultRow_, the daily view via
 // rmInstanceRows_ (per-instance rows so SPTx2 lands only on RM_2nd instance days), the PBP
 // session sim via rmConfigFor_ (day -> running instance -> its config).
-var RM_INSTANCE_SHEETS = ['RM_1st', 'RM_1st', 'RM_1st', 'RM_2nd', 'RM_2nd'];
+// D72 (2026-10-28): replaced by the window's HALVES - see rmHalfSheet_. Kept only as the two
+// sheet names, so a workbook with different split sheets edits one line.
+var RM_HALF_SHEETS = ['RM_1st', 'RM_2nd'];
 
 function rmSortedInsts_(cal){
   return ((cal && cal['Rainbow Maker']) || []).slice()
     .sort(function(x, y){ return x.start - y.start; });
 }
-// instance ordinal (0-based, start-sorted) -> {sheet, ladder, cfgDur}; fallback chain to 'RM'.
+// D72: an instance starting on days 1..floor(N/2) of the counted window reads RM_1st, a later one
+// RM_2nd (user decision 2026-10-28). Pre-window instances (start <= 0, the measured rescale's full
+// view) are 1st half. The ordinal 3+2 split this replaces read the 6th..9th instance of a 9-instance
+// calendar as RM_2nd whatever its date.
+function rmHalfSheet_(inst){
+  var half = Math.floor(windowDays_() / 2);
+  return (inst && num(inst.start) > half) ? RM_HALF_SHEETS[1] : RM_HALF_SHEETS[0];
+}
+/** The config of ONE instance: {sheet, ladder, cfgDur}. */
+function rmConfigForInst_(inst, useBase){ return rmConfigByName_(rmHalfSheet_(inst), useBase); }
+// instance ordinal (0-based, start-sorted, on `cal` - cal_new by default) -> its config. Kept for the
+// callers that hold an ordinal; it resolves the instance and asks rmConfigForInst_.
+function rmConfigFor_(i, useBase, cal){
+  var insts = rmSortedInsts_(cal || ((typeof Context !== 'undefined') ? Context.get().calNew : null));
+  var inst = insts.length ? insts[Math.max(0, Math.min(i, insts.length - 1))] : null;
+  return rmConfigForInst_(inst, useBase);
+}
+// name -> {sheet, ladder, cfgDur}; fallback chain to 'RM'.
 // useBase (2026-09-03): read the BASE ladder and never the _v2 one. That is what prices the
 // cal_curr side of the difference sim - the anchor has to describe the config the OLD calendar
 // ran, or a reward edit would change both sides equally and cancel to nothing.
-function rmConfigFor_(i, useBase){
-  var name = RM_INSTANCE_SHEETS[Math.max(0, Math.min(i, RM_INSTANCE_SHEETS.length - 1))] || 'RM';
+function rmConfigByName_(name, useBase){
+  name = name || 'RM';
   if (useBase){
     var bl = readRMLadder_(name);
     if (!bl.length){ name = 'RM'; bl = readRMLadder_('RM'); }
@@ -2732,6 +2752,116 @@ function rmConfigFor_(i, useBase){
   var ladder = readRMLadder_(name);
   if (!ladder.length && name !== 'RM'){ name = 'RM'; ladder = readRMLadder_('RM'); }
   return { sheet: name, ladder: ladder, cfgDur: readRMDuration_(name) || 4 };
+}
+
+// ---- Rainbow Maker CUT-OFFS (D72, 2026-10-28) ----------------------------------------------
+// An instance at an edge of the view being priced that is shorter than its full length is the
+// visible part of a longer instance. `first`/`last` are the view's edges in window days (the window,
+// or the whole grid for D71's full view). The full length is the CALENDAR's when the window clipped
+// the instance (fullDur - the calendar has priority over the sheet's EventDuration), and the
+// config's when the grid itself cuts it (nothing beyond the grid says how long it ran).
+// Returns {side: 'start'|'end', k: days visible, L: full length} or null.
+var RM_CUTOFF_PACE = true;
+// D72c: lengths come from the CALENDARS, never from the sheet's EventDuration (the project rule:
+// the calendar wins on duration). RM_1st says 4 and RM_2nd says 2 over the SAME ladder, so dividing
+// by EventDuration priced a 2-day second-half instance as four days of matchables. false restores
+// the EventDuration denominator.
+var RM_MATCH_DAYS_FROM_CAL = true;
+/** The length data_RM's matchables were collected over: cal_curr's usual Rainbow Maker instance on
+ *  the whole grid (the calendar the data was earned under). EventDuration when there is none. */
+function rmMatchDays_(ctx, cfg){
+  if (RM_MATCH_DAYS_FROM_CAL && ctx){
+    var m = modalDur_((ctx.calCurFull || ctx.calCur || {})['Rainbow Maker'] || []);
+    if (m > 0) return m;
+  }
+  return num(cfg && cfg.cfgDur) || 4;
+}
+/** How long a cut-off instance on `cal` really runs: that calendar's usual Rainbow Maker length. */
+function rmCalLen_(cal, cfg){
+  if (RM_MATCH_DAYS_FROM_CAL){
+    var m = modalDur_((cal || {})['Rainbow Maker'] || []);
+    if (m > 0) return m;
+  }
+  return num(cfg && cfg.cfgDur) || 0;
+}
+/** {Dm, Lcal} for instances of `cal` - what rmRungP_ needs beyond the instance itself. */
+function rmGeo_(ctx, cal, cfg){ return { Dm: rmMatchDays_(ctx, cfg), Lcal: rmCalLen_(cal, cfg) }; }
+function rmCutoff_(inst, cfg, first, last, Lcal){
+  if (!RM_CUTOFF_PACE || !inst) return null;
+  var d = num(inst.dur), s = num(inst.start), e = s + d - 1;
+  if (!(d > 0)) return null;
+  var cs = num(inst.clipStart) > 0, ce = num(inst.clipEnd) > 0;
+  var L = (cs || ce) ? (num(inst.fullDur) || num(Lcal) || num(cfg && cfg.cfgDur) || d)
+                     : (num(Lcal) || num(cfg && cfg.cfgDur) || d);
+  if (!(d < L)) return null;
+  if (cs || (!ce && s === first)) return { side: 'start', k: d, L: L };
+  if (ce || e === last) return { side: 'end', k: d, L: L };
+  return null;
+}
+// The matchables pace: the share of an L-day instance's matchables collected by the end of its day
+// t, off the measured curve ('Milestone' = Rainbow Maker in data_event_accrual, MEAN column). The
+// curve runs over the dates its instances SPANNED - 5 for the 4-day event, the last a part day - so
+// day t is curve date t when the curve is one longer than L (or as long), and the curve is
+// stretched to L days otherwise (a 2-day instance against the 5-date curve). Linear when there is
+// no curve - the pre-D72 assumption.
+var RM_ACCR_EVENT = 'Milestone';
+function rmMatchShare_(ds, seg, payer, t, L){
+  if (!(t > 0)) return 0;
+  if (t >= L) return 1;
+  var c = (ds.accrualCurveMean ? ds.accrualCurveMean(RM_ACCR_EVENT, seg, payer)
+                               : ds.accrualCurve(RM_ACCR_EVENT, seg, payer)) || [];
+  if (!c.length) return t / L;
+  var Lc = num(c[c.length - 1].day);
+  var x = (Lc === L || Lc === L + 1) ? t : t * Math.max(1, Lc - 1) / L;
+  var prevD = 0, prevS = 0;
+  for (var i = 0; i < c.length; i++){
+    var d = num(c[i].day), sh = num(c[i].share);
+    if (x <= d) return prevS + (sh - prevS) * (x - prevD) / Math.max(1e-9, d - prevD);
+    prevD = d; prevS = sh;
+  }
+  return 1;
+}
+// data_rm_pace (PROMPT_rm_claim_pace.md): the cumulative share of reward value CLAIMED by the end of
+// each instance day. Used when the sheet carries this (segment, payer) at the instance length, or at
+// one more (the pull may count the dates an instance spans). Rows marked FAKE are skipped - this
+// feeds simulated values. Returns {L, share(res, day)} or null; share() returns null for a missing
+// day so the caller can fall back resource -> ALL -> matchables curve.
+var RM_PACE_SHEET = 'data_rm_pace';
+var _rmPaceCache = null;
+function rmClaimPace_(seg, payer, L){
+  if (!_rmPaceCache){
+    _rmPaceCache = { tab: {} };
+    var v = sheetVals_(RM_PACE_SHEET);
+    if (v && v.length >= 2){
+      var h = {};
+      (v[0] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim().toLowerCase(); if (k && h[k] == null) h[k] = i; });
+      var need = ['segment', 'payer_flag', 'instance_length_days', 'instance_day', 'cum_pooled_share'];
+      if (need.every(function(k){ return h[k] != null; })){
+        for (var i = 1; i < v.length; i++){
+          var r = v[i];
+          if (h['status'] != null && String(r[h['status']]).trim().toUpperCase() === 'FAKE') continue;
+          var sg = String(r[h['segment']]).trim(), py = String(r[h['payer_flag']]).trim().toUpperCase();
+          var len = Math.round(num(r[h['instance_length_days']])), day = Math.round(num(r[h['instance_day']]));
+          if (!sg || !(len > 0) || !(day > 0) || String(r[h['cum_pooled_share']]).trim() === '') continue;
+          var res = (h['resource'] != null && String(r[h['resource']]).trim()) ? String(r[h['resource']]).trim() : 'ALL';
+          var key = sg + '|' + py + '|' + len;
+          var t = (_rmPaceCache.tab[key] = _rmPaceCache.tab[key] || {});
+          (t[res] = t[res] || {})[day] = num(r[h['cum_pooled_share']]);
+        }
+      }
+    }
+  }
+  var base = seg + '|' + String(payer).toUpperCase() + '|';
+  var Lp = _rmPaceCache.tab[base + L] ? L : (_rmPaceCache.tab[base + (L + 1)] ? L + 1 : 0);
+  if (!Lp) return null;
+  var tab = _rmPaceCache.tab[base + Lp];
+  return { L: Lp, share: function(res, day){
+    var t = tab[res];
+    if (!t) return null;
+    if (day <= 0) return 0;
+    if (day >= Lp) return 1;
+    return (t[day] != null) ? Math.max(0, Math.min(1, t[day])) : null;
+  } };
 }
 
 function simRainbowMaker(seg, payer, ctx){
@@ -2800,27 +2930,68 @@ function rmInstanceRows_(seg, payer, ctx, opts){
   var ds = ctx.ds, pct = ds.rmPct(seg, payer);
   if (!pct) return null;
   var cal = (opts && opts.cal) || ctx.calNew, useBase = !!(opts && opts.useBase);
+  // the edges of the view being priced: the window, or the whole grid (opts.full - D71's rescale)
+  var w = (ctx && ctx.window) || calWindow_();
+  var first = (opts && opts.full) ? 1 - num(w.offset) : 1;
+  var last  = (opts && opts.full) ? (CAL_LAST_COL - CAL_FIRST_COL + 1) - num(w.offset) : num(w.days);
   var b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   var any = false;
-  var parts = rmSortedInsts_(cal).map(function(inst, i){
-    var cfg = rmConfigFor_(i, useBase), row = zeroRow_();
+  var parts = rmSortedInsts_(cal).map(function(inst){
+    var cfg = rmConfigForInst_(inst, useBase), row = zeroRow_();
     if (cfg.ladder.length){
       any = true;
-      var scale = Math.min(1, inst.dur / cfg.cfgDur);
-      var S = survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],
-                         [pct.p75*scale,.75],[pct.p90*scale,.90]]);
-      if (S){
+      var P = rmRungP_(inst, cfg, pct, seg, payer, ds, first, last, rmGeo_(ctx, cal, cfg));
+      if (P){
         var reach = reachOne_(inst, pWd, pWe);
         cfg.ladder.forEach(function(ms){
-          var s = S(ms.req);
-          for (var res in ms.rew) row[res] = num(row[res]) + ms.rew[res] * s * reach;
+          for (var res in ms.rew) row[res] = num(row[res]) + ms.rew[res] * P(ms.req, res) * reach;
         });
       }
     }
     return { inst: inst, row: row };
   });
   return any ? parts : null;
+}
+// P(req, res): the chance a player of this instance claims the rung at `req` INSIDE the view.
+// The matchables axis is data_RM's percentiles x (length / Dm), Dm = the measured instance length.
+//   interior instance  S(req) at scale dur / Dm
+//   end cut-off        S(req) at scale (L / Dm) x the pace at day k
+//   start cut-off      S_full(req) - S(req at scale (L / Dm) x the pace at day L - k)
+// With data_rm_pace the CLAIM share replaces the matchables pace: P = S_full(req) x share.
+// geo = {Dm, Lcal} (rmGeo_); omitted -> read off the live context's cal_new.
+function rmRungP_(inst, cfg, pct, seg, payer, ds, first, last, geo){
+  if (!geo){ var cx = Context.get(); geo = rmGeo_(cx, cx.calNew, cfg); }
+  var Dm = num(geo.Dm) || num(cfg.cfgDur) || 4;
+  function S_(scale){
+    return survival_([[pct.p10*scale,.10],[pct.p25*scale,.25],[pct.p50*scale,.50],
+                      [pct.p75*scale,.75],[pct.p90*scale,.90]]);
+  }
+  var cut = rmCutoff_(inst, cfg, first, last, geo.Lcal);
+  if (!cut){
+    var S0 = S_(Math.min(1, inst.dur / Dm));
+    return S0 ? function(req){ return S0(req); } : null;
+  }
+  var full = Math.min(1, cut.L / Dm);
+  var Sfull = S_(full);
+  if (!Sfull) return null;
+  var pace = rmClaimPace_(seg, payer, cut.L);
+  if (pace){
+    // days before the window (start cut-off) or in it (end cut-off), in the pull's own day count
+    var dIn = (cut.side === 'end') ? cut.k : cut.L - cut.k;
+    return function(req, res){
+      var sh = pace.share(res, dIn);
+      if (sh == null) sh = pace.share('ALL', dIn);
+      if (sh == null) sh = rmMatchShare_(ds, seg, payer, dIn, cut.L);
+      return Sfull(req) * ((cut.side === 'end') ? sh : 1 - sh);
+    };
+  }
+  if (cut.side === 'end'){
+    var Se = S_(full * rmMatchShare_(ds, seg, payer, cut.k, cut.L));
+    return Se ? function(req){ return Se(req); } : null;
+  }
+  var Sb = S_(full * rmMatchShare_(ds, seg, payer, cut.L - cut.k, cut.L));
+  return function(req){ return Math.max(0, Sfull(req) - (Sb ? Sb(req) : 0)); };
 }
 
 // ---- RAINBOW MAKER: the DIFFERENCE SIM (D29, 2026-09-03) -----------------------------------
@@ -3780,9 +3951,18 @@ function pDaySum_(d0, d1, pWd, pWe){
   for (var d = d0; d <= d1; d++) s += isWeekend_(d) ? pWe : pWd;
   return s;
 }
-function windowScale_(cat, seg, payer, ctx){
+function windowScale_(cat, seg, payer, ctx, res){
   if (!WINDOW_RESCALE || !ctx || windowIsWholeGrid_(ctx.window)) return 1;
   ctx._wScale = ctx._wScale || {};
+  // D72: Rainbow Maker scales PER RESOURCE by the base walk's own window share (cut-offs priced at
+  // the claim pace - the first rungs are cheap, so a cut-off keeps more than its share of days)
+  if (cat === 'Rainbow Maker' && res){
+    var rk = cat + '|' + seg + '|' + payer + '|' + res;
+    if (ctx._wScale[rk] != null) return ctx._wScale[rk];
+    var rw = rmWindowShare_(seg, payer, ctx);
+    if (rw && rw.full[res] > 1e-12) return (ctx._wScale[rk] = rw.win[res] / rw.full[res]);
+    // a resource the base ladder never pays: falls through to the reach ratio below
+  }
   var key = cat + '|' + seg + '|' + payer;
   if (ctx._wScale[key] != null) return ctx._wScale[key];
   var w = ctx.window, ds = ctx.ds, b = ds.beh(seg, payer) || {};
@@ -3807,6 +3987,21 @@ function windowScale_(cat, seg, payer, ctx){
     s = (gf > 0) ? gw / gf : 1;
   }
   return (ctx._wScale[key] = s);
+}
+/** Rainbow Maker's base walk on cal_curr over the window and over the whole grid: {win, full} rows,
+ *  or null when either side cannot be walked (no matchables / no ladder). */
+function rmWindowShare_(seg, payer, ctx){
+  ctx._rmWin = ctx._rmWin || {};
+  var key = seg + '|' + payer;
+  if (ctx._rmWin[key] !== undefined) return ctx._rmWin[key];
+  var sum = function(parts){
+    var o = zeroRow_();
+    (parts || []).forEach(function(p){ RESOURCES.forEach(function(r){ o[r] = num(o[r]) + num(p.row[r]); }); });
+    return o;
+  };
+  var pw = rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCur, useBase: true });
+  var pf = rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCurFull, useBase: true, full: true });
+  return (ctx._rmWin[key] = (pw && pf) ? { win: sum(pw), full: sum(pf) } : null);
 }
 /** The activity share of the window for a (segment, payer) - what a per-earner window total from
  *  the data (data_econ) is scaled by. */
@@ -3955,7 +4150,7 @@ var Context = (function(){
     // D71: export amounts are read at the window's level (windowScale_); none on a whole-grid window
     var _ctxRef = _c;
     _c.ds.scaleFn = windowIsWholeGrid_(wc.window) ? null
-                  : function(cat, seg, payer){ return windowScale_(cat, seg, payer, _ctxRef); };
+                  : function(cat, seg, payer, res){ return windowScale_(cat, seg, payer, _ctxRef, res); };
     return _c;
   },
   // Drop the memo, so the next get() re-reads the calendars and hands out a fresh per-execution
@@ -4036,7 +4231,7 @@ var DataStore = (function(){
       scaleFn: null,
       gains: function(seg, payer, cat, res){
         var v = num(gMap[[SEG_TO_GAINS[seg]||seg, payer, cat, res].join('|')]);
-        return (v && this.scaleFn) ? v * this.scaleFn(cat, seg, payer) : v; },
+        return (v && this.scaleFn) ? v * this.scaleFn(cat, seg, payer, res) : v; },
       dataRow: function(cat, seg, payer){ var o = {}, self = this;
         RESOURCES.forEach(function(r){ o[r] = self.gains(seg, payer, cat, r); }); return o; },
       beh: function(seg, payer){ return bMap[[seg, payer].join('|')] || {}; },

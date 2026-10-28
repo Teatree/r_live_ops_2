@@ -380,12 +380,11 @@ function pbpEventState_(spec, label, inst, a, ctx, st, expWins){
   if (spec.family === 'rm'){
     // split configs (2026-07-10, hardcoded in v4's RM_INSTANCE_SHEETS): find this instance's
     // ordinal among the calendar's start-sorted RM instances -> RM_1st / RM_2nd (fallback RM)
-    var rmList = rmSortedInsts_((a.cal === CAL_CUR) ? ctx.calCur : ctx.calNew), ri = 0;
-    for (var q = 0; q < rmList.length; q++){
-      if (rmList[q].start === inst.start && rmList[q].dur === inst.dur){ ri = q; break; }
-    }
-    var rmCfg = rmConfigFor_(ri);
-    var pct = ctx.ds.rmPct(a.seg, a.payer), cfgDur = rmCfg.cfgDur;
+    // D72: the instance's own config by the window's halves (rmConfigForInst_); a cut-off
+    // instance keeps the linear duration scale here - the session view does not model claim pace
+    var rmCfg = (typeof rmConfigForInst_ === 'function') ? rmConfigForInst_(inst) : rmConfigFor_(0);
+    var pct = ctx.ds.rmPct(a.seg, a.payer);
+    var cfgDur = (typeof rmMatchDays_ === 'function') ? rmMatchDays_(ctx, rmCfg) : rmCfg.cfgDur;   // D72c
     var fb = (pct ? num(pct[a.luck]) : 0) * Math.min(1, inst.dur / cfgDur);
     ev.ladder = rmCfg.ladder;
     ev.rmSheet = rmCfg.sheet;                                  // shown nowhere yet; debug aid

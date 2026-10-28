@@ -143,6 +143,163 @@ function GATES() {
     WINDOW_RESCALE = true; fresh();
     check('D71: WINDOW_RESCALE = false reads the export raw (the measured side at its data-window level)', Math.abs(raw5 - raw) < 1e-12, raw5 + ' vs ' + raw);
   }
+
+  // ================================================================ D72: RAINBOW MAKER
+  console.log('\n================ D72: RAINBOW MAKER - HALVES AND CUT-OFFS ================');
+  {
+    const c = fresh(), N = c.window.days, half = Math.floor(N / 2);
+    const seg = '20-39', payer = 'PAYER';
+    const pct = c.ds.rmPct(seg, payer);
+    // the per-instance table, so a reader sees what the calendar holds
+    const insts = rmSortedInsts_(c.calNew);
+    console.log('cal_new Rainbow Maker instances (window days 1..' + N + ', half = ' + half + '), ' + seg + ' ' + payer + ':');
+    const parts = rmInstanceRows_(seg, payer, c) || [];
+    RM_CUTOFF_PACE = false; fresh();
+    const lin = rmInstanceRows_(seg, payer, Context.get()) || [];
+    RM_CUTOFF_PACE = true; const c1 = fresh();
+    insts.forEach((i, k) => {
+      const cfg = rmConfigForInst_(i), cut = rmCutoff_(i, cfg, 1, N, rmCalLen_(c.calNew, cfg));
+      console.log('  #' + (k + 1) + ' days ' + i.start + '..' + (i.start + i.dur - 1) + ' (' + i.dur + 'd' +
+        (i.clipStart ? ', ' + i.clipStart + ' before day 1' : '') + (i.clipEnd ? ', ' + i.clipEnd + ' after day ' + N : '') + ') ' +
+        cfg.sheet + ' cfgDur ' + cfg.cfgDur + (cut ? ' | ' + cut.side.toUpperCase() + ' CUT-OFF ' + cut.k + ' of ' + cut.L : '') +
+        ' | HC ' + (parts[k] ? parts[k].row.HC.toFixed(1) : '-') + ' SPT ' + (parts[k] ? parts[k].row.SPT.toFixed(1) : '-') +
+        (cut && lin[k] ? '  (linear pre-D72: HC ' + lin[k].row.HC.toFixed(1) + ' SPT ' + lin[k].row.SPT.toFixed(1) + ')' : ''));
+    });
+    // (1) the halves rule
+    const wrong = insts.filter(i => rmConfigForInst_(i).sheet.indexOf(i.start <= half ? 'RM_1st' : 'RM_2nd') !== 0 &&
+                                    rmConfigForInst_(i).sheet !== 'RM');
+    check('D72: an instance starting on days 1..' + half + ' reads RM_1st, a later one RM_2nd', wrong.length === 0,
+      wrong.map(i => i.start + ' -> ' + rmConfigForInst_(i).sheet).join(', ') || insts.length + ' instances');
+    check('D72: a pre-window instance (start <= 0, the measured rescale\'s full view) reads RM_1st',
+      rmConfigForInst_(mkInst_(-3, 4)).sheet.indexOf('RM_1st') === 0 || rmConfigForInst_(mkInst_(-3, 4)).sheet === 'RM');
+    // (2) the split rule: an L-day instance cut at day k is an END cut-off of k days plus a START
+    //     cut-off of L - k days, and the two pay exactly the whole instance between them
+    const cfg = rmConfigForInst_(mkInst_(1, 4)), geo = rmGeo_(c1, c1.calNew, cfg), L = geo.Lcal || cfg.cfgDur;
+    console.log('  measured RM length (cal_curr modal) ' + geo.Dm + ' days, cal_new usual length ' + geo.Lcal + ' days');
+    let worst = 0;
+    check('D72: the gates price against a real cut-off length (L >= 2)', L >= 2, String(L));
+    for (let k = 1; k < L; k++) {
+      const endI = mkInst_(N - k + 1, k), startI = mkInst_(1, L - k);
+      const pe = rmRungP_(endI, cfg, pct, seg, payer, c1.ds, 1, N, geo), ps = rmRungP_(startI, cfg, pct, seg, payer, c1.ds, 1, N, geo);
+      const pf = rmRungP_(mkInst_(5, L), cfg, pct, seg, payer, c1.ds, 1, N, geo);
+      cfg.ladder.forEach(ms => { worst = Math.max(worst, Math.abs(pe(ms.req, 'HC') + ps(ms.req, 'HC') - pf(ms.req, 'HC'))); });
+    }
+    check('D72: end cut-off (first k days) + start cut-off (last L-k days) = the whole instance, rung by rung', worst < 1e-12,
+      'max err ' + worst.toExponential(2) + ' over k = 1..' + (L - 1));
+    // (3) the pace is monotone: an end cut-off claims more, rung by rung, the more days it keeps,
+    //     and keeps the whole instance at k = L. Priced on the 4-day measured geometry so k has room.
+    //     The HC split of a cut 2-day instance is PRINTED, not asserted: whether the first day pays
+    //     more than half depends on where the ladder puts its HC, which is a property of the ladder.
+    {
+      const g4 = { Dm: geo.Dm, Lcal: geo.Dm }, L4 = geo.Dm;
+      let bad = 0, prevP = null;
+      for (let k = 1; k <= L4; k++) {
+        const p = (k < L4) ? rmRungP_(mkInst_(N - k + 1, k), cfg, pct, seg, payer, c1.ds, 1, N, g4)
+                           : rmRungP_(mkInst_(5, L4), cfg, pct, seg, payer, c1.ds, 1, N, g4);
+        const v = cfg.ladder.map(ms => p(ms.req, 'HC'));
+        if (prevP && v.some((x, i) => x < prevP[i] - 1e-12)) bad++;
+        prevP = v;
+      }
+      check('D72: an end cut-off claims more of every rung the more days it keeps (k = 1..' + L4 + ', the last = the whole instance)', bad === 0, bad + ' steps fall');
+      const k = Math.floor(L / 2);
+      const pe = rmRungP_(mkInst_(N - k + 1, k), cfg, pct, seg, payer, c1.ds, 1, N, geo);
+      const ps = rmRungP_(mkInst_(1, L - k), cfg, pct, seg, payer, c1.ds, 1, N, geo);
+      const sum = (p, r) => cfg.ladder.reduce((acc, ms) => acc + (ms.rew[r] || 0) * p(ms.req, r), 0);
+      const sh = rmMatchShare_(c1.ds, seg, payer, k, L);
+      console.log('  ' + seg + ' ' + payer + ': the first ' + k + ' of ' + L + ' days = ' + (100 * sh).toFixed(1) + '% of matchables, ' +
+        ['HC', 'SPT', 'Shuffle'].map(r => (100 * sum(pe, r) / Math.max(1e-12, sum(pe, r) + sum(ps, r))).toFixed(1) + '% of ' + r).join(', '));
+    }
+    // (4) the pace mapping: a curve one date longer than the instance is read date for date
+    {
+      const curve = c1.ds.accrualCurveMean(RM_ACCR_EVENT, seg, payer);
+      if (curve.length) {
+        const Lc = curve[curve.length - 1].day;
+        check('D72: matchables pace - instance day t is curve date t when the curve spans L+1 dates (' + Lc + ' for L = ' + (Lc - 1) + ')',
+          Math.abs(rmMatchShare_(c1.ds, seg, payer, 2, Lc - 1) - curve[1].share) < 1e-12, rmMatchShare_(c1.ds, seg, payer, 2, Lc - 1) + ' vs ' + curve[1].share);
+      } else check('D72: no Milestone curve in this dump -> the pace is linear', rmMatchShare_(c1.ds, seg, payer, 1, 4) === 0.25);
+    }
+    // (5) data_rm_pace takes over (mutation fixture), FAKE rows are ignored, and it is read per resource
+    {
+      const snap = data['data_rm_pace'];
+      const hdr = ['segment', 'payer_flag', 'instance_length_days', 'instance_day', 'resource', 'cum_pooled_share', 'status'];
+      const rows = [hdr];
+      for (let d = 1; d <= L; d++) rows.push([seg, payer, L, d, 'ALL', d === 1 ? 0.7 : Math.min(1, 0.7 + 0.3 * (d - 1) / (L - 1)), '']);
+      rows.push([seg, payer, L, 1, 'SPT', 0.9, '']);
+      for (let d = 1; d <= L; d++) rows.push(['0-9', 'NONPAYER', L, d, 'ALL', 0.99, 'FAKE']);
+      data['data_rm_pace'] = { values: rows, merges: [] };
+      const c5 = fresh();
+      const pe = rmRungP_(mkInst_(N, 1), cfg, pct, seg, payer, c5.ds, 1, N, geo);
+      const Sf = rmRungP_(mkInst_(5, L), cfg, pct, seg, payer, c5.ds, 1, N, geo);
+      const ms = cfg.ladder[Math.floor(cfg.ladder.length / 2)];
+      check('D72: with data_rm_pace, an end cut-off of 1 day claims S_full x the sheet\'s day-1 share (0.7)',
+        Math.abs(pe(ms.req, 'HC') - 0.7 * Sf(ms.req, 'HC')) < 1e-12, pe(ms.req, 'HC') + ' vs ' + 0.7 * Sf(ms.req, 'HC'));
+      check('D72: a resource row on data_rm_pace overrides the ALL row (SPT 0.9)',
+        Math.abs(pe(ms.req, 'SPT') - 0.9 * Sf(ms.req, 'SPT')) < 1e-12, String(pe(ms.req, 'SPT')));
+      const ps = rmRungP_(mkInst_(1, 1), cfg, pct, seg, payer, c5.ds, 1, N, geo);
+      check('D72: with data_rm_pace, a start cut-off of 1 day claims S_full x (1 - share at day L-1)',
+        Math.abs(ps(ms.req, 'HC') - (1 - rows[L - 1][5]) * Sf(ms.req, 'HC')) < 1e-12, String(ps(ms.req, 'HC')));
+      check('D72: FAKE rows on data_rm_pace are not read (a cell with only FAKE rows keeps the matchables pace)',
+        rmClaimPace_('0-9', 'NONPAYER', L) === null);
+      if (snap === undefined) delete data['data_rm_pace']; else data['data_rm_pace'] = snap;
+      fresh();
+    }
+    // (6) the measured side: Rainbow Maker's window scale is the BASE walk's window share, per resource
+    {
+      const c6 = fresh();
+      if (windowIsWholeGrid_(c6.window)) {
+        check('D72: whole-grid window -> Rainbow Maker reads the export raw', windowScale_('Rainbow Maker', seg, payer, c6, 'HC') === 1);
+      } else {
+        const rw = rmWindowShare_(seg, payer, c6);
+        const fn = c6.ds.scaleFn; c6.ds.scaleFn = null; const raw = c6.ds.gains(seg, payer, 'Rainbow Maker', 'HC'); c6.ds.scaleFn = fn;
+        const got = c6.ds.gains(seg, payer, 'Rainbow Maker', 'HC');
+        check('D72: the export\'s Rainbow Maker HC is read at the base walk\'s window share (' + (rw.win.HC / rw.full.HC).toFixed(4) + ')',
+          raw === 0 || Math.abs(got - raw * rw.win.HC / rw.full.HC) < 1e-9, raw + ' -> ' + got);
+      }
+    }
+    // (7) the card sim draws the same per-instance rung probability the gains model prices
+    {
+      const c7 = fresh();
+      let bad = 0, n = 0;
+      insts.forEach((inst, k) => {
+        const pr = packRungs_('Rainbow Maker', seg, payer, c7, k);
+        const P = rmRungP_(inst, rmConfigForInst_(inst), pct, seg, payer, c7.ds, 1, N);
+        if (!pr || !P) return;
+        pr.groups[0].rungs.forEach(x => { n++; if (Math.abs(x.p - P(x.req, 'ALL')) > 1e-12) bad++; });
+      });
+      check('D72: the card sim\'s Rainbow Maker rungs carry the gains model\'s in-window probability, instance by instance',
+        bad === 0, n + ' rungs, ' + bad + ' differ');
+    }
+    // (8) off-switch: RM_CUTOFF_PACE = false is the linear duration scale everywhere
+    {
+      RM_CUTOFF_PACE = false; const c8 = fresh();
+      const Dm = rmMatchDays_(c8, cfg), i = mkInst_(1, 1), P = rmRungP_(i, cfg, pct, seg, payer, c8.ds, 1, N, rmGeo_(c8, c8.calNew, cfg));
+      const S = survival_([[pct.p10 / Dm, .10], [pct.p25 / Dm, .25], [pct.p50 / Dm, .50], [pct.p75 / Dm, .75], [pct.p90 / Dm, .90]]);
+      const ms = cfg.ladder[0];
+      RM_CUTOFF_PACE = true; fresh();
+      check('D72: RM_CUTOFF_PACE = false prices a cut-off at the linear scale (dur / measured length)',
+        Math.abs(P(ms.req) - S(ms.req)) < 1e-12, P(ms.req) + ' vs ' + S(ms.req));
+    }
+    // (9) the calendar wins on length: an EventDuration edit moves no Rainbow Maker number
+    {
+      const sumRows = (ps) => (ps || []).reduce((a, p) => a + p.row.HC + p.row.SPT, 0);
+      const before = sumRows(rmInstanceRows_(seg, payer, fresh()));
+      const snap = {};
+      Object.keys(data).filter(n => /^RM(_1st|_2nd)?(_v2)?$/.test(n)).forEach(n => {
+        snap[n] = JSON.stringify(data[n]);
+        data[n].values.forEach(r => { if (String(r[0]) === 'EventDuration') r[1] = 7; });
+      });
+      const after = sumRows(rmInstanceRows_(seg, payer, fresh()));
+      RM_MATCH_DAYS_FROM_CAL = false;
+      const legacy = sumRows(rmInstanceRows_(seg, payer, fresh()));
+      RM_MATCH_DAYS_FROM_CAL = true;
+      Object.keys(snap).forEach(n => { data[n] = JSON.parse(snap[n]); });
+      fresh();
+      check('D72: EventDuration set to 7 on every RM sheet moves no Rainbow Maker number (the calendar wins on length)',
+        Math.abs(after - before) < 1e-9, before.toFixed(4) + ' vs ' + after.toFixed(4));
+      check('D72: RM_MATCH_DAYS_FROM_CAL = false reads EventDuration again (the same edit then moves the row)',
+        Math.abs(legacy - after) > 1e-6, 'legacy ' + legacy.toFixed(2) + ' vs ' + after.toFixed(2));
+    }
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `

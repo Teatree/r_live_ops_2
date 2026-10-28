@@ -1598,14 +1598,19 @@ function logCol(name){
   const fresh = () => { data = JSON.parse(RAW); authorLadders(); };
   const rarityOfCard = (s) => { const m = String(s).match(/(\d★|Gold)$/); return m ? m[1] : null; };
 
-  // (i) NO-OP: both parameters at 0 must reproduce the untouched run byte for byte. With nothing
-  // reserved, no rand() call is diverted and every number downstream is unchanged.
+  // (i) NO-OP: both parameters at 0 must reproduce a run with NO guarantee authored byte for byte.
+  // With nothing reserved, no rand() call is diverted and every number downstream is unchanged.
+  // The baseline is the sheet with both columns BLANKED, not the sheet as shipped: the workbook
+  // ships floors 1/1/2/3/4, so "untouched" compared floors against no floors and passed only while
+  // none of them happened to bind in this one seeded season (it stopped on 2026-10-28, when D72
+  // moved Rainbow Maker's envelope flow and a floor bound). That froze workbook state.
   fresh();
+  setGuarantees('', '');
   const baseline = JSON.stringify(runPacks());
   fresh();
   const patched = setGuarantees(0, 0);
   check('guarantees: fixture reaches all 6 pack tiers', patched === 6, patched + ' rows patched');
-  check('guarantees: 0/0 reproduces the untouched run byte for byte',
+  check('guarantees: 0/0 reproduces a run with no guarantee authored, byte for byte',
     JSON.stringify(runPacks()) === baseline);
 
   // Cards/Open, read from the sheet rather than assumed — the gate below asserts a guarantee
