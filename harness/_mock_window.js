@@ -316,7 +316,10 @@ function GATES() {
     check('D73: every "(2d)" instance on the calendar is a Kite Festival instance tagged variant 2d (in the window)',
       kn.filter(i => i.variant === '2d').length === (c.calNewFull[lane] || []).filter(i => i.variant === '2d' && i.start + i.dur - 1 >= 1 && i.start <= c.window.days).length &&
       (c.calNewFull[lane] || []).filter(i => i.variant === '2d').length === nVarRaw, nVarRaw + ' raw, ' + kn.filter(i => i.variant === '2d').length + ' in the window');
-    check('D73: the folded lane is start-sorted', kn.every((i, k) => k === 0 || kn[k - 1].start <= i.start));
+    // sorted only where something was folded: a lane with no variant keeps its parse order (bit identity)
+    check('D73: a lane that received variant instances is start-sorted (one with none keeps its parse order)',
+      hasVariant_(kn) ? kn.every((i, k) => k === 0 || kn[k - 1].start <= i.start) : true,
+      hasVariant_(kn) ? kn.length + ' instances' : 'no variant instance on this calendar - nothing folded');
     check('D73: a label that is itself a lane is never folded, and an unknown stem is left alone',
       (() => { const t = { 'Kite Festival': [], 'Nonsense (2d)': [mkInst_(1, 1)] }; calFoldVariants_(t); return !!t['Nonsense (2d)']; })());
     // (2) the rule: measured x sum_new reach_i E_v2(variant_i) / (E_base x sum_cur reach)  (D = 1)
@@ -365,8 +368,10 @@ function GATES() {
                    (E4.eV2['1-star Pack'] - E40.eV2['1-star Pack']);
       const ra = one(c4);
       data['Ki_2d_v2'] = JSON.parse(snap); fresh();
+      const n2 = kn.filter(i => i.variant === '2d').length;
       check('D73: +1 1-star Pack on every Ki_2d_v2 rank moves the lane by part x sum of the 2-day instances\' reach x dE (the 3-day ones not at all)',
-        pc >= 0 && want > 0 && Math.abs((after - before) - want) < 1e-9, (after - before) + ' vs ' + want);
+        pc >= 0 && (n2 ? want > 0 : want === 0) && Math.abs((after - before) - want) < 1e-9,
+        (after - before) + ' vs ' + want + (n2 ? '' : ' (no 2-day instance on this calendar: nothing may move)'));
       const moved2 = kn.filter((i, k) => i.variant === '2d' && ra[k] > rb[k]).length, moved3 = kn.filter((i, k) => !i.variant && ra[k] !== rb[k]).length;
       check('D73: the card sim gains that pack rung on every 2-day instance and on no 3-day one',
         moved2 === kn.filter(i => i.variant === '2d').length && moved3 === 0, moved2 + ' of 2-day moved, ' + moved3 + ' of 3-day');
