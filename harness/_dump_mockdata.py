@@ -76,6 +76,7 @@ SHEETS = [
     'EcoGainsSim', 'EcoGainsSim_HC', 'EcoGainsSim_so_far',   # so_far: the 8-day window view (D65 fill rule)
     'EcoGainsSim_Daily', 'EcoGainsSim_PlybyPly',   # D68: the fill is tested on the workbook's own layouts
     'Ki_Tr', 'Ki_Tr_v2',   # D66: a _v2 pair V2Diff derives from the workbook
+    'Ki_2d', 'Ki_2d_v2', 'cal_new_%NEW',   # 2026-10-28: the 2-day Kite Festival config pair and the staged new calendar
     # PBP engine additions
     'data_streaks', 'data_event_inst',
     'J_v2', 'HH_v2', 'BB_v2', 'Ph_v2', 'Ki_v2', 'TaD_v2', 'Race_v2', 'F_v2',
