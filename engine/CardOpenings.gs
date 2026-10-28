@@ -739,15 +739,26 @@ var ATT_QUAD_N = 40;
  *  or they would not be in the population. (1, nDays) closes it. A percentile the sheet does not
  *  carry is simply absent and the curve interpolates across the gap - which is what makes
  *  active_days_p95 / active_days_p98 optional rather than load-bearing. */
+// D74d (2026-10-28): the percentiles count days of the DATA window, which the model takes as the
+// calendar's whole grid (33). A shorter counted window (D70) reads them as a SHARE of it. Capping
+// at the window first collapsed the top quarter: at 28 days nine of ten cells read p75 = p90 =
+// p95 = p98 (about 24 days after the level correction), so the hardcore tail D48 exists to model
+// was gone; as a share it survives (20-39 PAYER p75/p90/p95 23.2 / 26.7 / 26.8). Factor 1 on a
+// whole-grid window, so a 33-day calendar is bit-identical.
+function attDataDays_(){
+  return (typeof CAL_LAST_COL !== 'undefined' && typeof CAL_FIRST_COL !== 'undefined')
+    ? (CAL_LAST_COL - CAL_FIRST_COL + 1) : 33;
+}
 function activeDaysAnchors_(b, nDays){
   var pts = [[0, 1]], seen = {};
+  var f = (nDays > 0 && nDays < attDataDays_()) ? nDays / attDataDays_() : 1;
   [['active_days_p25', 0.25], ['active_days_p50', 0.50], ['active_days_p75', 0.75],
    ['active_days_p90', 0.90], ['active_days_p95', 0.95], ['active_days_p98', 0.98]
   ].forEach(function(a){
     var x = num(b[a[0]]);
     if (!(x > 0) || seen[a[1]]) return;
     seen[a[1]] = true;
-    pts.push([a[1], Math.min(nDays, x)]);
+    pts.push([a[1], Math.min(nDays, (f === 1) ? x : x * f)]);
   });
   if (pts.length < 2) return null;                 // no percentile columns at all -> homogeneous
   pts.push([1, nDays]);
