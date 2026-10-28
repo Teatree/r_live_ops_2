@@ -440,6 +440,38 @@ function GATES() {
     if (snapL === undefined) delete data['data_econ_daily_live']; else data['data_econ_daily_live'] = snapL;
     fresh();
   }
+
+  // ================================================================ D74c: THE CARD SIM'S 33-ROW BLOCKS
+  console.log('\n================ D74c: Col_Cards_Cloud UNDER A SHORTER WINDOW ================');
+  {
+    const c = fresh(), N = c.window.days;
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Col_Cards_Cloud');
+    if (!sh) {
+      check('D74c: no Col_Cards_Cloud on this dump - nothing to write', true);
+    } else {
+      const vals = sh.getDataRange().getValues();
+      const rBands = findBlockRow_(vals, CLOUD_BAR_BANDS);
+      const perms = cloudPermutations_();
+      // a synthetic aggregate: every statistic of every metric reads its own day number
+      const agg = perms.map(() => { const series = {};
+        CLOUD_METRICS.forEach(m => { series[m.key] = []; for (let d = 0; d < N; d++) { const o = {}; CLOUD_STATS.forEach(st => { o[st] = d + 1; }); series[m.key].push(o); } });
+        return { series }; });
+      // junk in the rows past the window of every band block, as a previous 33-day run would leave
+      perms.forEach((p, j) => { const r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
+        for (let k = N; k < CLOUD_BLOCK_DAYS; k++) sh.getRange(r0 + 3 + k, 1, 1, SIM_BAND_W).setValues([new Array(SIM_BAND_W).fill(999)]); });
+      writeCloudSheet_(sh, agg, 1, 1);
+      let stale = 0, wrong = 0;
+      perms.forEach((p, j) => { const r0 = rBands + 2 + j * CLOUD_BAND_STRIDE;
+        for (let k = 0; k < CLOUD_BLOCK_DAYS; k++) {
+          const row = sh.getRange(r0 + 3 + k, 1, 1, SIM_BAND_W).getValues()[0];
+          if (k < N) { if (row[0] !== k + 1 || row[1] !== k + 1) wrong++; }
+          else if (row.some(x => x !== '' && x != null)) stale++;
+        } });
+      check('D74c: every band block holds the window\'s ' + N + ' days and nothing below them (rows ' + (N + 1) + '..' + CLOUD_BLOCK_DAYS + ' blank)',
+        stale === 0 && wrong === 0, wrong + ' wrong in-window rows, ' + stale + ' stale rows past day ' + N);
+    }
+    data = JSON.parse(RAW); fresh();
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `

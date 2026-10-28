@@ -2760,6 +2760,13 @@ var CLOUD_BAR_BANDS = 'PER-PERMUTATION BANDS';
 // rows, one spacer. Only the BAR is located by label; the ten sub-blocks sit at this stride under
 // it, so the builder must reserve the same 10 x CLOUD_BAND_STRIDE rows.
 var CLOUD_BAND_STRIDE = 37;
+// D74c: the day rows each Col_Cards_Cloud block holds (the builder's DAYS = 33: label, group and
+// header rows, 33 days, one gap). A window shorter than that blanks the rows below it.
+var CLOUD_BLOCK_DAYS = CLOUD_BAND_STRIDE - 4;
+function cloudClearTail_(sh, r1, c1, w){
+  var n = CLOUD_BLOCK_DAYS - DAILY_DAYS;
+  if (n > 0 && w > 0) sh.getRange(r1, c1, n, w).clearContent();
+}
 var TB = {
   totals:       'TOTALS (mean per player)',
   totalsBand:   'TOTALS (p10-p95 across players)',
@@ -3494,6 +3501,7 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
       out.push(ln);
     }
     sh.getRange(r0 + 3, 1, DAILY_DAYS, out[0].length).setValues(out);
+    cloudClearTail_(sh, r0 + 3 + DAILY_DAYS, 1, out[0].length);      // D74c
     return true;
   }
   acrossBlock(CLOUD_BAR_MEANS, 'MEAN', true);
@@ -3549,13 +3557,14 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
       rows.push(row);
     }
     sh.getRange(r0 + 3, 1, DAILY_DAYS, SIM_BAND_W).setValues(rows);
+    cloudClearTail_(sh, r0 + 3 + DAILY_DAYS, 1, SIM_BAND_W);         // D74c
 
 
     // ACTUAL columns: FORMULAS into data_col_daily, one per column, spilling all 33 days. The
     // whole area is cleared first - an ARRAYFORMULA will not spill into occupied cells, and the
     // cells below are exactly where this writer used to put static values.
     var actW = CLOUD_METRICS.length * CLOUD_ACTUAL_STATS.length;
-    sh.getRange(r0 + 3, SIM_BAND_W + 1, DAILY_DAYS, actW).clearContent();
+    sh.getRange(r0 + 3, SIM_BAND_W + 1, Math.max(DAILY_DAYS, CLOUD_BLOCK_DAYS), actW).clearContent();
     if (cdOk)
       sh.getRange(r0 + 3, SIM_BAND_W + 1, 1, actW)
         .setFormulas([actFormulaRow_(perms[j], r0 + 3, r0 + 2 + DAILY_DAYS)]);
