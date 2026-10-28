@@ -240,6 +240,13 @@ function GATES() {
         Math.abs(ps(ms.req, 'HC') - (1 - rows[L - 1][5]) * Sf(ms.req, 'HC')) < 1e-12, String(ps(ms.req, 'HC')));
       check('D72: FAKE rows on data_rm_pace are not read (a cell with only FAKE rows keeps the matchables pace)',
         rmClaimPace_('0-9', 'NONPAYER', L) === null);
+      // the pull counts DATES spanned: an L-day instance prefers the L+1 curve over an L one
+      for (let d = 1; d <= L + 1; d++) rows.push([seg, payer, L + 1, d, 'ALL', d === 1 ? 0.2 : 1, '']);
+      data['data_rm_pace'] = { values: rows, merges: [] };
+      fresh();
+      const pp = rmClaimPace_(seg, payer, L);
+      check('D72: an L-day instance reads the (L+1)-date curve when the pull has both (dates spanned, as the prompt defines it)',
+        !!pp && pp.L === L + 1 && pp.share('ALL', 1) === 0.2, pp ? 'L ' + pp.L + ', day 1 ' + pp.share('ALL', 1) : 'none');
       if (snap === undefined) delete data['data_rm_pace']; else data['data_rm_pace'] = snap;
       fresh();
     }

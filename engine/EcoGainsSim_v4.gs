@@ -2874,8 +2874,10 @@ function rmMatchShare_(ds, seg, payer, t, L){
   return 1;
 }
 // data_rm_pace (PROMPT_rm_claim_pace.md): the cumulative share of reward value CLAIMED by the end of
-// each instance day. Used when the sheet carries this (segment, payer) at the instance length, or at
-// one more (the pull may count the dates an instance spans). Rows marked FAKE are skipped - this
+// each instance day. The prompt defines instance_length_days as the calendar DATES an instance spans
+// (5 for the 4-day event, as data_event_accrual counts it), so an L-day instance reads the L+1 curve
+// first and the L curve only when there is none - the other order would hand a 4-day cut-off the
+// 3-day event's curve (4 dates). Rows marked FAKE are skipped - this
 // feeds simulated values. Returns {L, share(res, day)} or null; share() returns null for a missing
 // day so the caller can fall back resource -> ALL -> matchables curve.
 var RM_PACE_SHEET = 'data_rm_pace';
@@ -2904,7 +2906,7 @@ function rmClaimPace_(seg, payer, L){
     }
   }
   var base = seg + '|' + String(payer).toUpperCase() + '|';
-  var Lp = _rmPaceCache.tab[base + L] ? L : (_rmPaceCache.tab[base + (L + 1)] ? L + 1 : 0);
+  var Lp = _rmPaceCache.tab[base + (L + 1)] ? L + 1 : (_rmPaceCache.tab[base + L] ? L : 0);
   if (!Lp) return null;
   var tab = _rmPaceCache.tab[base + Lp];
   return { L: Lp, share: function(res, day){
