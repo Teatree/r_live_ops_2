@@ -2071,6 +2071,17 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // on the day that tier is reached (linear through the season) gives real provenance instead of the
   // blank Source_Detail the old path produced, and keeps the total equal to the track's cs value.
   var spPacks = pre.spPacks;        // ditto
+  // D74e (2026-10-28): a player who opened the game on NO day of the season climbed no pass, so
+  // their track pays nothing - neither the grant nor the expectation. The track is priced for the
+  // cohort; handing it to a season with zero active days put envelopes on days the log calls
+  // '(did not play)' (2-3 seasons in 200 on every cell), which pushed days-with-a-pack above
+  // days-played at 100+ PAYER on the 28-day window. spAttendedDay_ has nowhere to snap such a pack.
+  // The days that count are the ALBUM's (to SEASON_LAST_DAY when the cutoff is on): a player whose
+  // only sessions come after the album closed - possible on a 33-day grid - has nowhere to file a
+  // pass envelope either, and the forward snap is capped at the album's last day.
+  var playedAny = false, lastAlbumDay = SEASON_CUTOFF ? Math.min(SEASON_DAYS, SEASON_LAST_DAY) : SEASON_DAYS;
+  for (var q0 = 1; q0 <= lastAlbumDay && !playedAny; q0++) if (playedOn[q0]) playedAny = true;
+  if (!playedAny) spPacks = [];
   spPacks.forEach(function(tp){
     for (var t in tp.packs){
       var n = num(tp.packs[t]);

@@ -479,6 +479,52 @@ function GATES() {
     }
     data = JSON.parse(RAW); fresh();
   }
+
+  // ================================================================ D74d/e: THE CARD SIM'S PLAYERS
+  console.log('\n================ D74d/e: ATTENDANCE UNDER A SHORTER WINDOW ================');
+  {
+    const c = fresh(), N = DAILY_DAYS, G33 = CAL_LAST_COL - CAL_FIRST_COL + 1;
+    // (d) the measured active-day percentiles are a SHARE of the 33-day data window
+    const seg = '20-39', payer = 'PAYER', b = c.ds.beh(seg, payer);
+    const pts = activeDaysAnchors_(b, N);
+    const keys = [['active_days_p25', .25], ['active_days_p50', .5], ['active_days_p75', .75], ['active_days_p90', .9], ['active_days_p95', .95], ['active_days_p98', .98]];
+    let bad = 0;
+    keys.forEach(([k, u]) => { const x = Number(b[k]); if (!(x > 0)) return;
+      const p = pts.find(q => Math.abs(q[0] - u) < 1e-12); const want = Math.min(N, x * (N < G33 ? N / G33 : 1));
+      if (!p || Math.abs(p[1] - want) > 1e-12) bad++; });
+    check('D74d: active-day anchors are read as a share of the ' + G33 + '-day data window (x ' + (N < G33 ? (N / G33).toFixed(4) : '1') + ')', bad === 0, bad + ' anchors off');
+    if (N < G33) {
+      // the property it exists for: a cell whose measured p75 < p90 < 33 keeps p75 < p90 after the level correction
+      const cv = attendanceCurve_(b, N), at = (u) => curveAt_(cv, u);
+      const raw75 = Number(b.active_days_p75), raw90 = Number(b.active_days_p90);
+      if (raw75 < raw90 && raw90 < G33)
+        check('D74d: the top quarter keeps its spread under the ' + N + '-day window (p75 < p90 < p98)',
+          at(0.75) < at(0.9) - 1e-6 && at(0.9) <= at(0.98) + 1e-9, 'p75 ' + at(0.75).toFixed(2) + ' p90 ' + at(0.9).toFixed(2) + ' p98 ' + at(0.98).toFixed(2));
+    }
+    // (e) a season with no active day opens no envelope, and no season has more pack days than active days
+    const cfg = loadPackConfig_(), cat = loadCardCatalog_(cfg, SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ALBUM));
+    let zero = 0, zeroPacks = 0, over = 0, runs = 300;
+    [['100+', 'PAYER'], ['0-9', 'NONPAYER']].forEach(([sg, py]) => {
+      const pre = cardSeasonPre_(sg, py, c, null);
+      for (let i = 0; i < runs; i++) {
+        const r = runOneCardSeason_(sg, py, 1000 + i, cfg, cat, pre);
+        // GRANTED packs only: the end-of-season spend-down (user, 2026-09-09) converts leftover
+        // stars into chests on the album's last day whether or not the player plays it - a rule,
+        // not a leak - so chest rows are left out of this count
+        const gd = {};
+        // ...and, when the album closes BEFORE the window ends (33-day grids), its last day: D26
+        // settles a straddler's late envelopes there in full whether or not the player plays it
+        const settleDay = (SEASON_CUTOFF && SEASON_LAST_DAY < N) ? SEASON_LAST_DAY : -1;
+        r.log.forEach(l => { if (String(l[1]).trim() && !/Chest Opened/.test(String(l[2])) && Number(l[0]) !== settleDay) gd[l[0]] = 1; });
+        if (Object.keys(gd).length > r.activeDays) over++;
+        if (!r.activeDays) { zero++; if (r.packsOpenedTotal > 0) zeroPacks++; }
+      }
+    });
+    check('D74e: a season with no active day opens no envelope (no pass envelope without an in-album session)', zeroPacks === 0,
+      zero + ' seasons with no active day of ' + (2 * runs) + ', ' + zeroPacks + ' opened envelopes');
+    check('D74e: no season has more days with a GRANTED pack than days played (spend-down chests and the D26 settle day aside)', over === 0, over + ' seasons over');
+    fresh();
+  }
 }
 
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n' + `
