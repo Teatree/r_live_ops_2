@@ -7,11 +7,12 @@ and instance logic). It replaces my `data_RM` sheet, which was built before Rain
 ---
 
 You wrote my `data_rm_pace` query. Its own numbers show that my `data_RM` sheet, the distribution of
-matchables a player collects in ONE Rainbow Maker instance, cannot be right: priced on the ladder
-the instances ran, `data_RM` puts the average `0-9 NONPAYER` participant on **14.6** milestones at the
-end of a 4-day instance, and your `cum_milestones_claimed_mean` says **5.6**; at `100+ PAYER` it is
-**27.2** against **21.5**. Every cell overshoots, by 1.3x to 2.6x in milestones, which takes 3x to 12x
-the matchables. `data_RM` was measured before the event existed (matchables from normal level play
+matchables a player collects in ONE Rainbow Maker instance, cannot be right: priced on my `RM_1st`
+ladder (30 milestones, last `Req Accum` 352,260), `data_RM` puts the average `0-9 NONPAYER`
+participant on **14.6** milestones at the end of a 4-day instance, and your
+`cum_milestones_claimed_mean` says **5.6**; at `100+ PAYER` it is **27.2** against **21.5**. Every cell
+overshoots, by 1.3x to 2.6x in milestones; matching your counts would take about 3x to 13x fewer
+matchables. `data_RM` was measured before the event existed (matchables from normal level play
 over a 4-day window), so it was never the event's own number. I now need the event's own number.
 
 ## 1. Purpose
