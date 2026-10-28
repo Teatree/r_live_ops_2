@@ -77,6 +77,8 @@ SHEETS = [
     'EcoGainsSim_Daily', 'EcoGainsSim_PlybyPly',   # D68: the fill is tested on the workbook's own layouts
     'Ki_Tr', 'Ki_Tr_v2',   # D66: a _v2 pair V2Diff derives from the workbook
     'Ki_2d', 'Ki_2d_v2', 'cal_new_%NEW',   # 2026-10-28: the 2-day Kite Festival config pair and the staged new calendar
+    'cal_new%OLD',                          # LIVE_OPS_V3 (5): the pre-swap cal_new, kept by the user (not read by the engine)
+    'data_rm_pace',                         # D72: Rainbow Maker claim pace (PROMPT_rm_claim_pace.md)
     # PBP engine additions
     'data_streaks', 'data_event_inst',
     'J_v2', 'HH_v2', 'BB_v2', 'Ph_v2', 'Ki_v2', 'TaD_v2', 'Race_v2', 'F_v2',

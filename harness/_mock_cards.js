@@ -32,7 +32,10 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // 2026-10-28 export, saved as '🏮LIVE_OPS_V3 (3).xlsx': cal_new_%NEW, Ki_2d_v2
                        v3d: '_mockdata_v3d.json',
                        // the 28-day-window fixture built from v3d by harness/_make_window_fixture.js
-                       w28: '_mockdata_v3d_w28.json' };
+                       w28: '_mockdata_v3d_w28.json',
+                       // 2026-10-28 14:19 export '🏮LIVE_OPS_V3 (5).xlsx': cal_new swapped in, row 4
+                       // renumbered, data_rm_pace and a re-pulled data_econ_daily_live
+                       v3e: '_mockdata_v3e.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
