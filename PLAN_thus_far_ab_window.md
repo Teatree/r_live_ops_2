@@ -121,7 +121,7 @@ Each column shows, per segment × payer, the share of players with at least one 
 
 | # | column | how |
 |---|---|---|
-| 1 | **Actual, thus far** | `players_album1_done ÷ players_in_cell` at day N, from `data_col_daily` (new `albums` metric). Sheet formulas, as D57 does, so a re-pull shows up without a sim run |
+| 1 | **Actual, thus far** | `album1_completers` and `album1_completion_rate` from `data_col_season`, as of its `data_through_date` (requested; until it arrives, the as-of day is `data_col_daily`'s last `day`). Sheet formulas, as D57 does, so a re-pull shows up without a sim run |
 | 2 | **Sim, `cal_curr`, thus far** | card sim over `cal_curr` with the base ladders, `PackConfig`, `AlbumConfig` and `ToF`. Share with `albumPct` ≥ 100 on day N. New `'cur'` side of `SimulateCardCloud`, reusing D67's `baseCtx_` path |
 | 3 | **Sim, `cal_new` + new configs, thus far** | `cal_new`, the `_v2` ladders, `PackConfig_v2`, `AlbumConfig_v2` and `ToF_v2`, read on day N |
 | 4 | **Sim, `cal_new` + new configs, season end** | the same seasons as column 3, read on day L = 28 (Nov 9) |
@@ -147,12 +147,34 @@ Each column shows, per segment × payer, the share of players with at least one 
 
 ## 9. Your workbook steps, in order
 
-1. On **both** calendars, insert a column before B for Tue Oct 13. Type the events running that day: Kite Oct 12–14 → B:C, Rainbow Maker Oct 12–15 → B:D, Night Sky, and the rest. Make the weekday row Tuesday-first, put 1..28 in row 4 from B, and type 2026-10-13 in B1.
-2. Re-merge the pre-window events D78 listed (they now sit one column further right).
-3. Re-lay `cal_new`'s redesign from Oct 13. Its day 1 moves six days earlier than the Oct 19 layout.
-4. Run Precompute calendars, because `cal_parsed` must match the new grid.
-5. Paste the re-pulled sheets **only after** the §1 engine change is in the Apps Script project.
-6. Clean up two sheets: delete the 62,984 pasted rows under `data_econ_daily_live`, and the two stray blocks on `data_seg_beh` (O13:W22, G27:Z37).
+Status checked on LIVE_OPS_V3 (2), 2026-10-29: the column for Oct 13 is inserted on both calendars
+and B1 holds 2026-10-13; everything below that is still to do.
+
+1. Row 4 on **both** calendars: 1 in B4 (Oct 13) through 28 in AC4 (Nov 9); clear H4:AI4. While the
+   1 sits in H, the engine starts on Oct 19, ignores B1 (it reads the date only above the 1), and
+   counts 27 days, because its grid stops at column AH and day 28 is in AI.
+2. Row 3 on both: weekday names from B (Tuesday) through AC (Monday). The weekend rule is read from
+   the name above the 1.
+3. Column B (Oct 13) on both: type what ran that day. The A/B data shows Rainbow Maker, Kite
+   Festival, Team Event, Night Sky, the new Season Pass season and ToF paying or running; the weekly
+   lanes (Top Players / Top Teams, Season Offers, Flock Flurry) follow their pattern. Check against
+   the live schedule.
+4. Merge every multi-day instance in B:G on both. They are inside the season now, and Precompute
+   has already turned them into 1-day instances (`cal_parsed` in (2) starts Rainbow Maker, Team Event
+   and Hatchling with 1-day pieces). From the live data: Rainbow Maker B:D, Kite B:C, Team Event
+   B:D, Top Players and Top Teams B:G, Hatchling D:G, Team Race E:G, Mystery Puzzle E:G, Red's
+   Challenge C:D. Season Pass (C:AF) and ToF (C:AI) start at C: if both started with the test, they
+   begin at B.
+5. `cal_new`: B:G is still the live layout and the redesign starts at H (Oct 19). For a 28-day
+   redesign from Oct 13, either copy the redesign's Tuesday–Sunday cells (I:N) into B:G, which keeps
+   every event on its weekday, or keep B:G as the live layout and accept that days 1–6 compare
+   configs only. Columns AD:AI (Nov 10–15) are past the season and are not read once row 4 ends at AC.
+6. Run Precompute calendars after the merges.
+7. `data_econ_daily_live` is empty, so the daily view falls back to the August sheet and shows
+   August days on October rows. Paste `workbooks/data_econ_daily_live_2026-10-26.csv` (the 1,820
+   rows of the last delivery, both arms pooled, Oct 13 → Oct 26) as a stopgap until the re-pull.
+8. Paste the re-pulled sheets **only after** the §1 engine change is in the Apps Script project.
+9. Delete the two stray blocks on `data_seg_beh` (O13:W22, G27:Z37).
 
 ## 10. Order of work (one commit each, harness green before the next)
 
