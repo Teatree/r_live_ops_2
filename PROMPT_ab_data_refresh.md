@@ -31,33 +31,40 @@ have gained under the redesign over the same days". That needs every sheet on th
 
 ### 0.2 Window — the dates we care about
 
+The simulation compares calendars from **Mon 2026-10-19** onward (the first column of our calendar
+grid that is counted). The test itself started six days earlier, on Tue 2026-10-13, so the days in
+between are delivered separately as a lead-in, never as part of the window.
+
 | period | dates | used for |
 |---|---|---|
-| **Test window** | **Tue 2026-10-13 → yesterday.** On 2026-10-29 that is **Tue 2026-10-13 → Wed 2026-10-28, 16 days** | every sheet, every row |
-| **Season end** | **Mon 2026-11-09** (day 28). The test window grows by one day per re-pull and **stops here** — never pull a date after 2026-11-09 | the cap on `data_through_date` |
-| Pre-period | Wed 2026-10-07 → Mon 2026-10-12 (6 days) | **only** the `period = 'pre'` rows of §12, and the segmentation run-up |
+| **Window** | **Mon 2026-10-19 → yesterday.** On 2026-10-29 that is **Mon 2026-10-19 → Wed 2026-10-28, 10 days** | every sheet, every row |
+| **Window end** | **Sun 2026-11-15** (day 28). The window grows by one day per re-pull and **stops here** — never pull a date after 2026-11-15 | the cap on `data_through_date` |
+| Lead-in | Tue 2026-10-13 → Sun 2026-10-18 (6 days: test running, before the window) | **only** the `period = 'lead_in'` rows of §11 and §12 |
+| Pre-period | Wed 2026-10-07 → Mon 2026-10-12 (6 days: before the test) | **only** the `period = 'pre'` rows of §12, and the segmentation run-up |
 
-Nothing before 2026-10-13 belongs in any sheet except the pre-period rows of §12 and the `pre_ab`
-fallback rows of §4. Nothing from August or September.
+The album season is Tue 2026-10-13 → Mon 2026-11-09; the album sheet (§13) keeps its own season
+dates. Nothing from August or September in any sheet.
 
 | column | rule |
 |---|---|
-| `window_start_date` | **2026-10-13** (Hex input `{{ ab_start_date_input }}`). Constant on every row |
-| `data_through_date` | the last **complete** day: `LEAST(yesterday, 2026-11-09)`. Never today. Constant on every row |
-| `days_available` | `data_through_date − window_start_date + 1` (16 on 2026-10-29, 28 at most). Constant on every row |
-| `day_index` | `date_diff('day', window_start_date, calendar_date) + 1` → 2026-10-13 is day 1, 2026-11-09 is day 28 |
+| `window_start_date` | **2026-10-19** (Hex input `{{ window_start_date_input }}`). Constant on every row |
+| `data_through_date` | the last **complete** day: `LEAST(yesterday, 2026-11-15)`. Never today. Constant on every row |
+| `days_available` | `data_through_date − window_start_date + 1` (10 on 2026-10-29, 28 at most). Constant on every row |
+| `day_index` | `date_diff('day', window_start_date, calendar_date) + 1` → 2026-10-19 is day 1, 2026-11-15 is day 28; lead-in days are 0 … −5, pre-period days −6 … −11 |
 | `calendar_date` | the date of that day, on every per-day row |
-| segmentation run-up | the 7-day rolling tier needs 6 days before the start: `rolling_start` = 2026-10-07 |
+| `period` | on the per-day sheets (§11, §12): `window`, `lead_in` or `pre` |
+| segmentation | the modal tier is computed over the **window** days only; its 7-day rolling run-up reads from 2026-10-13 |
 
 Every sheet is a **"to date" pull**: it will be re-run every few days with the same SQL and only
-`data_through_date` moving. Parameterise the end date as `LEAST(yesterday, 2026-11-09)` so the file
-re-runs unchanged.
+`data_through_date` moving. Parameterise the end date as `LEAST(yesterday, 2026-11-15)` so the file
+re-runs unchanged. Players count from **2026-10-19**; a player active only in the lead-in is not in
+any window population.
 
 ### 0.3 Cohort and keys
 
 - **Arm:** column **`ab_variant`** on every row, exactly `Control` or `Variant A`. Use the same
   assignment the production A/B dashboard uses for this test; name the table and the assignment
-  rule in the notes. Players assigned after 2026-10-13 count from their assignment day (state how
+  rule in the notes. Players assigned after 2026-10-19 count from their assignment day (state how
   many). Players seen in both arms: exclude and report the count.
 - **`segment`:** `0-9`, `10-19`, `20-39`, `40-99`, `100+` — the **modal** 7-day saga play-rate tier
   of `data_seg_beh` (same CASE, same thresholds, `ORDER BY seg_days DESC, seg_rank DESC`), computed
@@ -103,7 +110,9 @@ Where a sheet has spend: envelopes spent = **opened**, tickets spent = **consume
 Keep the CASE your `resource_share_by_category_period_v2` query already uses (`red_event` → Red
 Challenge, `dreamheist_event` → Daily Night Sky Prize, `ArcheryArena` → Target Day, `FlockRush` →
 Flock Flurry, `team_collection` → Team Event, `team_versus` / `team_versus_contribution` /
-`race_event` → Team Race, `saga_progression` → Saga, `player_level_up` → Core, `ad_chest` → Ads,
+`race_event` → Team Race (**check this one**: in the live data `race_event` pays daily Fri–Sun —
+Oct 16–18 and 23–25 — exactly like our Chuck's Flash Race lane, while Team Race pays on Mondays; if
+it is Flash Race, map it to `Flash Race` and say so), `saga_progression` → Saga, `player_level_up` → Core, `ad_chest` → Ads,
 `wager_event` → Level Race, …) and **add these branches**:
 
 | raw source | category |
@@ -149,7 +158,7 @@ there.
 
 ### 0.8 Deliverable, for every sheet
 
-The SQL (labelled blocks, parameterised on `{{ ab_start_date_input }}` and yesterday), the CSV, the
+The SQL (labelled blocks, parameterised on `{{ window_start_date_input }}` and `LEAST(yesterday, 2026-11-15)`), the CSV, the
 row count, `days_available`, a `HEADER_NOTES` entry in the style of `daily_gains.sql`, and a notes
 block: source tables, exact dates, denominators, the §0.7 numbers, any column omitted and why,
 anything that looked wrong. **Paste each result into its own sheet with exactly the name in the
@@ -244,7 +253,7 @@ with the same columns. Same columns as today plus `ab_variant`, `window_start_da
 `data_through_date`, `days_available`.
 
 If an event has not completed an instance in the window, deliver its most recent completed
-instances from before 2026-10-13 with `period = 'pre_ab'` in an appended `period` column (`ab`
+instances from before 2026-10-19 (test days first, 2026-10-13 onward) with `period = 'pre_ab'` in an appended `period` column (`window`
 otherwise), rather than leaving it out. Do not synthesise lengths that never ran — the redesign
 uses 2-day Rainbow Maker, 2-day Bomb's Ballet / Jigsaw and 3-day Hatchling; if any of those ran,
 those rows matter most.
@@ -278,10 +287,10 @@ it ran, from the event's own config identifier or asset; if neither is logged, c
 the instance paid any `SPTx2` and say so.
 
 **Grain:** `ab_variant` × `segment` × `payer_flag` × `instance_start_date` × `instance_day` ×
-`resource`. Every instance that was **running on any day from 2026-10-13 to `data_through_date`**,
-complete or not. That includes the instance that started Mon 2026-10-12 and was running on day 1:
-deliver its 2026-10-12 day too, flagged by its `calendar_date`. A running instance carries its days
-so far.
+`resource`. Every instance that was **running on any day from 2026-10-19 to `data_through_date`**,
+complete or not, plus the instance that ran Mon 2026-10-12 → Thu 2026-10-15 (the only Rainbow Maker
+of the test before the window; mark it `period = 'lead_in'` in an appended `period` column, `window`
+otherwise). A running instance carries its days so far.
 
 **Columns:** every existing column, same meaning, now per instance rather than pooled, then appended:
 
@@ -329,10 +338,12 @@ the engine's fallback. **Do not regenerate it**; §12 replaces it for the test.
 `Season Pass (Paid)` sources. No arm.
 
 **Grain:** `ab_variant` × `segment` × `payer_flag` × `source` × `currency` × `day_index`, every
-complete day of the window. `source` = the §0.5 categories; `currency` = the §0.4 resources.
+complete day of the window, **plus the six lead-in days** (2026-10-13 → 2026-10-18, `day_index`
+0 … −5, `period = 'lead_in'`). The lead-in rows use the same denominators as the window rows; they
+tell us what players had already earned when the window opened. `source` = the §0.5 categories; `currency` = the §0.4 resources.
 
 **Columns:** `segment`, `payer_flag`, `source`, `currency`, `day_index`, `calendar_date`, `dow`,
-`ab_variant`, `players_in_cell`, `active_players_day`, `resource_earners`, `window_start_date`,
+`period`, `ab_variant`, `players_in_cell`, `active_players_day`, `resource_earners`, `window_start_date`,
 `data_through_date`, `days_available`, `status`, `gain_total`, `gain_per_earner_day`,
 `gain_per_active_player_day`, `recipients_day`, `spend_total`, `spend_per_earner_day`.
 
@@ -356,7 +367,7 @@ over categories, per arm/cell/currency (±1%).
 
 **Wrong today.** The sheet is empty: it was cleared to remove 62,984 August rows that had been pasted
 under the live rows. The last delivery it held was 1,820 rows = 10 cells × 13 currencies × 14 days,
-Tue 2026-10-13 → Mon 2026-10-26, with both arms pooled (the earlier brief said "no A/B cohort
+Tue 2026-10-13 → Mon 2026-10-26 (counted from the test start, not from our window), with both arms pooled (the earlier brief said "no A/B cohort
 filter"; that is reversed now), no envelopes or `ToF_Ticket` (the "extras" were not delivered), and
 a `resource_earners_window` that is one number per pull, so every `*_per_earner_day` value was
 revised on each re-pull.
@@ -369,10 +380,11 @@ earlier delivery, unchanged in name (`segment`, `payer_flag`, `currency`, `day_i
 plus `ab_variant` and `data_through_date`, with the 19 §0.4 names in `currency`.
 
 - `resource_earners_window` = exactly §11's `resource_earners` for the same pull.
-- **Also emit the 6 days before the test**, Wed 2026-10-07 → Mon 2026-10-12, as `day_index` −5 … 0
-  with an appended `period = 'pre'` (`'ab'` otherwise). Both arms ran the same game then, so they
-  should match within noise; that is our check that the arms are comparable, and the baseline the
-  test effect is measured against.
+- **Also emit the lead-in and the pre-period** in an appended `period` column: Tue 2026-10-13 → Sun
+  2026-10-18 as `day_index` 0 … −5 (`lead_in`), and Wed 2026-10-07 → Mon 2026-10-12 as `day_index`
+  −6 … −11 (`pre`); `window` otherwise. Before the test both arms ran the same game, so the `pre`
+  rows should match within noise; that is our check that the arms are comparable, and the baseline
+  the test effect is measured against.
 - Your output replaces the whole sheet: header on row 1, your rows from row 2, nothing else.
 
 ## §13 `data_col_season` — season to date (Variant A)
