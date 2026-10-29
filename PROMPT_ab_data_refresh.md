@@ -1,6 +1,8 @@
 # Data request — re-pull every `data_*` sheet onto the live A/B window (2026-10-29)
 
-Hand this file to the analytics LLM. **§0 is shared by every sheet; §1–§17 are one sheet each.**
+Hand this file to the analytics LLM. **§0 is shared by every sheet; §1–§13 are one sheet each.**
+`data_col_daily`, `data_col_envelopes`, `data_tof_runs` and `data_tof_stages` are not in this
+request — they are up to date.
 To regenerate a single sheet, paste §0 plus that sheet's section — each section is written to stand
 on its own. Paste the query you already wrote for that sheet alongside it (they are in `sqls/` or in
 your Hex notebook), so the cohort, segmentation and filters are reused, not rebuilt.
@@ -27,19 +29,29 @@ The model now has to answer "what has the economy gained **so far** in the test,
 have gained under the redesign over the same days". That needs every sheet on the A/B window,
 **per arm**, with dates, and with envelopes and ToF tickets as ordinary resources.
 
-### 0.2 Window
+### 0.2 Window — the dates we care about
 
-| item | rule |
+| period | dates | used for |
+|---|---|---|
+| **Test window** | **Tue 2026-10-13 → yesterday.** On 2026-10-29 that is **Tue 2026-10-13 → Wed 2026-10-28, 16 days** | every sheet, every row |
+| **Season end** | **Mon 2026-11-09** (day 28). The test window grows by one day per re-pull and **stops here** — never pull a date after 2026-11-09 | the cap on `data_through_date` |
+| Pre-period | Wed 2026-10-07 → Mon 2026-10-12 (6 days) | **only** the `period = 'pre'` rows of §12, and the segmentation run-up |
+
+Nothing before 2026-10-13 belongs in any sheet except the pre-period rows of §12 and the `pre_ab`
+fallback rows of §4. Nothing from August or September.
+
+| column | rule |
 |---|---|
 | `window_start_date` | **2026-10-13** (Hex input `{{ ab_start_date_input }}`). Constant on every row |
-| `data_through_date` | the last **complete** day (`processdate` ≤ yesterday). Never include today. Constant on every row |
-| `days_available` | `data_through_date − window_start_date + 1`. Constant on every row |
-| `day_index` | `date_diff('day', window_start_date, calendar_date) + 1` → 2026-10-13 is day 1 |
+| `data_through_date` | the last **complete** day: `LEAST(yesterday, 2026-11-09)`. Never today. Constant on every row |
+| `days_available` | `data_through_date − window_start_date + 1` (16 on 2026-10-29, 28 at most). Constant on every row |
+| `day_index` | `date_diff('day', window_start_date, calendar_date) + 1` → 2026-10-13 is day 1, 2026-11-09 is day 28 |
 | `calendar_date` | the date of that day, on every per-day row |
 | segmentation run-up | the 7-day rolling tier needs 6 days before the start: `rolling_start` = 2026-10-07 |
 
 Every sheet is a **"to date" pull**: it will be re-run every few days with the same SQL and only
-`data_through_date` moving. Parameterise the end date as yesterday so the file re-runs unchanged.
+`data_through_date` moving. Parameterise the end date as `LEAST(yesterday, 2026-11-09)` so the file
+re-runs unchanged.
 
 ### 0.3 Cohort and keys
 
@@ -127,7 +139,8 @@ there.
    A ratio that differs strongly between cells means the assignment or a filter is uneven.
 3. **Population guard:** the ten `players_in_cell` per arm against §2's `unique_players` for the
    same arm. A uniform offset is fine; a spread across cells above ~3× means the segment axis is
-   not ours (a previous ToF pull bucketed on `player_profile_level` and ran 0.0× to 50×).
+   not ours (an earlier album pull bucketed on `player_profile_level` and ran 0.0× at `0-9` to 32×
+   at `100+`).
 4. **Re-pull stability:** a day already delivered must not move by more than 1% on the next pull
    (late events excepted — flag them).
 5. **Cross-check against the dashboard:** for `40-99`, your per-arm daily totals by source should
@@ -265,8 +278,10 @@ it ran, from the event's own config identifier or asset; if neither is logged, c
 the instance paid any `SPTx2` and say so.
 
 **Grain:** `ab_variant` × `segment` × `payer_flag` × `instance_start_date` × `instance_day` ×
-`resource`. All instances that **started** on or after 2026-10-09 (the one running on 2026-10-13
-included — flag its pre-window days), complete or not; a running instance carries its days so far.
+`resource`. Every instance that was **running on any day from 2026-10-13 to `data_through_date`**,
+complete or not. That includes the instance that started Mon 2026-10-12 and was running on day 1:
+deliver its 2026-10-12 day too, flagged by its `calendar_date`. A running instance carries its days
+so far.
 
 **Columns:** every existing column, same meaning, now per instance rather than pooled, then appended:
 
@@ -339,82 +354,43 @@ over categories, per arm/cell/currency (±1%).
 
 ## §12 `data_econ_daily_live` — per day, all sources, per arm
 
-**Wrong today.** 1,820 rows = 10 cells × 13 currencies × 14 days, Tue 2026-10-13 → Mon 2026-10-26 —
-two complete days behind as of 2026-10-29. Both arms pooled (the earlier brief said "no A/B cohort
-filter"; that is reversed now). No envelopes or `ToF_Ticket` (the "extras" were not delivered).
-62,984 rows of the August by-source feed are pasted underneath in a different column layout
-(category names under `currency`, resource names under `day_index`). `resource_earners_window` is
-one number per pull, so every `*_per_earner_day` value is revised on each re-pull.
+**Wrong today.** The sheet is empty: it was cleared to remove 62,984 August rows that had been pasted
+under the live rows. The last delivery it held was 1,820 rows = 10 cells × 13 currencies × 14 days,
+Tue 2026-10-13 → Mon 2026-10-26, with both arms pooled (the earlier brief said "no A/B cohort
+filter"; that is reversed now), no envelopes or `ToF_Ticket` (the "extras" were not delivered), and
+a `resource_earners_window` that is one number per pull, so every `*_per_earner_day` value was
+revised on each re-pull.
 
-**Grain:** `ab_variant` × `segment` × `payer_flag` × `currency` × `day_index`. The existing columns,
-unchanged in name, plus `ab_variant` and `data_through_date`, with the 19 §0.4 names in `currency`.
+**Grain:** `ab_variant` × `segment` × `payer_flag` × `currency` × `day_index`. The columns of the
+earlier delivery, unchanged in name (`segment`, `payer_flag`, `currency`, `day_index`,
+`calendar_date`, `dow`, `gain_total`, `spend_total`, `players_in_cell`, `active_players_day`,
+`resource_earners_window`, `gain_per_active_player_day`, `spend_per_active_player_day`,
+`gain_per_earner_day`, `spend_per_earner_day`, `days_available`, `window_start_date`, `status`),
+plus `ab_variant` and `data_through_date`, with the 19 §0.4 names in `currency`.
 
 - `resource_earners_window` = exactly §11's `resource_earners` for the same pull.
-- **Also emit the 6 days before the test**, 2026-10-07 → 2026-10-12, as `day_index` −5 … 0 with an
-  appended `period = 'pre'` (`'ab'` otherwise). Both arms ran the same game then, so they should
-  match within noise; that is our check that the arms are comparable, and the baseline the test
-  effect is measured against.
-- **Nothing else on the sheet.** Delete the pasted by-source rows.
+- **Also emit the 6 days before the test**, Wed 2026-10-07 → Mon 2026-10-12, as `day_index` −5 … 0
+  with an appended `period = 'pre'` (`'ab'` otherwise). Both arms ran the same game then, so they
+  should match within noise; that is our check that the arms are comparable, and the baseline the
+  test effect is measured against.
+- Your output replaces the whole sheet: header on row 1, your rows from row 2, nothing else.
 
-## §13 `data_col_daily` — album progress per day (Variant A)
+## §13 `data_col_season` — season to date (Variant A)
 
-**Wrong today.** Days 1–2 only (day 1 = 2026-10-13); every later day is missing. No metric counts
-completed albums, so album completion "so far" cannot be read.
+**Wrong today.** Nothing on the sheet says how far into the season the pull is: `season_days` reads
+28, and `active_days_mean` (12.4–13.9) did not move between the last two deliveries while
+`data_col_daily` grew from 2 to 16 days. `chests_bought_bronze/silver/gold_mean` are empty.
+`envelopes_opened_mean` still exceeds `envelopes_received_mean` in all ten cells, by 0.40–0.88
+(17.25 against 16.38 at `0-9 NONPAYER`) — a player cannot open an envelope they did not receive, so
+at least one grant (probably a start-of-season envelope) is missing from "received".
 
-**Grain and columns:** as delivered (`segment`, `payer_flag`, `day`, `metric`, `event_id`,
-`actual_p10` … `actual_p98`, `actual_mean`, `players_in_cell`, `players_nonzero`,
-`players_qualified`, `actual_*_qualified`, `status`), every day 1 → `days_available`, plus:
-
-| addition | meaning |
-|---|---|
-| metric `albums` | albums completed, cumulative per player through day *d* (so album 1 done = 1) |
-| column `players_album1_done` | players of the cell who have completed album 1 by the end of day *d* — on every row of the `albums` metric |
-| columns `ab_variant`, `calendar_date`, `data_through_date`, `days_available` | §0 (`ab_variant` = `Variant A`) |
-
-The denominator stays every player in the cell, including players who never opened the album.
-
-## §14 `data_col_season` — season to date (Variant A)
-
-**Wrong today.** `season_days` = 28, but nothing says how far into the season the pull is
-(`active_days_mean` 12.4–13.9 suggests about two weeks). `album1_completion_day_p50` and
-`chests_bought_bronze/silver/gold_mean` are empty. `envelopes_opened_mean` exceeds
-`envelopes_received_mean` in all ten cells by a near-constant 0.75–0.80 (3.20 against 2.45 at `0-9
-NONPAYER`), so at least one grant — probably a start-of-season envelope — is not counted as received.
-
-**Columns:** as delivered, plus `ab_variant`, `season_start_date`, `season_end_date`,
-`data_through_date`, `days_available`, `album1_completion_rate` to 4 decimals with
-`album1_completers` (both already exist — keep them), and `envelopes_received_mean` recomputed to
-include every grant. State the season's official start and end dates.
-
-## §15 `data_col_envelopes` — envelopes by source (Variant A)
-
-**Wrong today.** No date column, so the window is unknown. `envelopes_per_instance_mean`,
-`instances` and `participation_rate` are empty — participation was the most valuable column of the
-original request. 15 of 19 sources are `UNMAPPED:` (`dream_pass_event`, `dreamheist_event`,
-`ArcheryArena`, `Rainbow Maker`, `Hatchling Hideaway`, `Jigsaw`, `bomb_ballet_event`, `FlockRush`,
-`race_event`, `red_event`, `chuck_event`, `special_event`, `event_progress`,
-`open_big_reward_chest`, `null`).
-
-**Grain:** `segment` × `payer_flag` × `source` × `pack_tier` (to date), `source` mapped with §0.5
-(categories, not raw strings). Keep `raw_strings`. Fill `instances`, `participation_rate`,
-`envelopes_per_instance_mean`, and append `ab_variant`, `window_start_date`, `data_through_date`,
-`days_available`. Per-day envelope gains per source are §11's job (the five pack resources there).
-
-## §16 `data_tof_runs` — Tower of Fortune runs (Variant A)
-
-**Wrong today.** Bucketed on `player_profile_level`, not the play-rate tier: `players_in_cell` is
-20 at `0-9 PAYER` and 89,781 at `100+ NONPAYER` (the album cohort has 15,566 and 499).
-`topups_bought_mean` is empty. No window.
-
-**Fix:** re-segment with §0.3, keep every column, fill `topups_bought_mean`, append `ab_variant`,
-`window_start_date`, `data_through_date`, `days_available`, and add `tickets_earned_p50`,
-`tickets_earned_p90`, `runs_played_p50`, `runs_played_p90`.
-
-## §17 `data_tof_stages` — Tower of Fortune doors
-
-**Wrong today.** Stages 1–35 only; the ladder has 60 — emit every stage, zeros where nobody got
-there. `doors_shown` is empty. No window. Append `window_start_date`, `data_through_date`,
-`days_available`. Not segmented, by design.
+**Columns:** as delivered, plus `ab_variant` (= `Variant A`), `season_start_date`,
+`season_end_date`, `data_through_date` (the same day as `data_col_daily`'s last `day`),
+`days_available`; `album1_completion_rate` to 4 decimals beside `album1_completers` (both exist —
+keep them); `active_days_mean` counted over `days_available`; `envelopes_received_mean` and its
+percentiles recomputed to include every grant; the three `chests_bought_*_mean` filled (or omitted
+and said so). State the season's official start and end dates; we expect Tue 2026-10-13 → Mon
+2026-11-09 — if they differ, that is a finding.
 
 ---
 
@@ -422,5 +398,5 @@ there. `doors_shown` is empty. No window. Append `window_start_date`, `data_thro
 
 1. §11 `data_econ_daily_by_source` and §1 `data_gains` — the per-source anchor for "so far".
 2. §2 `data_seg_beh` and §12 `data_econ_daily_live` — population, attendance and the daily check.
-3. §7 `data_rm_pace` and §13 `data_col_daily` — Rainbow Maker's two configs and album progress.
+3. §7 `data_rm_pace` and §13 `data_col_season` — Rainbow Maker's two configs and the album as-of date.
 4. Everything else.
