@@ -3,7 +3,7 @@
 2026-10-29. Not implemented. The data side is `PROMPT_ab_data_refresh.md`.
 
 **Decisions (user, 2026-10-29):**
-- **Day 1 = Tue 2026-10-13.** That is the A/B start and the album season start, and it replaces D70's Monday Oct 19.
+- **Day 1 = Mon 2026-10-19 = calendar column H** (user, 2026-10-29, superseding an earlier answer of Oct 13). Estimations and simulations run from H; the A/B data's first window day is H's date. The test (and the album, Season Pass and ToF seasons) started Tue Oct 13, six days earlier: those days arrive as lead-in rows and set the starting state, never as window days.
 - **CURRENT = the `Variant A` arm.** `Control` is pulled too, as a measured reference.
 - **Season-end estimates are pure model.** The day-N gap between model and data is shown, never applied.
 - **Album columns = share of players with ≥ 1 album completed**, weighted by `Variant A` players.
@@ -14,9 +14,10 @@
 
 | | value | where it comes from |
 |---|---|---|
-| **day 1** | Tue 2026-10-13 | a new column for Oct 13, inserted before B on `cal_curr` and `cal_new`. Row 4 is renumbered 1..28 from it (B..AC = Oct 13 → Nov 9), and 2026-10-13 is typed above it in row 1. No code change: D70 already reads the window off row 4, and D76 already reads the date |
-| **L** | 28 | the window, which is also the album season (`SEASON_LAST_DAY` = L, D70). The season ends Mon 2026-11-09 |
-| **N** | the data-through day (16 on 2026-10-29) | new `dataThroughDay_()`. An authored `Data through` date on `cal_new` wins; otherwise the latest `data_through_date` on the anchor sheets (`data_gains` first); otherwise L, which is today's engine. Clamped to 1..L and logged |
+| **day 1** | Mon 2026-10-19 (column H) | the 1 in row 4 at H, and 2026-10-19 typed in H1 above it (D76 reads it). Row 4 runs 1..28 in H..AI |
+| **L** | 28 | the window, Oct 19 → Sun Nov 15. **Engine change needed:** the grid read stops at AH (`CAL_LAST_COL = 34`), so day 28 in AI is dropped today and the window reads 27 days; extend the grid to AI |
+| **N** | the data-through day (10 on 2026-10-29) | new `dataThroughDay_()`, as below |
+| **season offset** | 6 | the album, Season Pass and ToF seasons began Tue Oct 13 = window day −5. The album sim and the pass track must start there, not at day 1, or the simulated season starts six days behind the measured one. The album season ends Mon Nov 9 = window day 22 |
 
 A new `ECOGAINS_PERIOD()` spills day-1 date, N, data-through date, L and season-end date. Every sheet's title row reads it.
 
@@ -100,7 +101,7 @@ Two gates hold it together:
 
 ## 6. Rainbow Maker's two configs
 
-1. **Which config an instance reads.** `RM_1st` if it starts on days 1..14 (Oct 13–26), `RM_2nd` on days 15..28 (Oct 27 – Nov 9). The split is floor(L/2) of the season, never of N; gated so the assignment is the same at N = 5, 16 and 28. The instance running on Oct 13 started on Mon Oct 12, so it is a start cut-off on `RM_1st` (D72).
+1. **Which config an instance reads.** By the season's halves. The window's halves are Oct 19 – Nov 1 / Nov 2 – 15, the album season's Oct 13 – 26 / Oct 27 – Nov 9: on `cal_curr` the data's `rm_config` decides (point 2); on `cal_new` the split day becomes an authored cell, default the album season's (window day 9 = Oct 27). The split is floor(L/2) of the season, never of N; gated so the assignment is the same at N = 5, 16 and 28. The instance running on Oct 13 started on Mon Oct 12, so it is a start cut-off on `RM_1st` (D72).
 2. **The live calendar's instances take their config from the data.** When `data_rm_pace` carries `rm_config`, it wins: `cal_curr` is what actually ran, so the data knows. The half rule applies to `cal_new` and to instances that have not run yet.
    - Watch Oct 26: it is day 14, so the rule says `RM_1st`. If the game actually switched on Oct 26, the data will say `RM_2nd`.
    - In that case the split day becomes an authored `RM 2nd half from day` cell (default floor(L/2) + 1), and the mismatch is logged.
@@ -147,34 +148,19 @@ Each column shows, per segment × payer, the share of players with at least one 
 
 ## 9. Your workbook steps, in order
 
-Status checked on LIVE_OPS_V3 (2), 2026-10-29: the column for Oct 13 is inserted on both calendars
-and B1 holds 2026-10-13; everything below that is still to do.
+Checked on LIVE_OPS_V3 (3), 2026-10-29: row 4 = 1..28 in H..AI on both calendars, weekday row from
+H (Monday), Season Pass and ToF start at H. Remaining:
 
-1. Row 4 on **both** calendars: 1 in B4 (Oct 13) through 28 in AC4 (Nov 9); clear H4:AI4. While the
-   1 sits in H, the engine starts on Oct 19, ignores B1 (it reads the date only above the 1), and
-   counts 27 days, because its grid stops at column AH and day 28 is in AI.
-2. Row 3 on both: weekday names from B (Tuesday) through AC (Monday). The weekend rule is read from
-   the name above the 1.
-3. Column B (Oct 13) on both: type what ran that day. The A/B data shows Rainbow Maker, Kite
-   Festival, Team Event, Night Sky, the new Season Pass season and ToF paying or running; the weekly
-   lanes (Top Players / Top Teams, Season Offers, Flock Flurry) follow their pattern. Check against
-   the live schedule.
-4. Merge every multi-day instance in B:G on both. They are inside the season now, and Precompute
-   has already turned them into 1-day instances (`cal_parsed` in (2) starts Rainbow Maker, Team Event
-   and Hatchling with 1-day pieces). From the live data: Rainbow Maker B:D, Kite B:C, Team Event
-   B:D, Top Players and Top Teams B:G, Hatchling D:G, Team Race E:G, Mystery Puzzle E:G, Red's
-   Challenge C:D. Season Pass (C:AF) and ToF (C:AI) start at C: if both started with the test, they
-   begin at B.
-5. `cal_new`: B:G is still the live layout and the redesign starts at H (Oct 19). For a 28-day
-   redesign from Oct 13, either copy the redesign's Tuesday–Sunday cells (I:N) into B:G, which keeps
-   every event on its weekday, or keep B:G as the live layout and accept that days 1–6 compare
-   configs only. Columns AD:AI (Nov 10–15) are past the season and are not read once row 4 ends at AC.
-6. Run Precompute calendars after the merges.
-7. `data_econ_daily_live` is empty, so the daily view falls back to the August sheet and shows
-   August days on October rows. Paste `workbooks/data_econ_daily_live_2026-10-26.csv` (the 1,820
-   rows of the last delivery, both arms pooled, Oct 13 → Oct 26) as a stopgap until the re-pull.
-8. Paste the re-pulled sheets **only after** the §1 engine change is in the Apps Script project.
-9. Delete the two stray blocks on `data_seg_beh` (O13:W22, G27:Z37).
+1. **H1 on both calendars: 2026-10-19**, not 2026-10-13. Column H is Monday Oct 19 by every event
+   on the grid (Kite, Rainbow Maker, Hatchling, Team Event, Team Race, Target Day, Flock Flurry,
+   Bomb's Ballet all pay on the dates H = Oct 19 gives), and Oct 13 is a Tuesday.
+2. B1 (cal_curr C1 too) can be cleared; nothing reads it.
+3. Paste `workbooks/data_econ_daily_live_2026-10-26.csv` into the empty `data_econ_daily_live` as a
+   stopgap — or leave it empty until the re-pull (the daily view then shows August data).
+4. Paste the re-pulled sheets **only after** the §1 engine change is in the Apps Script project.
+5. Delete the two stray blocks on `data_seg_beh` (O13:W22, G27:Z37).
+
+`display/cal_day1_oct13_v1.xlsx` (the day-1 = Oct 13 layout) is superseded; do not import it.
 
 ## 10. Order of work (one commit each, harness green before the next)
 
