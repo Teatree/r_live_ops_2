@@ -12,6 +12,25 @@ header name. If you cannot produce a column, leave it out and say so in the note
 never a guessed value. A missing column makes the engine fall back to a known, logged assumption; a
 wrong column is indistinguishable from a measurement.
 
+### Follow-up to the delivery of 2026-10-29 (re-run on Tue 2026-10-13 → Wed 2026-10-28)
+
+Thank you — every sheet now covers the test instead of August. The delivery kept the old schemas,
+so these items are still open. Everything else below stands as written.
+
+1. **`ab_variant` is missing on every sheet.** The populations match the album cohort and the
+   coin mix looks like `Variant A`; say which arm it is, and add the column with both arms.
+2. **The window starts on 2026-10-13, not 2026-10-19** (§0.2). The totals sheets include the six
+   lead-in days. Move the start; deliver Oct 13–18 only as `lead_in` rows of §11/§12.
+3. **Still 13 resources and the old 24 categories.** No envelopes, no `ToF_Ticket`, no `ToF`,
+   `Col - Sets`, `Col - Albums`, `Col - Chests` or `Season Pass (Paid)` rows (§0.4, §0.5). ToF and
+   album rewards are currently inside `Other` (5.6% of coins at `0-9` rising to 17.8% at `100+`).
+4. **`data_econ_daily` has no `calendar_date`**, and `data_econ_daily_by_source` still has empty
+   `spend_total` / `spend_per_earner_day`.
+5. **`data_rm_pace` was not re-run** (§7: per instance, `rm_config`, envelopes and tickets).
+6. **`data_ns_rounds`** (new, thank you): `claims_total` is empty for some rounds (round 1 at
+   `0-9`, round 2 at `40-99`) and `cum_streak_req` is empty everywhere — say whether those are real
+   zeros or missing.
+
 ---
 
 ## §0 Shared rules — apply to every sheet below
