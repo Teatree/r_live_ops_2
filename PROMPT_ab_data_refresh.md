@@ -17,10 +17,11 @@ wrong column is indistinguishable from a measurement.
 Thank you — every sheet now covers the test instead of August. The delivery kept the old schemas,
 so these items are still open. Everything else below stands as written.
 
-1. **`ab_variant` is missing on every sheet.** The populations match the album cohort and the
-   coin mix looks like `Variant A`; say which arm it is, and add the column with both arms.
-2. **The window starts on 2026-10-13, not 2026-10-19** (§0.2). The totals sheets include the six
-   lead-in days. Move the start; deliver Oct 13–18 only as `lead_in` rows of §11/§12.
+1. **`ab_variant` is missing on every sheet.** This delivery is `Variant A` (confirmed). Add the
+   column, and the `Control` arm beside it, when you can.
+2. **Starting on 2026-10-13 is fine — keep it** (it is the test start). This replaces §0.2's
+   lead-in split: we cut at 2026-10-19 ourselves, by date. So every per-day sheet must carry
+   `calendar_date`, and every totals sheet `window_start_date` and `data_through_date`.
 3. **Still 13 resources and the old 24 categories.** No envelopes, no `ToF_Ticket`, no `ToF`,
    `Col - Sets`, `Col - Albums`, `Col - Chests` or `Season Pass (Paid)` rows (§0.4, §0.5). ToF and
    album rewards are currently inside `Other` (5.6% of coins at `0-9` rising to 17.8% at `100+`).
