@@ -54,7 +54,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D60  2026-10-14';
+var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D79  2026-10-30';
 
 
 var DAILY_DAYS = 33;
@@ -165,7 +165,11 @@ function ECOGAINS_DAILY(payer, segment, source, block){
     // INCOMPLETE PULLS BY DESIGN (D60): every data-anchored block is BLANK past the last day
     // the pull carries. A day with no row is 'not pulled yet', never 0 - a 0 there would read
     // as a collapse on DATA and as the whole simulated value on DATADIFF.
-    if (blk === 'DATA')   return clipGrid_(netGrid_(econ.gain), econ.lastDay, econ.firstDay);
+    // D79: DATA and DATADIFF are GAINS blocks, so an envelope or ToF-ticket column the feed CARRIES is
+    // shown (LIVE_OPS_V3 (8)'s data_econ_daily_live has all six). netGrid_ blanked them whatever the
+    // feed held - right only for the NET blocks (no spend telemetry for a pack). A gains-only column
+    // the feed does not carry stays blank: not pulled is not a measured 0.
+    if (blk === 'DATA')   return clipGrid_(dataGrid_(econ.gain, econ.has), econ.lastDay, econ.firstDay);
     if (blk === 'SPEND')  return clipGrid_(netGrid_(econ.spend), econ.lastDay, econ.firstDay);
     if (blk === 'CURNET') return clipGrid_(netGrid_(diffSeries_(econ.gain, econ.spend)), econ.lastDay, econ.firstDay);
     // NEWNET = actual net + the sim's per-day gain shift (NEW - CURRENT over all categories)
@@ -174,7 +178,7 @@ function ECOGAINS_DAILY(payer, segment, source, block){
       addSeries_(curN, dailySeries_(cat, s, p, ctxN, false));
       addSeries_(nwN,  dailySeries_(cat, s, p, ctxN, true ));
     });
-    if (blk === 'DATADIFF') return clipGrid_(netGrid_(diffSeries_(econ.gain, nwN)), econ.lastDay, econ.firstDay);
+    if (blk === 'DATADIFF') return clipGrid_(dataGrid_(diffSeries_(econ.gain, nwN), econ.has), econ.lastDay, econ.firstDay);
     var net = diffSeries_(econ.gain, econ.spend);
     addSeries_(net, diffSeries_(nwN, curN));
     return clipGrid_(netGrid_(net), econ.lastDay, econ.firstDay);
@@ -632,7 +636,7 @@ function econDaily_(seg, payer){
   var h = headerIndex_(v[0]);
   if (h['currency'] == null || h['day_index'] == null ||
       h['gain_per_earner_day'] == null || h['spend_per_earner_day'] == null) return null;
-  var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0, firstDay = 0;
+  var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0, firstDay = 0, has = {};
   var dowChecked = false, feedDow = null;
   var shift = econShift_(v, h);                            // D74: feed day = window day + shift
   for (var i = 1; i < v.length; i++){ var r = v[i];
@@ -643,7 +647,7 @@ function econDaily_(seg, payer){
     if (d < 1 || d > DAILY_DAYS) continue;
     gain[d-1][res]  += num(r[h['gain_per_earner_day']]);
     spend[d-1][res] += num(r[h['spend_per_earner_day']]);
-    found = true;
+    found = true; has[res] = true;                        // D79: which resources the feed carries
     if (d > lastDay) lastDay = d;                             // last day the pull carries
     if (!firstDay || d < firstDay) firstDay = d;              // D76: and the first
     if (d === 1 && h['dow'] != null && !dowChecked){ dowChecked = true; feedDow = r[h['dow']]; }
@@ -658,7 +662,7 @@ function econDaily_(seg, payer){
                  'says ' + DOW_NAMES[cd - 1] + ' - retype the weekday row on cal_curr / cal_new ' +
                  '(or re-pull the feed from the right start date).');
   }
-  return found ? { gain: gain, spend: spend, lastDay: lastDay, firstDay: firstDay || 1 } : null;
+  return found ? { gain: gain, spend: spend, lastDay: lastDay, firstDay: firstDay || 1, has: has } : null;
 }
 
 // Which sheet the data-anchored blocks read (D63): the live feed when it is there and usable
@@ -843,6 +847,13 @@ function daysToGrid_(days){
 function netGrid_(days){
   return days.map(function(o){
     return RESOURCES.map(function(r){ return isGainsOnlyRes_(r) ? '' : num(o[r]); });
+  });
+}
+// D79: a GAINS grid off a data feed - every column, except a gains-only one (packs, ToF_Ticket)
+// the feed carries no row for, which is '' (not pulled), never 0.
+function dataGrid_(days, has){
+  return days.map(function(o){
+    return RESOURCES.map(function(r){ return (isGainsOnlyRes_(r) && !(has && has[r])) ? '' : num(o[r]); });
   });
 }
 function normalize_(w){

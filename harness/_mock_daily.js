@@ -389,13 +389,26 @@ function synthEconDaily() {
     let eD = 0, eF = 0, leak = 0;
     for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++) {
       const gain = 10 + 0.1 * (d + 1) + j;
-      if (isGainsOnlyRes_(RESOURCES[j])) { if (dat[d][j] !== '' || ddf[d][j] !== '') leak++; continue; }
       eD = Math.max(eD, Math.abs(dat[d][j] - gain));
       eF = Math.max(eF, Math.abs(ddf[d][j] - (gain - nw[d][j])));
     }
     check('DATA == data_econ_daily gains per earner per day', eD < 1e-9, 'max err ' + eD.toExponential(2));
     check('DATADIFF == DATA - NEW, day by day (positive = data above the sim)', eF < 1e-9, 'max err ' + eF.toExponential(2));
-    check('DATA / DATADIFF leave the gains-only columns blank (no pack telemetry is not a measured 0)', leak === 0, leak + ' numeric cells');
+    // D79 RULE: a gains-only column (envelopes, ToF_Ticket) is SHOWN when the feed carries it (the
+    // fixture writes every resource, as LIVE_OPS_V3 (8)'s live feed does) and BLANK when it does not -
+    // not pulled is not a measured 0. Fixtured by dropping the gains-only rows and re-reading.
+    {
+      const full0 = data['data_econ_daily'].values;
+      data['data_econ_daily'] = { values: full0.filter((r, i) => i === 0 || !isGainsOnlyRes_(r[2])), merges: [] };
+      _sheetValsCache = {};
+      const datB = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATA');
+      const ddfB = ECOGAINS_DAILY('NONPAYER', '0-9', 'ALL', 'DATADIFF');
+      for (let d = 0; d < 33; d++) for (let j = 0; j < RESOURCES.length; j++)
+        if (isGainsOnlyRes_(RESOURCES[j]) && (datB[d][j] !== '' || ddfB[d][j] !== '')) leak++;
+      data['data_econ_daily'] = { values: full0, merges: [] };
+      _sheetValsCache = {};
+    }
+    check('DATA / DATADIFF: a gains-only column the feed carries is shown, one it does not carry is blank (not a measured 0)', leak === 0, leak + ' numeric cells where the feed had no row');
     check('DATA blank when Source != ALL (the measured side is game-wide)', isBlankGrid(ECOGAINS_DAILY('NONPAYER', '0-9', 'Kite Festival', 'DATA')));
 
     // truncate the feed: keep days 1..14 for 0-9 NONPAYER only
