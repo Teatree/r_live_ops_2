@@ -1791,4 +1791,27 @@ console.log(failures ? `\n${failures} GATE FAILURE(S)` : '\nALL GATES PASSED');
   gate('D64 fixture restored (Wednesday start, weekend days 3/4/5 again)', calDay1Dow_() === 3 && isWeekend_(3));
 }
 
+// ---------------------------------------------------------------- D80: helper req axis by header
+// HH / Ph read their requirement axis from a v2 helper column. LIVE_OPS_V3 moved both blocks one
+// column right and the fixed index read HH's 'Tiles' (per board) instead of 'Cum tokens'. Rule
+// fixture: insert a blank column in front of the helper block -> the axis must not move.
+console.log('\n=== D80: HH / Ph requirement axis located by header ===');
+if (data['HH_v2'] && typeof collReqs_ === 'function') {
+  const spec = COLL_R_SPECS['Hatchling Hideaway'];
+  resetSheetCache();
+  const before = collReqs_(spec, true).slice();
+  const snap = JSON.stringify(data['HH_v2']);
+  const hit = reqLabelCell_(data['HH_v2'].values, spec.reqLabel, spec.reqR0);
+  gate('D80: HH_v2 carries a "' + spec.reqLabel + '" header above the requirement rows', !!hit, hit ? 'col ' + hit.c + ' row ' + (hit.r + 1) : 'not found');
+  if (hit) {
+    data['HH_v2'].values.forEach(row => { if (row && row.length > hit.c - 1) row.splice(hit.c - 1, 0, ''); });
+    resetSheetCache();
+    const after = collReqs_(spec, true).slice();
+    gate('D80: a column inserted before the helper block leaves the HH requirement axis unchanged',
+         JSON.stringify(before) === JSON.stringify(after), before.join(',') + ' vs ' + after.join(','));
+    gate('D80: the axis is cumulative (strictly increasing)', after.every((x, i) => i === 0 || x > after[i - 1]), after.join(','));
+  }
+  data['HH_v2'] = JSON.parse(snap); resetSheetCache();
+}
+
 process.exit(failures ? 1 : 0);

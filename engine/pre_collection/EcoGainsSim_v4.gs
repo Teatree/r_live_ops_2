@@ -432,11 +432,11 @@ var COLL_R_SPECS = {
   'Jigsaw'             : {base:'J',  v2:'J_v2',  hdr:9,  r0:10, r1:21, reqC:1,  reqFrom:'own',
                           c0:2, c1:22, inst:'Jigsaw'},
   'Hatchling Hideaway' : {base:'HH', v2:'HH_v2', hdr:10, r0:11, r1:15, reqC:47, reqFrom:'v2',
-                          reqR0:4, c0:1, c1:21, inst:'Hatchling Hideaway'},
+                          reqR0:4, reqLabel:'Cum tokens', c0:1, c1:21, inst:'Hatchling Hideaway'},
   "Bomb's Ballet"      : {base:'BB', v2:'BB_v2', hdr:7,  r0:8,  r1:22, reqC:1,  reqFrom:'own',
                           c0:2, c1:22, completionRow:23, inst:'Bombs Ballet'},
   'Photoshoot'         : {base:'Ph', v2:'Ph_v2', hdr:23, r0:24, r1:53, reqC:46, reqFrom:'v2',
-                          reqR0:4, c0:7, c1:27, inst:'Photoshoot'}
+                          reqR0:4, reqLabel:'Cum item price', c0:7, c1:27, inst:'Photoshoot'}
 };
 
 function rewardR_(cat, seg, payer, ds){
@@ -614,10 +614,27 @@ function lbE_(sheetName, spec, positions, inst){
 function collReqs_(spec, v2Side){
   var name = (spec.reqFrom === 'own' && !v2Side) ? spec.base : spec.v2;
   var v = sheetVals_(name), reqs = [], n = spec.r1 - spec.r0 + 1;
-  var row0 = (spec.reqR0 != null) ? spec.reqR0 : spec.r0;
-  for (var i = 0; i < n; i++) reqs.push(num(v[row0 + i] && v[row0 + i][spec.reqC]));
+  var row0 = (spec.reqR0 != null) ? spec.reqR0 : spec.r0, reqC = spec.reqC;
+  // D80 (2026-10-30): the helper column is found by its HEADER when the spec names one. LIVE_OPS_V3
+  // moved both helper blocks one column right, so the fixed index read HH's per-board 'Tiles'
+  // (16..64) instead of 'Cum tokens' (20..237.5) and Ph's milestone numbers instead of 'Cum item
+  // price'. The label is searched on the rows above the first requirement; no hit -> spec.reqC.
+  var hit = spec.reqLabel ? reqLabelCell_(v, spec.reqLabel, row0) : null;
+  if (hit){ reqC = hit.c; row0 = hit.r + 1; }
+  for (var i = 0; i < n; i++) reqs.push(num(v[row0 + i] && v[row0 + i][reqC]));
   reqs.own = (spec.reqFrom === 'own');
   return reqs.some(function(x){ return x > 0; }) ? reqs : [];
+}
+
+/** {r, c} (0-based) of the first cell on rows 0..maxRow whose text starts with `label`, or null. */
+function reqLabelCell_(v, label, maxRow){
+  var want = String(label).toLowerCase();
+  for (var r = 0; r <= Math.min(maxRow, v.length - 1); r++){
+    var row = v[r] || [];
+    for (var c = 0; c < row.length; c++)
+      if (String(row[c] == null ? '' : row[c]).trim().toLowerCase().indexOf(want) === 0) return { r: r, c: c };
+  }
+  return null;
 }
 
 // survival-weighted milestone payout per resource (collections). The completion row (BB) is
