@@ -3541,7 +3541,7 @@ function measuredSptTotal_(seg, payer, ds){
 // log shows Season Pass packs arriving as the track is climbed rather than all on the final day.
 // The sum over entries equals cs x R_challenge x T exactly, so the card sim's total still matches
 // the Season Pass row in the gains model.
-function spPackTiers_(seg, payer, ctx, prof){
+function spPackTiers_(seg, payer, ctx, prof, Tforce){
   var out = [];
   // 'A. 0' is the appendix segment: no behaviour telemetry, so nothing can price its reach.
   // packGrantPlan_ already refuses it (zero activity rates -> empty plan) and colRewardRow_ below
@@ -3565,6 +3565,8 @@ function spPackTiers_(seg, payer, ctx, prof){
   // A full-pass profile owns the WHOLE track rather than the tier its SPT income reaches. Set from
   // the ladder's own length, so a 30-tier pass and a 50-tier pass both work with no constant here.
   if (prof && prof.fullPass) Ts = v2.free.length;
+  // D79: the card sim asks for the track at ONE player's own tier (CARD_SP_PER_PLAYER)
+  if (Tforce != null) Ts = Math.max(0, Math.min(v2.free.length, Math.round(Tforce)));
   if (!(Ts > 0)) return out;
   var Rlb = spChallengeR_();
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
@@ -4095,6 +4097,30 @@ function sptScore_(row){
 
 // Highest 1-based tier whose cumulative points requirement is met; 0 below tier 1, capped at
 // the ladder length (a maxed track gains nothing from extra SPT).
+// ---- the Season Pass at ONE player's tier (D79, 2026-10-30) ---------------------------------------
+// spPackTiers_ prices the track at the COHORT's mean tier, so every payer of a cell opened the same
+// pass envelopes in the card sim whatever they played. A player's SPT is earned by playing, so the
+// card sim now places each player on the track at their own total:
+//     own SPT = cohort SPT x (own active days / the cohort's expected active days)
+// and opens the envelopes of every tier up to that one (one table per possible tier, built here, so
+// the season core stays pure). The gains model keeps the cohort's tier - the card sim's total no
+// longer equals the Season Pass rows exactly, the same kind of gap D48 opened for multi-day reach.
+// FLAGGED: SPT scales with active days only; a player who plays more levels per active day than the
+// cohort's mean also earns more, and nothing measures that spread inside a cell.
+function spTrackForCard_(seg, payer, ctx, prof){
+  if (seg === 'A. 0' || seg === 'A.0' || (prof && prof.fullPass)) return null;
+  if (!ctx || !ctx.calCurOk || !ctx.calNewOk) return null;
+  if (!(ctx.calNew['Season Pass'] || []).length || !(ctx.calCur['Season Pass'] || []).length) return null;
+  var sp = spPaidTracks_();
+  if (!sp || !sp.v2.cum.length) return null;
+  var b = ctx.ds.beh(seg, payer);
+  var exp = pDaySum_(1, windowDays_(), num(b.weekday_active_rate), num(b.weekend_active_rate));
+  if (!(exp > 0)) return null;
+  var byTier = [];
+  for (var T = 0; T <= sp.v2.cum.length; T++) byTier.push(spPackTiers_(seg, payer, ctx, prof, T));
+  return { total: sptTotals_(seg, payer, ctx).sim * sp.daysV2 / windowDays_(), cum: sp.v2.cum,
+           expDays: exp, byTier: byTier };
+}
 function spTier_(points, cum){
   var t = 0;
   for (var i = 0; i < cum.length; i++){ if (cum[i] <= points) t = i + 1; else break; }
@@ -4625,6 +4651,17 @@ function spanScale_(seg, payer, ctx){
   return (ctx._spanScale[key] = (den > 0) ? numr / den : 1);
 }
 
+// ---- missing event telemetry (D79, 2026-10-30) ---------------------------------------------------
+// data_event_inst carries no 'Bomb' rows on LIVE_OPS_V3 (8) - the A/B pull did not include
+// bomb_event - so Bomb's Challenge had no rank distribution, and lbE_'s no-positions fallback prices
+// a ladder at its POT: every rank paid to one player. On the absolute lanes that is not a ratio
+// that cancels - it put 4.7 envelopes per player per window on the measured side (D61) and on the
+// simulated side, against none in the export, and would have priced any SPT added to the ladder the
+// same way. A missing event borrows the distribution of its sibling: Bomb's Challenge is the same
+// 2-day rank event as Red's Challenge. FLAGGED - a proxy, not a measurement; a pull with real
+// 'Bomb' rows takes over by itself (the proxy is read only when the event has no row).
+var EVENT_INST_PROXY = { 'Bomb': 'Red' };
+
 var DataStore = (function(){
   var _cache = null;
   function build(gainsVals, behVals, accVals, kiteVals, rmVals, streaksVals, instVals){
@@ -4685,7 +4722,12 @@ var DataStore = (function(){
         RESOURCES.forEach(function(r){ o[r] = self.gains(seg, payer, cat, r); }); return o; },
       beh: function(seg, payer){ return bMap[[seg, payer].join('|')] || {}; },
       nsStreak: function(seg, payer){ return tMap[[seg, payer].join('|')] || null; },
-      eventInst: function(ev, seg, payer){ return eMap[[ev, seg, payer].join('|')] || null; },
+      eventInst: function(ev, seg, payer){
+        var x = eMap[[ev, seg, payer].join('|')];
+        if (x) return x;
+        // D79: an event the pull has no rows for borrows a sibling's rank/progress distribution
+        var px = EVENT_INST_PROXY[ev];
+        return (px && eMap[[px, seg, payer].join('|')]) || null; },
       rmPct: function(seg, payer){ return rMap[[seg, payer].join('|')] || null; },
       accrualCurve: function(ev, seg, payer, kite){ var m = kite ? kMap : aMap;
         return m[[ev, payer, seg].join('|')] || m[[ev, payer, '0-9'].join('|')] || []; },

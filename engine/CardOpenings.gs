@@ -944,6 +944,8 @@ function cardSeasonPre_(seg, payer, ctx, prof){
     // attendance changes how many days it plays, not what an active day pays)
     alwaysOn: alwaysOnPacks_(seg, payer, ctx, num(b.weekday_active_rate), num(b.weekend_active_rate)),
     spPacks: spPackTiers_(seg, payer, ctx, prof),
+    // D79: the track at each player's OWN tier (null -> everyone opens spPacks, the cohort's tier)
+    spTrack: (CARD_SP_PER_PLAYER && typeof spTrackForCard_ === 'function') ? spTrackForCard_(seg, payer, ctx, prof) : null,
     // Per-day ToF_Ticket income from every source EXCEPT ToF itself (tofTicketIncome_ excludes it
     // to avoid re-entering its own budget walk), already weighted by this segment's activity rates
     // - so it is what this player is expected to be paid, not the ladder's face value. Guarded by
@@ -991,6 +993,9 @@ function cardSeasonPre_(seg, payer, ctx, prof){
 // workbook whose daily gift and chapters pay no envelope is bit-identical. CARD_ALWAYS_ON_PACKS =
 // false restores the plan without them.
 var CARD_ALWAYS_ON_PACKS = true;
+// D79: each player climbs the Season Pass on their own SPT (spTrackForCard_ in the engine). false ->
+// every player of a cell opens the envelopes of the cohort's mean tier, the pre-D79 card sim.
+var CARD_SP_PER_PLAYER = true;
 var CARD_ALWAYS_ON_CATS  = ['Daily Gift', 'Saga'];
 function alwaysOnPacks_(seg, payer, ctx, pWd, pWe){
   if (!CARD_ALWAYS_ON_PACKS || typeof resultRow_ !== 'function' || typeof pDaySum_ !== 'function') return [];
@@ -2165,6 +2170,14 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
   // pass envelope either, and the forward snap is capped at the album's last day.
   var playedAny = false, lastAlbumDay = SEASON_CUTOFF ? Math.min(SEASON_DAYS, SEASON_LAST_DAY) : SEASON_DAYS;
   for (var q0 = 1; q0 <= lastAlbumDay && !playedAny; q0++) if (playedOn[q0]) playedAny = true;
+  // D79: this player's OWN tier - the cohort's SPT scaled by their active days over the cohort's
+  var spTierOwn = null;
+  if (pre.spTrack && pre.spTrack.byTier && pre.spTrack.byTier.length){
+    var ownDays = 0;
+    for (var q1 = 1; q1 <= SEASON_DAYS; q1++) if (playedOn[q1]) ownDays++;
+    spTierOwn = spTier_(pre.spTrack.total * ownDays / pre.spTrack.expDays, pre.spTrack.cum);
+    spPacks = pre.spTrack.byTier[Math.min(spTierOwn, pre.spTrack.byTier.length - 1)] || [];
+  }
   if (!playedAny) spPacks = [];
   spPacks.forEach(function(tp){
     for (var t in tp.packs){
@@ -2440,6 +2453,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     tofStageMean: (tofRuns > 0) ? tofStageSum / tofRuns : 0,
     tofCoinsSpent: tofCoinsSpent, tofContinues: tofContinues, tofWallet: tofWallet0,
     chestsBought: chestsBought, chestsByTier: chestsByTier,
+    spTier: spTierOwn,                      // D79: this player's own Season Pass tier (null: cohort's)
     // How many of the 33 days this player opened the game. Drawn once per day above (D32) and used
     // by every instance, so it is the same attendance the packs were granted against - not a
     // second estimate of it. The cloud sheet divides by this to answer "packs on a day I play".

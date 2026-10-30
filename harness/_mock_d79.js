@@ -215,6 +215,45 @@ function GATES(){
         check('RULE: CARD_ALWAYS_ON_PACKS = false grants none', !r2.bySource['Daily Gift'] && !pre2.alwaysOn.length); }
   finally { CARD_ALWAYS_ON_PACKS = keepAO; fresh(); }
 
+  console.log('\n================ D79i: each player climbs the Season Pass on their own SPT ================');
+  ctx = fresh();
+  {
+    const preP = cardSeasonPre_(SEG, PAY, ctx);
+    const tr = preP.spTrack;
+    check('the card sim carries the track at every tier', !!tr && tr.byTier.length === tr.cum.length + 1);
+    const runs = [];
+    for (let k = 0; k < 120; k++) runs.push(runOneCardSeason_(SEG, PAY, 4242 + 31 * k, cfg, cat, preP));
+    // the tier follows the player's own active days: the rule, checked player by player
+    const bad = runs.filter(r => r.spTier !== spTier_(tr.total * r.activeDays / tr.expDays, tr.cum)).length;
+    check('every player\'s tier = spTier_(cohort SPT x own active days / expected active days)', bad === 0, bad + ' off');
+    const lo = runs.filter(r => r.activeDays <= 8), hi = runs.filter(r => r.activeDays >= 20);
+    const mean = (xs, f) => xs.reduce((a, x) => a + f(x), 0) / Math.max(1, xs.length);
+    check('a player with 20+ active days sits higher on the track than one with 8 or fewer',
+          lo.length && hi.length && mean(hi, r => r.spTier) > mean(lo, r => r.spTier),
+          mean(lo, r => r.spTier).toFixed(1) + ' vs ' + mean(hi, r => r.spTier).toFixed(1));
+    const keepSP = CARD_SP_PER_PLAYER;
+    try { CARD_SP_PER_PLAYER = false; const c2 = fresh(); const pre2 = cardSeasonPre_(SEG, PAY, c2);
+          check('RULE: CARD_SP_PER_PLAYER = false opens the cohort tier for everyone', pre2.spTrack === null &&
+                runOneCardSeason_(SEG, PAY, 4242, cfg, cat, pre2).spTier === null); }
+    finally { CARD_SP_PER_PLAYER = keepSP; fresh(); }
+  }
+
+  console.log('\n================ D79j: missing event telemetry borrows a sibling ================');
+  ctx = fresh();
+  {
+    const hasBomb = data['data_event_inst'].values.some(r => r && r[0] === 'Bomb');
+    const red = ctx.ds.eventInst('Red', SEG, PAY), bomb = ctx.ds.eventInst('Bomb', SEG, PAY);
+    if (!hasBomb){
+      check('no Bomb rows in the pull -> Bomb\'s Challenge reads Red\'s distribution', !!red && bomb === red);
+      withSheets(['data_event_inst'], () => {
+        const v = data['data_event_inst'].values, row = v.find(r => r && r[0] === 'Red' && r[2] === SEG && r[1] === PAY).slice();
+        row[0] = 'Bomb'; v.push(row);
+        const c = fresh(), b2 = c.ds.eventInst('Bomb', SEG, PAY);
+        check('RULE: a real Bomb row takes over from the proxy', !!b2 && b2 !== c.ds.eventInst('Red', SEG, PAY) && b2.event_name === 'Bomb');
+      });
+    } else check('SKIP proxy gate: this dump carries Bomb rows', true);
+  }
+
   console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D79 GATES PASS'));
   process.exitCode = failures ? 1 : 0;
 }
