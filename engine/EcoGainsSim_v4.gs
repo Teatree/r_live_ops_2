@@ -96,7 +96,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D80  2026-10-30';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D81  2026-10-30';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -617,6 +617,36 @@ function collectionSim_(cat, calLabel, accrKey, seg, payer, ctx, kite){
   });
 }
 
+// ---- D81 (2026-10-30): a changed duration moves the PLAYERS' TOKENS, not the rewards -----------------
+// A collection event that runs D x as long (accrual share, data_event_accrual) leaves each player with
+// D x the tokens. The old model multiplied the measured rewards by D and, separately, priced the _v2
+// requirements against the FULL-length balance - so 'shorter and easier, same completion %' read as a
+// change: the first milestones (claimed by nearly everyone either way) were cut by 30% on Jigsaw 3 -> 2
+// days, and rungs near the top of the distribution were paid up to 9x as often (Jigsaw milestone 6 at
+// 10-19 NONPAYER: 1.7% of players on the 3-day event, 15.1% priced for the 2-day one, ~0-2% in fact).
+// Now the redesign side's milestones are reached on the survival of the SHORTER balance, S(req / D),
+// and the measured rewards are not multiplied by D: R = E_v2(S(./D)) / E_base(S). The same survival
+// drives the pack lane, the base-0 additions and the card sim's rungs, so they all see one event.
+// Identical durations -> D = 1 -> bit-identical. A lane with no progress distribution keeps the old
+// multiplier. COLL_D_PACE = false restores the old model exactly.
+var COLL_D_PACE = true;
+/** The pace D of a collection lane for one cell (1 when the durations match or the lane is not a
+ *  priced collection). The anchor side runs with calNew := calCur, so it is always 1 there. */
+function collPace_(cat, seg, payer, ctx){
+  var coll = COLL_R_SPECS[cat];
+  if (!COLL_D_PACE || !coll || !ctx || !ctx.calCurOk || !ctx.calNewOk) return 1;
+  var lane = CAL_LABEL[cat] || cat;
+  var cur = ctx.calCur[lane] || [], nw = ctx.calNew[lane] || [];
+  if (!cur.length || !nw.length) return 1;
+  var cd = modalDur_(cur), nd = modalDur_(nw);
+  return (cd === nd) ? 1 : accrualD_(ctx.ds, coll.inst, cd, nd, seg, payer, false);
+}
+/** S(x / pace): the survival of a balance scaled by pace. */
+function pacedSurv_(S, pace){
+  if (!S || !(pace > 0) || pace === 1) return S;
+  return function(x){ return S(x / pace); };
+}
+
 // River Rush (D4/2.12) — a REAL simulator on the same calendar-driven path. Today cal_new has
 // no RR instances → branch (a) fires and SIMULATED = 0 (DIFF = -measured). If RR returns to
 // both calendars it re-prices via the generic collection path with its 8-day curve, no code change.
@@ -645,9 +675,13 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   if (!cur.length) return meas;
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
   var D = dFn(modalDur_(cur), modalDur_(nw));
-  var E = rewardE_(cat, seg, payer, ctx.ds);             // absolute ladder payout, both sides
+  // D81: a collection lane takes D through the players' balance (the redesign side's survival) instead
+  // of as a reward multiplier - when its progress distribution exists to carry it
+  var pace = (COLL_D_PACE && COLL_R_SPECS[cat] && D !== 1) ? D : 1;
+  var E = rewardE_(cat, seg, payer, ctx.ds, null, pace);   // absolute ladder payout, both sides
+  if (pace !== 1 && E) D = 1;
   // D73: instances running a variant config are priced on their own sheet, reach-weighted
-  var VE = E ? laneVariantE_(cat, cur, nw, seg, payer, ctx, E) : null;
+  var VE = E ? laneVariantE_(cat, cur, nw, seg, payer, ctx, E, pace) : null;
   if (VE) E = VE;
   var R = {};
   if (E) RESOURCES.forEach(function(r){
@@ -700,13 +734,13 @@ function addBase0_(out, calLabel, seg, payer, ctx, E, VE, cat){
 // its instances' E (cal_curr on the base sheets, cal_new on the _v2 ones), so R = blend_v2 /
 // blend_base and measured x R x T carries each new instance at its own config. A side with no
 // variant instance keeps E exactly. Returns null when neither calendar has a variant instance.
-function laneVariantE_(cat, cur, nw, seg, payer, ctx, E){
+function laneVariantE_(cat, cur, nw, seg, payer, ctx, E, pace){
   if (!hasVariant_(cur) && !hasVariant_(nw)) return null;
   var b = ctx.ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   var byVar = { '': E };
   var eOf = function(v){
-    if (byVar[v] === undefined) byVar[v] = rewardE_(cat, seg, payer, ctx.ds, v) || E;
+    if (byVar[v] === undefined) byVar[v] = rewardE_(cat, seg, payer, ctx.ds, v, pace) || E;
     return byVar[v];
   };
   var blend = function(list, side){
@@ -1010,6 +1044,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     var S = ci ? survival_([[num(ci.final_balance_p25),.25],[num(ci.final_balance_p50),.5],
                             [num(ci.final_balance_p75),.75]]) : null;
     if (!S) return null;
+    S = pacedSurv_(S, collPace_(cat, seg, payer, ctx));      // D81: the rungs of the event as it runs
     var reqs = collReqs_(coll);
     if (!reqs.length) return null;
     var vr = (coll.reqFrom === 'own') ? collReqs_(coll, true) : reqs;
@@ -1134,7 +1169,7 @@ function packProvFor_(cat, seg, payer, ctx){
                                 [num(inst.final_balance_p75),.75]]) : null;
       var reqs = S ? collReqs_(coll) : [];
       if (S && reqs.length)
-        collE_(coll.v2, coll, reqs.own ? collReqs_(coll, true) : reqs, S, prov);
+        collE_(coll.v2, coll, reqs.own ? collReqs_(coll, true) : reqs, pacedSurv_(S, collPace_(cat, seg, payer, ctx)), prov);
     }
     return prov;
   }
@@ -2280,7 +2315,7 @@ var COLL_R_SPECS = {
 // the pack lane needs E_v2 in ABSOLUTE units — packs have no measured anchor, so the v2/base
 // ratio the rest of the model uses is meaningless for them.
 // Returns {inst, eBase, eV2} or null (source not priceable -> carry / no packs).
-function rewardE_(cat, seg, payer, ds, variant){
+function rewardE_(cat, seg, payer, ds, variant, pace){
   var lb = LB_R_SPECS[cat], coll = COLL_R_SPECS[cat];
   if (!lb && !coll) return null;
   if (variant){ lb = variantSpec_(lb, variant); coll = variantSpec_(coll, variant); }   // D73
@@ -2298,7 +2333,8 @@ function rewardE_(cat, seg, payer, ds, variant){
   if (!reqs.length) return null;
   return { inst: inst,
            eBase: collE_(coll.base, coll, reqs, S),
-           eV2:   collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, S) };
+           // D81: the redesign side reaches its milestones on the balance of ITS duration
+           eV2:   collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, pacedSurv_(S, pace)) };
 }
 
 function rewardR_(cat, seg, payer, ds){

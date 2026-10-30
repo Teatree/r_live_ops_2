@@ -1154,8 +1154,16 @@ let firstRun = null;
   seg.getRange('D2').setValue('NONPAYER');
   seg.getRange('G2').setValue(12345);
   SimulatePackOpenings();
+  // Trailing blank rows are not output: the mock keeps a cleared row as '' cells where a fresh sheet has
+  // no row at all, so an earlier, LONGER log in section 3 left '' rows that a fresh run never writes
+  // (2026-10-30, D81: a w28 run three rows longer than the final one). Compared on content, not on the
+  // mock's memory of what was there before.
+  const normGrid = (g) => { const rows = (typeof g === 'string' ? JSON.parse(g) : g).map(r => (r || []).map(x => (x == null ? '' : x)));
+    rows.forEach(r => { while (r.length && r[r.length - 1] === '') r.pop(); });
+    while (rows.length && !rows[rows.length - 1].length) rows.pop();
+    return JSON.stringify(rows); };
   check('same seed + same inputs -> byte-identical Col_Cards_Daily (deterministic)',
-    JSON.stringify(data['Col_Cards_Daily'].values) === firstRun);
+    normGrid(data['Col_Cards_Daily'].values) === normGrid(firstRun));
 
   const before = JSON.stringify(data['Col_Cards_Daily'].values);
   seg.getRange('G2').setValue(999);

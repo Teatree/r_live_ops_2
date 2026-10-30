@@ -1814,4 +1814,60 @@ if (data['HH_v2'] && typeof collReqs_ === 'function') {
   data['HH_v2'] = JSON.parse(snap); resetSheetCache();
 }
 
+// ---------------------------------------------------------------- D81: a changed duration moves the tokens
+console.log('\n=== D81: collections take a changed duration through the balance (S(req / D)), not the rewards ===');
+{
+  rebuildCtx_(); resetSheetCache();
+  const ctx81 = Context.get(), ds81 = ctx81.ds;
+  // (1) the defining property: requirements scaled by D on the redesign side, balance scaled by D -> E_v2 = E_base
+  for (const cat of ["Bomb's Ballet", 'Jigsaw']) {
+    const spec = COLL_R_SPECS[cat];
+    if (!data[spec.v2] || !data[spec.base]) { gate('D81: ' + cat + ' sheets present', false, 'missing'); continue; }
+    const snap = JSON.stringify(data[spec.v2]);
+    // v2 := base, then the v2 requirements x 0.7
+    data[spec.v2] = JSON.parse(JSON.stringify(data[spec.base]));
+    for (let r = spec.r0; r <= spec.r1; r++) { const row = data[spec.v2].values[r]; if (row && Number(row[spec.reqC]) > 0) row[spec.reqC] = Number(row[spec.reqC]) * 0.7; }
+    resetSheetCache();
+    const e = rewardE_(cat, '20-39', 'PAYER', Context.get().ds, null, 0.7);
+    let worst = 0, n = 0;
+    if (e) RESOURCES.forEach(r => { const b = Number(e.eBase[r]) || 0, v = Number(e.eV2[r]) || 0; if (b > 1e-9) { n++; worst = Math.max(worst, Math.abs(v / b - 1)); } });
+    gate('D81: ' + cat + ' - requirements x0.7 on a balance x0.7 pays exactly what the base pays (E_v2 = E_base)', !!e && n > 0 && worst < 1e-9, e ? n + ' resources, worst |R-1| ' + worst.toExponential(2) : 'no E');
+    data[spec.v2] = JSON.parse(snap); resetSheetCache();
+  }
+  // (2) pace 1 is the identity: rewardE_ with and without the argument agree bit for bit
+  {
+    let diff = 0;
+    for (const cat of Object.keys(COLL_R_SPECS)) for (const seg of ['0-9', '100+']) {
+      const a = rewardE_(cat, seg, 'PAYER', ds81), b = rewardE_(cat, seg, 'PAYER', ds81, null, 1);
+      if (!a || !b) continue;
+      RESOURCES.forEach(r => { if ((Number(a.eV2[r]) || 0) !== (Number(b.eV2[r]) || 0)) diff++; });
+    }
+    gate('D81: pace 1 leaves every collection E bit-identical', diff === 0, diff + ' cells differ');
+  }
+  // (3) the flag restores the old model: on every collection lane whose durations differ, COLL_D_PACE = false
+  //     gives measured x R(full balance) x D x T, and the flag on gives measured x R(paced) x T
+  {
+    const lanes = Object.keys(COLL_R_SPECS).filter(cat => { const l = CAL_LABEL[cat]; const c = ctx81.calCur[l] || [], n = ctx81.calNew[l] || [];
+      return c.length && n.length && modalDur_(c) !== modalDur_(n); });
+    if (!lanes.length) console.log('  (no collection lane changes duration on this dump - (3) checked on the pace rule alone)');
+    let bad = 0, checked = 0;
+    lanes.forEach(cat => {
+      const l = CAL_LABEL[cat], spec = COLL_R_SPECS[cat];
+      ['0-9', '40-99'].forEach(seg => {
+        const on = resultRow_(cat, seg, 'NONPAYER', ctx81);
+        COLL_D_PACE = false; resetSheetCache(); const off = resultRow_(cat, seg, 'NONPAYER', Context.get()); COLL_D_PACE = true; resetSheetCache();
+        const c2 = Context.get(), cur = c2.calCur[l], nw = c2.calNew[l];
+        const D = accrualD_(c2.ds, spec.inst, modalDur_(cur), modalDur_(nw), seg, 'NONPAYER', false), T = timingRatio_(cur, nw, seg, 'NONPAYER', c2.ds);
+        const ePaced = rewardE_(cat, seg, 'NONPAYER', c2.ds, null, D), eFull = rewardE_(cat, seg, 'NONPAYER', c2.ds, null, 1);
+        const meas = measuredRow_(cat, seg, 'NONPAYER', c2.ds);
+        RESOURCES.forEach(r => { const b = Number(eFull.eBase[r]) || 0; if (!(b > 1e-9) || isPackRes_(r) || r === TOF_TICKET) return; checked++;
+          const wantOn = Number(meas[r]) * (Number(ePaced.eV2[r]) / b) * T, wantOff = Number(meas[r]) * (Number(eFull.eV2[r]) / b) * D * T;
+          if (Math.abs(Number(on[r]) - wantOn) > 1e-6 * Math.max(1, wantOn) || Math.abs(Number(off[r]) - wantOff) > 1e-6 * Math.max(1, wantOff)) bad++; });
+      });
+    });
+    gate('D81: flag on = measured x R(paced) x T, flag off = measured x R x D x T (the pre-D81 model) on lanes that change duration', bad === 0, checked + ' cells checked on ' + (lanes.join(', ') || 'none') + ', ' + bad + ' off');
+  }
+  rebuildCtx_(); resetSheetCache();
+}
+
 process.exit(failures ? 1 : 0);

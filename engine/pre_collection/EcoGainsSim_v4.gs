@@ -370,6 +370,17 @@ function collectionSim_(cat, calLabel, accrKey, seg, payer, ctx, kite){
   });
 }
 
+// D81 (2026-10-30, ported from engine/EcoGainsSim_v4.gs - see there for the full rationale): a changed
+// duration moves the players' TOKENS, not the rewards. The redesign side reaches its milestones on
+// S(req / D) and the measured rewards are not multiplied by D, so 'shorter and easier, same completion
+// %' is neutral. D = 1 -> bit-identical; no progress distribution -> the old multiplier. COLL_D_PACE =
+// false restores the old model exactly.
+var COLL_D_PACE = true;
+function pacedSurv_(S, pace){
+  if (!S || !(pace > 0) || pace === 1) return S;
+  return function(x){ return S(x / pace); };
+}
+
 // River Rush (D4/2.12) — a REAL simulator on the same calendar-driven path. Today cal_new has
 // no RR instances → branch (a) fires and SIMULATED = 0 (DIFF = -measured). If RR returns to
 // both calendars it re-prices via the generic collection path with its 8-day curve, no code change.
@@ -390,7 +401,9 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   if (!cur.length) return meas;
   var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
   var D = dFn(modalDur_(cur), modalDur_(nw));
-  var R = rewardR_(cat, seg, payer, ctx.ds);             // per-resource v2/base ratio (or null)
+  var pace = (COLL_D_PACE && COLL_R_SPECS[cat] && D !== 1) ? D : 1;            // D81
+  var R = rewardR_(cat, seg, payer, ctx.ds, pace);       // per-resource v2/base ratio (or null)
+  if (pace !== 1 && R) D = 1;
   var out = {};
   RESOURCES.forEach(function(r){
     out[r] = num(meas[r]) * ((R && R[r] != null) ? R[r] : 1) * D * T;
@@ -439,7 +452,7 @@ var COLL_R_SPECS = {
                           reqR0:4, reqLabel:'Cum item price', c0:7, c1:27, inst:'Photoshoot'}
 };
 
-function rewardR_(cat, seg, payer, ds){
+function rewardR_(cat, seg, payer, ds, pace){
   var lb = LB_R_SPECS[cat], coll = COLL_R_SPECS[cat];
   if (!lb && !coll) return null;
   var inst = ds.eventInst((lb || coll).inst, seg, payer);
@@ -457,7 +470,7 @@ function rewardR_(cat, seg, payer, ds){
     var reqs = collReqs_(coll);
     if (!reqs.length) return null;
     eBase = collE_(coll.base, coll, reqs, S);
-    eV2   = collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, S);
+    eV2   = collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, pacedSurv_(S, pace));   // D81
   }
   var R = {};
   RESOURCES.forEach(function(r){
