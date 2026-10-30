@@ -497,16 +497,19 @@ function GATES() {
   // ================================================================ D74d/e: THE CARD SIM'S PLAYERS
   console.log('\n================ D74d/e: ATTENDANCE UNDER A SHORTER WINDOW ================');
   {
-    const c = fresh(), N = DAILY_DAYS, G33 = CAL_LAST_COL - CAL_FIRST_COL + 1;
-    // (d) the measured active-day percentiles are a SHARE of the 33-day data window
+    const c = fresh(), N = DAILY_DAYS;
+    // (d) the measured active-day percentiles are a SHARE of the data window. D79: that window is the
+    // pull's own (days_available / the export's span) when it says so, else the calendar's whole grid
+    // (calGridDays_: 33 on every dump of this lineage) - no longer CAL_LAST_COL, which reads to AI
     const seg = '20-39', payer = 'PAYER', b = c.ds.beh(seg, payer);
+    const G33 = attDataDays_(b);
     const pts = activeDaysAnchors_(b, N);
     const keys = [['active_days_p25', .25], ['active_days_p50', .5], ['active_days_p75', .75], ['active_days_p90', .9], ['active_days_p95', .95], ['active_days_p98', .98]];
     let bad = 0;
     keys.forEach(([k, u]) => { const x = Number(b[k]); if (!(x > 0)) return;
-      const p = pts.find(q => Math.abs(q[0] - u) < 1e-12); const want = Math.min(N, x * (N < G33 ? N / G33 : 1));
+      const p = pts.find(q => Math.abs(q[0] - u) < 1e-12); const want = Math.min(N, x * (N !== G33 ? N / G33 : 1));
       if (!p || Math.abs(p[1] - want) > 1e-12) bad++; });
-    check('D74d: active-day anchors are read as a share of the ' + G33 + '-day data window (x ' + (N < G33 ? (N / G33).toFixed(4) : '1') + ')', bad === 0, bad + ' anchors off');
+    check('D74d: active-day anchors are read as a share of the ' + G33 + '-day data window (x ' + (N !== G33 ? (N / G33).toFixed(4) : '1') + ')', bad === 0, bad + ' anchors off');
     if (N < G33) {
       // the property it exists for: a cell whose measured p75 < p90 < 33 keeps p75 < p90 after the level correction
       const cv = attendanceCurve_(b, N), at = (u) => curveAt_(cv, u);

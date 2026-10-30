@@ -80,6 +80,20 @@ var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
 var SHEET_PACK  = 'PackConfig';
 var SHEET_ALBUM = 'AlbumConfig';
 
+// ---- the REDESIGN's card configs (D79, 2026-10-30) ---------------------------------------------
+// The card sim read PackConfig / AlbumConfig only, so PackConfig_v2 and AlbumConfig_v2 moved no
+// number (flagged since D67). The simulated side - both menu runs, the card cloud, the simulated half
+// of the Col - Sets / Col - Albums rows - now reads the _v2 sheet when the workbook has one, exactly
+// like every other source reads its _v2 ladder; the anchor side (D67's cal_curr batch, _baseSide)
+// keeps the base sheet, so identical sheets still give identical batches. A missing _v2 sheet falls
+// back to the base. CARD_V2_CONFIGS = false restores the base-only read.
+var CARD_V2_CONFIGS = true;
+function cardSheet_(base){
+  if (!CARD_V2_CONFIGS || (typeof _baseSide !== 'undefined' && _baseSide)) return base;
+  var v2 = base + '_v2';
+  return (sheetVals_(v2) || []).length ? v2 : base;
+}
+
 var SIM_SEG_CELL   = 'B2';
 var SIM_PAYER_CELL = 'D2';
 var SIM_SEED_CELL  = 'G2';
@@ -245,8 +259,9 @@ function getTier(key) {
 // between it and the NEXT block label, filtered by a predicate. Note/annotation rows therefore
 // cost nothing and row numbers are never load-bearing.
 function loadPackConfig_(){
-  var v = sheetVals_(SHEET_PACK);
-  if (!v.length) throw new Error("Sheet '" + SHEET_PACK + "' is missing or empty.");
+  var packSheet = cardSheet_(SHEET_PACK);                // D79: PackConfig_v2 on the redesign side
+  var v = sheetVals_(packSheet);
+  if (!v.length) throw new Error("Sheet '" + packSheet + "' is missing or empty.");
 
   // Block labels are matched EXACT FIRST, then by prefix at a word boundary (2026-09-01).
   // The sheet's chest panel had been hand-renamed 'CHEST PURCHASING (SIM CONTROLS)' while this
@@ -745,13 +760,29 @@ var ATT_QUAD_N = 40;
 // p95 = p98 (about 24 days after the level correction), so the hardcore tail D48 exists to model
 // was gone; as a share it survives (20-39 PAYER p75/p90/p95 23.2 / 26.7 / 26.8). Factor 1 on a
 // whole-grid window, so a 33-day calendar is bit-identical.
-function attDataDays_(){
+// D79 (2026-10-30): the data window is no longer always the grid. An A/B pull counts its days over
+// its OWN span - LIVE_OPS_V3 (8)'s data_seg_beh tops out at 16 in every percentile, the 16 days of
+// data_gains' window_start_date..data_through_date - so the basis is, first hit: data_seg_beh's own
+// days_available column, the export's span, the calendar's whole grid (33 on every older workbook,
+// which keeps them bit-identical). And the share is taken both ways now: a 28-day window over a
+// 16-day pull scales the percentiles UP (x 1.75), where D74d only ever scaled down.
+function attDataDays_(b){
+  var own = b ? num(b['days_available']) : 0;
+  if (own > 0) return own;
+  if (typeof DATA_SPAN_RESCALE === 'undefined' || DATA_SPAN_RESCALE){
+    try {
+      var ds = Context.get().ds;
+      if (ds && ds.span && ds.span.days > 0) return ds.span.days;
+    } catch (e){}
+  }
+  if (typeof calGridDays_ === 'function') return calGridDays_();
   return (typeof CAL_LAST_COL !== 'undefined' && typeof CAL_FIRST_COL !== 'undefined')
     ? (CAL_LAST_COL - CAL_FIRST_COL + 1) : 33;
 }
 function activeDaysAnchors_(b, nDays){
   var pts = [[0, 1]], seen = {};
-  var f = (nDays > 0 && nDays < attDataDays_()) ? nDays / attDataDays_() : 1;
+  var base = attDataDays_(b);
+  var f = (nDays > 0 && base > 0 && nDays !== base) ? nDays / base : 1;
   [['active_days_p25', 0.25], ['active_days_p50', 0.50], ['active_days_p75', 0.75],
    ['active_days_p90', 0.90], ['active_days_p95', 0.95], ['active_days_p98', 0.98]
   ].forEach(function(a){
@@ -909,6 +940,9 @@ function cardSeasonPre_(seg, payer, ctx, prof){
     ctx:     ctx,
     plan:    plan,
     adCurve: adCurve,
+    // D79: Daily Gift + Saga envelopes, per active day at the COHORT's rates (a profile forcing
+    // attendance changes how many days it plays, not what an active day pays)
+    alwaysOn: alwaysOnPacks_(seg, payer, ctx, num(b.weekday_active_rate), num(b.weekend_active_rate)),
     spPacks: spPackTiers_(seg, payer, ctx, prof),
     // Per-day ToF_Ticket income from every source EXCEPT ToF itself (tofTicketIncome_ excludes it
     // to avoid re-entering its own budget walk), already weighted by this segment's activity rates
@@ -943,6 +977,35 @@ function cardSeasonPre_(seg, payer, ctx, prof){
     lvlsP: num(b.levels_played_per_active_day),
     lvlsC: num(b.levels_completed_per_active_day)
   };
+}
+
+// ---- ALWAYS-ON envelope sources (D79, 2026-10-30) ----------------------------------------------
+// The grant plan is built from calendar instances, the Season Pass track and the ToF walk - so an
+// envelope paid by a source with NO instance structure never reached a card: the daily gift's
+// 4-star envelope on gift day 7 (authored on c_day / c_day_v2 and priced by the gains model since
+// 2026-09-02) was counted in ECOGAINS_SIM and never opened, and a Saga chapter envelope (D79) would
+// have gone the same way. Both are paid per ACTIVE DAY here:
+//     rate[t] = the gains model's window total[t] / SUM p_day        (the cohort's own rates)
+// so a player's expectation is rate x their own active days, and the cohort's equals the gains
+// model's total. Drawn on a separate stream inside the core (aoRand), only where a rate exists, so a
+// workbook whose daily gift and chapters pay no envelope is bit-identical. CARD_ALWAYS_ON_PACKS =
+// false restores the plan without them.
+var CARD_ALWAYS_ON_PACKS = true;
+var CARD_ALWAYS_ON_CATS  = ['Daily Gift', 'Saga'];
+function alwaysOnPacks_(seg, payer, ctx, pWd, pWe){
+  if (!CARD_ALWAYS_ON_PACKS || typeof resultRow_ !== 'function' || typeof pDaySum_ !== 'function') return [];
+  var pd = pDaySum_(1, DAILY_DAYS, pWd, pWe);
+  if (!(pd > 0)) return [];
+  var out = [];
+  CARD_ALWAYS_ON_CATS.forEach(function(c){
+    var row = resultRow_(c, seg, payer, ctx), per = {}, any = false;
+    PACK_RES.forEach(function(t){
+      var v = num(row[t]);
+      if (v > 0){ per[t] = v / pd; any = true; }
+    });
+    if (any) out.push({ cat: c, perDay: per });
+  });
+  return out;
 }
 
 /**
@@ -2066,6 +2129,27 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
 
 
 
+  // D79: the always-on sources (alwaysOnPacks_) - per ACTIVE day of the album season, on their own
+  // stream so the instance draws above and the card draws below see exactly what they saw before.
+  if (pre.alwaysOn && pre.alwaysOn.length){
+    var aoRand = mulberry32((seed | 0) ^ 0x5bd1e995);
+    var aoLast = SEASON_CUTOFF ? Math.min(SEASON_DAYS, SEASON_LAST_DAY) : SEASON_DAYS;
+    pre.alwaysOn.forEach(function(src){
+      for (var t in src.perDay){
+        var rate = num(src.perDay[t]);
+        if (!(rate > 0)) continue;
+        for (var ad2 = 1; ad2 <= aoLast; ad2++){
+          expectedTotal += rate * (isWeekend_(ad2) ? pWe : pWd);
+          if (!playedOn[ad2]) continue;
+          var whole = Math.floor(rate);
+          if (rate - whole > 1e-12 && aoRand() < (rate - whole)) whole += 1;
+          for (var k3 = 0; k3 < whole; k3++)
+            packOpens.push({ day: ad2, packName: t, source: src.cat, detail: 'per active day' });
+        }
+      }
+    });
+  }
+
   // Season Pass is not instance-shaped: its packs sit on the season track and are collected as the
   // player climbs it, so every tier up to the one they reach pays out with certainty. Granting them
   // on the day that tier is reached (linear through the season) gives real provenance instead of the
@@ -2370,7 +2454,7 @@ function SimulatePackOpenings() {
   requireCompanions_();
   var ss     = SpreadsheetApp.getActiveSpreadsheet();
   var simOut = ss.getSheetByName(SHEET_SIM);
-  var album  = ss.getSheetByName(SHEET_ALBUM);
+  var album  = ss.getSheetByName(cardSheet_(SHEET_ALBUM));   // D79
   if (!simOut) throw new Error("Sheet '" + SHEET_SIM + "' not found.");
   if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
 
@@ -3105,7 +3189,7 @@ function SimulateCardCloud(){
   var ss     = SpreadsheetApp.getActiveSpreadsheet();
   var cloud  = ss.getSheetByName(SHEET_CLOUD);
   var totals = ss.getSheetByName(SHEET_TOTALS);
-  var album  = ss.getSheetByName(SHEET_ALBUM);
+  var album  = ss.getSheetByName(cardSheet_(SHEET_ALBUM));   // D79
   if (!cloud)  throw new Error("Sheet '" + SHEET_CLOUD + "' not found - import display/Col_Cards_Cloud_v1.xlsx.");
   if (!totals) throw new Error("Sheet '" + SHEET_TOTALS + "' not found - import display/Col_Cards_Totals_v1.xlsx.");
   if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
@@ -4093,7 +4177,7 @@ function SimulateAlbumCompletion(){
   var t0 = new Date().getTime();
   var ss     = SpreadsheetApp.getActiveSpreadsheet();
   var totals = ss.getSheetByName(SHEET_TOTALS);
-  var album  = ss.getSheetByName(SHEET_ALBUM);
+  var album  = ss.getSheetByName(cardSheet_(SHEET_ALBUM));   // D79
   if (!totals) throw new Error("Sheet '" + SHEET_TOTALS + "' not found - import display/Col_Cards_Totals_v1.xlsx.");
   if (!album)  throw new Error("Sheet '" + SHEET_ALBUM + "' not found.");
 

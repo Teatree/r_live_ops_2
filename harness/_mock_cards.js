@@ -38,7 +38,12 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        v3e: '_mockdata_v3e.json',
                        // 2026-10-28 16:32 export '🏮LIVE_OPS_V3 (8).xlsx': cal_curr/cal_new B..F restored
                        // (values, not merges), data_rm_pace with the live matchables columns
-                       v3f: '_mockdata_v3f.json' };
+                       v3f: '_mockdata_v3f.json',
+                       // LIVE_OPS_V3 (8) of the A/B lineage (2026-10-30): both arms in data_gains,
+                       // the 16-day span, the H..AI window; and its config-proposal fixture
+                       // (cal_new := cal_curr, cal_parsed rebuilt - harness/_make_eval_fixture.js)
+                       v3g: '_mockdata_v3g.json',
+                       eval: '_mockdata_v3g_eval.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
@@ -46,7 +51,7 @@ function dataPath(){
   return path.isAbsolute(f) ? f : path.join(__dirname, f);
 }
 const DATA_FILE = dataPath();
-const RAW = fs.readFileSync(DATA_FILE, 'utf8');
+let RAW = fs.readFileSync(DATA_FILE, 'utf8');   // let: section 1 strips the _v2 twins from it (D79)
 let data = JSON.parse(RAW);
 console.log('data: ' + path.basename(DATA_FILE) +
             (data._meta ? '  (from ' + data._meta.source + ', dumped ' + data._meta.dumped + ')'
@@ -302,6 +307,19 @@ function resetSheetCache_mock(){
 }
 
 // ---------------------------------------------------------------- 1. PackConfig reader
+// D79 (2026-10-30): the redesign side reads PackConfig_v2 / AlbumConfig_v2 / ToF_v2 when a workbook
+// has them. Every gate in this file mutates the BASE sheet (PackConfig, AlbumConfig, ToF) to test a
+// card or ToF RULE, so on a dump that carries the _v2 twins those mutations would land on a sheet
+// the redesign no longer reads. The twins are dropped here - after the prelude, which _mock_d79.js
+// and the probes share and which keeps them - so this file gates the rules on the sheets it edits.
+// Which sheet each side reads is gated in harness/_mock_d79.js (sections f and g).
+// RAW itself is rewritten, because many gates below restart from `data = JSON.parse(RAW)`.
+{
+  const d79 = JSON.parse(RAW);
+  ['PackConfig_v2', 'AlbumConfig_v2', 'ToF_v2'].forEach(n => { delete d79[n]; delete data[n]; });
+  RAW = JSON.stringify(d79);
+}
+resetSheetCache_mock();
 let cfg;
 {
   cfg = loadPackConfig_();

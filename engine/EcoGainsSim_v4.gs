@@ -462,6 +462,35 @@ function simSaga(seg, payer, ctx){
     if (r === 'HC'){ out[r] = m * hcRatio; return; }
     out[r] = (itemR[r] != null) ? m * itemR[r] : m;
   });
+  return addSagaBase0_(out, seg, payer, ctx);            // D79
+}
+// ---- Saga BASE-0 ADDITIONS (D79, 2026-10-30) -------------------------------------------------
+// The chapter chests' items are scaled by the v2/base per-level ratio, so an item the base chests
+// never pay - an envelope on a chapter chest - had no anchor and was carried at 0. It is priced
+// bottom-up off the chapter ladder itself:
+//     add[r] = (v2 items per level)[r] x saga completions in the window
+//     saga completions = saga_completes_per_active_day x SUM p_day     (data_seg_beh; falls back to
+//                        levels_completed_per_active_day when the pull lacks the saga column)
+// Chapter progress is SAGA progress: a player in Dream Peak completes levels and opens no chapter.
+// Packs included - Saga has no pack lane, and this is it. The anchor side (_baseSide) adds nothing,
+// so identical chests still give DIFF 0. SAGA_BASE0_BOTTOMUP = false restores the carry.
+var SAGA_BASE0_BOTTOMUP = true;
+function sagaCompletions_(seg, payer, ctx){
+  var b = ctx.ds.beh(seg, payer) || {};
+  var per = num(b.saga_completes_per_active_day);
+  if (!(per > 0)) per = num(b.levels_completed_per_active_day);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(per > 0) || (!(pWd > 0) && !(pWe > 0))) return 0;
+  return per * pDaySum_(1, windowDays_(), pWd, pWe);
+}
+function addSagaBase0_(out, seg, payer, ctx){
+  if (!SAGA_BASE0_BOTTOMUP || _baseSide) return out;
+  var base = readSagaItems_('c_saga'), v2 = readSagaItems_('c_saga_v2'), L = -1;
+  for (var r in v2){
+    if (num(base[r]) > 1e-12 || !(num(v2[r]) > 0) || RESOURCES.indexOf(r) < 0) continue;
+    if (L < 0) L = sagaCompletions_(seg, payer, ctx);
+    out[r] = num(out[r]) + num(v2[r]) * L;
+  }
   return out;
 }
 function sagaRatio_(seg){
@@ -629,10 +658,42 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   RESOURCES.forEach(function(r){
     out[r] = num(meas[r]) * ((R[r] != null) ? R[r] : 1) * D * T;
   });
+  if (E) addBase0_(out, calLabel, seg, payer, ctx, E, VE, cat);      // D79
   // D61: on the anchor side the pack E is the BASE ladder's; calNew is cal_curr there already.
   var side = _baseSide ? 'eBase' : 'eV2';
   return overlayPacks_(out, packLane_(calLabel, seg, payer, ctx,
     E && (VE ? function(inst){ return VE.perInst(inst, side); } : E[side]), E && E.inst, cat));
+}
+
+// ---- BASE-0 ADDITIONS (D79, 2026-10-30) ---------------------------------------------------------
+// R = E_v2 / E_base, so a resource the BASE ladder never pays (E_base = 0) has nothing to scale and
+// was CARRIED: SPT typed onto a Hatchling, Jigsaw, Target Day or challenge ladder moved no number,
+// and that is the lever the 50/50 SPT split pulls (10 of the 13 event lanes pay no SPT today).
+// Those resources are now priced the way envelopes always were - bottom-up on cal_new:
+//     add[r] = E_v2[r] x participation x SUM_inst reach(inst)            (no D, no season cutoff)
+// E_v2 is the ladder expectation R is built from (rank distribution / milestone survival), so an SPT
+// on a rung is priced exactly like a coin on it, and participation is the pack lane's
+// (packParticipation_). Only where E_base[r] = 0: a resource the base pays keeps measured x R x D x
+// T. The anchor side (_baseSide) adds nothing - its E IS the base - so identical configs still give
+// DIFF 0. The six envelopes and ToF_Ticket stay with packLane_. BASE0_BOTTOMUP = false restores
+// the carry exactly.
+var BASE0_BOTTOMUP = true;
+function addBase0_(out, calLabel, seg, payer, ctx, E, VE, cat){
+  if (!BASE0_BOTTOMUP || _baseSide || !E || !ctx.calNewOk) return out;
+  var res = RESOURCES.filter(function(r){
+    return BOTTOMUP_RES.indexOf(r) < 0 && !(num(E.eBase[r]) > 1e-9) && num(E.eV2[r]) > 1e-9;
+  });
+  if (!res.length) return out;
+  var all = ctx.calNew[calLabel] || [];
+  if (!all.length) return out;
+  var b = ctx.ds.beh(seg, payer);
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  var part = packParticipation_(cat, E.inst);
+  all.forEach(function(x){
+    var e = VE ? VE.perInst(x, 'eV2') : E.eV2, q = reachOne_(x, pWd, pWe);
+    res.forEach(function(r){ out[r] = num(out[r]) + part * q * num(e && e[r]); });
+  });
+  return out;
 }
 
 // D73: E of a lane whose instances run different configs. Each side is the reach-weighted mean of
@@ -1345,7 +1406,22 @@ var TOF_CAT        = 'ToF';
 // 'ToF' is the sheet's final name; 'MD' is what it was called while it was being built. Both are
 // accepted so the engine keeps working either side of the rename in the live workbook.
 var TOF_SHEET_NAMES = ['ToF', 'MD'];
+// ---- the REDESIGN's ToF sheet (D79, 2026-10-30) ------------------------------------------------
+// The engine read the ToF sheet only, so every edit to ToF_v2 moved nothing (flagged since D61).
+// The simulated side now reads ToF_v2 when the workbook has one - the rule every other source
+// follows - and the anchor side keeps the base sheet: _baseSide (D61's base batches, the D67 card
+// batch) and the measured ToF anchor (tofSynth_, which raises _tofBaseDepth while it walks). The
+// SEGMENT BEHAVIOUR block is part of the sheet, so each side also reads its own take-up, cash-out
+// and runs-per-day assumptions. Identical sheets give identical rows; a missing ToF_v2 falls back
+// to ToF. TOF_V2_CONFIG = false restores the base-only read.
+var TOF_V2_CONFIG = true, TOF_V2_SHEET = 'ToF_v2';
+var _tofBaseDepth = 0;
+function tofSide_(){ return (!TOF_V2_CONFIG || _baseSide || _tofBaseDepth > 0) ? 'base' : 'v2'; }
 function tofSheetVals_(){
+  if (tofSide_() === 'v2'){
+    var v2 = sheetVals_(TOF_V2_SHEET);
+    if (v2 && v2.length) return v2;
+  }
   for (var i = 0; i < TOF_SHEET_NAMES.length; i++){
     var v = sheetVals_(TOF_SHEET_NAMES[i]);
     if (v && v.length) return v;
@@ -1408,11 +1484,13 @@ function mdParam_(v, r0, label){
 
 // The whole MD config, read once per execution. Returns null when the sheet is absent or has no
 // stage ladder, which is how a workbook without Mighty Doors keeps working: ToF then carries.
-var _tofCfgCache = null;
+var _tofCfgCache = {};                                    // D79: one config per side (tofSide_)
 function tofConfig_(){
-  if (_tofCfgCache !== null) return _tofCfgCache;
+  var _side = tofSide_();
+  if (!_tofCfgCache) _tofCfgCache = {};                    // a harness still nulls the old scalar memo
+  if (_tofCfgCache[_side] !== undefined) return _tofCfgCache[_side];
   var v = tofSheetVals_();
-  if (!v.length) return (_tofCfgCache = false);
+  if (!v.length) return (_tofCfgCache[_side] = false);
 
   var rc = mdBlock_(v, 'RUN CONFIG');
   var cfg = { ticketsPerRun: 1, cashOutVariant: 'A', variantBSafeOnly: false };
@@ -1426,9 +1504,9 @@ function tofConfig_(){
 
   // ---- stage ladder ----
   var sb = mdBlock_(v, 'STAGES');
-  if (sb < 0) return (_tofCfgCache = false);
+  if (sb < 0) return (_tofCfgCache[_side] = false);
   var hdr = mdHeaderRow_(v, sb, 'Stage');
-  if (hdr < 0) return (_tofCfgCache = false);
+  if (hdr < 0) return (_tofCfgCache[_side] = false);
   var cols = {}, c;
   for (c = 0; c < (v[hdr] || []).length; c++){
     var h = String(v[hdr][c] == null ? '' : v[hdr][c]).trim();
@@ -1531,7 +1609,7 @@ function tofConfig_(){
                   nonEmpty: nonEmpty, pigs: pigs, doors: doors });
   });
 
-  if (!stages.length) return (_tofCfgCache = false);
+  if (!stages.length) return (_tofCfgCache[_side] = false);
   cfg.stages = stages;
 
   // ---- continue cost ladder (the rung prices ARE the cap: no price, no continue) ----
@@ -1598,7 +1676,7 @@ function tofConfig_(){
       };
     }
   }
-  return (_tofCfgCache = cfg);
+  return (_tofCfgCache[_side] = cfg);
 }
 
 // Affordability factor. r = wallet / price of the next continue.
@@ -1847,7 +1925,8 @@ function resetModuleCaches_(){
   _rmPaceCache = null;                                   // D72: data_rm_pace memo
   _sheetValsCache = {}; _packAnchorCache = {}; _tofSynthCache = {}; _tofIncomeCache = {};
   _measSptCache = {}; _measSptBusyKeys = {}; _x2MinCache = {}; _x2MinBusyKeys = {};
-  _tofBalCache = {}; _tofCfgCache = null; _itemValsCache = null; _calDowCache = null; _calWinCache = null;
+  _tofBalCache = {}; _tofCfgCache = {}; _itemValsCache = null; _calDowCache = null; _calWinCache = null;
+  _calGridDaysCache = null;                              // D79
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
   if (typeof DataStore !== 'undefined' && DataStore.reset) DataStore.reset();   // D67: the data_* memo too
@@ -1872,14 +1951,20 @@ function tofSynth_(seg, payer){
   var ctx;
   try { ctx = Context.get(); } catch (e){ return null; }
   if (!ctx || !ctx.calCurOk || !((ctx.calCur[TOF_CAT] || []).length)) return (_tofSynthCache[key] = null);
-  var cfg = tofConfig_();
+  // D79: the anchor is walked on the BASE ToF sheet (config, ladder, segment behaviour), never ToF_v2
+  var cfg, run, budget;
+  _tofBaseDepth++;
+  try {
+    cfg = tofConfig_();
+    run = cfg ? tofRun_(seg, payer, ctx.ds) : null;
+    if (run){
+      _tofSynthBusy = true;
+      try { budget = tofRunBudget_(seg, payer, baseCtx_(ctx), num(run.bank[TOF_TICKET]), true); }
+      finally { _tofSynthBusy = false; }
+    }
+  } finally { _tofBaseDepth--; }
   if (!cfg) return (_tofSynthCache[key] = null);
-  var run = tofRun_(seg, payer, ctx.ds);
   if (!run) return (_tofSynthCache[key] = null);
-  var budget;
-  _tofSynthBusy = true;
-  try { budget = tofRunBudget_(seg, payer, baseCtx_(ctx), num(run.bank[TOF_TICKET]), true); }
-  finally { _tofSynthBusy = false; }
   if (!budget || !(budget.runs > 0)) return (_tofSynthCache[key] = zeroRow_());
   var out = zeroRow_();
   RESOURCES.forEach(function(r){ out[r] = num(run.bank[r]) * budget.runs; });
@@ -3130,7 +3215,7 @@ function rmInstanceRows_(seg, payer, ctx, opts){
   // the edges of the view being priced: the window, or the whole grid (opts.full - D71's rescale)
   var w = (ctx && ctx.window) || calWindow_();
   var first = (opts && opts.full) ? 1 - num(w.offset) : 1;
-  var last  = (opts && opts.full) ? (CAL_LAST_COL - CAL_FIRST_COL + 1) - num(w.offset) : num(w.days);
+  var last  = (opts && opts.full) ? calGridDays_() - num(w.offset) : num(w.days);
   var b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   var any = false;
@@ -3608,13 +3693,15 @@ function colSimSeasons_(seg, payer, ctx, side){
   var out = null, wasBase = _baseSide;
   _colSimBusy = true;
   try {
-    var cfg = loadPackConfig_();
-    var album = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AlbumConfig');
-    if (!album) throw new Error("sheet 'AlbumConfig' not found");
-    var cat = loadCardCatalog_(cfg, album);
-    // the measured side: cal_curr on both calendar slots, every pack ladder read off the BASE sheet
+    // the measured side: cal_curr on both calendar slots, every pack ladder read off the BASE sheet.
+    // D79: set BEFORE the configs load - the card sheets themselves are side-aware now (cardSheet_)
     var runCtx = ctx;
     if (side === 'cur'){ runCtx = baseCtx_(ctx); _baseSide = true; }
+    var cfg = loadPackConfig_();
+    var albumName = (typeof cardSheet_ === 'function') ? cardSheet_('AlbumConfig') : 'AlbumConfig';
+    var album = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(albumName);
+    if (!album) throw new Error("sheet '" + albumName + "' not found");
+    var cat = loadCardCatalog_(cfg, album);
     var pre = cardSeasonPre_(seg, payer, runCtx);
     var n = (COL_SIM_SEASONS > 0) ? Math.round(COL_SIM_SEASONS) : 1;
     var sets = zeroRow_(), albums = zeroRow_(), albumsDone = 0;
@@ -4105,10 +4192,33 @@ function calWindowOn_(sheetName){
   }
   return null;
 }
+// ---- the GRID's length (D79, 2026-10-30) -------------------------------------------------------
+// CAL_LAST_COL is the last column the reader CAN read: AI since D79, because the 28-day window of
+// LIVE_OPS_V3 (8) runs H..AI, one column past the old AH limit, and the reader silently cut it to
+// 27 days (and parsed every lane merged up to AI as one cell). The grid's LENGTH - what "the whole
+// grid" means to the window (D70) and the export rescale (D71) - is the last column either calendar
+// uses in its day-number row or grid, never less than the 33-day B..AH layout every older workbook
+// has, so those stay bit-identical.
+var CAL_GRID_MIN_DAYS = 33;
+var _calGridDaysCache = null;
+function calGridDays_(){
+  if (_calGridDaysCache !== null) return _calGridDaysCache;
+  var last = CAL_FIRST_COL + CAL_GRID_MIN_DAYS - 1;
+  [CAL_CUR, CAL_NEW].forEach(function(n){
+    var v;
+    try { v = sheetVals_(n); } catch (e){ v = []; }
+    for (var r = CAL_FIRST_ROW - 2; r <= CAL_LAST_ROW - 1 && r < (v || []).length; r++){
+      var row = v[r] || [];
+      for (var c = Math.min(row.length, CAL_LAST_COL) - 1; c >= last; c--)
+        if (row[c] !== '' && row[c] != null && String(row[c]).trim() !== ''){ last = c + 1; break; }
+    }
+  });
+  return (_calGridDaysCache = last - CAL_FIRST_COL + 1);
+}
 function calWindow_(){
   if (_calWinCache !== null) return _calWinCache;
   var nw = calWindowOn_(CAL_NEW), cur = calWindowOn_(CAL_CUR);
-  var w = nw || cur || { col1: CAL_FIRST_COL, days: CAL_LAST_COL - CAL_FIRST_COL + 1, offset: 0, row: 0 };
+  var w = nw || cur || { col1: CAL_FIRST_COL, days: calGridDays_(), offset: 0, row: 0 };
   if (nw && cur && (nw.offset !== cur.offset || nw.days !== cur.days))
     try { Logger.log(CAL_NEW + ' numbers its window from column ' + nw.col1 + ' for ' + nw.days +
                      ' days but ' + CAL_CUR + ' from column ' + cur.col1 + ' for ' + cur.days +
@@ -4163,7 +4273,7 @@ var WINDOW_PDAY_LANES = { 'Season Pass':1, 'Night Sky':1, 'ToF':1 };
 // the collections' accrual key (the D of collectionSim_), so a clipped collection scales as its sim does
 var WINDOW_ACCR = { 'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":'Bombs Ballet',
                     'Jigsaw':'Jigsaw', 'Photoshoot':'Photoshoot', 'River Rush':'River Rush' };
-function windowIsWholeGrid_(w){ return !w || (!w.offset && w.days === CAL_LAST_COL - CAL_FIRST_COL + 1); }
+function windowIsWholeGrid_(w){ return !w || (!w.offset && w.days === calGridDays_()); }
 /** Σ p_day over window days d0..d1 (window coordinates; pre-window days are <= 0). */
 function pDaySum_(d0, d1, pWd, pWe){
   var s = 0;
@@ -4187,7 +4297,7 @@ function windowScale_(cat, seg, payer, ctx, res){
   var w = ctx.window, ds = ctx.ds, b = ds.beh(seg, payer) || {};
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }      // no behaviour row (A. 0): day counts
-  var gridFirst = 1 - w.offset, gridLast = (CAL_LAST_COL - CAL_FIRST_COL + 1) - w.offset;
+  var gridFirst = 1 - w.offset, gridLast = calGridDays_() - w.offset;
   var lane = (typeof DAILY_CAL_LABEL !== 'undefined' && DAILY_CAL_LABEL[cat]) || CAL_LABEL[cat] || null;
   var full = (lane && ctx.calCurFull && ctx.calCurFull[lane]) || [];
   var win = (lane && ctx.calCur && ctx.calCur[lane]) || [];
@@ -4225,6 +4335,8 @@ function rmWindowShare_(seg, payer, ctx){
 /** The activity share of the window for a (segment, payer) - what a per-earner window total from
  *  the data (data_econ) is scaled by. */
 function windowActivityScale_(seg, payer, ctx){
+  // D79: the same pull as data_gains - scaled from its span when data_gains says what that is
+  if (ctx && ctx.dataSpan) return spanScale_(seg, payer, ctx);
   return windowScale_('__activity__', seg, payer, ctx);
 }
 
@@ -4367,8 +4479,11 @@ var Context = (function(){
            calCurFull: wc.calCurFull, calNewFull: wc.calNewFull, window: wc.window,
            calCurOk: hasKeys_(calCur), calNewOk: hasKeys_(calNew) };
     // D71: export amounts are read at the window's level (windowScale_); none on a whole-grid window
+    // D79: an export that carries its own dates is scaled from THAT span to the window instead
     var _ctxRef = _c;
-    _c.ds.scaleFn = windowIsWholeGrid_(wc.window) ? null
+    _c.dataSpan = dataSpanInWindow_(_c.ds);
+    _c.ds.scaleFn = _c.dataSpan ? function(cat, seg, payer, res){ return spanScale_(seg, payer, _ctxRef); }
+                  : windowIsWholeGrid_(wc.window) ? null
                   : function(cat, seg, payer, res){ return windowScale_(cat, seg, payer, _ctxRef, res); };
     return _c;
   },
@@ -4402,9 +4517,122 @@ function sanitizeCal_(cal){
   return cal;
 }
 
+// ---- the A/B ARM (D79, 2026-10-30) -----------------------------------------------------------
+// The live A/B (Albums + ToF) is pulled as BOTH arms into the same data_* sheets, told apart by an
+// ab_variant column (LIVE_OPS_V3 (7)/(8): data_gains, 2,627 Variant A rows after 1,771 Control).
+// DataStore keys a row by (segment, payer, category, resource) and the last row wins, so two arms
+// in one sheet mix silently: Variant A won only because its rows happened to come second, and any
+// key Variant A lacks would have been read from Control. A sheet with an ab_variant column is read
+// for ANCHOR_ARM alone (user decision 2026-10-29: the measured side is Variant A). A sheet without
+// the column, or with no row of that arm, is read whole and the second case is logged - so every
+// older pull behaves exactly as before. '' reads every row.
+var ANCHOR_ARM = 'Variant A';
+function armRows_(vals, name){
+  if (!ANCHOR_ARM || !vals || vals.length < 2) return vals;
+  var c = headerIndex_(vals[0] || [])['ab_variant'];
+  if (c == null) return vals;
+  var keep = [vals[0]];
+  for (var i = 1; i < vals.length; i++)
+    if (String(vals[i][c] == null ? '' : vals[i][c]).trim() === ANCHOR_ARM) keep.push(vals[i]);
+  if (keep.length > 1) return keep;
+  try { Logger.log((name || 'a data sheet') + ' has an ab_variant column but no ' + ANCHOR_ARM +
+                   ' row - read whole (every arm). Set ANCHOR_ARM to the arm it carries.'); } catch (e){}
+  return vals;
+}
+
+// ---- dates (D79) ------------------------------------------------------------------------------
+/** Days since 1970-01-01 of a date as a pull or a sheet carries it: a Date, a 'YYYY-MM-DD...'
+ *  string, epoch milliseconds (the A/B export writes window_start_date as 1791849600000) or seconds,
+ *  or a Sheets serial day. null for anything else, including the small numbers of a day-index row. */
+function dateDays_(x){
+  if (x == null || x === '') return null;
+  if (Object.prototype.toString.call(x) === '[object Date]')
+    return isNaN(x.getTime()) ? null : Math.round(Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()) / 86400000);
+  var s = String(x).trim();
+  if (/^\d+(\.\d+)?$/.test(s)){
+    var n = parseFloat(s);
+    if (n > 1e11) return Math.floor(n / 86400000);             // epoch milliseconds
+    if (n > 1e8)  return Math.floor(n / 86400);                // epoch seconds
+    if (n > 20000 && n < 80000) return Math.round(n) - 25569;  // Sheets serial (day 25569 = 1970-01-01)
+    return null;
+  }
+  var m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000) : null;
+}
+/** The calendar date (dateDays_) of window day 1: a date typed in any row above the day-number row,
+ *  in the column holding the 1 - cal_new first, then cal_curr (the D76 rule). null when none. */
+function calDay1Date_(){
+  var w = calWindow_();
+  if (!w || !w.col1 || !w.row) return null;
+  var names = [CAL_NEW, CAL_CUR];
+  for (var k = 0; k < names.length; k++){
+    var v;
+    try { v = sheetVals_(names[k]); } catch (e){ continue; }
+    for (var r = 0; r < w.row - 1 && r < (v || []).length; r++){
+      var d = dateDays_((v[r] || [])[w.col1 - 1]);
+      if (d != null) return d;
+    }
+  }
+  return null;
+}
+
+// ---- the DATA SPAN (D79, 2026-10-30) ----------------------------------------------------------
+// An A/B pull is a total over its OWN dates, not over cal_curr's grid: LIVE_OPS_V3 (8)'s data_gains
+// covers Tue 2026-10-13 .. Wed 2026-10-28 (16 days; window_start_date / data_through_date on every
+// row) while the window is Mon 2026-10-19 .. Sun 2026-11-15. D71 took every export as a whole-grid
+// total and scaled it by the window's share of the grid - right for the August pull, ~2x low here
+// (a 16-day total read as 34 days of play and cut to 28). When the dates are there, every export
+// amount is scaled by the window's activity over the span's:
+//     s = SUM p_day(window days 1..N) / SUM p_day(span days)
+// the span placed in window coordinates by the date above day 1 (calDay1Date_; Oct 13 is window day
+// -5 when day 1 is Oct 19). ACTIVITY, not reach: the span's pre-window days sit on columns B..G,
+// which (8) carries as values without merges, so a lane-by-lane reach ratio would read every
+// pre-window instance as one day long. FLAGGED: a lane whose instances fall unevenly between span
+// and window (Team Race pays on Mondays: 2 payouts in the 16-day span, ~4 in the window, 1.75x by
+// activity) is scaled at the activity rate. No date above day 1 -> the D71 rule, logged.
+// DATA_SPAN_RESCALE = false restores D71 exactly.
+var DATA_SPAN_RESCALE = true;
+function dataSpanOf_(gainsVals){
+  var h = headerIndex_((gainsVals || [])[0] || []);
+  var cs = h['window_start_date'], ce = h['data_through_date'];
+  if (cs == null || ce == null) return null;
+  for (var i = 1; i < gainsVals.length; i++){
+    var s = dateDays_(gainsVals[i][cs]), e = dateDays_(gainsVals[i][ce]);
+    if (s != null && e != null && e >= s) return { start: s, end: e, days: e - s + 1 };
+  }
+  return null;
+}
+/** The export's span in window days {first, last, days}, or null (no dates, or no date above day 1). */
+function dataSpanInWindow_(ds){
+  if (!DATA_SPAN_RESCALE || !ds || !ds.span) return null;
+  var d1 = calDay1Date_();
+  if (d1 == null){
+    try { Logger.log('data_gains carries its dates (' + ds.span.days + ' days) but no date is typed ' +
+                     'above day 1 on ' + CAL_NEW + ' / ' + CAL_CUR + ', so the span cannot be placed: ' +
+                     'the export is scaled by the D71 grid rule instead.'); } catch (e){}
+    return null;
+  }
+  return { first: ds.span.start - d1 + 1, last: ds.span.end - d1 + 1, days: ds.span.days };
+}
+function spanScale_(seg, payer, ctx){
+  ctx._spanScale = ctx._spanScale || {};
+  var key = seg + '|' + payer;
+  if (ctx._spanScale[key] != null) return ctx._spanScale[key];
+  var b = ctx.ds.beh(seg, payer) || {}, sp = ctx.dataSpan;
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }      // no behaviour row (A. 0): day counts
+  var den = pDaySum_(sp.first, sp.last, pWd, pWe), numr = pDaySum_(1, ctx.window.days, pWd, pWe);
+  return (ctx._spanScale[key] = (den > 0) ? numr / den : 1);
+}
+
 var DataStore = (function(){
   var _cache = null;
   function build(gainsVals, behVals, accVals, kiteVals, rmVals, streaksVals, instVals){
+    // D79: the anchor arm only, wherever a pull carries both
+    gainsVals = armRows_(gainsVals || [], 'data_gains'); behVals = armRows_(behVals || [], 'data_seg_beh');
+    accVals = armRows_(accVals, 'data_event_accrual'); kiteVals = armRows_(kiteVals, 'data_event_kite_accrual');
+    rmVals = armRows_(rmVals || [], 'data_RM'); streaksVals = armRows_(streaksVals, 'data_streaks');
+    instVals = armRows_(instVals, 'data_event_inst');
     var gh = headerIndex_(gainsVals[0] || []), gMap = {};
     for (var i = 1; i < gainsVals.length; i++){ var r = gainsVals[i];
       if (!r[gh['engagement_segment']]) continue;
@@ -4448,6 +4676,8 @@ var DataStore = (function(){
     return {
       // D71: the window rescale hook (null = none). Only EXPORT amounts pass through here.
       scaleFn: null,
+      // D79: the dates the export covers ({start, end, days} in days since 1970), or null
+      span: dataSpanOf_(gainsVals),
       gains: function(seg, payer, cat, res){
         var v = num(gMap[[SEG_TO_GAINS[seg]||seg, payer, cat, res].join('|')]);
         return (v && this.scaleFn) ? v * this.scaleFn(cat, seg, payer, res) : v; },
@@ -4492,7 +4722,7 @@ var DataStore = (function(){
 // ============================== CALENDAR READER ==============================================
 // Verified rule: merged range = ONE instance (duration = column width); filled non-merged cell
 // = ONE 1-day instance; neighbours never collapsed; day = column - 1 (B = day 1 .. AH = day 33).
-var CAL_FIRST_ROW = 5, CAL_LAST_ROW = 25, CAL_FIRST_COL = 2, CAL_LAST_COL = 34;   // grid B5:AH25
+var CAL_FIRST_ROW = 5, CAL_LAST_ROW = 25, CAL_FIRST_COL = 2, CAL_LAST_COL = 35;   // readable B5:AI25 (D79)
 var CAL_ALIAS = { 'Mystery Puzzle':'Jigsaw Puzzle', 'Mystery Box':'Jigsaw Puzzle',
                   "Chuck's Flash Race":'Flash Race' };
 
@@ -5045,5 +5275,8 @@ var _sheetValsCache = {};
 function sheetVals_(name){
   if (_sheetValsCache[name] !== undefined) return _sheetValsCache[name];
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
-  return (_sheetValsCache[name] = sh ? sh.getDataRange().getValues() : []);
+  var v = sh ? sh.getDataRange().getValues() : [];
+  // D79: a data_* pull carrying both A/B arms is read for the anchor arm only (armRows_)
+  if (/^data_/i.test(String(name))) v = armRows_(v, name);
+  return (_sheetValsCache[name] = v);
 }
