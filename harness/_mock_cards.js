@@ -43,7 +43,10 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // the 16-day span, the H..AI window; and its config-proposal fixture
                        // (cal_new := cal_curr, cal_parsed rebuilt - harness/_make_eval_fixture.js)
                        v3g: '_mockdata_v3g.json',
-                       eval: '_mockdata_v3g_eval.json' };
+                       eval: '_mockdata_v3g_eval.json',
+                       // the 12:37 re-export of LIVE_OPS_V3 (8): new data_gains / live feed, same configs and calendars;
+                       // the calendar rebalance (harness/_design_calbal.js) is designed on it
+                       v3h: '_mockdata_v3h.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
