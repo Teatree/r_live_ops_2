@@ -38,7 +38,7 @@ function PROBE(){
         const v = data[sheet].values;
         while (v.length < r) v.push([]);
         while (v[r - 1].length < c) v[r - 1].push('');
-        v[r - 1][c - 1] = e.value;
+        v[r - 1][c - 1] = (e.new !== undefined) ? e.new : e.value;
         patchCount++;
       });
     });

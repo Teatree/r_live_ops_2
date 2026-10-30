@@ -1,0 +1,5155 @@
+{
+ "params": {
+  "saga_nodes": {
+   "1": {
+    "Unlimited Lives": 25
+   },
+   "2": {
+    "Red": 1,
+    "Unlimited Lives": 15
+   },
+   "3": {
+    "Unlimited Lives": 25
+   },
+   "4": {
+    "Slingshot": 0,
+    "Chuck": 1,
+    "Unlimited Lives": 20
+   },
+   "5": {
+    "Chuck": 1,
+    "Unlimited Lives": 20
+   },
+   "6": {
+    "Comet": 0,
+    "Bomb": 1,
+    "Unlimited Lives": 30
+   },
+   "7": {
+    "Unlimited Lives": 40
+   },
+   "8": {
+    "Bomb": 1,
+    "Unlimited Lives": 45
+   },
+   "9": {
+    "Unlimited Lives": 70
+   },
+   "10": {
+    "Shuffle": 0,
+    "Red": 1,
+    "1-star Dly": 1,
+    "Unlimited Lives": 70
+   }
+  },
+  "rm_spt_mult": 2.0,
+  "rm_spt_add": {
+   "2": 10,
+   "5": 15,
+   "8": 20
+  },
+  "ns_spt": {
+   "0-9": [
+    5,
+    10,
+    15
+   ],
+   "10-19": [
+    10,
+    20,
+    35
+   ],
+   "20-39": [
+    15,
+    30,
+    50
+   ],
+   "40-99": [
+    40,
+    80,
+    140
+   ],
+   "100+": [
+    80,
+    160,
+    260
+   ]
+  },
+  "hh_spt": [
+   10,
+   20,
+   40,
+   60,
+   100
+  ],
+  "j_spt_per_token": 0.3,
+  "bb_spt_per_token": 0.6,
+  "ki_spt": [
+   150,
+   120,
+   100,
+   80,
+   70,
+   60,
+   50,
+   45,
+   40,
+   35,
+   30,
+   30,
+   25,
+   25,
+   20,
+   20,
+   20,
+   15,
+   15,
+   15,
+   10,
+   10,
+   10,
+   10,
+   10
+  ],
+  "ki_ms_spt": 20,
+  "race_spt": [
+   100,
+   80,
+   60,
+   50,
+   40,
+   30,
+   25,
+   20,
+   15,
+   10
+  ],
+  "tad_spt": [
+   100,
+   80,
+   60,
+   50,
+   40,
+   35,
+   30,
+   25,
+   20,
+   20,
+   15,
+   15,
+   10,
+   10,
+   10,
+   5,
+   5,
+   5,
+   5,
+   5
+  ],
+  "scale": {
+   "rm": 1.0,
+   "ns": 1.0,
+   "hh": 2.5,
+   "j": 1.0,
+   "bb": 1.0,
+   "ki": 1.0,
+   "race": 1.5,
+   "tad": 3.0
+  },
+  "sp_growth_M": 1.85,
+  "sp_growth_T0": 20,
+  "sp_growth_gamma": 1.3,
+  "sp_round": 5,
+  "_comment": "Calibrated parameters for builders/_design_cfgprop.py (2026-10-30). Edit a number here and re-run the designer, the probe and the builder.",
+  "sp_env": {
+   "free": {
+    "2": {
+     "1-star Dly": 1
+    },
+    "6": {
+     "1-star Dly": 1
+    },
+    "10": {
+     "1-star Dly": 1
+    },
+    "12": {
+     "2-star Dly": 1
+    },
+    "14": {
+     "1-star Dly": 1
+    },
+    "18": {
+     "1-star Dly": 1
+    },
+    "20": {
+     "2-star Dly": 1
+    },
+    "22": {
+     "1-star Dly": 1
+    },
+    "26": {
+     "1-star Dly": 1
+    },
+    "28": {
+     "2-star Dly": 1
+    },
+    "30": {
+     "3-star Dly": 1
+    }
+   },
+   "paid": {
+    "1": {
+     "1-star Dly": 1
+    },
+    "3": {
+     "2-star Dly": 1
+    },
+    "4": {
+     "1-star Dly": 1
+    },
+    "7": {
+     "2-star Dly": 1
+    },
+    "9": {
+     "1-star Dly": 1
+    },
+    "11": {
+     "2-star Dly": 1
+    },
+    "13": {
+     "3-star Dly": 1
+    },
+    "14": {
+     "1-star Dly": 1
+    },
+    "16": {
+     "2-star Dly": 1
+    },
+    "18": {
+     "2-star Dly": 1
+    },
+    "19": {
+     "1-star Dly": 1
+    },
+    "21": {
+     "2-star Dly": 1
+    },
+    "23": {
+     "3-star Dly": 1
+    },
+    "24": {
+     "1-star Dly": 1
+    },
+    "26": {
+     "2-star Dly": 1
+    },
+    "28": {
+     "2-star Dly": 1
+    },
+    "30": {
+     "4-star Dly": 1
+    }
+   }
+  },
+  "tof_stages": {
+   "1": [
+    {
+     "SPT": 5,
+     "p": 0.25
+    },
+    {
+     "SPT": 5,
+     "p": 0.25
+    },
+    {
+     "SPT": 10,
+     "p": 0.25
+    },
+    {
+     "SPT": 5,
+     "p": 0.25
+    }
+   ],
+   "2": [
+    {
+     "SPT": 5,
+     "p": 0.25
+    },
+    {
+     "SPT": 5,
+     "p": 0.25
+    },
+    {
+     "SPT": 10,
+     "p": 0.25
+    },
+    {
+     "kind": "pig",
+     "p": 0.25
+    }
+   ],
+   "3": [
+    {
+     "SPT": 10,
+     "p": 0.25
+    },
+    {
+     "SPT": 10,
+     "p": 0.25
+    },
+    {
+     "SPT": 10,
+     "p": 0.25
+    },
+    {
+     "kind": "pig",
+     "p": 0.25
+    }
+   ],
+   "4": [
+    {
+     "SPT": 10,
+     "p": 0.2333
+    },
+    {
+     "SPT": 15,
+     "p": 0.2333
+    },
+    {
+     "SPT": 25,
+     "p": 0.2334
+    },
+    {
+     "kind": "pig",
+     "p": 0.3
+    }
+   ],
+   "5": [
+    {
+     "1-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "1-star Dly": 1,
+     "2-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "1-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "1-star Dly": 1,
+     "2-star Dly": 1,
+     "p": 0.25
+    }
+   ],
+   "6": [
+    {
+     "SPT": 30
+    },
+    {
+     "1-star Dly": 1
+    },
+    {
+     "SPT": 25
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "7": [
+    {
+     "1-star Dly": 1
+    },
+    {
+     "SPT": 35
+    },
+    {
+     "SPT": 30
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "8": [
+    {
+     "2-star Dly": 1
+    },
+    {
+     "SPT": 30
+    },
+    {
+     "SPT": 40
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "9": [
+    {
+     "1-star Dly": 1
+    },
+    {
+     "2-star Dly": 1
+    },
+    {
+     "SPT": 45
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "10": [
+    {
+     "1-star Dly": 2,
+     "2-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "2-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "1-star Dly": 1,
+     "2-star Dly": 1,
+     "SPT": 20,
+     "p": 0.25
+    },
+    {
+     "1-star Dly": 3,
+     "p": 0.25
+    }
+   ],
+   "11": [
+    {
+     "2-star Dly": 1
+    },
+    {
+     "SPT": 50
+    },
+    {
+     "1-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "12": [
+    {
+     "1-star Dly": 1
+    },
+    {
+     "SPT": 45
+    },
+    {
+     "2-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "13": [
+    {
+     "2-star Dly": 1
+    },
+    {
+     "SPT": 70
+    },
+    {
+     "1-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "14": [
+    {
+     "SPT": 60
+    },
+    {
+     "2-star Dly": 1
+    },
+    {
+     "1-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "15": [
+    {
+     "2-star Dly": 2,
+     "1-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "3-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "1-star Dly": 3,
+     "p": 0.25
+    },
+    {
+     "2-star Dly": 1,
+     "1-star Dly": 1,
+     "SPT": 40,
+     "p": 0.25
+    }
+   ],
+   "16": [
+    {
+     "2-star Dly": 1
+    },
+    {
+     "SPT": 80
+    },
+    {
+     "1-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "17": [
+    {
+     "3-star Dly": 1
+    },
+    {
+     "SPT": 90
+    },
+    {
+     "2-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "18": [
+    {
+     "2-star Dly": 2
+    },
+    {
+     "SPT": 100
+    },
+    {
+     "1-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "19": [
+    {
+     "3-star Dly": 1
+    },
+    {
+     "SPT": 120
+    },
+    {
+     "2-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "20": [
+    {
+     "3-star Dly": 1,
+     "2-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "4-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "2-star Dly": 3,
+     "p": 0.25
+    },
+    {
+     "SPT": 150,
+     "2-star Dly": 1,
+     "p": 0.25
+    }
+   ],
+   "21": [
+    {
+     "3-star Dly": 1
+    },
+    {
+     "SPT": 120
+    },
+    {
+     "2-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "22": [
+    {
+     "3-star Dly": 1
+    },
+    {
+     "SPT": 180
+    },
+    {
+     "2-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "23": [
+    {
+     "4-star Dly": 1
+    },
+    {
+     "SPT": 150
+    },
+    {
+     "2-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "24": [
+    {
+     "3-star Dly": 2
+    },
+    {
+     "SPT": 200
+    },
+    {
+     "2-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "25": [
+    {
+     "3-star Dly": 1,
+     "2-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "4-star Dly": 1,
+     "1-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "3-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "5-star Dly": 1,
+     "p": 0.25
+    }
+   ],
+   "26": [
+    {
+     "3-star Dly": 1
+    },
+    {
+     "SPT": 200
+    },
+    {
+     "2-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "27": [
+    {
+     "5-star Dly": 1
+    },
+    {
+     "SPT": 300
+    },
+    {
+     "3-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "28": [
+    {
+     "4-star Dly": 1
+    },
+    {
+     "SPT": 250
+    },
+    {
+     "3-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "29": [
+    {
+     "3-star Dly": 2
+    },
+    {
+     "SPT": 300
+    },
+    {
+     "4-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "30": [
+    {
+     "4-star Dly": 1,
+     "3-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "5-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "3-star Dly": 2,
+     "2-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "SPT": 400,
+     "3-star Dly": 1,
+     "p": 0.25
+    }
+   ],
+   "31": [
+    {
+     "4-star Dly": 1
+    },
+    {
+     "SPT": 300
+    },
+    {
+     "3-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "32": [
+    {
+     "3-star Dly": 2
+    },
+    {
+     "SPT": 400
+    },
+    {
+     "4-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "33": [
+    {
+     "5-star Dly": 1
+    },
+    {
+     "SPT": 350
+    },
+    {
+     "3-star Dly": 1
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "34": [
+    {
+     "4-star Dly": 1,
+     "3-star Dly": 1
+    },
+    {
+     "SPT": 450
+    },
+    {
+     "3-star Dly": 2
+    },
+    {
+     "kind": "pig"
+    }
+   ],
+   "35": [
+    {
+     "5-star Dly": 1,
+     "3-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "4-star Dly": 2,
+     "2-star Dly": 1,
+     "p": 0.25
+    },
+    {
+     "3-star Dly": 3,
+     "2-star Dly": 2,
+     "p": 0.25
+    },
+    {
+     "5-star Dly": 1,
+     "4-star Dly": 1,
+     "p": 0.25
+    }
+   ]
+  },
+  "pack": {
+   "skew": {
+    "Album 1": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "Album 2": [
+     100,
+     40,
+     15,
+     6,
+     3,
+     2,
+     1,
+     1
+    ]
+   },
+   "defs": {
+    "1-star Pack": {
+     "GuaranteedNewSnap": 1,
+     "RarityWeights": "[0.45, 0.28, 0.15, 0.05, 0.01, 0.005]"
+    },
+    "2-star Pack": {
+     "GuaranteedNewSnap": 1,
+     "RarityWeights": "[0.30, 0.35, 0.20, 0.15, 0.02, 0.01]"
+    },
+    "3-star Pack": {
+     "GuaranteedNewSnap": 1
+    },
+    "4-star Pack": {
+     "GuaranteedNewSnap": 1
+    },
+    "5-star Pack": {
+     "GuaranteedNewSnap": 1
+    }
+   },
+   "reasons": [
+    "GuaranteedNewSnap = 1 on every envelope tier (was 0): each envelope holds at least one card the player does not own yet, while the album still has one. This is the \"first completion accessible to all\" lever from the deck.",
+    "1-star and 2-star envelopes get a small weight on 5-star and 6-star cards (0.01 / 0.005 and 0.02 / 0.01, were 0). In a normal draw that is about one card in 250, so the envelopes are no richer; but once a player is missing only high-rarity cards, the guaranteed new card can now be one of them. Without this, players who earn mostly low-tier envelopes cannot finish album 1 at all (measured: album 1 among active players 25% without it, 82% with it).",
+    "Album 1 set skew is flat (was 75/25/13/8/5/4/3/3) so the first album does not pile up duplicates of set 1; album 2 (and 3, which reuses the album 2 row) is steeper (100/40/15/6/3/2/1/1, was 13/6/3/2/1/1/1/1) - the pinch on successive albums. The WEIGHT DETAILS block mirrors both rows.",
+    "Star chest costs and the chest purchasing sim controls are unchanged (cheaper chests added about 1 point of album 1 and 3 points of album 2, not needed)."
+   ]
+  },
+  "tof_reasons": [
+   "Floors 1-4 pay SPT only (no Unlimited Lives, coins or boosters) and the pig doors on floors 2-4 are 0.25 / 0.25 / 0.30 (were 0.25 / 0.25 / 0.33). The net cumulative value of a player who always continues (the ToF_model measure) goes from 6.0 / 3.2 / -1.9 / -8.2 to 6.9 / 4.2 / 1.5 / -2.9 on floors 1-4: the dip on floor 4 is still there, a third as deep.",
+   "Safe floors always pay a few envelopes: every door of floors 5 and 10 pays 2-3 envelopes, floor 15 2-3, the milestone floors 20 and 30 and the safe floors 25 and 35 2-5 of higher tiers. Five at once happens on exactly one door of the whole tower (floor 35).",
+   "Fewer direct rewards, more envelopes and more SPT: coins, boosters and Unlimited Lives/power-up minutes are replaced by envelopes or SPT on almost every door. Floors 11 onward pay no more than before in coin-equivalent (most pay less), so the deep-floor push-your-luck pinch (strongly negative net value past floor 10) is unchanged.",
+   "Legendary (5-star) envelopes only from floor 25 up, in line with the deck (L packs only to event winners and ToF).",
+   "The SIM PART assumptions (take-up, cash-out stage 10, runs per day) are left as they are; see PROBLEMS for the measured cash-out stage (6) and what it does to these numbers."
+  ]
+ },
+ "patches": {
+  "c_saga_v2": [
+   {
+    "cell": "D5",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "G5",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "J5",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "M5",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "P5",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "AI5",
+    "old": 15.0,
+    "new": 25,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "D7",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "G7",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "J7",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "M7",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "P7",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "AI7",
+    "old": 15.0,
+    "new": 25,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "AF8",
+    "old": 1.0,
+    "new": 0,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "AD8",
+    "old": 0.0,
+    "new": 1,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "AH10",
+    "old": 1.0,
+    "new": 0,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "AE10",
+    "old": 0.0,
+    "new": 1,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "D11",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "G11",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "J11",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "M11",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "P11",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "AI11",
+    "old": 30.0,
+    "new": 40,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "D13",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "G13",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "J13",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "M13",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "P13",
+    "old": 10.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "AI13",
+    "old": 60.0,
+    "new": 70,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "D14",
+    "old": 20.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "G14",
+    "old": 20.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "J14",
+    "old": 20.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "M14",
+    "old": 20.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "P14",
+    "old": 20.0,
+    "new": 0,
+    "note": "no coins from Saga"
+   },
+   {
+    "cell": "AG14",
+    "old": 1.0,
+    "new": 0,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "AC14",
+    "old": 0.0,
+    "new": 1,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "AM14",
+    "old": 0.0,
+    "new": 1,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "AI14",
+    "old": 60.0,
+    "new": 70,
+    "note": "Saga rebalance"
+   },
+   {
+    "cell": "D16",
+    "old": 60,
+    "new": 0,
+    "note": "total HC per cycle"
+   },
+   {
+    "cell": "D17",
+    "old": 0.6,
+    "new": 0,
+    "note": "HC per level"
+   },
+   {
+    "cell": "G16",
+    "old": 60,
+    "new": 0,
+    "note": "total HC per cycle"
+   },
+   {
+    "cell": "G17",
+    "old": 0.6,
+    "new": 0,
+    "note": "HC per level"
+   },
+   {
+    "cell": "J16",
+    "old": 60,
+    "new": 0,
+    "note": "total HC per cycle"
+   },
+   {
+    "cell": "J17",
+    "old": 0.6,
+    "new": 0,
+    "note": "HC per level"
+   },
+   {
+    "cell": "M16",
+    "old": 60,
+    "new": 0,
+    "note": "total HC per cycle"
+   },
+   {
+    "cell": "M17",
+    "old": 0.6,
+    "new": 0,
+    "note": "HC per level"
+   },
+   {
+    "cell": "P16",
+    "old": 60,
+    "new": 0,
+    "note": "total HC per cycle"
+   },
+   {
+    "cell": "P17",
+    "old": 0.6,
+    "new": 0,
+    "note": "HC per level"
+   }
+  ],
+  "RM_1st_v2": [
+   {
+    "cell": "F17",
+    "old": 0.0,
+    "new": 10,
+    "note": "new early SPT"
+   },
+   {
+    "cell": "F19",
+    "old": 10.0,
+    "new": 20,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F20",
+    "old": 0.0,
+    "new": 15,
+    "note": "new early SPT"
+   },
+   {
+    "cell": "F22",
+    "old": 30.0,
+    "new": 60,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F23",
+    "old": 0.0,
+    "new": 20,
+    "note": "new early SPT"
+   },
+   {
+    "cell": "F25",
+    "old": 50.0,
+    "new": 100,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F30",
+    "old": 75.0,
+    "new": 150,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F32",
+    "old": 125.0,
+    "new": 250,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F36",
+    "old": 200.0,
+    "new": 400,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F39",
+    "old": 350.0,
+    "new": 700,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F42",
+    "old": 600.0,
+    "new": 1200,
+    "note": "SPT x 2.00"
+   }
+  ],
+  "RM_2nd_v2": [
+   {
+    "cell": "F17",
+    "old": 0.0,
+    "new": 10,
+    "note": "new early SPT"
+   },
+   {
+    "cell": "F19",
+    "old": 10.0,
+    "new": 20,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F20",
+    "old": 0.0,
+    "new": 15,
+    "note": "new early SPT"
+   },
+   {
+    "cell": "F22",
+    "old": 30.0,
+    "new": 60,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F23",
+    "old": 0.0,
+    "new": 20,
+    "note": "new early SPT"
+   },
+   {
+    "cell": "F25",
+    "old": 50.0,
+    "new": 100,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F30",
+    "old": 75.0,
+    "new": 150,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F32",
+    "old": 125.0,
+    "new": 250,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F36",
+    "old": 200.0,
+    "new": 400,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F39",
+    "old": 350.0,
+    "new": 700,
+    "note": "SPT x 2.00"
+   },
+   {
+    "cell": "F42",
+    "old": 600.0,
+    "new": 1200,
+    "note": "SPT x 2.00"
+   }
+  ],
+  "NS_v2": [
+   {
+    "cell": "I10",
+    "old": 0.0,
+    "new": 5,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I11",
+    "old": 0.0,
+    "new": 10,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I12",
+    "old": 0.0,
+    "new": 15,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I16",
+    "old": 0.0,
+    "new": 10,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I17",
+    "old": 0.0,
+    "new": 20,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I18",
+    "old": 0.0,
+    "new": 35,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I22",
+    "old": 0.0,
+    "new": 15,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I23",
+    "old": 0.0,
+    "new": 30,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I24",
+    "old": 0.0,
+    "new": 50,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I28",
+    "old": 0.0,
+    "new": 40,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I29",
+    "old": 0.0,
+    "new": 80,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I30",
+    "old": 0.0,
+    "new": 140,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I34",
+    "old": 0.0,
+    "new": 80,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I35",
+    "old": 0.0,
+    "new": 160,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I36",
+    "old": 0.0,
+    "new": 260,
+    "note": "NS SPT round 3"
+   }
+  ],
+  "NS_v2_weekday": [
+   {
+    "cell": "I10",
+    "old": 0.0,
+    "new": 5,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I11",
+    "old": 0.0,
+    "new": 10,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I12",
+    "old": 0.0,
+    "new": 15,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I16",
+    "old": 0.0,
+    "new": 10,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I17",
+    "old": 0.0,
+    "new": 20,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I18",
+    "old": 0.0,
+    "new": 35,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I22",
+    "old": 0.0,
+    "new": 15,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I23",
+    "old": 0.0,
+    "new": 30,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I24",
+    "old": 0.0,
+    "new": 50,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I28",
+    "old": 0.0,
+    "new": 40,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I29",
+    "old": 0.0,
+    "new": 80,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I30",
+    "old": 0.0,
+    "new": 140,
+    "note": "NS SPT round 3"
+   },
+   {
+    "cell": "I34",
+    "old": 0.0,
+    "new": 80,
+    "note": "NS SPT round 1"
+   },
+   {
+    "cell": "I35",
+    "old": 0.0,
+    "new": 160,
+    "note": "NS SPT round 2"
+   },
+   {
+    "cell": "I36",
+    "old": 0.0,
+    "new": 260,
+    "note": "NS SPT round 3"
+   }
+  ],
+  "HH_v2": [
+   {
+    "cell": "C12",
+    "old": 0.0,
+    "new": 25,
+    "note": "HH SPT"
+   },
+   {
+    "cell": "C13",
+    "old": 0.0,
+    "new": 50,
+    "note": "HH SPT"
+   },
+   {
+    "cell": "C14",
+    "old": 0.0,
+    "new": 100,
+    "note": "HH SPT"
+   },
+   {
+    "cell": "C15",
+    "old": 0.0,
+    "new": 150,
+    "note": "HH SPT"
+   },
+   {
+    "cell": "C16",
+    "old": 0.0,
+    "new": 250,
+    "note": "HH SPT"
+   }
+  ],
+  "J_v2": [
+   {
+    "cell": "D11",
+    "old": 0.0,
+    "new": 10,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D12",
+    "old": 0.0,
+    "new": 15,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D13",
+    "old": 0.0,
+    "new": 20,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D14",
+    "old": 0.0,
+    "new": 30,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D15",
+    "old": 0.0,
+    "new": 35,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D16",
+    "old": 0.0,
+    "new": 45,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D17",
+    "old": 0.0,
+    "new": 50,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D18",
+    "old": 0.0,
+    "new": 60,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D19",
+    "old": 0.0,
+    "new": 65,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D20",
+    "old": 0.0,
+    "new": 75,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D21",
+    "old": 0.0,
+    "new": 80,
+    "note": "Jigsaw SPT"
+   },
+   {
+    "cell": "D22",
+    "old": 0.0,
+    "new": 90,
+    "note": "Jigsaw SPT"
+   }
+  ],
+  "BB_v2": [
+   {
+    "cell": "D9",
+    "old": 0.0,
+    "new": 10,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D10",
+    "old": 0.0,
+    "new": 15,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D11",
+    "old": 0.0,
+    "new": 20,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D12",
+    "old": 0.0,
+    "new": 25,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D13",
+    "old": 0.0,
+    "new": 30,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D14",
+    "old": 0.0,
+    "new": 35,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D15",
+    "old": 0.0,
+    "new": 40,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D16",
+    "old": 0.0,
+    "new": 50,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D17",
+    "old": 0.0,
+    "new": 55,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D18",
+    "old": 0.0,
+    "new": 60,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D19",
+    "old": 0.0,
+    "new": 65,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D20",
+    "old": 0.0,
+    "new": 70,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D21",
+    "old": 0.0,
+    "new": 80,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D22",
+    "old": 0.0,
+    "new": 85,
+    "note": "Bomb's Ballet SPT"
+   },
+   {
+    "cell": "D23",
+    "old": 0.0,
+    "new": 90,
+    "note": "Bomb's Ballet SPT"
+   }
+  ],
+  "Ki_v2": [
+   {
+    "cell": "D27",
+    "old": 0.0,
+    "new": 150,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D28",
+    "old": 0.0,
+    "new": 120,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D29",
+    "old": 0.0,
+    "new": 100,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D30",
+    "old": 0.0,
+    "new": 80,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D31",
+    "old": 0.0,
+    "new": 70,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D32",
+    "old": 0.0,
+    "new": 60,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D33",
+    "old": 0.0,
+    "new": 50,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D34",
+    "old": 0.0,
+    "new": 45,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D35",
+    "old": 0.0,
+    "new": 40,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D36",
+    "old": 0.0,
+    "new": 35,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D37",
+    "old": 0.0,
+    "new": 30,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D38",
+    "old": 0.0,
+    "new": 30,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D39",
+    "old": 0.0,
+    "new": 25,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D40",
+    "old": 0.0,
+    "new": 25,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D41",
+    "old": 0.0,
+    "new": 20,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D42",
+    "old": 0.0,
+    "new": 20,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D43",
+    "old": 0.0,
+    "new": 20,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D44",
+    "old": 0.0,
+    "new": 15,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D45",
+    "old": 0.0,
+    "new": 15,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D46",
+    "old": 0.0,
+    "new": 15,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D47",
+    "old": 0.0,
+    "new": 10,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D48",
+    "old": 0.0,
+    "new": 10,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D49",
+    "old": 0.0,
+    "new": 10,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D50",
+    "old": 0.0,
+    "new": 10,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D51",
+    "old": 0.0,
+    "new": 10,
+    "note": "Kite SPT"
+   },
+   {
+    "cell": "D23",
+    "old": 0.0,
+    "new": 20,
+    "note": "Kite milestone SPT"
+   }
+  ],
+  "Race_v2": [
+   {
+    "cell": "C10",
+    "old": 0.0,
+    "new": 150,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C11",
+    "old": 0.0,
+    "new": 120,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C12",
+    "old": 0.0,
+    "new": 90,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C13",
+    "old": 0.0,
+    "new": 75,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C14",
+    "old": 0.0,
+    "new": 60,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C15",
+    "old": 0.0,
+    "new": 45,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C16",
+    "old": 0.0,
+    "new": 40,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C17",
+    "old": 0.0,
+    "new": 30,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C18",
+    "old": 0.0,
+    "new": 20,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C19",
+    "old": 0.0,
+    "new": 15,
+    "note": "Red's Challenge SPT"
+   },
+   {
+    "cell": "C46",
+    "old": 0.0,
+    "new": 150,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C47",
+    "old": 0.0,
+    "new": 120,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C48",
+    "old": 0.0,
+    "new": 90,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C49",
+    "old": 0.0,
+    "new": 75,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C50",
+    "old": 0.0,
+    "new": 60,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C51",
+    "old": 0.0,
+    "new": 45,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C52",
+    "old": 0.0,
+    "new": 40,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C53",
+    "old": 0.0,
+    "new": 30,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C54",
+    "old": 0.0,
+    "new": 20,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C55",
+    "old": 0.0,
+    "new": 15,
+    "note": "Bomb's Challenge SPT"
+   },
+   {
+    "cell": "C64",
+    "old": 0.0,
+    "new": 150,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C65",
+    "old": 0.0,
+    "new": 120,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C66",
+    "old": 0.0,
+    "new": 90,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C67",
+    "old": 0.0,
+    "new": 75,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C68",
+    "old": 0.0,
+    "new": 60,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C69",
+    "old": 0.0,
+    "new": 45,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C70",
+    "old": 0.0,
+    "new": 40,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C71",
+    "old": 0.0,
+    "new": 30,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C72",
+    "old": 0.0,
+    "new": 20,
+    "note": "Level Challenge SPT"
+   },
+   {
+    "cell": "C73",
+    "old": 0.0,
+    "new": 15,
+    "note": "Level Challenge SPT"
+   }
+  ],
+  "TaD_v2": [
+   {
+    "cell": "D36",
+    "old": 0.0,
+    "new": 300,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D37",
+    "old": 0.0,
+    "new": 240,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D38",
+    "old": 0.0,
+    "new": 180,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D39",
+    "old": 0.0,
+    "new": 150,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D40",
+    "old": 0.0,
+    "new": 120,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D41",
+    "old": 0.0,
+    "new": 105,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D42",
+    "old": 0.0,
+    "new": 90,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D43",
+    "old": 0.0,
+    "new": 75,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D44",
+    "old": 0.0,
+    "new": 60,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D45",
+    "old": 0.0,
+    "new": 60,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D46",
+    "old": 0.0,
+    "new": 45,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D47",
+    "old": 0.0,
+    "new": 45,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D48",
+    "old": 0.0,
+    "new": 30,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D49",
+    "old": 0.0,
+    "new": 30,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D50",
+    "old": 0.0,
+    "new": 30,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D51",
+    "old": 0.0,
+    "new": 15,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D52",
+    "old": 0.0,
+    "new": 15,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D53",
+    "old": 0.0,
+    "new": 15,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D54",
+    "old": 0.0,
+    "new": 15,
+    "note": "TaD SPT"
+   },
+   {
+    "cell": "D55",
+    "old": 0.0,
+    "new": 15,
+    "note": "TaD SPT"
+   }
+  ],
+  "SP_v2": [
+   {
+    "cell": "B16",
+    "old": 14.0,
+    "new": 15,
+    "note": "SPT requirement x 1.02"
+   },
+   {
+    "cell": "C16",
+    "old": 24,
+    "new": 25,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "C17",
+    "old": 44,
+    "new": 45,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B18",
+    "old": 28.0,
+    "new": 30,
+    "note": "SPT requirement x 1.08"
+   },
+   {
+    "cell": "C18",
+    "old": 72,
+    "new": 75,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B19",
+    "old": 35.0,
+    "new": 40,
+    "note": "SPT requirement x 1.11"
+   },
+   {
+    "cell": "C19",
+    "old": 107,
+    "new": 115,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B20",
+    "old": 70.0,
+    "new": 80,
+    "note": "SPT requirement x 1.15"
+   },
+   {
+    "cell": "C20",
+    "old": 177,
+    "new": 195,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B21",
+    "old": 70.0,
+    "new": 85,
+    "note": "SPT requirement x 1.19"
+   },
+   {
+    "cell": "C21",
+    "old": 247,
+    "new": 280,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B22",
+    "old": 70.0,
+    "new": 85,
+    "note": "SPT requirement x 1.23"
+   },
+   {
+    "cell": "C22",
+    "old": 317,
+    "new": 365,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B23",
+    "old": 70.0,
+    "new": 90,
+    "note": "SPT requirement x 1.28"
+   },
+   {
+    "cell": "C23",
+    "old": 387,
+    "new": 455,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B24",
+    "old": 100.0,
+    "new": 130,
+    "note": "SPT requirement x 1.32"
+   },
+   {
+    "cell": "C24",
+    "old": 487,
+    "new": 585,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B25",
+    "old": 100.0,
+    "new": 135,
+    "note": "SPT requirement x 1.37"
+   },
+   {
+    "cell": "C25",
+    "old": 587,
+    "new": 720,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B26",
+    "old": 100.0,
+    "new": 140,
+    "note": "SPT requirement x 1.42"
+   },
+   {
+    "cell": "C26",
+    "old": 687,
+    "new": 860,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B27",
+    "old": 100.0,
+    "new": 145,
+    "note": "SPT requirement x 1.47"
+   },
+   {
+    "cell": "C27",
+    "old": 787,
+    "new": 1005,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B28",
+    "old": 100.0,
+    "new": 150,
+    "note": "SPT requirement x 1.52"
+   },
+   {
+    "cell": "C28",
+    "old": 887,
+    "new": 1155,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B29",
+    "old": 130.0,
+    "new": 205,
+    "note": "SPT requirement x 1.57"
+   },
+   {
+    "cell": "C29",
+    "old": 1017,
+    "new": 1360,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B30",
+    "old": 130.0,
+    "new": 210,
+    "note": "SPT requirement x 1.63"
+   },
+   {
+    "cell": "C30",
+    "old": 1147,
+    "new": 1570,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B31",
+    "old": 130.0,
+    "new": 220,
+    "note": "SPT requirement x 1.68"
+   },
+   {
+    "cell": "C31",
+    "old": 1277,
+    "new": 1790,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B32",
+    "old": 130.0,
+    "new": 225,
+    "note": "SPT requirement x 1.74"
+   },
+   {
+    "cell": "C32",
+    "old": 1407,
+    "new": 2015,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B33",
+    "old": 130.0,
+    "new": 235,
+    "note": "SPT requirement x 1.79"
+   },
+   {
+    "cell": "C33",
+    "old": 1537,
+    "new": 2250,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B34",
+    "old": 160.0,
+    "new": 295,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C34",
+    "old": 1697,
+    "new": 2545,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B35",
+    "old": 160.0,
+    "new": 295,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C35",
+    "old": 1857,
+    "new": 2840,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B36",
+    "old": 160.0,
+    "new": 295,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C36",
+    "old": 2017,
+    "new": 3135,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B37",
+    "old": 160.0,
+    "new": 295,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C37",
+    "old": 2177,
+    "new": 3430,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B38",
+    "old": 160.0,
+    "new": 295,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C38",
+    "old": 2337,
+    "new": 3725,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B39",
+    "old": 190.0,
+    "new": 350,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C39",
+    "old": 2527,
+    "new": 4075,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B40",
+    "old": 190.0,
+    "new": 350,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C40",
+    "old": 2717,
+    "new": 4425,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B41",
+    "old": 190.0,
+    "new": 350,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C41",
+    "old": 2907,
+    "new": 4775,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B42",
+    "old": 190.0,
+    "new": 350,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C42",
+    "old": 3097,
+    "new": 5125,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B43",
+    "old": 190.0,
+    "new": 350,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C43",
+    "old": 3287,
+    "new": 5475,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "B44",
+    "old": 270.0,
+    "new": 500,
+    "note": "SPT requirement x 1.85"
+   },
+   {
+    "cell": "C44",
+    "old": 3557,
+    "new": 5975,
+    "note": "cumulative requirement"
+   },
+   {
+    "cell": "R16",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "R17",
+    "old": 1.0,
+    "new": 0,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "R20",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "R24",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "R28",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "R32",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "S34",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "T35",
+    "old": 1.0,
+    "new": 0,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "R36",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "R40",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "S42",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "T43",
+    "old": 1.0,
+    "new": 0,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "T44",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP free envelopes"
+   },
+   {
+    "cell": "AM15",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AM18",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AM23",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AN25",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AM28",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AN30",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AO31",
+    "old": 1.0,
+    "new": 0,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AN32",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AM33",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AN35",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AO37",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AP37",
+    "old": 1.0,
+    "new": 0,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AM38",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AN40",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AN42",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AQ43",
+    "old": 1.0,
+    "new": 0,
+    "note": "SP paid envelopes"
+   },
+   {
+    "cell": "AP44",
+    "old": 0.0,
+    "new": 1,
+    "note": "SP paid envelopes"
+   }
+  ],
+  "ToF_v2": [
+   {
+    "cell": "H30",
+    "old": 0.0,
+    "new": 5,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P30",
+    "old": 5.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA30",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H31",
+    "old": 0.0,
+    "new": 5,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P31",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA31",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H32",
+    "old": 5.0,
+    "new": 10,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA32",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H33",
+    "old": 10.0,
+    "new": 5,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA33",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA34",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H35",
+    "old": 10.0,
+    "new": 5,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA35",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H36",
+    "old": 0.0,
+    "new": 10,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P36",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA36",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H38",
+    "old": 0.0,
+    "new": 10,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P38",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA38",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G39",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H39",
+    "old": 0.0,
+    "new": 10,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA39",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA40",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "F42",
+    "old": 0.2233333333333333,
+    "new": 0.2333,
+    "note": "ToF door probability"
+   },
+   {
+    "cell": "H42",
+    "old": 0.0,
+    "new": 10,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P42",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA42",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "F43",
+    "old": 0.2233333333333333,
+    "new": 0.2333,
+    "note": "ToF door probability"
+   },
+   {
+    "cell": "H43",
+    "old": 0.0,
+    "new": 15,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M43",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA43",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "F44",
+    "old": 0.2233333333333333,
+    "new": 0.2334,
+    "note": "ToF door probability"
+   },
+   {
+    "cell": "H44",
+    "old": 10.0,
+    "new": 25,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA44",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "F45",
+    "old": 0.33,
+    "new": 0.3,
+    "note": "ToF door probability"
+   },
+   {
+    "cell": "V46",
+    "old": 1.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA46",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H47",
+    "old": 20.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V47",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W47",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA47",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P48",
+    "old": 20.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V48",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA48",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G49",
+    "old": 30.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V49",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W49",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA49",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H50",
+    "old": 20.0,
+    "new": 30,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA50",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M51",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V51",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA51",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H52",
+    "old": 0.0,
+    "new": 25,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J52",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA52",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA54",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H55",
+    "old": 0.0,
+    "new": 35,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "N55",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA55",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H56",
+    "old": 0.0,
+    "new": 30,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J56",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA56",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J58",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W58",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA58",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G59",
+    "old": 40.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H59",
+    "old": 0.0,
+    "new": 30,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA59",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H60",
+    "old": 20.0,
+    "new": 40,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA60",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA62",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA63",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H64",
+    "old": 0.0,
+    "new": 45,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K64",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA64",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K66",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V66",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W66",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA66",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W67",
+    "old": 1.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA67",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H68",
+    "old": 40.0,
+    "new": 20,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V68",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W68",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA68",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P69",
+    "old": 30.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V69",
+    "old": 0.0,
+    "new": 3,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA69",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Q70",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W70",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA70",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H71",
+    "old": 0.0,
+    "new": 50,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J71",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA71",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K72",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V72",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA72",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M74",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V74",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA74",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H75",
+    "old": 0.0,
+    "new": 45,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "N75",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA75",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "P76",
+    "old": 30.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W76",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA76",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G78",
+    "old": 60.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W78",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA78",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H79",
+    "old": 0.0,
+    "new": 70,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O79",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA79",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V80",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W80",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA80",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA82",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Q83",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W83",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA83",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L84",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V84",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA84",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G86",
+    "old": 120.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V86",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W86",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA86",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "N87",
+    "old": 2.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X87",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA87",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V88",
+    "old": 0.0,
+    "new": 3,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W88",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA88",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H89",
+    "old": 0.0,
+    "new": 40,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V89",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W89",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X89",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA89",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Q90",
+    "old": 20.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W90",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA90",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H91",
+    "old": 0.0,
+    "new": 80,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "R91",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA91",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J92",
+    "old": 2.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V92",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA92",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "I94",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X94",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA94",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H95",
+    "old": 0.0,
+    "new": 90,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K95",
+    "old": 2.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA95",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M96",
+    "old": 2.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W96",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA96",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L98",
+    "old": 2.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W98",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA98",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H99",
+    "old": 0.0,
+    "new": 100,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X99",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA99",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O100",
+    "old": 2.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V100",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA100",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "I102",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X102",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA102",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H103",
+    "old": 0.0,
+    "new": 120,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Q103",
+    "old": 30.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA103",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "R104",
+    "old": 20.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W104",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA104",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G106",
+    "old": 250.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W106",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X106",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA106",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X107",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y107",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA107",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W108",
+    "old": 0.0,
+    "new": 3,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y108",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA108",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H109",
+    "old": 0.0,
+    "new": 150,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M109",
+    "old": 4.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W109",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA109",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O110",
+    "old": 3.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X110",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA110",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H111",
+    "old": 0.0,
+    "new": 120,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "N111",
+    "old": 3.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA111",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "S112",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W112",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA112",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "I114",
+    "old": 20.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X114",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA114",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H115",
+    "old": 0.0,
+    "new": 180,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J115",
+    "old": 5.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA115",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K116",
+    "old": 5.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W116",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA116",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G118",
+    "old": 250.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y118",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA118",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H119",
+    "old": 0.0,
+    "new": 150,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y119",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA119",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L120",
+    "old": 3.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W120",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA120",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "S122",
+    "old": 10.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X122",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA122",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H123",
+    "old": 0.0,
+    "new": 200,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "R123",
+    "old": 30.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA123",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O124",
+    "old": 3.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W124",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA124",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G126",
+    "old": 400.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W126",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X126",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA126",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "V127",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA127",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X128",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z128",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA128",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L129",
+    "old": 4.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z129",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA129",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "N130",
+    "old": 6.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X130",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA130",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H131",
+    "old": 0.0,
+    "new": 200,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J131",
+    "old": 6.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA131",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M132",
+    "old": 6.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W132",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA132",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K134",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z134",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA134",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H135",
+    "old": 0.0,
+    "new": 300,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "S135",
+    "old": 20.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA135",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X136",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z136",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA136",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G138",
+    "old": 400.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y138",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA138",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H139",
+    "old": 0.0,
+    "new": 250,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M139",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA139",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O140",
+    "old": 6.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X140",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA140",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J142",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X142",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA142",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H143",
+    "old": 0.0,
+    "new": 300,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K143",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA143",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L144",
+    "old": 5.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y144",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA144",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G146",
+    "old": 500.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X146",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y146",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA146",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y147",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z147",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA147",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W148",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X148",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z148",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA148",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H149",
+    "old": 0.0,
+    "new": 400,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L149",
+    "old": 6.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X149",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA149",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "S150",
+    "old": 20.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y150",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA150",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H151",
+    "old": 0.0,
+    "new": 300,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J151",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA151",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O152",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X152",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA152",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G154",
+    "old": 500.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X154",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA154",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H155",
+    "old": 0.0,
+    "new": 400,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "N155",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA155",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "K156",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y156",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA156",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "J158",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z158",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA158",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H159",
+    "old": 0.0,
+    "new": 350,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L159",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA159",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X160",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z160",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA160",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "M162",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X162",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y162",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA162",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "H163",
+    "old": 0.0,
+    "new": 450,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "N163",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA163",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O164",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X164",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA164",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "G166",
+    "old": 500.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X166",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z166",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA166",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W167",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y167",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z167",
+    "old": 1.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA167",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "O168",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "W168",
+    "old": 0.0,
+    "new": 2,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "X168",
+    "old": 0.0,
+    "new": 3,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA168",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "L169",
+    "old": 8.0,
+    "new": 0,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Y169",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "Z169",
+    "old": 0.0,
+    "new": 1,
+    "note": "ToF door reward"
+   },
+   {
+    "cell": "AA169",
+    "old": "",
+    "new": 0,
+    "note": "ToF door reward"
+   }
+  ],
+  "PackConfig_v2": [
+   {
+    "cell": "B79",
+    "old": 75.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "C79",
+    "old": 25.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "D79",
+    "old": 13.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "E79",
+    "old": 8.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "F79",
+    "old": 5.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "G79",
+    "old": 4.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "H79",
+    "old": 3.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "I79",
+    "old": 3.0,
+    "new": 1,
+    "note": "album set skew"
+   },
+   {
+    "cell": "B80",
+    "old": 13.0,
+    "new": 100,
+    "note": "album set skew"
+   },
+   {
+    "cell": "C80",
+    "old": 6.0,
+    "new": 40,
+    "note": "album set skew"
+   },
+   {
+    "cell": "D80",
+    "old": 3.0,
+    "new": 15,
+    "note": "album set skew"
+   },
+   {
+    "cell": "E80",
+    "old": 2.0,
+    "new": 6,
+    "note": "album set skew"
+   },
+   {
+    "cell": "F80",
+    "old": 1.0,
+    "new": 3,
+    "note": "album set skew"
+   },
+   {
+    "cell": "G80",
+    "old": 1.0,
+    "new": 2,
+    "note": "album set skew"
+   },
+   {
+    "cell": "B87",
+    "old": 75,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "C87",
+    "old": 25,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "D87",
+    "old": 13,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "E87",
+    "old": 8,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "F87",
+    "old": 5,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "G87",
+    "old": 4,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "H87",
+    "old": 3,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "I87",
+    "old": 3,
+    "new": 1,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "B88",
+    "old": 13,
+    "new": 100,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "C88",
+    "old": 6,
+    "new": 40,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "D88",
+    "old": 3,
+    "new": 15,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "E88",
+    "old": 2,
+    "new": 6,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "F88",
+    "old": 1,
+    "new": 3,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "G88",
+    "old": 1,
+    "new": 2,
+    "note": "weight details mirror"
+   },
+   {
+    "cell": "D32",
+    "old": 0.0,
+    "new": 1,
+    "note": "pack definitions"
+   },
+   {
+    "cell": "E32",
+    "old": "[0.45, 0.28, 0.15, 0.05, 0, 0]",
+    "new": "[0.45, 0.28, 0.15, 0.05, 0.01, 0.005]",
+    "note": "pack definitions"
+   },
+   {
+    "cell": "D33",
+    "old": 0.0,
+    "new": 1,
+    "note": "pack definitions"
+   },
+   {
+    "cell": "E33",
+    "old": "[0.30, 0.35, 0.20, 0.15, 0, 0]",
+    "new": "[0.30, 0.35, 0.20, 0.15, 0.02, 0.01]",
+    "note": "pack definitions"
+   },
+   {
+    "cell": "D34",
+    "old": 0.0,
+    "new": 1,
+    "note": "pack definitions"
+   },
+   {
+    "cell": "D35",
+    "old": 0.0,
+    "new": 1,
+    "note": "pack definitions"
+   },
+   {
+    "cell": "D36",
+    "old": 0.0,
+    "new": 1,
+    "note": "pack definitions"
+   }
+  ]
+ },
+ "reasons": {
+  "c_saga_v2": [
+   "No coins: HC Reward is 0 on every node of all five segment blocks (60 HC per 100-level cycle before).",
+   "No boosters: Slingshot (hammer), Comet (cherry bomb / star) and Shuffle are removed from nodes 4, 6 and 10.",
+   "Their place is taken by the power-ups already on the chapter ladder: a second Red, Chuck and Bomb per cycle (nodes 10, 4 and 6), so each cycle pays 2 Red, 2 Chuck and 2 Bomb.",
+   "One low-value envelope per 100 levels: a 1-star envelope on node 10, the rarest node. It is the cheapest tier (24.5 coin-eq, 2 cards, no 5- or 6-star card possible).",
+   "Value is kept: the nodes that lost their coins get more Unlimited Lives (310 -> 360 minutes per cycle). At item_vals \"new\" (row 6, the valuation the ToF sheet uses) the cycle is worth 525.0 before and 524.5 after.",
+   "No new resource types: Unlimited Lives, Red, Chuck and Bomb were already on the ladder; the envelope is the one addition you asked for."
+  ],
+  "RM_1st_v2": [
+   "Every SPT reward on the milestone ladder is multiplied by 2.00, and milestones 2, 5, 8, which paid no SPT, now pay some. Rainbow Maker is the event whose SPT already scales with how much a player plays (it is 19-22% of Core SPT in every segment), so raising it lifts the event share by the same proportion for everyone, engaged players included.",
+   "The early additions give the low segments, who rarely pass milestone 8, SPT from their first claims."
+  ],
+  "RM_2nd_v2": [
+   "Every SPT reward on the milestone ladder is multiplied by 2.00, and milestones 2, 5, 8, which paid no SPT, now pay some. Rainbow Maker is the event whose SPT already scales with how much a player plays (it is 19-22% of Core SPT in every segment), so raising it lifts the event share by the same proportion for everyone, engaged players included.",
+   "The early additions give the low segments, who rarely pass milestone 8, SPT from their first claims."
+  ],
+  "NS_v2": [
+   "Each of the three rounds now pays SPT, more on later rounds and more in the higher segments (whose streak requirements are higher). Night Sky runs every day, so this is the source that makes the SPT split felt DAILY rather than only over the season.",
+   "Per round (0-9 / 10-19 / 20-39 / 40-99 / 100+): 0-9 5/10/15; 10-19 10/20/35; 20-39 15/30/50; 40-99 40/80/140; 100+ 80/160/260."
+  ],
+  "NS_v2_weekday": [
+   "Each of the three rounds now pays SPT, more on later rounds and more in the higher segments (whose streak requirements are higher). Night Sky runs every day, so this is the source that makes the SPT split felt DAILY rather than only over the season.",
+   "Per round (0-9 / 10-19 / 20-39 / 40-99 / 100+): 0-9 5/10/15; 10-19 10/20/35; 20-39 15/30/50; 40-99 40/80/140; 100+ 80/160/260."
+  ],
+  "HH_v2": [
+   "Every gate pays SPT, rising with the gate (25/50/100/150/250). Hatchling runs Thursday to Sunday, so it carries SPT into the days Rainbow Maker does not cover."
+  ],
+  "J_v2": [
+   "Every milestone pays SPT in proportion to its own token step (0.30 SPT per token, 10/15/20/30/35/45/50/60/65/75/80/90), so a player earns SPT at a steady rate for as long as they keep playing the event - the deeper milestones engaged players reach pay the most."
+  ],
+  "BB_v2": [
+   "Every milestone pays SPT in proportion to its own token step (0.60 SPT per token, 10/15/20/25/30/35/40/50/55/60/65/70/80/85/90), so a player earns SPT at a steady rate for as long as they keep playing the event - the deeper milestones engaged players reach pay the most."
+  ],
+  "Ki_v2": [
+   "The top 25 positions pay SPT (150/120/100/80/70/60/50/45/40/35/30/30/25/25/20/20/20/15/15/15/10/10/10/10/10) and the score milestone pays 20. Kite runs Monday to Wednesday every week. NOTE the envelope lane prices Kite at the 0.35 opt-in assumption (D25), and SPT added here is priced the same way - see PROBLEMS."
+  ],
+  "Race_v2": [
+   "Red's Challenge, Bomb's Challenge and Level Race pay SPT on ranks 1-10 (150/120/90/75/60/45/40/30/20/15). These are the Monday-to-Wednesday events of three of the four weeks, so their SPT lands early in the week, alongside Rainbow Maker. (Chuck's Challenge is not on the A/B calendar, so its block is unchanged; Flash Race is not touched - see PROBLEMS: its rewards are counted under Team Race in the data, so the model cannot see a change to it.)"
+  ],
+  "TaD_v2": [
+   "Every rank of the leaderboard pays SPT (300/240/180/150/120/105/90/75/60/60/45/45/30/30/30/15/15/15/15/15). Target Day runs Friday to Sunday every week, so it carries SPT into the weekend days."
+  ],
+  "SP_v2": [
+   "Tier requirements rise by a factor that starts at 1.0 on tier 1 and ramps to 1.85 by tier 20 (ramp exponent 1.3), so the lower tiers stay where they were - and arrive sooner, because events now pay SPT - while the upper tiers grow by about as much as total SPT does and are reached roughly when they were before. Tier 30 now needs 5975 SPT (3557 before).",
+   "Free track envelopes, before: 1 x 1-star, 1 x 2-star, 2 x 3-star (4 envelopes, 13 cards). After: 7 x 1-star, 3 x 2-star, 1 x 3-star - more, cheaper envelopes spread over the whole track, one 3-star kept on tier 30 as the finish.",
+   "Paid track envelopes, before: 2 x 2-star, 2 x 3-star, 1 x 4-star, 1 x 5-star (6 envelopes, 25 cards). After: 6 x 1-star, 8 x 2-star, 2 x 3-star, 1 x 4-star. No Legendary (5-star) on the pass any more - the deck reserves them for event winners and ToF - and about twice the cards, which is the paid track part in getting spenders through album 2."
+  ],
+  "ToF_v2": [
+   "Floors 1-4 pay SPT only (no Unlimited Lives, coins or boosters) and the pig doors on floors 2-4 are 0.25 / 0.25 / 0.30 (were 0.25 / 0.25 / 0.33). The net cumulative value of a player who always continues (the ToF_model measure) goes from 6.0 / 3.2 / -1.9 / -8.2 to 6.9 / 4.2 / 1.5 / -2.9 on floors 1-4: the dip on floor 4 is still there, a third as deep.",
+   "Safe floors always pay a few envelopes: every door of floors 5 and 10 pays 2-3 envelopes, floor 15 2-3, the milestone floors 20 and 30 and the safe floors 25 and 35 2-5 of higher tiers. Five at once happens on exactly one door of the whole tower (floor 35).",
+   "Fewer direct rewards, more envelopes and more SPT: coins, boosters and Unlimited Lives/power-up minutes are replaced by envelopes or SPT on almost every door. Floors 11 onward pay no more than before in coin-equivalent (most pay less), so the deep-floor push-your-luck pinch (strongly negative net value past floor 10) is unchanged.",
+   "Legendary (5-star) envelopes only from floor 25 up, in line with the deck (L packs only to event winners and ToF).",
+   "The SIM PART assumptions (take-up, cash-out stage 10, runs per day) are left as they are; see PROBLEMS for the measured cash-out stage (6) and what it does to these numbers."
+  ],
+  "PackConfig_v2": [
+   "GuaranteedNewSnap = 1 on every envelope tier (was 0): each envelope holds at least one card the player does not own yet, while the album still has one. This is the \"first completion accessible to all\" lever from the deck.",
+   "1-star and 2-star envelopes get a small weight on 5-star and 6-star cards (0.01 / 0.005 and 0.02 / 0.01, were 0). In a normal draw that is about one card in 250, so the envelopes are no richer; but once a player is missing only high-rarity cards, the guaranteed new card can now be one of them. Without this, players who earn mostly low-tier envelopes cannot finish album 1 at all (measured: album 1 among active players 25% without it, 82% with it).",
+   "Album 1 set skew is flat (was 75/25/13/8/5/4/3/3) so the first album does not pile up duplicates of set 1; album 2 (and 3, which reuses the album 2 row) is steeper (100/40/15/6/3/2/1/1, was 13/6/3/2/1/1/1/1) - the pinch on successive albums. The WEIGHT DETAILS block mirrors both rows.",
+   "Star chest costs and the chest purchasing sim controls are unchanged (cheaper chests added about 1 point of album 1 and 3 points of album 2, not needed)."
+  ]
+ },
+ "sp_rows": [
+  [
+   1,
+   10.0,
+   10,
+   10
+  ],
+  [
+   2,
+   14.0,
+   15,
+   25
+  ],
+  [
+   3,
+   20.0,
+   20,
+   45
+  ],
+  [
+   4,
+   28.0,
+   30,
+   75
+  ],
+  [
+   5,
+   35.0,
+   40,
+   115
+  ],
+  [
+   6,
+   70.0,
+   80,
+   195
+  ],
+  [
+   7,
+   70.0,
+   85,
+   280
+  ],
+  [
+   8,
+   70.0,
+   85,
+   365
+  ],
+  [
+   9,
+   70.0,
+   90,
+   455
+  ],
+  [
+   10,
+   100.0,
+   130,
+   585
+  ],
+  [
+   11,
+   100.0,
+   135,
+   720
+  ],
+  [
+   12,
+   100.0,
+   140,
+   860
+  ],
+  [
+   13,
+   100.0,
+   145,
+   1005
+  ],
+  [
+   14,
+   100.0,
+   150,
+   1155
+  ],
+  [
+   15,
+   130.0,
+   205,
+   1360
+  ],
+  [
+   16,
+   130.0,
+   210,
+   1570
+  ],
+  [
+   17,
+   130.0,
+   220,
+   1790
+  ],
+  [
+   18,
+   130.0,
+   225,
+   2015
+  ],
+  [
+   19,
+   130.0,
+   235,
+   2250
+  ],
+  [
+   20,
+   160.0,
+   295,
+   2545
+  ],
+  [
+   21,
+   160.0,
+   295,
+   2840
+  ],
+  [
+   22,
+   160.0,
+   295,
+   3135
+  ],
+  [
+   23,
+   160.0,
+   295,
+   3430
+  ],
+  [
+   24,
+   160.0,
+   295,
+   3725
+  ],
+  [
+   25,
+   190.0,
+   350,
+   4075
+  ],
+  [
+   26,
+   190.0,
+   350,
+   4425
+  ],
+  [
+   27,
+   190.0,
+   350,
+   4775
+  ],
+  [
+   28,
+   190.0,
+   350,
+   5125
+  ],
+  [
+   29,
+   190.0,
+   350,
+   5475
+  ],
+  [
+   30,
+   270.0,
+   500,
+   5975
+  ]
+ ]
+}
