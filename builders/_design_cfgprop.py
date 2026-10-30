@@ -137,11 +137,15 @@ def design_saga(data, P, reasons):
         'Their place is taken by the power-ups already on the chapter ladder: a second Red, Chuck and Bomb per cycle '
         '(nodes 10, 4 and 6), so each cycle pays 2 Red, 2 Chuck and 2 Bomb.',
         'One low-value envelope per 100 levels: a 1-star envelope on node 10, the rarest node. It is the cheapest '
-        'tier (24.5 coin-eq, 2 cards, no 5- or 6-star card possible).',
+        'tier (24.5 coin-eq, 2 cards, almost always 1- to 3-star cards). 1 per 100 levels is the rarest the 10-node '
+        'cycle allows: about 0.7 a season at 0-9 and about 11 at 100+.',
         'Value is kept: the nodes that lost their coins get more Unlimited Lives (310 -> 360 minutes per cycle). '
         'At item_vals "new" (row 6, the valuation the ToF sheet uses) the cycle is worth 525.0 before and 524.5 after.',
         'No new resource types: Unlimited Lives, Red, Chuck and Bomb were already on the ladder; the envelope is the '
         'one addition you asked for.',
+        'Through the engine (which scales each MEASURED chapter reward by its config ratio) the value per player moves '
+        '0% at 100+, -1% at 20-39 and -11% at 0-9: the measured chapter rewards of the low segment lean more on '
+        'boosters than the ladder implies, so removing them costs that segment more than the cycle average.',
     ]
     return s
 
