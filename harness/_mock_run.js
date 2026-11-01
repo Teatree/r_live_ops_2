@@ -1814,6 +1814,31 @@ if (data['HH_v2'] && typeof collReqs_ === 'function') {
   data['HH_v2'] = JSON.parse(snap); resetSheetCache();
 }
 
+// ---------------------------------------------------------------- D83: the base side's own helper axis
+console.log('\n=== D83: a reqFrom v2 pair reads the BASE sheet\'s helper on the base side when it has one ===');
+if (data['HH_v2'] && data['HH'] && typeof collReqs_ === 'function') {
+  const spec = COLL_R_SPECS['Hatchling Hideaway'];
+  resetSheetCache();
+  const v2 = collReqs_(spec, true).slice(), b0 = collReqs_(spec, false).slice();
+  gate('D83: no helper on the base sheet -> the base side reads the v2 axis (as before)', JSON.stringify(v2) === JSON.stringify(b0), b0.join(','));
+  const snapB = JSON.stringify(data['HH']);
+  const hit = reqLabelCell_(data['HH_v2'].values, spec.reqLabel, spec.reqR0);
+  if (hit) {
+    // copy the v2 helper block onto the base sheet with every requirement doubled
+    const vb = data['HH'].values, vv = data['HH_v2'].values;
+    for (let r = 0; r <= hit.r + v2.length; r++) {
+      while (vb.length <= r) vb.push([]);
+      while (vb[r].length <= hit.c) vb[r].push('');
+      vb[r][hit.c] = (r > hit.r) ? Number(vv[r][hit.c]) * 2 : vv[r][hit.c];
+    }
+    resetSheetCache();
+    const b1 = collReqs_(spec, false).slice(), v2b = collReqs_(spec, true).slice();
+    gate('D83: a base helper is read on the base side', b1.every((x, i) => Math.abs(x - 2 * v2[i]) < 1e-9), b1.join(','));
+    gate('D83: the v2 side still reads the v2 helper', JSON.stringify(v2b) === JSON.stringify(v2), v2b.join(','));
+  }
+  data['HH'] = JSON.parse(snapB); resetSheetCache();
+}
+
 // ---------------------------------------------------------------- D81: a changed duration moves the tokens
 console.log('\n=== D81: collections take a changed duration through the balance (S(req / D)), not the rewards ===');
 {

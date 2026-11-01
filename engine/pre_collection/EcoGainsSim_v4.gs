@@ -632,6 +632,14 @@ function collReqs_(spec, v2Side){
   // moved both helper blocks one column right, so the fixed index read HH's per-board 'Tiles'
   // (16..64) instead of 'Cum tokens' (20..237.5) and Ph's milestone numbers instead of 'Cum item
   // price'. The label is searched on the rows above the first requirement; no hit -> spec.reqC.
+  // D83 (2026-11-01): a reqFrom 'v2' pair reads the BASE sheet's own helper on the base side when the base
+  // sheet carries one (same header). Without it a board edit on HH_v2 moved the base requirement too, so
+  // 'easier boards' only re-weighted - and on a cell whose survival is near 0 the two near-zero sides
+  // made a ratio that dropped a whole envelope (0-9 Hatchling 2-star 0.64 -> 0). No base helper: as before.
+  if (spec.reqFrom === 'v2' && !v2Side && spec.reqLabel){
+    var vb = sheetVals_(spec.base);
+    if (vb && vb.length && reqLabelCell_(vb, spec.reqLabel, row0)){ v = vb; }
+  }
   var hit = spec.reqLabel ? reqLabelCell_(v, spec.reqLabel, row0) : null;
   if (hit){ reqC = hit.c; row0 = hit.r + 1; }
   for (var i = 0; i < n; i++) reqs.push(num(v[row0 + i] && v[row0 + i][reqC]));
