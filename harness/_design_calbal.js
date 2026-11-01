@@ -80,7 +80,9 @@ function DESIGN(){
   function bounds(res, a, m, st){
     if (isCount(res)) return m <= 1 ? [0, a] : [a, Math.max(a, Math.ceil(m * a))];
     const r5 = (x) => Math.round(x / st) * st;
-    return [Math.max(0, r5(0.6 * m * a)), r5(1.4 * m * a) + st];
+    // a boost of under 5 minutes is not a reward: minutes stay at 5 or more where they were 5 or more
+    const floor = (MINUTES[res] && a >= 5) ? 5 : 0;
+    return [Math.max(floor, r5(0.6 * m * a)), Math.max(floor, r5(1.4 * m * a) + st)];
   }
   function rowVars(sheet, r0, cols, key){            // one row, all mapped resource columns
     return Object.keys(cols).map(res => ({ res, at: [[sheet, r0, cols[res]]], a: N(get(sheet, r0, cols[res])), key }));
@@ -493,7 +495,7 @@ function DESIGN(){
       }
     });
     V.forEach(v => { if (v.zero || !(v.x.a > 0)) return;
-      if (!(v.b > 0)){ if (canEmpty(v)) noteChange(v, v.x.a, 0); else v.b = isCount(res) ? 1 : Math.min(v.x.a, v.st); } });
+      if (!(v.b > 0)){ if (canEmpty(v)) noteChange(v, v.x.a, 0); else v.b = isCount(res) ? 1 : Math.max(v.lo, Math.min(v.x.a, v.st)); } });
     const unitCap = {}, units = (L) => V.reduce((a, v) => a + (v.L === L ? v.b : 0), 0);
     LADDERS.forEach(L => { const A = V.reduce((a, v) => a + (v.L === L ? N(v.x.a) : 0), 0); unitCap[L.name] = (mOf[L.name] > 1) ? Math.ceil(mOf[L.name] * A) : A; });
     // leaderboard structure: per (ladder, resource) the entries in rank order, and where each item's band ends
@@ -590,7 +592,8 @@ function DESIGN(){
         if (!isCount(res)) V.forEach((vi, i) => {
           if (vi.L.lb || !(vi.b > 0) || vi.zero || !canEmpty(vi)) return;
           V.forEach((vj, j) => {
-            if (j === i || vj.L !== vi.L || !vj.zero || vj.b > 0 || vj.x.at[0][0] !== vi.x.at[0][0]) return;
+            // same cells set: an entry shared by RM_1st / RM_2nd never moves onto one sheet only
+            if (j === i || vj.L !== vi.L || !vj.zero || vj.b > 0 || vj.x.at.length !== vi.x.at.length || vj.x.at[0][0] !== vi.x.at[0][0]) return;
             if (Math.abs(vj.x.at[0][1] - vi.x.at[0][1]) > 1) return;          // one rung up or down
             if (mode === 'joint' && vi.L.lb) return;
             tryMove((vj.w - vi.w) * vi.b, vi.L, { kind: 'r', i, j, amt: vi.b, halfStep: Math.abs(vj.w - vi.w) * vi.b, tie: 1e-8 },

@@ -239,6 +239,34 @@ def main():
     al = P['alpha']
     rq = P['reqs']
 
+    def ns_changes():
+        out, seen = [], set()
+        for sh in ('NS_v2', 'NS_v2_weekday'):
+            v = dump[sh]['values']
+            for p in P['patches'].get(sh, []):
+                col = CI(''.join(ch for ch in p['cell'] if ch.isalpha())) - 1
+                row = int(''.join(ch for ch in p['cell'] if ch.isdigit())) - 1
+                seg = next((str(v[k][0]).strip() for k in range(row, -1, -1) if str(v[k][0]).strip() in SEGS), '?')
+                hdr = next((v[k] for k in range(row, -1, -1) if str(v[k][0]).strip() == 'Round'), [])
+                name = SHORT.get(HDR_MAP.get(str(hdr[col]).strip(), str(hdr[col]).strip()), str(hdr[col]).strip())
+                key = (seg, v[row][0], name, p['old'], p['new'])
+                tag = '' if sh == 'NS_v2' else ' (weekday only)'
+                if key in seen:
+                    continue
+                other = 'NS_v2_weekday' if sh == 'NS_v2' else 'NS_v2'
+                both = any(q['cell'] == p['cell'] and q['old'] == p['old'] and q['new'] == p['new'] for q in P['patches'].get(other, []))
+                if sh == 'NS_v2' and not both:
+                    tag = ' (weekend only)'
+                if both:
+                    tag = ''
+                seen.add(key)
+                out.append('%s round %s %s %s -> %s%s' % (seg, fmt(v[row][0]), name, fmt(p['old']), fmt(p['new']), tag))
+        return '; '.join(out)
+    def rm2_x2():
+        v = patched_values(dump, P, 'RM_2nd_v2')
+        h = LADDER['RM_2nd_v2'][0] - 1
+        c = [str(x).strip() for x in v[h]].index('SPT x2')
+        return ', '.join('milestone %s: %g min' % (fmt(v[r][0]), num(v[r][c])) for r in range(h + 1, h + 26) if num(v[r][c]) > 0)
     reasons = {}
     b_, s_, n_ = lane_line("Bomb's Ballet")
     reasons['BB_v2'] = [
@@ -274,7 +302,7 @@ def main():
          ','.join('%g' % x for x in rq['HH_v2']['cumBefore']), ','.join('%g' % round(x, 2) for x in rq['HH_v2']['cumAfter'])),
         'Share of the ladder reached per segment: ' + comp_text('Hatchling Hideaway') + '. Full completion: ' + done_text('Hatchling Hideaway') + '.',
         'HIGHER REWARDS per instance (a day shorter, same count): ' + sums_text(*sums['HH_v2']) + '. The early gates go up most (the segments that '
-        'lose a day reach only those); two coin entries at the top gates come down a little because 40+ lose nothing from the shorter event.',
+        'lose a day reach only those); the top gates move least, because 40+ lose nothing from the shorter event.',
         'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f; %s. Hatchling is NOT an absorber: it is brought back to where it was.' %
         (b_, s_, n_, res_line('Hatchling Hideaway', ['HC', 'Unlimited Lives', 'UL Red', 'UL Chuck', 'UL Bomb', 'ToF_Ticket'])),
         'AW5:AW9 are formulas in the workbook (=SUM($AV$5:AV5)/$AV$2): paste Y12:Y16 and AV5:AV9 only; AW is shown with its new value for reference.',
@@ -329,16 +357,15 @@ def main():
          lane_res('Rainbow Maker', 'SPT')[0], lane_res('Rainbow Maker', 'SPT')[2]),
     ]
     reasons['RM_1st_v2'] = rm_common
-    reasons['RM_2nd_v2'] = rm_common + ['RM_2nd keeps its SPT x2 (buff minutes) on two milestones (7 and 16, 10 minutes each) - the 2-day second-half instances '
-                                        'run three times instead of twice. Shared coins / SPT / minutes are identical to RM_1st_v2; single items (boosters, '
-                                        'envelopes, tickets) may sit on a different milestone on each half.',
+    reasons['RM_2nd_v2'] = rm_common + ['RM_2nd keeps its SPT x2 (buff minutes): ' + rm2_x2() + ' - the 2-day second-half instances run three times '
+                                        'instead of twice. Shared coins / SPT / minutes are identical to RM_1st_v2; single items (boosters, envelopes, '
+                                        'tickets) may sit on a different milestone on each half.',
                                         'Whole ladder per instance: ' + sums_text(*sums['RM_2nd_v2']) + '.']
     b_, s_, n_ = lane_line('Daily Night Sky Prize')
     ns_lines = [
         'CALENDAR: unchanged (every day). Night Sky is the ABSORBER of last resort for coins and Unlimited Lives: it runs per segment, so it is where '
         'each segment gives back what Kite Festival and Target Day add to it.',
-        'Round-1 Unlimited Lives 20 -> 15 minutes (40-99: 30 -> 15, 100+: 60 -> 45); round coins trimmed per segment (0-9 round 3 up 15 -> 20 to keep 0-9 whole). '
-        'Weekday and weekend get the same edits wherever they had the same reward.',
+        'Edits (segment, round: old -> new): ' + ns_changes() + '. Weekday and weekend get the same edit wherever they had the same reward.',
         'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f; %s.' % (b_, s_, n_, res_line('Daily Night Sky Prize', ['HC', 'Unlimited Lives'] + PACKS[:4])),
         'Why so much Unlimited Lives: Target Day\'s carried UL (+49 min) and Kite\'s unlock UL add ~%.0f minutes per player; the four absorbers each give up '
         '%.0f%% of their own UL. If you trust that Flock Flurry\'s 25%% fewer joins also cost ~48 minutes (the engine does not see it), you can keep '
