@@ -254,6 +254,42 @@ function GATES(){
     } else check('SKIP proxy gate: this dump carries Bomb rows', true);
   }
 
+  console.log('\n================ D82: envelopes, tickets and ToF on the export\'s level ================');
+  {
+    // identical configs on the eval fixture (cal_new := cal_curr): every _v2 sheet := its base, the weekday Night
+    // Sky := its live twin. Then every bottom-up column of every source, and every ToF resource, must read the
+    // export exactly - the model only ever moves a number by what a config or calendar change does to it.
+    const v2s = Object.keys(data).filter(n => /_v2$/.test(n) && data[n.slice(0, -3)]);
+    withSheets(v2s.concat(['NS_v2_weekday']), () => {
+      v2s.forEach(n => { data[n] = clone(data[n.slice(0, -3)]); });
+      if (data['NS_weekday']) data['NS_v2_weekday'] = clone(data['NS_weekday']);
+      const c = fresh();
+      let worst = 0, at = '', n = 0;
+      cloudPermutations_().forEach(cell => {
+        CATEGORY_ORDER.forEach(cat => {
+          if (COL_CATS[cat]) return;
+          const s2 = resultRow_(cat, cell.seg, cell.payer, c), m2 = measuredRow_(cat, cell.seg, cell.payer, c.ds);
+          const cols = (cat === TOF_CAT) ? RESOURCES : BOTTOMUP_RES;
+          cols.forEach(r => { const d = Math.abs(num(s2[r]) - num(m2[r])), rel = d / Math.max(1, Math.abs(num(m2[r]))); n++;
+            if (rel > worst){ worst = rel; at = cell.label + ' ' + cat + ' ' + r + ' ' + num(s2[r]).toFixed(3) + ' vs ' + num(m2[r]).toFixed(3); } });
+        });
+      });
+      check('identical calendars + configs -> envelopes / tickets of every source and every ToF resource read the export',
+            worst < 1e-6, n + ' cells, worst ' + (100 * worst).toFixed(4) + '%' + (at ? ' at ' + at : ''));
+      // the rule: a ladder edit moves the export by the model's own ratio
+      const spec = LB_R_SPECS['Target Day'], v = data['TaD_v2'].values, cols = rewCols_(v, spec.hdr, spec.c0, spec.c1);
+      const c2s = cols['2-star Pack'];
+      for (let r = spec.r0; r <= spec.r1; r++) if (num(v[r][c2s]) > 0) v[r][c2s] = num(v[r][c2s]) * 2;
+      const c3 = fresh();
+      const exp = measuredRowCore_('Target Day', SEG, PAY, c3.ds)['2-star Pack'], anc = packAnchorRow_('Target Day', SEG, PAY)['2-star Pack'];
+      EXPORT_ANCHORED = false; const model = resultRow_('Target Day', SEG, PAY, fresh())['2-star Pack']; EXPORT_ANCHORED = true;
+      const got = resultRow_('Target Day', SEG, PAY, fresh())['2-star Pack'];
+      check('RULE: doubling Target Day\'s 2-star envelopes -> export x model_new / model_cur', exp > 0 && anc > 0 && near(got, exp * model / anc, 1e-9),
+            'export ' + num(exp).toFixed(3) + ' x ' + num(model).toFixed(3) + ' / ' + num(anc).toFixed(3) + ' = ' + num(exp * model / anc).toFixed(3) + ', got ' + num(got).toFixed(3));
+      check('RULE: EXPORT_ANCHORED = false reads the model\'s own level', !near(model, got, 1e-6));
+    });
+  }
+
   console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D79 GATES PASS'));
   process.exitCode = failures ? 1 : 0;
 }

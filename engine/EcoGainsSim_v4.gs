@@ -96,7 +96,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D81  2026-10-30';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D82  2026-11-01';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -282,7 +282,7 @@ function resultRow_(cat, seg, payer, ctx){
     var packs = packOnlyRow_(cat, seg, payer, ctx);
     if (packs) row = overlayPacks_(copyRow_(row), packs);
   }
-  return row;
+  return exportAnchorBottomUp_(cat, seg, payer, ctx, row);   // D82
 }
 
 // measured anchor. Core and Saga are separate rows (data_gains emits both) — no folding.
@@ -1285,6 +1285,39 @@ function packAnchorRow_(cat, seg, payer){
 }
 function copyRow_(row){ var o = {}; RESOURCES.forEach(function(r){ o[r] = num(row[r]); }); return o; }
 
+// ---- D82 (2026-11-01): what the export measures is the LEVEL, the model is the CHANGE ----------
+// Where data_gains carries a source's envelopes / ToF tickets (LIVE_OPS_V3 (8) carries all six tiers
+// and the ticket), the MEASURED side is that export (measuredRow_), while the simulated side was the
+// bottom-up ladder walk in absolute terms. The two are different instruments, so with the SAME
+// calendar and the SAME configs the DIFF was not zero: Target Day 5-star 1.89 in the data against
+// 0.18 from its ladder, 3-/4-/5-star -20/-24/-78% overall, tickets +17%. The Rainbow Maker rule of D61
+// is applied to them: per resource, simulated = export x model_new / model_cur, where model_cur is the
+// same walk over cal_curr on the base config (packAnchorRow_ - the measured side's own synthetic when
+// the export is silent). A tier the base never paid but the export shows is export + the redesign's
+// addition; a tier the export shows as 0 while the base walk pays it stays 0 (the data wins); a tier
+// neither pays is the redesign's addition. Only when the export carries the category's bottom-up
+// columns at all (bottomUpHasData_ - the same test measuredRow_ uses), so a pull without them is
+// bit-identical. Rainbow Maker and ToF anchor themselves (simRainbowMaker, simToF); the card sim keeps
+// drawing at the model's level (both sides, common seeds - D67). EXPORT_ANCHORED = false restores the
+// pre-D82 simulated side exactly.
+var EXPORT_ANCHORED = true;
+function anchorOne_(m, c, n){
+  if (c > 1e-9) return m * n / c;           // the export level x the model's change
+  if (m > 0) return m + n;                  // the base walk never paid it: the export plus the addition
+  return n;                                 // neither the data nor the base: an addition
+}
+function exportAnchorBottomUp_(cat, seg, payer, ctx, row){
+  if (!EXPORT_ANCHORED || _baseSide || !row || seg === 'A. 0' || seg === 'A.0') return row;
+  if (PACK_ANCHOR_SKIP[cat] && cat !== 'Season Pass (Free)') return row;
+  var exp = measuredRowCore_(cat, seg, payer, ctx.ds);
+  if (!bottomUpHasData_(exp)) return row;
+  var anc = (cat === 'Season Pass (Free)') ? spFreePacksSynth_(seg, payer, ctx.ds) : packAnchorRow_(cat, seg, payer);
+  if (!anc) return row;
+  var out = copyRow_(row);
+  BOTTOMUP_RES.forEach(function(r){ out[r] = anchorOne_(num(exp[r]), num(anc[r]), num(row[r])); });
+  return out;
+}
+
 // ---- pack-only sources (D19/3) -------------------------------------------------------------
 // Team Event and Flock Flurry are CARRIED in the gains model (no simulator, no _v2 sheet), but
 // they do have a config sheet with the pack columns and a calendar lane — so their pack columns
@@ -2045,6 +2078,22 @@ function simToF(seg, payer, ctx, cat){
   }
   // D34: gains only. The continue spend is reported on the ToF sheet, not netted into this row.
   if (TOF_SPEND_IN_ROW) out['HC'] = num(out['HC']) - run.spend * budget.runs;
+  // D82: where the export measures ToF, it is the level and the walk is the change. The walk assumes a
+  // cash-out the data does not show (stage 10 against a measured median of 6), so on the same calendar
+  // and the same config it priced 0-9 NONPAYER at 62 coins where Variant A earned 15 - +4.6% of all
+  // coins before any config moved, plus the Season Pass tier its extra SPT bought. tofSynth_ is the
+  // same walk over cal_curr on the base ToF sheet with the measured ticket income.
+  if (EXPORT_ANCHORED && !_baseSide && !TOF_SPEND_IN_ROW){
+    var expT = measuredRowCore_(TOF_CAT, seg, payer, ctx.ds);
+    if (anyAmount_(expT)){
+      var ancT = tofSynth_(seg, payer);
+      if (ancT){
+        var outA = zeroRow_();
+        RESOURCES.forEach(function(r){ outA[r] = anchorOne_(num(expT[r]), num(ancT[r]), num(out[r])); });
+        out = outA;
+      }
+    }
+  }
   return out;
 }
 

@@ -32,6 +32,11 @@ function PROBE(){
       });
     });
   }
+  // --copysheet DST=SRC[,DST2=SRC2]: replace a sheet by a copy of another before the run (e.g. ToF_v2=ToF to see how
+  // much of a lane's difference is its config and how much is the model)
+  const cps = arg('--copysheet', '');
+  cps.split(',').filter(Boolean).forEach(kv => { const [dst, src] = kv.split('='); if (!data[src]) throw new Error('no sheet ' + src);
+    data[dst] = JSON.parse(JSON.stringify(data[src])); });
   if (calcur){
     // cal_new := cal_curr, cal_parsed's cal_new rows := its cal_curr rows
     data['cal_new'] = JSON.parse(JSON.stringify(data['cal_curr']));
