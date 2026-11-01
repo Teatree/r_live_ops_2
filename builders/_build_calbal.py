@@ -2,8 +2,8 @@
 
 The brief: NONE of the 2026-10-30 config proposals applied - only the new calendar - with Bomb's Ballet, Flock Flurry,
 Hatchling, Jigsaw, Kite Festival, Target Day and Rainbow Maker rebalanced (Flock Flurry left alone on the user's call)
-so every resource lands back on the difference it showed BEFORE the calendar swap; Kite ~+50% and Target Day ~+35% may
-grow and the other events absorb that growth. Album, Season Pass and Team configs are not touched.
+so that the variant (new calendar + these configs) gains what control (the current calendar and configs) gains - every
+resource within ~1.5% (user decision 2026-11-01); Kite ~+50% and Target Day ~+35% may grow, the other events absorb it. Album, Season Pass and Team configs are not touched.
 
 Tabs
   Summary          what changed per source, before -> after, the per-resource totals, completion per segment, caveats
@@ -12,7 +12,7 @@ Tabs
   <one per sheet>  the _v2 sheet from LIVE_OPS_V3 (8) with every proposed value in RED and the reasoning to the right
 
 Pipeline (regenerate by re-running; never hand-edit the xlsx):
-    node harness/_probe_calbal.js --calcur --quiet --out analysis/out/calbal_base_cur.json   # before the swap
+    node harness/_probe_calbal.js --calcur --quiet --out analysis/out/calbal_base_cur.json   # old calendar, (8) configs
     node harness/_probe_calbal.js --quiet --out analysis/out/calbal_base_new.json            # the swap alone
     node harness/_design_calbal.js                                                            # pass 1
     node harness/_probe_calbal.js --quiet --patches analysis/out/calbal_patches.json --out analysis/out/calbal_eval_pass1.json
@@ -40,7 +40,7 @@ PAYERS = ['NONPAYER', 'PAYER']
 RES13 = ['HC', 'Slingshot', 'Shuffle', 'Comet', 'Red', 'Chuck', 'Bomb', 'UL Bomb', 'UL Chuck', 'UL Red', 'Unlimited Lives', 'SPT', 'SPTx2']
 PACKS = ['1-star Pack', '2-star Pack', '3-star Pack', '4-star Pack', '5-star Pack', '6-star Pack']
 GROUPS = ['PAID', 'ADS', 'CORE', 'META']
-ORDER = ['BB_v2', 'J_v2', 'HH_v2', 'Ki_v2', 'Ki_2d_v2', 'TaD_v2', 'RM_1st_v2', 'RM_2nd_v2', 'NS_v2', 'NS_v2_weekday']
+ORDER = ['BB_v2', 'J_v2', 'HH_v2', 'HH', 'Ki_v2', 'Ki_2d_v2', 'TaD_v2', 'RM_1st_v2', 'RM_2nd_v2', 'NS_v2', 'NS_v2_weekday']
 SHEET_SOURCE = {'BB_v2': "Bomb's Ballet", 'J_v2': 'Jigsaw', 'HH_v2': 'Hatchling Hideaway', 'Ki_v2': 'Kite Festival',
                 'Ki_2d_v2': 'Kite Festival', 'TaD_v2': 'Target Day', 'RM_1st_v2': 'Rainbow Maker', 'RM_2nd_v2': 'Rainbow Maker',
                 'NS_v2': 'Daily Night Sky Prize', 'NS_v2_weekday': 'Daily Night Sky Prize'}
@@ -120,7 +120,7 @@ def sums_text(a, b):
 def lane_pooled(S, cat, side, res, payer=None):
     tot, w = 0.0, 0.0
     for lab, x in S['lanes'].items():
-        if payer and not lab.endswith(payer):
+        if payer and lab.split(' ')[1] != payer:
             continue
         tot += x['pop'] * num(x[side][cat].get(res, 0))
         w += x['pop']
@@ -140,9 +140,9 @@ def sim_per_segment(wb, S):
     OVR = PatternFill('solid', fgColor='FFDDEBF7')
     ws.cell(row=1, column=2, value='RESOURCE GAINS - rebalanced configs on the new cal_new (per player, 28-day window)').font = F(bold=True, size=13)
     ws.cell(row=2, column=2, value='Same layout as the workbook\'s Sim per Segment: CURRENT = the measured side, SIMULATED = the engine '
-            '(D81) with the configs of this file on LIVE_OPS_V3 (8)\'s cal_new. The two right-hand columns compare the Total delta '
-            'with the one BEFORE the calendar swap (cal_new := cal_curr, configs as in (8)), and show it with the two collection '
-            'rows held at their before-swap values (album / set completions in the card sim are noisy - see Summary).').font = F(italic=True, size=9)
+            '(D83) with the configs of this file on LIVE_OPS_V3 (8)\'s cal_new. The target is a Total delta of ~0 on every row (variant = control). '
+            'The two right-hand columns show the new calendar with the OLD configs (what the rebalance undoes) and the rebalanced total with the two '
+            'collection rows held at their current values (album / set completions in the card sim are noisy - see Summary).').font = F(italic=True, size=9)
     ws.merge_cells(start_row=2, start_column=2, end_row=2, end_column=22)
     ws.row_dimensions[2].height = 36
     r = 4
@@ -151,11 +151,11 @@ def sim_per_segment(wb, S):
     for key, title in blocks:
         ws.cell(row=r, column=2, value=title).font = F(bold=True, size=11)
         r += 1
-        for c, t in [(3, '◄ CURRENT ►'), (9, '◄ SIMULATED ►'), (15, 'Δ'), (21, 'Total Δ% before swap'),
+        for c, t in [(3, '◄ CURRENT ►'), (9, '◄ SIMULATED ►'), (15, 'Δ'), (21, 'Total Δ% new calendar, old configs'),
                      (22, 'Total Δ% collection rows held')]:
             ws.cell(row=r, column=c, value=t).font = F(bold=True, size=9)
         r += 1
-        hdr = ['Segment'] + GROUPS + ['Total', ''] + GROUPS + ['Total', ''] + GROUPS + ['Total Δ %', '', 'before', 'held']
+        hdr = ['Segment'] + GROUPS + ['Total', ''] + GROUPS + ['Total', ''] + GROUPS + ['Total Δ %', '', 'old cfg', 'held']
         for i, h in enumerate(hdr):
             c = ws.cell(row=r, column=2 + i, value=h)
             c.font = F(bold=True, size=9)
@@ -169,7 +169,7 @@ def sim_per_segment(wb, S):
             r += 1
             for seg in SEGS + ['overall']:
                 e = S['after'][key][payer][seg]
-                b = S['before'][key][payer][seg]
+                b = S['swap'][key][payer][seg]
                 h = S['afterHeld'][key][payer][seg]
                 ws.cell(row=r, column=2, value=seg).font = F(bold=(seg == 'overall'))
                 for i, g in enumerate(GROUPS + ['Total']):
@@ -219,7 +219,7 @@ def main():
     for sh in LADDER:
         sums[sh] = (ladder_sums(dump[sh]['values'], sh), ladder_sums(patched_values(dump, P, sh), sh))
     def lane_line(cat):
-        b, s, n = lane_value(S, cat, 'ref'), lane_value(S, cat, 'swap'), lane_value(S, cat, 'after')
+        b, s, n = lane_value(S, cat, 'meas'), lane_value(S, cat, 'swap'), lane_value(S, cat, 'after')
         return b, s, n
     comp = P['completion']
     def comp_text(cat):
@@ -227,7 +227,7 @@ def main():
     def done_text(cat):
         return '; '.join('%s %.1f%% -> %.1f%%' % (x['seg'], 100 * x['doneBefore'], 100 * x['doneAfter']) for x in comp[cat] if x['doneBefore'] or x['doneAfter'])
     def lane_res(cat, res):
-        return lane_pooled(S, cat, 'ref', res), lane_pooled(S, cat, 'swap', res), lane_pooled(S, cat, 'after', res)
+        return lane_pooled(S, cat, 'meas', res), lane_pooled(S, cat, 'swap', res), lane_pooled(S, cat, 'after', res)
     def res_line(cat, keys):
         out = []
         for k in keys:
@@ -248,7 +248,7 @@ def main():
         (','.join('%g' % x for x in rq['BB_v2']['before']), ','.join('%g' % x for x in rq['BB_v2']['after'])),
         'Share of the ladder reached per segment (before -> after): ' + comp_text("Bomb's Ballet") + '. Full completion: ' + done_text("Bomb's Ballet") + '.',
         'FEWER REWARDS per show, because there are twice as many shows. Whole ladder (completion reward included): ' + sums_text(*sums['BB_v2']) + '.',
-        'Over the season Bomb\'s Ballet pays (per player, before swap / swap with old configs / rebalanced): value %.0f / %.0f / %.0f; %s. '
+        'Over the season Bomb\'s Ballet pays (per player, current / new calendar with old configs / rebalanced): value %.0f / %.0f / %.0f; %s. '
         'It gives up about %.0f%% of its coins and %.0f%% of its Unlimited Lives on top of standing still, which pays for the growth '
         'of Kite Festival and Target Day.' % (b_, s_, n_, res_line("Bomb's Ballet", ['HC', 'Unlimited Lives', 'UL Red', 'UL Bomb', 'Chuck', 'ToF_Ticket']),
                                                  100 * al['HC'], 100 * al['Unlimited Lives']),
@@ -262,7 +262,7 @@ def main():
         (','.join('%g' % x for x in rq['J_v2']['before']), ','.join('%g' % x for x in rq['J_v2']['after'])),
         'Share of the ladder reached per segment: ' + comp_text('Jigsaw') + '. Full completion: ' + done_text('Jigsaw') + '.',
         'FEWER REWARDS per puzzle (twice as many puzzles). Whole ladder: ' + sums_text(*sums['J_v2']) + '.',
-        'Season per player (before swap / swap only / rebalanced): value %.0f / %.0f / %.0f; %s.' % (b_, s_, n_, res_line('Jigsaw', ['HC', 'Unlimited Lives', 'UL Red', 'UL Chuck', 'UL Bomb', 'ToF_Ticket'])),
+        'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f; %s.' % (b_, s_, n_, res_line('Jigsaw', ['HC', 'Unlimited Lives', 'UL Red', 'UL Chuck', 'UL Bomb', 'ToF_Ticket'])),
         'So the distribution stays the same: each segment completes the same share of a puzzle, and the season total is what it was (less the share given up for Kite / Target Day).',
     ]
     b_, s_, n_ = lane_line('Hatchling Hideaway')
@@ -275,14 +275,21 @@ def main():
         'Share of the ladder reached per segment: ' + comp_text('Hatchling Hideaway') + '. Full completion: ' + done_text('Hatchling Hideaway') + '.',
         'HIGHER REWARDS per instance (a day shorter, same count): ' + sums_text(*sums['HH_v2']) + '. The early gates go up most (the segments that '
         'lose a day reach only those); two coin entries at the top gates come down a little because 40+ lose nothing from the shorter event.',
-        'Season per player (before swap / swap only / rebalanced): value %.0f / %.0f / %.0f; %s. Hatchling is NOT an absorber: it is brought back to where it was.' %
+        'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f; %s. Hatchling is NOT an absorber: it is brought back to where it was.' %
         (b_, s_, n_, res_line('Hatchling Hideaway', ['HC', 'Unlimited Lives', 'UL Red', 'UL Chuck', 'UL Bomb', 'ToF_Ticket'])),
         'AW5:AW9 are formulas in the workbook (=SUM($AV$5:AV5)/$AV$2): paste Y12:Y16 and AV5:AV9 only; AW is shown with its new value for reference.',
+        'The base HH sheet gets TODAY\'s boards as the same helper block (tab HH): the engine (D83) then prices the old boards on the current side '
+        'and these boards on the new side. Without it both sides read HH_v2 and the easier boards would barely register.',
+    ]
+    reasons['HH'] = [
+        'BASE SHEET - an ADDITION, not a reward change: the helper block of HH_v2 (accuracy, Gate / Tiles / Cum tokens, AU2:AW9) copied here with '
+        'TODAY\'s boards (16 / 25 / 36 / 49 / 64). With it the engine prices the current calendar on today\'s boards and the new one on HH_v2\'s '
+        'smaller boards (D83). Every reward on this sheet stays as it is.',
     ]
     b_, s_, n_ = lane_line('Kite Festival')
     kite_lines = [
         'CALENDAR: 4 festivals of 3 days -> 4 of 3 days PLUS 4 of 2 days (the 2-day ones read Ki_2d_v2). Eight festivals instead of four.',
-        'Season per player (before swap / swap with old configs / rebalanced): value %.0f / %.0f / %.0f (%+.0f%% vs before the swap; target ~+50%%). %s.' %
+        'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f (%+.0f%% vs current; target ~+50%%). %s.' %
         (b_, s_, n_, 100 * (n_ / b_ - 1) if b_ else 0, res_line('Kite Festival', ['HC', 'Unlimited Lives', 'SPT'] + PACKS[:2])),
         'Kite\'s SPT is NOT on these sheets (the live event pays it; the ladders say 0): the engine carries it x the calendar, +90%, whatever the configs say.',
     ]
@@ -297,7 +304,7 @@ def main():
         'CALENDAR: 11 Target Days -> 19 (1-day each).',
         'Rank coins 100 / 50 / 25 -> 80 / 40 / 15; the 3-star envelope at rank 3, the 2-star at rank 6 and the Red at rank 10 are dropped '
         '(band ends). Whole ladder: ' + sums_text(*sums['TaD_v2']) + '.',
-        'Season per player (before swap / swap only / rebalanced): value %.0f / %.0f / %.0f (%+.0f%%). %s. Coins from the leaderboard: +35%% (target).' %
+        'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f (%+.0f%%). %s. Coins from the leaderboard: +35%% (target).' %
         (b_, s_, n_, 100 * (n_ / b_ - 1) if b_ else 0, res_line('Target Day', ['HC', 'Unlimited Lives', 'Red'] + PACKS[1:5])),
         'Target Day\'s Unlimited Lives (and its Chuck) are NOT on this sheet - the live event pays them, the milestone ladder here is all zeros - '
         'so the engine carries them x the calendar: +73% (+49 minutes per player) whatever this sheet says. The other events absorb that.',
@@ -316,7 +323,7 @@ def main():
         '. 100+ reaches less: a quarter of 100+ participants have barely started by the end of day 2 (late joiners), which no requirement can give back.',
         'REWARDS: each old milestone\'s rewards moved to the new milestone it maps to (two old ones merge every sixth), then scaled down for twice the '
         'instances. Whole ladder per instance: ' + sums_text(*sums['RM_1st_v2']) + '.',
-        'Season per player (before swap / swap with old configs / rebalanced): value %.0f / %.0f / %.0f; %s. Rainbow Maker stays the biggest event '
+        'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f; %s. Rainbow Maker stays the biggest event '
         'payout; it gives up ~%.0f%% of its coins and ~%.0f%% of its Unlimited Lives for Kite / Target Day, and takes Kite\'s extra SPT (SPT %.0f -> %.0f).' %
         (b_, s_, n_, res_line('Rainbow Maker', ['HC', 'Unlimited Lives', 'SPTx2', 'ToF_Ticket'] + PACKS[:5]), 100 * al['HC'], 100 * al['Unlimited Lives'],
          lane_res('Rainbow Maker', 'SPT')[0], lane_res('Rainbow Maker', 'SPT')[2]),
@@ -332,7 +339,7 @@ def main():
         'each segment gives back what Kite Festival and Target Day add to it.',
         'Round-1 Unlimited Lives 20 -> 15 minutes (40-99: 30 -> 15, 100+: 60 -> 45); round coins trimmed per segment (0-9 round 3 up 15 -> 20 to keep 0-9 whole). '
         'Weekday and weekend get the same edits wherever they had the same reward.',
-        'Season per player (before swap / swap only / rebalanced): value %.0f / %.0f / %.0f; %s.' % (b_, s_, n_, res_line('Daily Night Sky Prize', ['HC', 'Unlimited Lives'] + PACKS[:4])),
+        'Season per player (current / new calendar, old configs / rebalanced): value %.0f / %.0f / %.0f; %s.' % (b_, s_, n_, res_line('Daily Night Sky Prize', ['HC', 'Unlimited Lives'] + PACKS[:4])),
         'Why so much Unlimited Lives: Target Day\'s carried UL (+49 min) and Kite\'s unlock UL add ~%.0f minutes per player; the four absorbers each give up '
         '%.0f%% of their own UL. If you trust that Flock Flurry\'s 25%% fewer joins also cost ~48 minutes (the engine does not see it), you can keep '
         'Night Sky\'s round-1 UL at 20 and still land close in reality.' % (al['Unlimited Lives'] * (lane_pooled(S, "Bomb's Ballet", 'ref', 'Unlimited Lives') + lane_pooled(S, 'Jigsaw', 'ref', 'Unlimited Lives') + lane_pooled(S, 'Rainbow Maker', 'ref', 'Unlimited Lives') + lane_pooled(S, 'Daily Night Sky Prize', 'ref', 'Unlimited Lives')), 100 * al['Unlimited Lives']),
@@ -355,13 +362,16 @@ def main():
             c.number_format = nf
         return c
     put(r, 1, 'Calendar rebalance - configs for the new cal_new, nothing else', bold=True, size=14); r += 1
-    put(r, 1, 'On top of the _v2 sheets of LIVE_OPS_V3 (8) with NONE of the 2026-10-30 config proposals. Judged by the engine (EcoGainsSim_v4.gs D81) on '
-              '(8)\'s cal_new, 28-day window, measured side = Variant A. Target: every resource back on the difference it showed BEFORE the calendar '
-              'swap (cal_new := cal_curr, same configs); Kite Festival may grow ~+50% and Target Day ~+35%, the other events absorb it.', italic=True, wrap=True)
+    put(r, 1, 'On top of the _v2 sheets of LIVE_OPS_V3 (8) with NONE of the 2026-10-30 config proposals. Judged by the engine (EcoGainsSim_v4.gs D83) on '
+              '(8)\'s cal_new, 28-day window, measured side = Variant A. Target: variant (new calendar + these configs) - control (current calendar '
+              'and configs) as close to 0 as possible, within ~1.5% for every resource. Kite Festival may grow ~+50% and Target Day ~+35%; the other '
+              'events absorb it.', italic=True, wrap=True)
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12); ws.row_dimensions[r].height = 42; r += 2
     put(r, 1, 'HOW TO APPLY', bold=True); r += 1
-    for line in ['Re-paste engine/EcoGainsSim_v4.gs first (D80 + D81). D81 changes how a shorter collection event is priced (players\' tokens shrink, '
-                 'the rewards are not cut); without it Bomb\'s Ballet, Jigsaw and Hatchling read differently. D80 fixes Hatchling\'s requirement axis on V3.',
+    for line in ['Re-paste engine/EcoGainsSim_v4.gs first (D80-D83). D82 prices envelopes, ToF tickets and Tower of Fortune as a change on the level the '
+                 'data measured (without it the ToF model alone reads +4.6% coins on IDENTICAL configs); D81 prices a shorter collection event through the '
+                 'players\' tokens, not by cutting rewards; D83 lets the base HH sheet keep today\'s boards; D80 fixes Hatchling\'s requirement axis on V3.',
+                 'Add the helper block on the base HH sheet (tab HH, AU2:AW9) - it records today\'s boards, it changes no reward.',
                  'Every red cell on a sheet tab is a proposed value - paste it into the same cell of the workbook (the Changes tab lists all of them). '
                  'Cells filled light red on RM_1st_v2 / RM_2nd_v2 rows 41-45 are to be CLEARED (25 milestones).',
                  'HH_v2: paste Y12:Y16 and AV5:AV9; AW5:AW9 are formulas and follow.',
@@ -370,8 +380,8 @@ def main():
         put(r, 1, '- ' + line, wrap=True); ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12); ws.row_dimensions[r].height = 30; r += 1
     r += 1
     put(r, 1, 'PER SOURCE - season gain per player (all payers, population-weighted)', bold=True); r += 1
-    hdr = ['Source', 'Calendar change', 'Value before swap', 'Swap, old configs', 'Rebalanced', 'vs before', 'Coins before -> after', 'UL min before -> after',
-           'SPT before -> after', 'Envelopes before -> after']
+    hdr = ['Source', 'Calendar change', 'Value now (control)', 'New calendar, old configs', 'Rebalanced', 'vs now', 'Coins now -> after', 'UL min now -> after',
+           'SPT now -> after', 'Envelopes now -> after']
     for i, h in enumerate(hdr):
         put(r, 1 + i, h, bold=True, fill=HDR_FILL, wrap=True)
     ws.row_dimensions[r].height = 30; r += 1
@@ -385,7 +395,7 @@ def main():
                 '%.1f -> %.1f' % (lane_res(cat, 'HC')[0], lane_res(cat, 'HC')[2]),
                 '%.1f -> %.1f' % (lane_res(cat, 'Unlimited Lives')[0], lane_res(cat, 'Unlimited Lives')[2]),
                 '%.1f -> %.1f' % (lane_res(cat, 'SPT')[0], lane_res(cat, 'SPT')[2]),
-                '%.2f -> %.2f' % (env('ref'), env('after'))]
+                '%.2f -> %.2f' % (env('meas'), env('after'))]
         for i, v in enumerate(vals):
             c = put(r, 1 + i, v, fill=SIM_FILL if i >= 2 else None)
             if i == 5:
@@ -395,9 +405,9 @@ def main():
               'value moves only through its envelopes; see caveats.', italic=True, wrap=True, size=9)
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10); ws.row_dimensions[r].height = 26; r += 2
 
-    put(r, 1, 'EVERY RESOURCE - Total delta vs current, overall rows (the brief: rebalanced = before swap)', bold=True); r += 1
-    hdr = ['Resource', 'NONPAYER before swap', 'swap only', 'rebalanced', 'rebalanced, coll. rows held', 'PAYER before swap', 'swap only', 'rebalanced',
-           'rebalanced, coll. rows held']
+    put(r, 1, 'EVERY RESOURCE - variant vs control, overall rows (the brief: ~0, within ~1.5%)', bold=True); r += 1
+    hdr = ['Resource', 'NONPAYER old calendar, (8) configs', 'new calendar, old configs', 'rebalanced', 'rebalanced, coll. rows held',
+           'PAYER old calendar, (8) configs', 'new calendar, old configs', 'rebalanced', 'rebalanced, coll. rows held']
     for i, h in enumerate(hdr):
         put(r, 1 + i, h, bold=True, fill=HDR_FILL, wrap=True)
     ws.row_dimensions[r].height = 30; r += 1
@@ -426,23 +436,32 @@ def main():
         r += 1
     r += 1
     put(r, 1, 'CAVEATS', bold=True); r += 1
-    held = lambda res, payer: (S['after'][res][payer]['overall']['sim']['Total'] - S['afterHeld'][res][payer]['overall']['sim']['Total'])
+    def tot_after(res, payer):
+        e = S['after'][res][payer]['overall']
+        return (e['sim']['Total'] - e['cur']['Total']) / e['cur']['Total'] if e['cur']['Total'] else 0
+    def tot_held(res, payer):
+        e = S['afterHeld'][res][payer]['overall']
+        return (e['sim']['Total'] - e['cur']['Total']) / e['cur']['Total'] if e['cur']['Total'] else 0
     cav = [
+        '5-STAR ENVELOPES ARE THE ONE RESOURCE OUTSIDE THE BAND, by your choice: almost all of them come from Target Day (1.89 of 2.20 per player in '
+        'the data) and its sheet pays one, at rank 1. 19 Target Days instead of 11 give +%.0f%% (non-payers) / +%.0f%% (payers). Album 1 is rarity-gated, '
+        'so album completion will rise with it. The alternatives were two Target Day configs (8 of the 19 days without the 5-star) or a 4-star '
+        'instead (5-star -87%%, 4-star +13%%).' % (100 * tot_after('5-star Pack', 'NONPAYER'), 100 * tot_after('5-star Pack', 'PAYER')),
         'Target Day\'s Unlimited Lives and Chuck, and Kite Festival\'s SPT, are not on their config sheets (the live events pay them; the sheets say 0). '
-        'The engine carries them x the calendar: +73% and +90% whatever the configs say. They are absorbed by Night Sky, Rainbow Maker, Bomb\'s Ballet and Jigsaw.',
+        'The engine scales them with the calendar (+73% / +90%) whatever the configs say; Night Sky, Rainbow Maker, Bomb\'s Ballet and Jigsaw give the same '
+        'amount back.',
         'Flock Flurry is left alone (your call) and the engine carries it, so its 16 -> 12 joins (-25% of its ~194-minute Unlimited Lives join grant, about '
-        '-48 minutes per player) are NOT in these numbers. In the game Unlimited Lives would land ~3% below what the sheet shows - roughly the size of '
-        'Target Day\'s carried +49. Keeping Night Sky round-1 UL at 20 would offset it.',
-        'Col - Sets / Col - Albums are the card sim\'s set / album completions over 50 seeded seasons per cell; a handful of album completions swing a cell '
-        '(100+ NONPAYER album coins: 61 before the swap, 206 on the swap alone). They were not chased: overall coins +%.1f (NONPAYER) / +%.1f (PAYER) per '
-        'player come from these two rows here. The "collection rows held" columns show the totals without that noise.' % (held('HC', 'NONPAYER'), held('HC', 'PAYER')),
-        'One ladder serves both payer types and all five segments, so per-segment rows move a little even where the overall row is exact: the biggest are UL Bomb '
-        '(10-19 NONPAYER -15%, 100+ +33%), SPT x2 at 100+ (-25%: late joiners in a 2-day Rainbow Maker) and Chuck at 0-9 (+4% vs +8%). Overall Unlimited Red '
-        'lands at -5% (NONPAYER) against -2% before the swap.',
-        'Season Pass, ToF and the collection rows are not configured here; they move only through the SPT / ticket / envelope income above (SPT is kept at its '
-        'before-swap level so 0-9 NONPAYER stays on its Season Pass tier).',
-        'Engine assumptions carried over: Kite opt-in 0.35 for the pack lane (D25); Rainbow Maker priced on the live matchables (D77); the D81 pace model for '
-        'collection events; measured anchor = Variant A (16 days of (8)\'s export scaled to the window).',
+        '-48 minutes per player) are NOT in these numbers: in the game Unlimited Lives would land ~3% below what the sheet shows. Keeping Night Sky\'s '
+        'round-1 Unlimited Lives at 20 would offset it.',
+        'Col - Sets / Col - Albums are the card sim\'s set / album completions over 50 seeded seasons per cell; a handful of completions swing a cell. '
+        'They were not chased: overall coins %+.1f%% (NONPAYER) / %+.1f%% (PAYER) come from those two rows, the rest of the coin total is %+.1f%% / %+.1f%%. '
+        'The "collection rows held" columns show it.' % (100 * (tot_after('HC', 'NONPAYER') - tot_held('HC', 'NONPAYER')), 100 * (tot_after('HC', 'PAYER') - tot_held('HC', 'PAYER')),
+                                                       100 * tot_held('HC', 'NONPAYER'), 100 * tot_held('HC', 'PAYER')),
+        'Season Pass tiers sit on a knife edge in two cells (10-19 NONPAYER drops a tier at -0.8% SPT, 0-9 PAYER rises one at +3.3%), so every cell\'s SPT '
+        'was held to its own current total. Season Pass, ToF and the collection rows themselves are not configured here.',
+        'One ladder serves both payer types and all five segments, so single segments move a little more than the overall rows - see Sim per Segment.',
+        'Engine assumptions carried over: Kite opt-in 0.35 for the pack lane (D25); Rainbow Maker priced on the live matchables (D77); the D81 pace model; '
+        'the card sim still draws envelopes at the model\'s level on both sides (D67); measured anchor = Variant A (16 days of (8)\'s export scaled to the window).',
     ]
     for line in cav:
         put(r, 1, '- ' + line, wrap=True); ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12); ws.row_dimensions[r].height = 44; r += 1

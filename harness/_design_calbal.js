@@ -54,7 +54,10 @@ function DESIGN(){
     const out = {}; cells.forEach(c => { out[c.label] = resultRow_(cat, c.seg, c.payer, ctx); }); return out;
   };
   const pooled = (rows, res, filt) => { let s = 0; cells.forEach(c => { if (filt && !filt(c)) return; s += POP[c.label] * N(rows[c.label][res]); }); return s / POPT; };
-  const refLane = (cat, res, filt) => { let s = 0; cells.forEach(c => { if (filt && !filt(c)) return; s += POP[c.label] * N(REF.cells[c.label].sim[cat][res]); }); return s / POPT; };
+  // the target each lane / cell is pulled to: 'meas' = the CURRENT economy (control; user decision 2026-11-01:
+  // variant - control as close to 0 as possible, within ~1.5% per resource), 'sim' = the before-swap reference
+  const SIDE = arg('--target', 'meas');
+  const refLane = (cat, res, filt) => { let s = 0; cells.forEach(c => { if (filt && !filt(c)) return; s += POP[c.label] * N(REF.cells[c.label][SIDE][cat][res]); }); return s / POPT; };
   const refMeas = (cat, res, filt) => { let s = 0; cells.forEach(c => { if (filt && !filt(c)) return; s += POP[c.label] * N(REF.cells[c.label].meas[cat][res]); }); return s / POPT; };
   const ITEM = (() => { const v = data['item_vals'].values, o = {}; (v[1] || []).forEach((h, c) => { const k = RES_MAP[String(h || '').trim()]; if (k) o[k] = N((v[2] || [])[c]); });
     o['ToF_Ticket'] = N((v[2] || [])[(v[1] || []).map(x => String(x).trim()).indexOf('ToF_Value')]); return o; })();
@@ -65,7 +68,10 @@ function DESIGN(){
   // grouped by perturbation key (vars of one group have distinct resources).
   const STEP5 = { 'HC': 1, 'SPT': 1, 'SPTx2': 1, 'Unlimited Lives': 1, 'UL Red': 1, 'UL Chuck': 1, 'UL Bomb': 1 };
   // coins / SPT / buff minutes in steps of 5 once they are 10 or more (no 7-minute boosts)
-  const stepOf = (res, a) => (STEP5[res] && a >= 10) ? 5 : 1;
+  // minutes (Unlimited Lives / UL birds / SPT x2) in 5s only from 20 up - below that a 5-minute step is a 25-50%
+  // jump and the per-resource totals cannot land inside 1.5% (2026-11-01: the target is variant = control)
+  const MINUTES = { 'Unlimited Lives': 1, 'UL Red': 1, 'UL Chuck': 1, 'UL Bomb': 1, 'SPTx2': 1 };
+  const stepOf = (res, a) => (STEP5[res] && a >= (MINUTES[res] ? 20 : 10)) ? 5 : 1;
   const isCount = (res) => !STEP5[res];
   const MAX_M = 2;                                    // no entry more than doubled
   // how far one entry may move: a count item (booster, envelope, ticket) never grows past what the rung had
@@ -197,7 +203,7 @@ function DESIGN(){
     }
     return best.s;
   }
-  const OUT = { meta: { data: data._meta, ref: refFile, kite: KITE, kite2d: KITE2D, tad: TAD }, completion: {}, reqs: {}, fits: {}, lanes: {}, notes: {} };
+  const OUT = { meta: { data: data._meta, ref: refFile, kite: KITE, kite2d: KITE2D, tad: TAD, target: SIDE }, completion: {}, reqs: {}, fits: {}, lanes: {}, notes: {} };
   // Per rung: the requirement that keeps each SEGMENT's share of participants reaching it closest to what it
   // was - segments weighted EQUALLY (cells inside a segment by population), so 100+ (whose pace hardly drops on
   // a shorter event: Jigsaw's accrual share is 1.00 at 100+, 0.70 at 10-19) is not outvoted by 0-9. A rung no
@@ -215,6 +221,18 @@ function DESIGN(){
     return q0 * best.k;
   }
 
+
+  // ------------------------------------------------------------------ 0. the base Hatchling sheet gets today's boards
+  // D83: with its own 'Cum tokens' helper the base side keeps today's requirement while HH_v2's boards change
+  // (without it both sides read HH_v2 and an easier board would only re-weight). Same cells as on HH_v2.
+  {
+    const vv = data['HH_v2'].values, hit = reqLabelCell_(vv, 'Cum tokens', 4), acc = reqLabelCell_(vv, 'accuracy', 4);
+    if (hit && !reqLabelCell_(data['HH'].values, 'Cum tokens', 4)){
+      const copy = (r, c) => set('HH', r, c, vv[r][c]);
+      if (acc){ copy(acc.r, acc.c); copy(acc.r, acc.c + 1); }
+      for (let r = hit.r; r <= hit.r + 5; r++) for (let c = hit.c - 2; c <= hit.c; c++) copy(r, c);
+    }
+  }
 
   // ------------------------------------------------------------------ 1. requirements
   dsNow();
@@ -376,7 +394,7 @@ function DESIGN(){
   const L0cat = {};
   const L0cell = {};
   LADDERS.forEach(L => { const W = weights(L.cat, L.vars); L.w = W.w; L.wc = W.wc; L0cat[L.cat] = W.L0; L0cell[L.cat] = W.L0c; });
-  const refSeg = (cat, res, seg) => { let s = 0; cells.forEach(c => { if (c.seg === seg) s += POP[c.label] * N(REF.cells[c.label].sim[cat][res]); }); return s / POPT; };
+  const refSeg = (cat, res, seg) => { let s = 0; cells.forEach(c => { if (c.seg === seg) s += POP[c.label] * N(REF.cells[c.label][SIDE][cat][res]); }); return s / POPT; };
   const lin = (L, res, key) => L.vars.reduce((a, x, i) => a + (x.res === res ? L.w[i] * N(x[key]) : 0), 0);
   const CATS = Array.from(new Set(LADDERS.map(L => L.cat)));
   const resid = {};
@@ -391,7 +409,7 @@ function DESIGN(){
     RESOURCES.forEach(r => {
       let gap = 0;
       cells.forEach(c => { CATEGORY_ORDER.forEach(cat => { if (CATS.indexOf(cat) >= 0 || SKIP_CATS[cat]) return;
-        gap += POP[c.label] * (N(Rz.cells[c.label].sim[cat][r]) - N(REF.cells[c.label].sim[cat][r])); }); });
+        gap += POP[c.label] * (N(Rz.cells[c.label].sim[cat][r]) - N(REF.cells[c.label][SIDE][cat][r])); }); });
       resid[r] = gap / POPT;
     });
     // SPT is NOT re-absorbed: the second-order SPT is Core's buff conversion (+0.3 SPTx2 minutes -> +3.9 SPT),
@@ -400,7 +418,7 @@ function DESIGN(){
     OUT.resid = resid;
     OUT.residCell = {};
     RESOURCES.forEach(r => { OUT.residCell[r] = cells.map(c => { let g = 0; CATEGORY_ORDER.forEach(cat => { if (CATS.indexOf(cat) >= 0 || SKIP_CATS[cat]) return;
-      g += N(Rz.cells[c.label].sim[cat][r]) - N(REF.cells[c.label].sim[cat][r]); }); return g; }); });
+      g += N(Rz.cells[c.label].sim[cat][r]) - N(REF.cells[c.label][SIDE][cat][r]); }); return g; }); });
     arg('--resid-skip', 'SPT').split(',').filter(Boolean).forEach(r => { resid[r] = 0; if (OUT.residCell[r]) OUT.residCell[r] = OUT.residCell[r].map(() => 0); });
     log('second-order gap from ' + path.basename(residFile) + ': ' + RESOURCES.filter(r => Math.abs(resid[r]) > 0.005).map(r => r + ' ' + resid[r].toFixed(2)).join(', '));
   }
@@ -417,7 +435,7 @@ function DESIGN(){
   const alpha = {}, fitRep = {};
   // tolerances: values 12%; count items (boosters, envelopes, tickets) 50% - one item is a big step on a ladder and
   // the high tiers sit in the top segments' rows only; Night Sky blocks 50% (they are where a segment absorbs)
-  const LAMBDA = 0.5, TOL = 0.12, TOL_NS = 0.5, TOL_COUNT = 0.5, MOVE_SPAN = 3;
+  const LAMBDA = 0.5, TOL = 0.12, TOL_NS = 0.5, TOL_COUNT = +arg('--tol-count', 0.2), MOVE_SPAN = 3;
   // the two payer 'overall' rows count as much as five segment rows each: the overall line is what the brief is
   // about, and an L1 sum over 12 rows otherwise lets 100+ (late joiners lose most from a shorter event) pull it
   const OVERALL_W = 5;
@@ -502,7 +520,7 @@ function DESIGN(){
     const NC = cells.length, rc = (OUT.residCell && OUT.residCell[res]) || cells.map(() => 0);
     const Ec = cells.map((c, ci) => {
       let tgt = 0, base = 0;
-      CATS.forEach(cat => { tgt += N(REF.cells[c.label].sim[cat][res]);
+      CATS.forEach(cat => { tgt += N(REF.cells[c.label][SIDE][cat][res]);
         base += L0cell[cat][res][ci] - LADDERS.filter(L => L.cat === cat).reduce((a, L) => a + L.vars.reduce((t, x, i) => t + (x.res === res ? L.wc[i][ci] * N(x.a) : 0), 0), 0); });
       return tgt - rc[ci] - base - V.reduce((a, v) => a + v.wc[ci] * v.b, 0);
     });
@@ -511,11 +529,17 @@ function DESIGN(){
       const w = idx.reduce((a, i) => a + POP[cells[i].label], 0);
       return { idx, w, M: Math.max(1e-6, idx.reduce((a, i) => a + POP[cells[i].label] * Mc[i], 0) / w) }; });
     const Mall = Math.max(1e-6, cells.reduce((a, c, i) => a + POP[c.label] * Mc[i], 0) / POPT);
-    const rowJ = (ec) => { let j = 0; for (let i = 0; i < NC; i++) j += Math.abs(ec[i]) / Mc[i];
+    // SPT moves the Season Pass tier of a cell, and two cells sit right at a threshold: 10-19 NONPAYER dropped a
+    // tier at -0.8% SPT (15 UL Red minutes of track) and 0-9 PAYER rose one at +3.3% (+44 coins free, +30 paid,
+    // +60 UL). So every cell's SPT is held to its own target ten times harder than the other resources
+    const spW = (e) => (res === 'SPT') ? (e > 0 ? 30 : 10) : 1;   // below target three times worse again (a dropped tier)
+    const rowJ = (ec) => { let j = 0; for (let i = 0; i < NC; i++) j += spW(ec[i]) * Math.abs(ec[i]) / Mc[i];
       PAYS.forEach(P => { let e = 0; P.idx.forEach(i => { e += POP[cells[i].label] * ec[i]; }); j += OVERALL_W * Math.abs(e / P.w) / P.M; }); return j; };
     // two passes: LANE (every ladder as close to its own target as steps and transfers can get it - this is
     // where a single item on a rung everyone reaches gets moved down the ladder), then JOINT (the total, each
     // ladder allowed to drift only inside its tolerance)
+    const dbgRows = (tag) => { if (process.env.CALBAL_ROWS === res) log('  ROWS ' + res + ' ' + tag + ': ' + cells.map((c, i) => c.label.replace('NONPAYER', 'N').replace('PAYER', 'P') + ' ' + (100 * Ec[i] / Mc[i]).toFixed(1) + '%').join(' | ')); };
+    dbgRows('start');
     ['lane', 'joint'].forEach(mode => {
       for (let it = 0; it < 4000; it++){
         let best = null;
@@ -548,6 +572,19 @@ function DESIGN(){
             if (Math.abs(vj.x.at[0][1] - vi.x.at[0][1]) > MOVE_SPAN) return;
             tryMove(vj.w - vi.w, vi.L, { kind: 't', i, j, halfStep: Math.abs(vj.w - vi.w), tie: 1e-9 },
                     mode === 'joint' ? vj.wc.map((x, c) => x - vi.wc[c]) : null);
+          });
+        });
+        // a VALUE step moved from one entry to another of the same ladder (coins / SPT / minutes shifted between
+        // milestones): reshapes who reaches what without changing the ladder's total much - the move that lets one
+        // segment's SPT rise while another's falls (joint pass only; never on a leaderboard)
+        if (!isCount(res) && mode === 'joint') V.forEach((vi, i) => {
+          if (vi.L.lb || vi.zero || vi.b - vi.st < vi.lo) return;
+          if (vi.b - vi.st <= 0 && !canEmpty(vi)) return;
+          V.forEach((vj, j) => {
+            if (j === i || vj.L !== vi.L || vj.zero || vj.b + vi.st > vj.hi || vj.x.at.length !== vi.x.at.length || vj.x.at[0][0] !== vi.x.at[0][0]) return;
+            const d = vi.st;
+            tryMove((vj.w - vi.w) * d, vi.L, { kind: 'v', i, j, amt: d, halfStep: Math.abs(vj.w - vi.w) * d, tie: 2e-9 },
+                    vj.wc.map((x, c) => (x - vi.wc[c]) * d));
           });
         });
         if (!isCount(res)) V.forEach((vi, i) => {
@@ -584,6 +621,7 @@ function DESIGN(){
         if (best.kind === 'r'){ noteChange(V[best.i], V[best.i].b, 0); noteChange(V[best.j], 0, best.amt); V[best.j].b = best.amt; V[best.i].b = 0;
           // the slot it left becomes the empty one (it may take the amount back); the new one is a real entry
           const a = V[best.i], b = V[best.j]; b.zero = false; a.zero = true; b.lo = 0; b.hi = a.hi; b.st = a.st; b.m = a.m; a.lo = 0; a.hi = 0; }
+        else if (best.kind === 'v'){ noteChange(V[best.i], V[best.i].b, V[best.i].b - best.amt); V[best.i].b -= best.amt; V[best.j].b += best.amt; }
         else if (best.kind === 't'){ noteChange(V[best.i], V[best.i].b, V[best.i].b - 1); noteChange(V[best.j], V[best.j].b, V[best.j].b + 1); V[best.i].b -= 1; V[best.j].b += 1; }
         else { noteChange(V[best.k], V[best.k].b, V[best.k].b + best.d); V[best.k].b += best.d; }
         E -= best.dFit; dev[best.L.name] -= best.dFit;
@@ -593,6 +631,7 @@ function DESIGN(){
                for (let i = 0; i < NC; i++) Ec[i] -= dcv[i]; }
       }
     });
+    dbgRows('end');
     fitRows[res] = cells.map((c, i) => Ec[i] / Mc[i]);
     V.forEach(v => { if (!v.zero || v.b > 0 || v.x.a > 0) v.x.b = v.b; });
     if (process.env.CALBAL_DEBUG && process.env.CALBAL_DEBUG.split(',').indexOf(res) >= 0)

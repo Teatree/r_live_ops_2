@@ -9,7 +9,7 @@ function tot(cellRows, res, cats){ let s = 0; Object.keys(cellRows).forEach(c =>
 function summarize(J, cats){
   const out = {};
   ['NONPAYER', 'PAYER'].forEach(p => {
-    const labs = Object.keys(J.cells).filter(l => l.endsWith(p));
+    const labs = Object.keys(J.cells).filter(l => l.split(' ')[1] === p);   // not endsWith: 'NONPAYER' ends with 'PAYER'
     RES.forEach(r => {
       let ws = 0, wm = 0, w = 0;
       labs.forEach(l => { const c = J.cells[l]; ws += c.pop * tot(c.sim, r, cats); wm += c.pop * tot(c.meas, r, cats); w += c.pop; });
