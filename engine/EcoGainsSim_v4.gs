@@ -98,7 +98,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D91  2026-11-02';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D92  2026-11-02';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -2931,7 +2931,10 @@ function simNightSky(seg, payer, ctx){
     RESOURCES.forEach(function(r){
       var base = num(E.eBase[r]), v2 = num(E.eV2[r]);
       out[r] = num(meas[r]) * (base > 1e-9 ? v2 / base : 1) * T;
-      if (base <= 1e-9 && v2 > 0) out[r] += v2 * days;    // base-0 addition: no anchor -> bottom-up
+      if (base <= 1e-9 && v2 > 0){                        // base-0 addition: no anchor of its own
+        var ra = (BOTTOMUP_RES.indexOf(r) < 0) ? nsRungAdd_(r, E, meas, T, days) : null;
+        out[r] += (ra != null) ? ra : v2 * days;          // D92: off its round's measured claims, else bottom-up
+      }
     });
   }
   // Packs (D19) never have an anchor, so the base-0 addition above would price them without the
@@ -2964,9 +2967,65 @@ function nsE_(seg, payer, ds, ctx){
   var bsh = bWdLad ? nsDayTypeSplit_(seg, payer, ds, ctx, 'cur') : sh;
   var eBase = zeroRow_();
   RESOURCES.forEach(function(r){ eBase[r] = num(bWd[r]) * bsh.wd + num(bWe[r]) * bsh.we; });
+  var vWeLad = readNSLadder_(seg, NS_V2_SHEET);
   return { eBase: eBase, eV2: eV2, eV2Weekday: wd, eV2Weekend: we,
            eBaseWeekday: bWd, eBaseWeekend: bWe,
-           split: sh, baseSplit: bsh, hasWeekdayVariant: !!wdLad, hasBaseWeekdayVariant: !!bWdLad };
+           split: sh, baseSplit: bsh, hasWeekdayVariant: !!wdLad, hasBaseWeekdayVariant: !!bWdLad,
+           // D92: the rounds themselves, for pricing a reward added to one of them (nsRungAdd_)
+           ladders: { S: S, bWe: base, bWd: bWdLad || base, vWe: vWeLad, vWd: wdLad || vWeLad, sh: sh, bsh: bsh } };
+}
+
+// ---- D92 (2026-11-02): a reward ADDED to a Night Sky round is priced off what that round pays -----
+// A resource the base ladder never pays (E_base = 0) has nothing to scale, so it was added bottom-up:
+// E_v2 x the window's expected active days, i.e. at the streak model's OWN round reach. That model is
+// the one D22 anchored away from, and on round 1 it runs above the data: the base ladder pays Unlimited
+// Lives on round 1 and nowhere else, so measured lives / the model's lives is round 1's true reach over
+// the model's - 0.61-0.80 per cell on LIVE_OPS_V3 (17). The 10 minutes of Unlimited Red / Chuck / Bomb
+// typed onto round 1 of NS_v2 were therefore priced 25-64% high. Now, where the round a new reward sits
+// on pays some resource EXCLUSIVELY in the base (on no other round of either base ladder) and the export
+// carries it, the addition is that round's measured claims carried across:
+//     add[r] = SUM_k measured[s_k] x E_v2,k[r] / E_base,k[s_k] x T
+// - the anchored form measured x R x T at the round level (several such siblings: the mean of their
+// claim factors). A round with no such sibling keeps the bottom-up price. Envelopes and tickets are never
+// siblings (their measured side may be the model's own synthetic, D61) and are not added here (packLane_).
+// FLAGGED: measured[s] is per earner of s - on round 1 that is ~every Night Sky player. NS_RUNG_ANCHOR =
+// false restores the bottom-up addition exactly.
+var NS_RUNG_ANCHOR = true;
+/** E of one round for resource r per active Night Sky day: the weekend and weekday rows blended by day type. */
+function nsRungE_(L, side, k, r){
+  var we = (side === 'v2') ? L.vWe[k] : L.bWe[k], wd = (side === 'v2') ? L.vWd[k] : L.bWd[k];
+  var sh = (side === 'v2') ? L.sh : L.bsh;
+  return (we ? L.S(we.req) * num(we.rew[r]) : 0) * sh.we + (wd ? L.S(wd.req) * num(wd.rew[r]) : 0) * sh.wd;
+}
+/** The measured claim factor of base round k (measured[s] / E_base,k[s], the mean over the round's
+ *  exclusive export-carried siblings), or null when the round has none. */
+function nsRungClaims_(L, k, meas){
+  var nb = Math.max(L.bWe.length, L.bWd.length), fs = [];
+  var row = function(lad, j){ return (lad[j] && lad[j].rew) || {}; };
+  RESOURCES.forEach(function(s){
+    if (BOTTOMUP_RES.indexOf(s) >= 0 || !(num(meas[s]) > 0)) return;
+    if (!(num(row(L.bWe, k)[s]) > 0) && !(num(row(L.bWd, k)[s]) > 0)) return;
+    for (var j = 0; j < nb; j++) if (j !== k && (num(row(L.bWe, j)[s]) > 0 || num(row(L.bWd, j)[s]) > 0)) return;
+    var eb = nsRungE_(L, 'base', k, s);
+    if (eb > 1e-12) fs.push(num(meas[s]) / eb);
+  });
+  if (!fs.length) return null;
+  return fs.reduce(function(a, x){ return a + x; }, 0) / fs.length;
+}
+/** The window amount of base-0 resource r on the redesign, round by round; null when no round of it has
+ *  a measured sibling (the caller keeps E_v2 x days). */
+function nsRungAdd_(r, E, meas, T, days){
+  var L = E && E.ladders;
+  if (!NS_RUNG_ANCHOR || !L) return null;
+  var n = Math.max(L.vWe.length, L.vWd.length), add = 0, anchored = false;
+  for (var k = 0; k < n; k++){
+    var ev = nsRungE_(L, 'v2', k, r);
+    if (!(ev > 0)) continue;
+    var f = nsRungClaims_(L, k, meas);
+    if (f == null) add += ev * days;
+    else { add += f * ev * T; anchored = true; }
+  }
+  return anchored ? add : null;
 }
 
 // The BASE weekday ladder for one segment, or null when there is none (same rule as

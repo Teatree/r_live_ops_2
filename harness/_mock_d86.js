@@ -1,10 +1,11 @@
-// D86 / D87 / D91 gates (2026-11-02) on the A/B lineage (LIVE_OPS_V3 (15) by default):
+// D86 / D87 / D91 / D92 gates (2026-11-02) on the A/B lineage (LIVE_OPS_V3 (15) by default):
 //   D86  Chuck's Challenge stands in for two of Red's (user rule): CURRENT 0, NEW = Red's NEW per
 //        instance x Chuck's instances, reach-weighted - priced off Red's own row, so it moves WITH it
 //   D87  the export is scaled to the window per event (f x W / S', checked against the by-source feed),
 //        falling back to the activity scale where cal_curr's payout days disagree with the feed
 //   D91  Flock Flurry is a simulated leaderboard (F / F_v2): every resource follows the calendar, not only
 //        its envelope
+//   D92  a reward added to a Night Sky round is priced off that round's measured claims (an exclusive sibling the export carries)
 // Every gate snapshots what it mutates and restores it; none asserts a workbook number.
 //
 //   node harness/_mock_d86.js [--data v3k|v3i|<path>]
@@ -293,7 +294,72 @@ function GATES(){
           typeof csModelOf_ !== 'function' || ['anchored', 'anchored + bottom-up', 'bottom-up'].indexOf(csModelOf_('Flock Flurry', 0.01, null)) >= 0);
   }
 
-  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D86/D87/D91 GATES PASS'));
+  console.log('\n================ D92: a reward added to a Night Sky round is priced off that round\'s measured claims ================');
+  {
+    // fixture: both redesign ladders = their base twins, then round 1 of one segment swaps its Unlimited Lives for 10 min of
+    // Unlimited Red (the (17) edit, written here so no workbook state is assumed)
+    const NSS = ['NS', 'NS_weekday', 'NS_v2', 'NS_v2_weekday'];
+    const segRows = (sheet, seg) => {                       // -> {hdr: header row index, r1: first round row index}
+      const v = data[sheet].values;
+      for (let r = 0; r < v.length; r++) if (String(v[r][0]).trim() === seg) return { hdr: r + 1, r1: r + 2 };
+      return null;
+    };
+    const col = (sheet, at, name) => data[sheet].values[at.hdr].findIndex(h => String(h).trim() === name);
+    const setR = (sheet, seg, round, name, val) => { const at = segRows(sheet, seg), c = col(sheet, at, name); data[sheet].values[at.r1 + round - 1][c] = val; return c >= 0; };
+    const getR = (sheet, seg, round, name) => { const at = segRows(sheet, seg); return num(data[sheet].values[at.r1 + round - 1][col(sheet, at, name)]); };
+    const S = '20-39', P = 'PAYER';
+    const swap = () => {
+      data['NS_v2'] = clone(data['NS']);
+      data['NS_v2_weekday'] = clone(data['NS_weekday'] || data['NS']);
+      const ul = getR('NS', S, 1, 'Unlimited Lives');
+      ['NS_v2', 'NS_v2_weekday'].forEach(sh => { setR(sh, S, 1, 'Unlimited Lives', 0); setR(sh, S, 1, 'Unlimited Red', 10); });
+      return ul;
+    };
+    withSheets(NSS, () => {
+      const ul = swap(), c1 = fresh();
+      const m = measuredRow_('Daily Night Sky Prize', S, P, c1.ds), x = resultRow_('Daily Night Sky Prize', S, P, c1);
+      const T = timingRatio_(c1.calCur['Night Sky'] || [], c1.calNew['Night Sky'] || [], S, P, c1.ds);
+      check('the fixture: the base pays Unlimited Lives on round 1 only and the export carries it',
+            ul > 0 && [2, 3].every(k => !getR('NS', S, k, 'Unlimited Lives')) && num(m['Unlimited Lives']) > 0, 'round 1 pays ' + ul + ' min');
+      check('RULE: 10 min of Unlimited Red in place of round 1\'s lives = measured lives x 10 / ' + ul + ' x T (the round\'s measured claims)',
+            near(num(x['UL Red']), num(m['Unlimited Lives']) * 10 / ul * T, 1e-9) && num(x['Unlimited Lives']) === 0,
+            num(x['UL Red']).toFixed(3) + ' vs ' + (num(m['Unlimited Lives']) * 10 / ul * T).toFixed(3));
+      const E = nsE_(S, P, c1.ds, c1), days = reachSum_(c1.calNew['Night Sky'], num(c1.ds.beh(S, P).weekday_active_rate), num(c1.ds.beh(S, P).weekend_active_rate));
+      console.log('  ' + S + ' ' + P + ': round-anchored ' + num(x['UL Red']).toFixed(1) + ' min of Unlimited Red, bottom-up would say ' + (num(E.eV2['UL Red']) * days).toFixed(1));
+      const keep = NS_RUNG_ANCHOR;
+      try {
+        NS_RUNG_ANCHOR = false; const c2 = fresh(), x2 = resultRow_('Daily Night Sky Prize', S, P, c2);
+        const E2 = nsE_(S, P, c2.ds, c2);
+        check('RULE: NS_RUNG_ANCHOR = false prices the addition bottom-up (E_v2 x the window\'s active days), as before D92',
+              near(num(x2['UL Red']), num(E2.eV2['UL Red']) * days, 1e-9));
+      } finally { NS_RUNG_ANCHOR = keep; fresh(); }
+    });
+    withSheets(NSS, () => {
+      // RULE: a round whose only exclusive resource the base pays elsewhere too has no sibling -> bottom-up
+      const ul = swap();
+      ['NS', 'NS_weekday'].forEach(sh => { if (data[sh]) setR(sh, S, 2, 'Unlimited Lives', ul); });   // lives now on rounds 1 AND 2
+      const c1 = fresh(), x = resultRow_('Daily Night Sky Prize', S, P, c1), E = nsE_(S, P, c1.ds, c1);
+      const days = reachSum_(c1.calNew['Night Sky'], num(c1.ds.beh(S, P).weekday_active_rate), num(c1.ds.beh(S, P).weekend_active_rate));
+      check('RULE: with lives on two base rounds, round 1 has no exclusive sibling and the addition falls back to bottom-up',
+            near(num(x['UL Red']), num(E.eV2['UL Red']) * days, 1e-9), num(x['UL Red']).toFixed(3) + ' vs ' + (num(E.eV2['UL Red']) * days).toFixed(3));
+    });
+    withSheets(NSS, () => {
+      // RULE: an envelope is never the sibling - round 1 paying only lives + a 1-star (and lives removed from the export) -> bottom-up
+      const ul = swap();
+      ['NS', 'NS_weekday'].forEach(sh => { if (data[sh]) setR(sh, S, 1, '1-star Dly', 1); });
+      const g = data['data_gains'], gh = {}; g.values[0].forEach((k, i) => { if (k) gh[k] = i; });
+      const keepG = clone(g);
+      g.values = g.values.filter((r, i) => i === 0 || !(r[gh.category] === 'Daily Night Sky Prize' && r[gh.resource] === 'Unlimited Lives'));
+      try {
+        const c1 = fresh(), x = resultRow_('Daily Night Sky Prize', S, P, c1), E = nsE_(S, P, c1.ds, c1);
+        const days = reachSum_(c1.calNew['Night Sky'], num(c1.ds.beh(S, P).weekday_active_rate), num(c1.ds.beh(S, P).weekend_active_rate));
+        check('RULE: an envelope on the round is not a sibling (its measured side may be the model\'s own) -> bottom-up',
+              near(num(x['UL Red']), num(E.eV2['UL Red']) * days, 1e-9), num(x['UL Red']).toFixed(3));
+      } finally { data['data_gains'] = keepG; }
+    });
+  }
+
+  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D86/D87/D91/D92 GATES PASS'));
   process.exitCode = failures ? 1 : 0;
 }
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n');

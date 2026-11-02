@@ -534,17 +534,24 @@ console.log('\n================ NS ANCHOR GATES ================');
          harder < base - 1e-9, `${fmt(base)} -> ${fmt(harder)}`);
 
     // base-0 addition: SPT is 0 on both ladders and 0 in data_gains, so typing it into NS_v2 has
-    // no anchor -> the engine must ADD E_v2[SPT] x Σp_day. Expectation recomputed via nsE_.
+    // no anchor of its own -> the engine must ADD E_v2[SPT] x Σp_day. Expectation recomputed via nsE_.
+    // D92 prices an addition off its round's measured claims where the round has an exclusive sibling
+    // (gated in _mock_d86.js); this gate asserts the bottom-up rule itself, so it runs with that off.
     if (blk.h['SPT'] != null) {
       const sptCells = blk.rows.map(r => [r, blk.h['SPT']]);
-      const got = mutate('NS_v2', sptCells, 5, () => {
-        const c3 = Context.get(), b = c3.ds.beh(SEG, 'NONPAYER');
-        const E = nsE_(SEG, 'NONPAYER', c3.ds);
-        const days = reachSum_(c3.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
-        return { sim: nsResOf(SEG, 'SPT'), want: num(E.eV2['SPT']) * days,
-                 measSPT: num(measuredRow_('Daily Night Sky Prize', SEG, 'NONPAYER', c3.ds)['SPT']) };
-      });
-      gate('NS_v2 SPT with no measured anchor -> added bottom-up (E_v2 x Σp_day)',
+      const keepRA = NS_RUNG_ANCHOR;
+      let got;
+      try {
+        NS_RUNG_ANCHOR = false;
+        got = mutate('NS_v2', sptCells, 5, () => {
+          const c3 = Context.get(), b = c3.ds.beh(SEG, 'NONPAYER');
+          const E = nsE_(SEG, 'NONPAYER', c3.ds);
+          const days = reachSum_(c3.calNew['Night Sky'] || [], num(b.weekday_active_rate), num(b.weekend_active_rate));
+          return { sim: nsResOf(SEG, 'SPT'), want: num(E.eV2['SPT']) * days,
+                   measSPT: num(measuredRow_('Daily Night Sky Prize', SEG, 'NONPAYER', c3.ds)['SPT']) };
+        });
+      } finally { NS_RUNG_ANCHOR = keepRA; }
+      gate('NS_v2 SPT with no measured anchor -> added bottom-up (E_v2 x Σp_day) [NS_RUNG_ANCHOR off]',
            got.measSPT < 1e-9 && got.want > 0 && Math.abs(got.sim - got.want) < 1e-6,
            `sim ${fmt(got.sim)} vs ${fmt(got.want)}`);
       const sptBefore = sptSim(SEG);
