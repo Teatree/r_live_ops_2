@@ -49,7 +49,10 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        v3h: '_mockdata_v3h.json',
                        // LIVE_OPS_V3 (9) (2026-11-02): the rebalance configs as the user applied them (HH requirements
                        // kept, NS_v2_weekday untouched), the D83 engine pasted; data and calendars identical to (8)
-                       v3i: '_mockdata_v3i.json' };
+                       v3i: '_mockdata_v3i.json',
+                       // LIVE_OPS_V3 (15) (2026-11-02 14:14): the v2 re-fit applied plus the user's own edits (BB / Jigsaw / Hatchling
+                       // minutes, NS_v2_weekday cuts, Target Day envelopes, Kite 2-day envelopes, TaD!B7 7 -> 1); data and calendars as (9)
+                       v3k: '_mockdata_v3k.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
@@ -3168,6 +3171,7 @@ function logCol(name){
   // the checker truthfully reports SimPerSegmentFill.gs missing and the gate reads as a code fault.
   // Module scope, deliberately: an eval inside a function makes the engine's `var`s function-local.
   eval(fs.readFileSync(ENGINE('SimPerSegmentFill.gs'), 'utf8'));
+  eval(fs.readFileSync(ENGINE('ChangeSummary.gs'), 'utf8'));   // D85: the checker stamps it too
   const g = ECOGAINS_BUILD(0);
   const bad = g.slice(1).filter(r => String(r[3]) === 'NO')
                .map(r => r[0] + ' (live ' + r[1] + ', expected ' + r[2] + ')');

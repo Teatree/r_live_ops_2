@@ -96,7 +96,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D84  2026-11-02';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D87  2026-11-02';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -328,6 +328,8 @@ function spFreePacksSynth_(seg, payer, ds){
 }
 
 function measuredRowCore_(cat, seg, payer, ds){
+  // D86: a stand-in lane has no current side (Chuck's: cal_curr runs none - user rule)
+  if (LANE_STANDIN[cat] && laneStandInActive_(cat)) return zeroRow_();
   var row = ds.dataRow(cat, seg, payer);
   // Season Pass (Paid): SYNTHETIC anchor, same pattern as the D18 Core SPT one. data_gains has no
   // '(Paid)' category, so without this the measured side is 0 and the DIFF becomes the whole paid
@@ -588,7 +590,9 @@ function dailyGiftRatio_(beh){
 // Rank payouts are end-state — extra duration barely changes what a given rank pays, so D = 1
 // and the calendars carry cadence x reach (T); reward-config edits flow through R (below).
 function simBombChallenge (seg, payer, ctx){ return leaderboardSim_('Bomb Challenge',  "Bomb's Challenge",  seg, payer, ctx); }
-function simChuckChallenge(seg, payer, ctx){ return leaderboardSim_('Chuck Challenge', "Chuck's Challenge", seg, payer, ctx); }
+function simChuckChallenge(seg, payer, ctx){
+  return laneStandIn_('Chuck Challenge', seg, payer, ctx) || leaderboardSim_('Chuck Challenge', "Chuck's Challenge", seg, payer, ctx);
+}
 function simRedChallenge  (seg, payer, ctx){ return leaderboardSim_('Red Challenge',   "Red's Challenge",   seg, payer, ctx); }
 function simLevelRace     (seg, payer, ctx){ return leaderboardSim_('Level Race',      'Level Race',        seg, payer, ctx); }
 function simFlashRace     (seg, payer, ctx){ return leaderboardSim_('Flash Race',      'Flash Race',        seg, payer, ctx); }
@@ -597,6 +601,49 @@ function simTargetDay     (seg, payer, ctx){ return leaderboardSim_('Target Day'
 
 function leaderboardSim_(cat, calLabel, seg, payer, ctx){
   return timedCore_(cat, calLabel, seg, payer, ctx, function(){ return 1; });
+}
+
+// ---- D86 (2026-11-02, user decision): Chuck's Challenge stands in for two of Red's ----------------
+// The redesign runs Red's Challenge twice instead of four times and adds Chuck's Challenge twice
+// (cal_curr: no Chuck's; cal_new: two). The user's rule, hardcoded: the two lanes pay the same
+// rewards, so what Red's loses moves to Chuck's. CURRENT Chuck's is 0 (measuredRowCore_), and NEW
+// Chuck's is Red's NEW payout per instance x Chuck's instances, reach-weighted:
+//     Chuck_new = Red_new x SUM reach(Chuck, cal_new) / SUM reach(Red, cal_new)
+// On today's calendars both lanes run Mon-Tue, so this is exactly Red's CURRENT - NEW. Priced off
+// Red's own simulated row (D82 anchoring included), so a Race_v2 edit to Red's rewards moves Chuck's
+// the SAME way - a literal "Red's loss" would pay Chuck's MORE when Red's rewards are cut.
+// FLAGGED: the export carries one real Chuck's payout (Wed Oct 28: the Oct 26-27 instance, which
+// cal_curr draws as Bomb's Challenge). The rule drops it from both sides. The card sim keeps
+// pricing Chuck's own Race_v2 ladder per instance. Active only while cal_curr runs NO instance of the
+// lane (a cal_curr that schedules Chuck's prices it the anchored way, so an older workbook is
+// untouched). LANE_STANDIN = {} restores the plain pricing.
+var LANE_STANDIN = { 'Chuck Challenge': { like: 'Red Challenge' } };
+/** True when `cat` is a stand-in lane on these calendars: a rule exists and cal_curr runs none of it. */
+function laneStandInActive_(cat, ctx){
+  if (!LANE_STANDIN[cat]) return false;
+  if (!ctx){ try { ctx = Context.get(); } catch (e){ return false; } }
+  if (!ctx || !ctx.calCurOk || !ctx.calNewOk) return false;
+  return !(ctx.calCur[CAL_LABEL[cat]] || []).length;
+}
+function laneStandIn_(cat, seg, payer, ctx){
+  var rule = LANE_STANDIN[cat];
+  if (!rule || !laneStandInActive_(cat, ctx)) return null;
+  var lane = CAL_LABEL[cat], likeLane = CAL_LABEL[rule.like];
+  var b = ctx.ds.beh(seg, payer), pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }
+  var mine = reachSum_(ctx.calNew[lane] || [], pWd, pWe);
+  if (!(mine > 0)) return zeroRow_();                       // the anchor side: cal_curr runs none
+  var theirs = reachSum_(ctx.calNew[likeLane] || [], pWd, pWe), src, f;
+  if (theirs > 0){ src = resultRow_(rule.like, seg, payer, ctx); f = mine / theirs; }
+  else {
+    // the redesign drops the lane it stands in for: price per instance off its CURRENT payout
+    var cur = reachSum_(ctx.calCur[likeLane] || [], pWd, pWe);
+    if (!(cur > 0)) return zeroRow_();
+    src = measuredRow_(rule.like, seg, payer, ctx.ds); f = mine / cur;
+  }
+  var out = zeroRow_();
+  RESOURCES.forEach(function(r){ out[r] = num(src[r]) * f; });
+  return out;
 }
 
 // ============================== COLLECTION SOURCES (measured x R x D x T) ====================
@@ -1995,6 +2042,7 @@ function resetModuleCaches_(){
   _measSptCache = {}; _measSptBusyKeys = {}; _x2MinCache = {}; _x2MinBusyKeys = {};
   _tofBalCache = {}; _tofCfgCache = {}; _itemValsCache = null; _calDowCache = null; _calWinCache = null;
   _calGridDaysCache = null;                              // D79
+  _expScaleTab = undefined;                              // D87: the export_scale table
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
   if (typeof DataStore !== 'undefined' && DataStore.reset) DataStore.reset();   // D67: the data_* memo too
@@ -4628,7 +4676,10 @@ var Context = (function(){
     // D79: an export that carries its own dates is scaled from THAT span to the window instead
     var _ctxRef = _c;
     _c.dataSpan = dataSpanInWindow_(_c.ds);
-    _c.ds.scaleFn = _c.dataSpan ? function(cat, seg, payer, res){ return spanScale_(seg, payer, _ctxRef); }
+    // D87: per event where the export_scale table says the event's payout days match the feed
+    _c.ds.scaleFn = _c.dataSpan ? function(cat, seg, payer, res){
+                      var e = spanScaleEvent_(cat, seg, payer, res, _ctxRef);
+                      return (e != null) ? e : spanScale_(seg, payer, _ctxRef); }
                   : windowIsWholeGrid_(wc.window) ? null
                   : function(cat, seg, payer, res){ return windowScale_(cat, seg, payer, _ctxRef, res); };
     return _c;
@@ -4769,6 +4820,388 @@ function spanScale_(seg, payer, ctx){
   if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }      // no behaviour row (A. 0): day counts
   var den = pDaySum_(sp.first, sp.last, pWd, pWe), numr = pDaySum_(1, ctx.window.days, pWd, pWe);
   return (ctx._spanScale[key] = (den > 0) ? numr / den : 1);
+}
+
+// ---- D87 (2026-11-02, user decision): the export is scaled to the window PER EVENT ---------------
+// spanScale_ stretches the 16-day export to the 28-day window by activity (x1.75 at every cell, for
+// every source). That is right for the always-on lanes and wrong for an event whose payouts did not
+// fall in the export at its window cadence: the weekly events paid twice in the export and run four
+// times in the window (Kite, Hatchling, Red's, Target Day, Team Event, Team Race read ~12% low),
+// Rainbow Maker's export holds ~3 instances against 4 (x1.75 read it ~30% high). Per event instead:
+//     scale = f x W / S'
+//   f   share of the source's export that was GRANTED inside the window days the export covers
+//       (window days 1..10 of the Oct 13-28 pull), off the by-source daily feed, pooled over cells
+//   S'  cal_curr's instances (lead-in included) paid inside those days - reach x the instance's
+//       payout days (the daily view's own placement: last day + settle for a rank event, the accrual
+//       curve for a collection, the measured claim pace for Rainbow Maker)
+//   W   cal_curr's instances in the window - the same reach sum T divides by, so NEW = the measured
+//       per-instance payout x the redesign's instances, exactly the timed core's rule
+// Only the window part of the export is used, so a lead-in drawn wrong on cal_curr cannot bias f.
+// CHECKED, RESOURCE BY RESOURCE: the predicted payout days inside the window part are matched against
+// the feed's own day profile of that resource (histogram intersection, +-1 day), trying the grant on
+// the settle day and on the event day (Target Day pays its coins and envelopes the day after but its
+// Unlimited Lives on the day; Kite pays lives at the start, ranks at the end). Below
+// EXPORT_SCALE_MATCH the resource keeps x1.75 and the reason is reported (a lead-in instance that paid
+// into day 1 but is missing from cal_curr, a daily trickle the calendar cannot see). A resource with
+// too few recipient-days for a timing of its own is judged on the source's coins. The feed is 73k rows, so it is never read at recalc: the menu run
+// Compute export scale pools it into the small EXPORT_SCALE_SHEET (fillExportScale), and a table whose
+// days do not match data_gains' span is ignored. No table, or SPAN_PER_EVENT = false -> x1.75
+// everywhere, bit-identical to D79.
+var SPAN_PER_EVENT = true;
+var EXPORT_SCALE_SHEET = 'export_scale';
+var EXPORT_SCALE_FEED = 'data_econ_daily_by_source';
+var EXPORT_SCALE_MATCH = 0.75;
+var EXPORT_SCALE_MIN_REC = 100;                 // recipient-days below which a resource borrows f
+var EXPORT_SCALE_NEAR = 2;                      // days around a predicted payout that still belong to it
+var EXPORT_SCALE_REF = ['20-39', 'PAYER'];      // the cell the payout-day check is drawn for
+// payout family per category: 'last' = rank lumps (instance end + settle), 'marg' = claims as the
+// tokens accrue, 'rm' = Rainbow Maker's claim pace. Always-on and track lanes stay on activity.
+var EXPORT_SCALE_FAMILY = { 'Bomb Challenge':'last', 'Chuck Challenge':'last', 'Red Challenge':'last',
+  'Level Race':'last', 'Flash Race':'last', 'Target Day':'last', 'Kite Festival':'last',
+  'Team Event':'last', 'Team Race':'last', 'Flock Flurry':'last',
+  'Hatchling Hideaway':'marg', "Bomb's Ballet":'marg', 'Jigsaw':'marg', 'Photoshoot':'marg',
+  'River Rush':'marg', 'Rainbow Maker':'rm' };
+var _expScaleTab;                               // undefined = not read yet (resetModuleCaches_)
+function exportScaleLane_(cat){
+  return (typeof DAILY_CAL_LABEL !== 'undefined' && DAILY_CAL_LABEL[cat]) || CAL_LABEL[cat] || null;
+}
+/** The pooled feed table: { first, last, src: { cat: { res: { r: { days:{d: mass}, rec } }, best } } }
+ *  or null (no sheet / no header). Day columns are 'd<window day>'. */
+function exportScaleTab_(){
+  if (_expScaleTab !== undefined) return _expScaleTab;
+  var v = sheetVals_(EXPORT_SCALE_SHEET);
+  _expScaleTab = null;
+  if (!v || !v.length) return null;
+  var hr = -1, h = {};
+  for (var r = 0; r < v.length && hr < 0; r++){
+    var row = v[r] || [], hh = {};
+    row.forEach(function(x, i){ var k = String(x == null ? '' : x).trim(); if (k && hh[k] == null) hh[k] = i; });
+    if (hh['source'] != null && hh['resource'] != null){ hr = r; h = hh; }
+  }
+  if (hr < 0) return null;
+  var dayCols = [];
+  Object.keys(h).forEach(function(k){ var m = /^d(-?\d+)$/.exec(k); if (m) dayCols.push([+m[1], h[k]]); });
+  if (!dayCols.length) return null;
+  dayCols.sort(function(a, b){ return a[0] - b[0]; });
+  var src = {};
+  for (var i = hr + 1; i < v.length; i++){
+    var x = v[i] || [], cat = String(x[h['source']] == null ? '' : x[h['source']]).trim();
+    var res = String(x[h['resource']] == null ? '' : x[h['resource']]).trim();
+    if (!cat || !res) break;                   // the table ends at its first blank row
+    var o = (src[cat] = src[cat] || { res: {}, best: null }), days = {};
+    dayCols.forEach(function(dc){ days[dc[0]] = num(x[dc[1]]); });
+    var rec = (h['recipients'] != null) ? num(x[h['recipients']]) : 0;
+    o.res[res] = { days: days, rec: rec };
+    if (!o.best || rec > o.res[o.best].rec) o.best = res;
+  }
+  return (_expScaleTab = { first: dayCols[0][0], last: dayCols[dayCols.length - 1][0], src: src });
+}
+/** f: the share of (cat, res)'s export mass granted inside window days [o1, o2]; null when unknown.
+ *  A resource with too few recipient-days to have a timing of its own borrows the source's best. */
+function exportScaleF_(o, res, first, last, o1, o2){
+  function fOf(r){
+    var e = o.res[r];
+    if (!e) return null;
+    var all = 0, inn = 0;
+    for (var d = first; d <= last; d++){ var m = num(e.days[d]); all += m; if (d >= o1 && d <= o2) inn += m; }
+    return (all > 0) ? inn / all : null;
+  }
+  var mine = o.res[res];
+  if (mine && mine.rec >= EXPORT_SCALE_MIN_REC){ var f = fOf(res); if (f != null) return f; }
+  return o.best ? fOf(o.best) : null;
+}
+/** Where one instance's rewards are GRANTED: [[window day, weight], ...], weights summing to 1.
+ *  `off` overrides the settle offset (null = the daily view's own settleFor_). */
+function instPayoutDays_(cat, inst, seg, payer, ctx, pWd, pWe, off){
+  var days = (inst && inst.days) || [], n = days.length, fam = EXPORT_SCALE_FAMILY[cat];
+  if (!n) return [];
+  var pDay = function(d){ return isWeekend_(d) ? pWe : pWd; };
+  var inner = null, j;
+  if (fam === 'rm'){
+    var pace = rmClaimPace_(seg, payer, n);
+    var cum = function(k){
+      if (k <= 0) return 0;
+      if (k >= n) return 1;
+      var s = pace ? pace.share('ALL', k) : null;
+      return (s != null) ? s : rmMatchShare_(ctx.ds, seg, payer, k, n);
+    };
+    inner = [];
+    for (j = 0; j < n; j++) inner.push(Math.max(0, cum(j + 1) - cum(j)));
+  } else if (typeof innerWeights_ === 'function'){
+    inner = innerWeights_(cat, inst, pDay, ctx.ds, seg, payer);
+  } else {
+    inner = days.map(function(d, k){ return (fam === 'last') ? (k === n - 1 ? 1 : 0) : pDay(d); });
+  }
+  var tot = 0;
+  inner.forEach(function(x){ tot += num(x); });
+  if (!(tot > 0)) return [];
+  var sc = exportSettle_(cat);
+  if (off != null) sc = { offset: off, lag: sc.lag };
+  var out = [];
+  days.forEach(function(d, k){
+    var w = num(inner[k]) / tot;
+    if (!w) return;
+    (sc.lag || [1]).forEach(function(l, m){ if (l) out.push([d + num(sc.offset) + m, w * l]); });
+  });
+  return out;
+}
+/** The daily view's settle rule for a category ({offset, lag}), or the rank-family default. */
+function exportSettle_(cat){
+  if (typeof settleFor_ === 'function' && (typeof DAILY_ALLOC_MODEL === 'undefined' || DAILY_ALLOC_MODEL === 'settle'))
+    return settleFor_(cat);
+  return { offset: (EXPORT_SCALE_FAMILY[cat] === 'last') ? 1 : 0, lag: [1] };
+}
+/** The grant offsets a resource's payouts are tried at: the settle day and the event day. */
+function exportOffsets_(cat){
+  var o = num(exportSettle_(cat).offset), out = [o];
+  if (o !== 0) out.push(0); else if (EXPORT_SCALE_FAMILY[cat] === 'marg') out.push(1);
+  return out;
+}
+/** The window part of the export, in window days, or null. */
+function exportScaleOverlap_(ctx){
+  if (!ctx || !ctx.dataSpan || !ctx.window) return null;
+  var o1 = Math.max(1, ctx.dataSpan.first), o2 = Math.min(ctx.dataSpan.last, ctx.window.days);
+  return (o2 >= o1) ? { o1: o1, o2: o2 } : null;
+}
+/** Predicted payout mass per window day inside [o1, o2] for one cell (reach x payout weights),
+ *  with S' (its total) and W (cal_curr's window instances, the reach sum T divides by). */
+function exportScaleProfile_(cat, seg, payer, ctx, o1, o2, off){
+  var lane = exportScaleLane_(cat), b = ctx.ds.beh(seg, payer) || {};
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)){ pWd = 1; pWe = 1; }
+  var prof = {}, S = 0;
+  ((lane && ctx.calCurFull[lane]) || []).forEach(function(x){
+    var r = reachOne_(x, pWd, pWe);
+    if (!(r > 0)) return;
+    instPayoutDays_(cat, x, seg, payer, ctx, pWd, pWe, off).forEach(function(pd){
+      if (pd[0] < o1 || pd[0] > o2) return;
+      prof[pd[0]] = num(prof[pd[0]]) + r * pd[1]; S += r * pd[1];
+    });
+  });
+  var win = (lane && ctx.calCur[lane]) || [];
+  return { prof: prof, S: S, W: reachSum_(win, pWd, pWe), n: win.length };
+}
+/** Histogram intersection of two day profiles over [o1, o2], each smoothed +-1 day (0..1). */
+function profileMatch_(a, b, o1, o2){
+  function shares(p){
+    var t = 0, d, out = {};
+    for (d = o1; d <= o2; d++) t += num(p[d]);
+    if (!(t > 0)) return null;
+    for (d = o1; d <= o2; d++){
+      var s = 0, k = 0;
+      for (var e = d - 1; e <= d + 1; e++) if (e >= o1 && e <= o2){ s += num(p[e]) / t; k++; }
+      out[d] = s / k;
+    }
+    var z = 0;
+    for (d = o1; d <= o2; d++) z += out[d];
+    for (d = o1; d <= o2; d++) out[d] = out[d] / z;
+    return out;
+  }
+  var sa = shares(a), sb = shares(b);
+  if (!sa || !sb) return 0;
+  var m = 0;
+  for (var d = o1; d <= o2; d++) m += Math.min(sa[d], sb[d]);
+  return m;
+}
+/** One check per (category, resource): does cal_curr's predicted payout calendar match the feed's own
+ *  day profile of that resource inside the window part of the export, at the settle day or the event
+ *  day? {ok, score, off, f, use, reason, predDays, feedDays}. Memoised on ctx. */
+function exportScaleCheck_(cat, res, ctx){
+  ctx._expChk = ctx._expChk || {};
+  var key = cat + '|' + res;
+  if (ctx._expChk[key]) return ctx._expChk[key];
+  var out = { ok: false, score: 0, off: null, reason: '', f: null, use: null, predDays: [], feedDays: [] };
+  var tab = exportScaleTab_(), ov = exportScaleOverlap_(ctx);
+  if (!SPAN_PER_EVENT) out.reason = 'SPAN_PER_EVENT is off';
+  else if (!EXPORT_SCALE_FAMILY[cat] || !exportScaleLane_(cat)) out.reason = 'always-on or track lane: activity is its rule';
+  else if (!tab) out.reason = 'no ' + EXPORT_SCALE_SHEET + ' table (run EcoGainsSim > Compute export scale)';
+  else if (!ctx.dataSpan || tab.first !== ctx.dataSpan.first || tab.last !== ctx.dataSpan.last)
+    out.reason = EXPORT_SCALE_SHEET + ' covers days ' + tab.first + '..' + tab.last + ' but data_gains ' +
+                 (ctx.dataSpan ? ctx.dataSpan.first + '..' + ctx.dataSpan.last : 'has no span') + ' - re-run Compute export scale';
+  else if (!ov) out.reason = 'the export does not overlap the window';
+  else if (!tab.src[cat]) out.reason = 'the feed has no rows for this source';
+  else {
+    var o = tab.src[cat];
+    var enough = function(r){ return o.res[r] && o.res[r].rec >= EXPORT_SCALE_MIN_REC; };
+    out.use = enough(res) ? res : (enough('HC') ? 'HC' : o.best);
+    var e = o.res[out.use], feed = {}, spanMass = 0, inMass = 0;
+    for (var d = tab.first; d <= tab.last; d++){
+      var m = num(e.days[d]); spanMass += m;
+      if (d >= ov.o1 && d <= ov.o2){ feed[d] = m; inMass += m; }
+    }
+    out.f = (spanMass > 0) ? inMass / spanMass : null;
+    var top = function(p){
+      var mx = 0, k, days = [];
+      for (k in p) mx = Math.max(mx, num(p[k]));
+      for (k in p) if (mx > 0 && num(p[k]) >= 0.25 * mx) days.push(+k);
+      return days.sort(function(x, y){ return x - y; });
+    };
+    out.feedDays = top(feed);
+    if (!(spanMass > 0)) out.reason = 'the feed pays nothing for this source';
+    else if (inMass / spanMass < 0.05) out.reason = 'only ' + (100 * inMass / spanMass).toFixed(0) + '% of its export falls inside the window days';
+    else {
+      var best = null;
+      exportOffsets_(cat).forEach(function(off){
+        var pr = exportScaleProfile_(cat, EXPORT_SCALE_REF[0], EXPORT_SCALE_REF[1], ctx, ov.o1, ov.o2, off);
+        if (!(pr.S > 0)) return;
+        var sc = profileMatch_(pr.prof, feed, ov.o1, ov.o2);
+        if (!best || sc > best.score) best = { score: sc, off: off, prof: pr.prof, S: pr.S, inst: pr.n ? pr.W / pr.n : 0 };
+      });
+      if (!best) out.reason = 'cal_curr pays no instance inside window days ' + ov.o1 + '..' + ov.o2;
+      else {
+        out.score = best.score; out.off = best.off; out.predDays = top(best.prof);
+        // f counts only the mass the calendar EXPLAINS: within EXPORT_SCALE_NEAR days of a predicted
+        // payout (late claims belong to their instance; a spill from a lead-in instance cal_curr does
+        // not draw does not - Hatchling's Oct 19 claims of the Oct 15-18 event read x2.4 without this)
+        var near = function(d){ for (var k in best.prof) if (num(best.prof[k]) > 0 && Math.abs(d - k) <= EXPORT_SCALE_NEAR) return true; return false; };
+        var expl = 0;
+        for (var d2 = ov.o1; d2 <= ov.o2; d2++) if (near(d2)) expl += num(feed[d2]);
+        out.f = expl / spanMass;
+        out.ok = best.score >= EXPORT_SCALE_MATCH && best.S >= 0.5 * best.inst;
+        if (best.score < EXPORT_SCALE_MATCH)
+          out.reason = 'payout days disagree with the feed (match ' + (100 * best.score).toFixed(0) + '%: cal_curr pays on window days ' +
+                       out.predDays.join(',') + ', the feed on days ' + out.feedDays.join(',') + ')';
+        else if (!out.ok)
+          out.reason = 'less than half an instance of cal_curr pays inside window days ' + ov.o1 + '..' + ov.o2 + ' - too little to scale on';
+      }
+    }
+  }
+  return (ctx._expChk[key] = out);
+}
+/** Rainbow Maker's W and S' per resource, off its own walk (the window instances priced as the timed
+ *  core prices them, and every instance's claim share inside the window part of the export). */
+function rmExportWS_(seg, payer, ctx, res, o1, o2, off){
+  ctx._rmExpWS = ctx._rmExpWS || {};
+  var key = seg + '|' + payer + '|' + off;
+  var c = ctx._rmExpWS[key];
+  if (c === undefined){
+    c = null;
+    var win = rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCur, useBase: true });
+    var full = rmInstanceRows_(seg, payer, ctx, { cal: ctx.calCurFull, useBase: true, full: true });
+    if (win && full){
+      var b = ctx.ds.beh(seg, payer) || {}, pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+      c = { W: zeroRow_(), S: zeroRow_() };
+      win.forEach(function(p){ RESOURCES.forEach(function(r){ c.W[r] += num(p.row[r]); }); });
+      full.forEach(function(p){
+        var sh = 0;
+        instPayoutDays_('Rainbow Maker', p.inst, seg, payer, ctx, pWd, pWe, off).forEach(function(pd){ if (pd[0] >= o1 && pd[0] <= o2) sh += pd[1]; });
+        RESOURCES.forEach(function(r){ c.S[r] += num(p.row[r]) * sh; });
+      });
+    }
+    ctx._rmExpWS[key] = c;
+  }
+  if (!c) return null;
+  var r0 = (num(c.W[res]) > 0 && num(c.S[res]) > 0) ? res : 'HC';
+  return { W: num(c.W[r0]), S: num(c.S[r0]) };
+}
+/** The per-event scale of one export amount, or null (-> the activity scale). */
+function spanScaleEvent_(cat, seg, payer, res, ctx){
+  if (!SPAN_PER_EVENT || !EXPORT_SCALE_FAMILY[cat]) return null;
+  var chk = exportScaleCheck_(cat, res, ctx);
+  if (!chk.ok || chk.f == null) return null;
+  var ov = exportScaleOverlap_(ctx), ws;
+  ctx._expWS = ctx._expWS || {};
+  if (cat === 'Rainbow Maker') ws = rmExportWS_(seg, payer, ctx, res, ov.o1, ov.o2, chk.off);
+  else {
+    var k = cat + '|' + seg + '|' + payer + '|' + chk.off;
+    ws = ctx._expWS[k] || (ctx._expWS[k] = exportScaleProfile_(cat, seg, payer, ctx, ov.o1, ov.o2, chk.off));
+  }
+  if (!ws || !(ws.S > 0)) return null;
+  return chk.f * ws.W / ws.S;
+}
+/** The pooled feed as the EXPORT_SCALE_SHEET grid (pure: no sheet writes). Rows: the title, the stamp,
+ *  a blank, the header, then one row per (source, resource) with its granted mass per window day of
+ *  the export. null when the feed or the dates are missing. */
+function exportScaleGrid_(ctx){
+  ctx = ctx || Context.get();
+  if (!ctx.dataSpan) return null;
+  var v = sheetVals_(EXPORT_SCALE_FEED);
+  if (!v || v.length < 2) return null;
+  var h = headerIndex_(v[0] || []);
+  if (h['source'] == null || h['currency'] == null || h['gain_total'] == null) return null;
+  var d1 = calDay1Date_(), first = ctx.dataSpan.first, last = ctx.dataSpan.last, agg = {};
+  for (var i = 1; i < v.length; i++){
+    var r = v[i], cat = String(r[h['source']] == null ? '' : r[h['source']]).trim();
+    if (!cat || cat === 'ALL') continue;
+    var day = null;
+    if (h['calendar_date'] != null && d1 != null){ var dd = dateDays_(r[h['calendar_date']]); if (dd != null) day = dd - d1 + 1; }
+    if (day == null && h['day_index'] != null) day = Math.round(num(r[h['day_index']])) + first - 1;
+    if (day == null || day < first || day > last) continue;
+    var res = String(r[h['currency']]).trim();
+    var o = ((agg[cat] = agg[cat] || {})[res] = agg[cat][res] || { days: {}, rec: 0 });
+    o.days[day] = num(o.days[day]) + num(r[h['gain_total']]);
+    if (h['recipients_day'] != null) o.rec += num(r[h['recipients_day']]);
+  }
+  var hdr = ['source', 'resource', 'recipients'];
+  for (var d = first; d <= last; d++) hdr.push('d' + d);
+  var grid = [['EXPORT SCALE - ' + EXPORT_SCALE_FEED + ' pooled over cells: granted amount per window day of the export (D87). ' +
+               'Written by EcoGainsSim > Compute export scale; the engine reads this table, never the feed.'],
+              ['export days', first + '..' + last, 'window days', '1..' + ctx.window.days, 'written', stampNow_(), 'build', ENGINE_BUILD],
+              [], hdr];
+  Object.keys(agg).sort().forEach(function(cat){
+    Object.keys(agg[cat]).sort().forEach(function(res){
+      var o = agg[cat][res], row = [cat, res, Math.round(o.rec)];
+      for (var d2 = first; d2 <= last; d2++) row.push(Math.round(num(o.days[d2]) * 1000) / 1000);
+      grid.push(row);
+    });
+  });
+  return grid;
+}
+/** What the per-event scale did, per (source, resource) the feed carries: the rows the menu run writes
+ *  under the table. */
+function exportScaleReport_(ctx){
+  ctx = ctx || Context.get();
+  var rows = [['source', 'resource', 'scale used', 'payout-day match', 'granted', 'f: share inside window days',
+               'scale at ' + EXPORT_SCALE_REF.join(' '), 'scale range over cells', 'activity scale', 'reason']];
+  var cells = [], tab = exportScaleTab_();
+  ['0-9', '10-19', '20-39', '40-99', '100+'].forEach(function(s){ ['NONPAYER', 'PAYER'].forEach(function(p){ cells.push([s, p]); }); });
+  var act = ctx.dataSpan ? spanScale_(EXPORT_SCALE_REF[0], EXPORT_SCALE_REF[1], ctx) : 1;
+  Object.keys(EXPORT_SCALE_FAMILY).forEach(function(cat){
+    var resList = (tab && tab.src[cat]) ? Object.keys(tab.src[cat].res).sort() : ['HC'];
+    resList.forEach(function(res){
+      var chk = exportScaleCheck_(cat, res, ctx), sc = [];
+      if (chk.ok) cells.forEach(function(c){ var e = spanScaleEvent_(cat, c[0], c[1], res, ctx); if (e != null) sc.push(e); });
+      var ref = chk.ok ? spanScaleEvent_(cat, EXPORT_SCALE_REF[0], EXPORT_SCALE_REF[1], res, ctx) : null;
+      var rng = sc.length ? Math.min.apply(null, sc).toFixed(2) + ' - ' + Math.max.apply(null, sc).toFixed(2) : '';
+      rows.push([cat, res, (chk.ok && sc.length) ? 'per event' : 'activity', chk.score ? Math.round(chk.score * 100) / 100 : '',
+                 (chk.off == null) ? '' : (chk.off === 0 ? 'on the day' : '+' + chk.off + ' day'),
+                 (chk.f != null) ? Math.round(chk.f * 1000) / 1000 : '', (ref != null) ? Math.round(ref * 1000) / 1000 : '',
+                 rng, Math.round(act * 1000) / 1000,
+                 chk.ok ? ((chk.use && chk.use !== res) ? 'timed on ' + chk.use + ' (too few recipients of its own)' : '') : chk.reason]);
+    });
+  });
+  return rows;
+}
+function stampNow_(){
+  var d = new Date(), p = function(x){ return (x < 10 ? '0' : '') + x; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+/** MENU: EcoGainsSim > Compute export scale. Pools the by-source feed into EXPORT_SCALE_SHEET and
+ *  writes the per-event report under it. Re-run after every data re-pull or cal_curr edit. */
+function fillExportScale(){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  _expScaleTab = undefined; Context.reset();
+  var ctx = Context.get(), grid = exportScaleGrid_(ctx);
+  if (!grid){
+    var why = !ctx.dataSpan ? 'data_gains carries no window_start_date / data_through_date (or no date is typed above day 1)'
+                            : "no usable '" + EXPORT_SCALE_FEED + "' sheet (source | currency | gain_total | calendar_date)";
+    try { ss.toast('Export scale not computed: ' + why + '. The export keeps the activity scale.', 'Compute export scale', 12); } catch (e){}
+    return null;
+  }
+  var sh = ss.getSheetByName(EXPORT_SCALE_SHEET) || ss.insertSheet(EXPORT_SCALE_SHEET);
+  sh.clear();
+  var w = grid.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
+  var pad = function(g, n){ return g.map(function(r){ var x = r.slice(); while (x.length < n) x.push(''); return x; }); };
+  sh.getRange(1, 1, grid.length, w).setValues(pad(grid, w));
+  delete _sheetValsCache[EXPORT_SCALE_SHEET]; _expScaleTab = undefined; Context.reset();
+  var rep = exportScaleReport_(Context.get()), r0 = grid.length + 3;
+  sh.getRange(r0 - 1, 1).setValue('WHAT THE ENGINE DID WITH IT (per event where the payout days match the feed, else the activity scale)');
+  var w2 = rep.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
+  sh.getRange(r0, 1, rep.length, w2).setValues(pad(rep, w2));
+  var n = rep.filter(function(r){ return r[2] === 'per event'; }).length;
+  try { ss.toast(n + ' of ' + (rep.length - 1) + ' source x resource amounts scaled per event; the rest keep the activity scale ' +
+                 '(reasons on ' + EXPORT_SCALE_SHEET + ').', 'Compute export scale', 10); } catch (e){}
+  return rep;
 }
 
 // ---- missing event telemetry (D79, 2026-10-30) ---------------------------------------------------
@@ -5062,6 +5495,7 @@ function onOpen(){
     .addItem('Check code versions', 'checkCodeVersions')
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
     .addItem('Fill change summary', 'fillChangeSummary')     // ChangeSummary.gs (D85)
+    .addItem('Compute export scale', 'fillExportScale')      // D87: the per-event export scale table
     // D52 (2026-09-10): the answer to "Exceeded maximum execution time (line 0)". A custom
     // function gets 30 seconds and its OWN cold cache, so all 48 ECOGAINS_ formulas rebuild
     // Context + DataStore + every sheet read independently (~2,060 getValues round trips for a
