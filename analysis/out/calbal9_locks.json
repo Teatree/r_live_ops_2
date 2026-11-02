@@ -1,0 +1,26 @@
+{
+ "_why": "LIVE_OPS_V3 (9) re-fit (2026-11-02): the user's own edits stay as they are - Target Day as authored, the weekday Night Sky untouched, the new weekend envelope pattern, the BB / Jigsaw tickets, Kite's rank-25 1-star and the unlock-milestone UL (kept at 30 on the 2-day sheet, so held on both), Hatchling milestones 4 / 5 coins and every Hatchling envelope (the brief asked Hatchling for HIGHER rewards, so it is never where envelopes are absorbed). Hatchling requirements are not variables (--keep-reqs).",
+ "TaD_v2": "ALL",
+ "NS_v2_weekday": "ALL",
+ "NS_v2": [
+  "W:AB"
+ ],
+ "BB_v2": [
+  "X:X"
+ ],
+ "J_v2": [
+  "X:X"
+ ],
+ "Ki_v2": [
+  "R51",
+  "L23"
+ ],
+ "Ki_2d_v2": [
+  "L23"
+ ],
+ "HH_v2": [
+  "B15",
+  "B16",
+  "Q:V"
+ ]
+}

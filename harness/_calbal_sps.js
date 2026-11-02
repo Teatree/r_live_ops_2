@@ -68,13 +68,17 @@ if (require.main === module && process.argv.indexOf('--bundle') < 0){
 
 // --bundle out.json: the four rollups the Calendar_Rebalance builder renders (before the swap, the swap alone,
 // rebalanced, rebalanced with the two collection rows held at their before-swap values)
+//   [--before f] [--swap f] [--after f] [--dump f] [--held-at-control]   (2026-11-02, the LIVE_OPS_V3 (9) re-fit:
+//   swap = (9) as applied, after = the re-fit, the collection rows held at CONTROL - the measured side)
 if (require.main === module && process.argv.indexOf('--bundle') >= 0){
-  const out = process.argv[process.argv.indexOf('--bundle') + 1], dir = path.join(path.dirname(__dirname), 'analysis', 'out');
-  const rd = (n) => JSON.parse(fs.readFileSync(path.join(dir, n), 'utf8'));
-  const IV = itemVals(path.join(__dirname, '_mockdata_v3h.json'));
-  const R1 = rd('calbal_base_cur.json'), R2 = rd('calbal_base_new.json'), F = rd('calbal_eval.json');
+  const A = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : d; };
+  const out = A('--bundle'), dir = path.join(path.dirname(__dirname), 'analysis', 'out');
+  const rd = (n) => JSON.parse(fs.readFileSync(path.isAbsolute(n) || n.indexOf('/') >= 0 ? n : path.join(dir, n), 'utf8'));
+  const IV = itemVals(path.isAbsolute(A('--dump', '')) ? A('--dump') : path.join(__dirname, A('--dump', '_mockdata_v3h.json')));
+  const R1 = rd(A('--before', 'calbal_base_cur.json')), R2 = rd(A('--swap', 'calbal_base_new.json')), F = rd(A('--after', 'calbal_eval.json'));
+  const atControl = process.argv.indexOf('--held-at-control') >= 0;
   const held = JSON.parse(JSON.stringify(F));
-  Object.keys(held.cells).forEach(l => ['Col - Sets', 'Col - Albums'].forEach(c => { held.cells[l].sim[c] = R1.cells[l].sim[c]; }));
+  Object.keys(held.cells).forEach(l => ['Col - Sets', 'Col - Albums'].forEach(c => { held.cells[l].sim[c] = atControl ? F.cells[l].meas[c] : R1.cells[l].sim[c]; }));
   const lanes = {};
   Object.keys(F.cells).forEach(l => { lanes[l] = { pop: F.cells[l].pop, ref: R1.cells[l].sim, swap: R2.cells[l].sim, after: F.cells[l].sim, meas: R1.cells[l].meas }; });
   fs.writeFileSync(out, JSON.stringify({ itemVals: IV, before: rollup(R1, IV), swap: rollup(R2, IV), after: rollup(F, IV), afterHeld: rollup(held, IV), lanes }));

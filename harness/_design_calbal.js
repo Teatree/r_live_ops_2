@@ -20,6 +20,12 @@
 //        [--kite 1.5] [--kite2d 0.667] [--tad 1.35] [--resid analysis/out/calbal_eval.json]
 //   --resid: a probe run of a previous patch set; its per-resource gap to the reference is added to the absorbers'
 //            targets (second pass for the second-order lanes: Season Pass tier, ToF ticket income, Core's buff SPT)
+//   --keep-reqs: leave every requirement as the dump has it (no base Hatchling helper, no BB / Jigsaw / Hatchling /
+//            Rainbow Maker re-spacing) - a RE-FIT of configs that already carry the redesign's requirements
+//   --lock f.json: cells the fit may not touch, {sheet: 'ALL' | ['B15', 'X:X', 'W:AA', ...]} (a column range locks
+//            the whole column). A linked entry with a locked cell is split, its free cell fitted alone.
+//   2026-11-02: LIVE_OPS_V3 (9) re-fit - node harness/_design_calbal.js --data v3i --ref analysis/out/v3i_eval.json
+//            --keep-reqs --lock analysis/out/calbal9_locks.json --out analysis/out/calbal9_patches.json
 const fs = require('fs'), path = require('path');
 if (process.argv.indexOf('--data') < 0) process.argv.push('--data', path.join(__dirname, '_mockdata_v3h.json'));
 const CARDS = fs.readFileSync(path.join(__dirname, '_mock_cards.js'), 'utf8');
@@ -42,6 +48,30 @@ function DESIGN(){
   const get = (s, r, c) => { const v = data[s].values; return (v[r] && v[r][c] !== undefined) ? v[r][c] : ''; };
   const set = (s, r, c, x) => { snap(s); const v = data[s].values; while (v.length <= r) v.push([]); while (v[r].length <= c) v[r].push(''); v[r][c] = x; };
   const N = (x) => { const n = Number(x); return isFinite(n) ? n : 0; };
+  const KEEP_REQS = process.argv.indexOf('--keep-reqs') >= 0;
+  const LOCKS = (() => {
+    const f = arg('--lock', null);
+    if (!f) return {};
+    const raw = JSON.parse(fs.readFileSync(f, 'utf8')), out = {};
+    const cn = (s) => s.split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+    Object.keys(raw).forEach(sh => {
+      if (sh.charAt(0) === '_') return;                 // comments
+      if (raw[sh] === 'ALL'){ out[sh] = { all: true }; return; }
+      const o = out[sh] = { cells: {}, cols: [] };
+      raw[sh].forEach(a => {
+        let m = /^([A-Z]+):([A-Z]+)$/.exec(a);
+        if (m){ o.cols.push([cn(m[1]), cn(m[2])]); return; }
+        m = /^([A-Z]+)(\d+)$/.exec(a);
+        if (!m) throw new Error('bad lock ' + sh + '!' + a);
+        o.cells[(+m[2] - 1) + ',' + cn(m[1])] = 1;
+      });
+    });
+    return out;
+  })();
+  const isLocked = (sh, r, c) => { const o = LOCKS[sh]; if (!o) return false; if (o.all) return true;
+    return !!o.cells[r + ',' + c] || o.cols.some(([a, b]) => c >= a && c <= b); };
+  const LOCKED_VARS = [];                               // what unlocked() keeps out of the fit - it still pays its rung
+  const unlocked = (vars) => vars.filter(x => { const lk = x.at.some(([sh, r, c]) => isLocked(sh, r, c)); if (lk) LOCKED_VARS.push(x); return !lk; });
 
   // ------------------------------------------------------------------ evaluation
   const cells = cloudPermutations_();
@@ -74,6 +104,8 @@ function DESIGN(){
   const stepOf = (res, a) => (STEP5[res] && a >= (MINUTES[res] ? 20 : 10)) ? 5 : 1;
   const isCount = (res) => !STEP5[res];
   const MAX_M = 2;                                    // no entry more than doubled
+  // a boost of 1-4 minutes is not a reward: a minutes entry is 0 or at least 5, whichever move sets it
+  const badMin = (res, x) => !!MINUTES[res] && x > 1e-9 && x < 5 - 1e-9;
   // how far one entry may move: a count item (booster, envelope, ticket) never grows past what the rung had
   // when the ladder is cut, and grows by at most its share when it is raised - no piling 13 envelopes onto one
   // cheap rung to hit a decimal; a value (coins, minutes, SPT) stays within 0.6x..1.4x of its share
@@ -131,6 +163,7 @@ function DESIGN(){
     const st = vs.map(x => stepOf(x.res, Math.max(x.a, m * x.a)));
     const bd = vs.map((x, i) => bounds(x.res, x.a, m, st[i]));
     const b = vs.map((x, i) => x.a > 0 ? Math.min(bd[i][1], Math.max(bd[i][0], Math.round(m * x.a / st[i]) * st[i])) : 0);
+    b.forEach((y, i) => { if (badMin(vs[i].res, y)) b[i] = (y >= 2.5 || vs[i].a >= 5) ? 5 : 0; });
     let err = target - b.reduce((a, y, i) => a + w[i] * y, 0);
     for (let it = 0; it < 2000; it++){
       let best = null;
@@ -138,6 +171,7 @@ function DESIGN(){
         if (!(x.a > 0) || !(w[i] > 1e-12)) return;
         [st[i], -st[i]].forEach(d => {
           if (b[i] + d < bd[i][0] || b[i] + d > bd[i][1]) return;
+          if (badMin(x.res, b[i] + d)) return;
           const e2 = err - w[i] * d;
           if (Math.abs(e2) >= Math.abs(err) - 1e-12) return;
           const dev = Math.abs(b[i] + d - m * x.a) / Math.max(st[i], m * x.a);
@@ -205,7 +239,7 @@ function DESIGN(){
     }
     return best.s;
   }
-  const OUT = { meta: { data: data._meta, ref: refFile, kite: KITE, kite2d: KITE2D, tad: TAD, target: SIDE }, completion: {}, reqs: {}, fits: {}, lanes: {}, notes: {} };
+  const OUT = { meta: { data: data._meta, ref: refFile, kite: KITE, kite2d: KITE2D, tad: TAD, target: SIDE, keepReqs: KEEP_REQS, locks: arg('--lock', null) }, completion: {}, reqs: {}, fits: {}, lanes: {}, notes: {} };
   // Per rung: the requirement that keeps each SEGMENT's share of participants reaching it closest to what it
   // was - segments weighted EQUALLY (cells inside a segment by population), so 100+ (whose pace hardly drops on
   // a shorter event: Jigsaw's accrual share is 1.00 at 100+, 0.70 at 10-19) is not outvoted by 0-9. A rung no
@@ -227,7 +261,7 @@ function DESIGN(){
   // ------------------------------------------------------------------ 0. the base Hatchling sheet gets today's boards
   // D83: with its own 'Cum tokens' helper the base side keeps today's requirement while HH_v2's boards change
   // (without it both sides read HH_v2 and an easier board would only re-weight). Same cells as on HH_v2.
-  {
+  if (!KEEP_REQS){
     const vv = data['HH_v2'].values, hit = reqLabelCell_(vv, 'Cum tokens', 4), acc = reqLabelCell_(vv, 'accuracy', 4);
     if (hit && !reqLabelCell_(data['HH'].values, 'Cum tokens', 4)){
       const copy = (r, c) => set('HH', r, c, vv[r][c]);
@@ -240,7 +274,7 @@ function DESIGN(){
   dsNow();
   const accD = (acc, cur, nw) => { const o = {}; cells.forEach(c => { o[c.label] = accrualD_(ctx.ds, acc, cur, nw, c.seg, c.payer, false); }); return o; };
   // Bomb's Ballet and Jigsaw: own cumulative req column B
-  [["Bomb's Ballet", 'BB_v2', 'BB', 'Bombs Ballet', 3, 2], ['Jigsaw', 'J_v2', 'J', 'Jigsaw', 3, 2]].forEach(([cat, sh, base, inst, cd, nd]) => {
+  if (!KEEP_REQS) [["Bomb's Ballet", 'BB_v2', 'BB', 'Bombs Ballet', 3, 2], ['Jigsaw', 'J_v2', 'J', 'Jigsaw', 3, 2]].forEach(([cat, sh, base, inst, cd, nd]) => {
     const spec = COLL_R_SPECS[cat], D = accD(inst, cd, nd);
     const reqs0 = range(spec.r0, spec.r1).map(r => N(get(base, r, spec.reqC)));
     const before = collCompletion(inst, reqs0, null);
@@ -255,7 +289,7 @@ function DESIGN(){
     log(cat + ': requirement scale ' + s.toFixed(3) + '  reqs ' + reqs0.join(',') + ' -> ' + reqs1.join(','));
   });
   // Hatchling: tiles per gate (Y12:Y16 and the helper copy AV5:AV9) - cum tokens (AW, a sheet formula) follow
-  {
+  if (!KEEP_REQS){
     const cat = 'Hatchling Hideaway', sh = 'HH_v2', D = accD('Hatchling Hideaway', 4, 3);
     const v = data[sh].values, hit = reqLabelCell_(v, 'Cum tokens', 4), accCell = reqLabelCell_(v, 'accuracy', 4);
     const acc = N(get(sh, accCell.r, accCell.c + 1)) || 0.8;
@@ -284,7 +318,7 @@ function DESIGN(){
   const RM_SHEETS = ['RM_1st_v2', 'RM_2nd_v2'];
   const rmHdr = (sh) => data[sh].values.findIndex(r => r && r.some(x => String(x).trim() === 'Req Accum'));
   const RM_N_NEW = 25;
-  {
+  if (!KEEP_REQS){
     const h = rmHdr('RM_1st_v2'), H = data['RM_1st_v2'].values[h].map(x => String(x == null ? '' : x).trim());
     const cA = 0, cInc = H.indexOf('Matchables Req'), cCum = H.indexOf('Req Accum'), cLast = H.indexOf('ToF_Ticket');
     const old = (sh) => { const rows = []; for (let r = h + 1; r < data[sh].values.length && String(get(sh, r, 0)).trim() !== '' && !isNaN(parseFloat(get(sh, r, 0))); r++) rows.push(r); return rows; };
@@ -343,13 +377,13 @@ function DESIGN(){
   const LADDERS = [];                                 // {name, cat, vars, seg?}
   {
     const spec = LB_R_SPECS['Kite Festival'];
-    LADDERS.push({ name: 'Kite 3-day', cat: 'Kite Festival', lb: true, vars: specLadder(spec, 'Ki_v2', range(spec.r0, spec.r1)).concat(msVars(spec, 'Ki_v2')) });
-    LADDERS.push({ name: 'Kite 2-day', cat: 'Kite Festival', lb: true, vars: specLadder(spec, 'Ki_2d_v2', range(spec.r0, spec.r1)).concat(msVars(spec, 'Ki_2d_v2')) });
+    LADDERS.push({ name: 'Kite 3-day', cat: 'Kite Festival', lb: true, vars: unlocked(specLadder(spec, 'Ki_v2', range(spec.r0, spec.r1)).concat(msVars(spec, 'Ki_v2'))) });
+    LADDERS.push({ name: 'Kite 2-day', cat: 'Kite Festival', lb: true, vars: unlocked(specLadder(spec, 'Ki_2d_v2', range(spec.r0, spec.r1)).concat(msVars(spec, 'Ki_2d_v2'))) });
   }
-  { const spec = LB_R_SPECS['Target Day']; LADDERS.push({ name: 'Target Day', cat: 'Target Day', lb: true, vars: specLadder(spec, 'TaD_v2', range(spec.r0, spec.r1)) }); }
-  { const spec = COLL_R_SPECS["Bomb's Ballet"]; LADDERS.push({ name: "Bomb's Ballet", cat: "Bomb's Ballet", vars: specLadder(spec, 'BB_v2', range(spec.r0, spec.r1).concat([spec.completionRow])) }); }
-  { const spec = COLL_R_SPECS['Jigsaw']; LADDERS.push({ name: 'Jigsaw', cat: 'Jigsaw', vars: specLadder(spec, 'J_v2', range(spec.r0, spec.r1)) }); }
-  { const spec = COLL_R_SPECS['Hatchling Hideaway']; LADDERS.push({ name: 'Hatchling Hideaway', cat: 'Hatchling Hideaway', vars: specLadder(spec, 'HH_v2', range(spec.r0, spec.r1)) }); }
+  { const spec = LB_R_SPECS['Target Day']; LADDERS.push({ name: 'Target Day', cat: 'Target Day', lb: true, vars: unlocked(specLadder(spec, 'TaD_v2', range(spec.r0, spec.r1))) }); }
+  { const spec = COLL_R_SPECS["Bomb's Ballet"]; LADDERS.push({ name: "Bomb's Ballet", cat: "Bomb's Ballet", vars: unlocked(specLadder(spec, 'BB_v2', range(spec.r0, spec.r1).concat([spec.completionRow]))) }); }
+  { const spec = COLL_R_SPECS['Jigsaw']; LADDERS.push({ name: 'Jigsaw', cat: 'Jigsaw', vars: unlocked(specLadder(spec, 'J_v2', range(spec.r0, spec.r1))) }); }
+  { const spec = COLL_R_SPECS['Hatchling Hideaway']; LADDERS.push({ name: 'Hatchling Hideaway', cat: 'Hatchling Hideaway', vars: unlocked(specLadder(spec, 'HH_v2', range(spec.r0, spec.r1))) }); }
   {
     // the two RM sheets share every entry they agree on (set together); where they differ each is its own variable
     const h = rmHdr('RM_1st_v2'), c1 = hdrCols('RM_1st_v2', h), c2 = hdrCols('RM_2nd_v2', h);
@@ -364,11 +398,13 @@ function DESIGN(){
         else { vars.push({ res, at: [['RM_1st_v2', r, c1[res]]], a: a1, key: '1:' + r }); vars.push({ res, at: [['RM_2nd_v2', r, c2[res]]], a: a2, key: '2:' + r }); }
       });
     }
-    LADDERS.push({ name: 'Rainbow Maker', cat: 'Rainbow Maker', vars });
+    LADDERS.push({ name: 'Rainbow Maker', cat: 'Rainbow Maker', vars: unlocked(vars) });
   }
   // Night Sky gives up coins, Unlimited Lives and envelopes only (boosters and tickets stay); one ladder per
   // segment block (both day types), so every segment gives up the same share
-  const NS_RES = (r) => r === 'HC' || r === 'Unlimited Lives' || isPackRes_(r);
+  // 2026-11-02 (the (9) re-fit): and its round-1 ToF ticket - the BB / Jigsaw tickets are locked and every Rainbow
+  // Maker ticket is its milestone's only reward, so the weekend Night Sky is the one place a ticket can come back from
+  const NS_RES = (r) => r === 'HC' || r === 'Unlimited Lives' || isPackRes_(r) || (KEEP_REQS && r === TOF_TICKET);
   // the weekend (NS_v2) and weekday (NS_v2_weekday) ladders share every entry they agree on - a reward that is
   // the same on both days stays the same on both days; where they already differ each day is its own variable
   ['0-9', '10-19', '20-39', '40-99', '100+'].forEach(seg => {
@@ -382,7 +418,7 @@ function DESIGN(){
         if (!NS_RES(res)) return;
         const a1 = N(get('NS_v2', r, we.cols[res]));
         const r2 = wd && wd.rows[k], c2 = wd && wd.cols[res];
-        if (r2 != null && c2 != null && N(get('NS_v2_weekday', r2, c2)) === a1)
+        if (r2 != null && c2 != null && !isLocked('NS_v2_weekday', r2, c2) && N(get('NS_v2_weekday', r2, c2)) === a1)
           vars.push({ res, at: [['NS_v2', r, we.cols[res]], ['NS_v2_weekday', r2, c2]], a: a1, key: 'L' + k });
         else {
           vars.push({ res, at: [['NS_v2', r, we.cols[res]]], a: a1, key: 'we' + k });
@@ -390,7 +426,7 @@ function DESIGN(){
         }
       });
     });
-    LADDERS.push({ name: 'Night Sky ' + seg, cat: 'Daily Night Sky Prize', vars, seg });
+    LADDERS.push({ name: 'Night Sky ' + seg, cat: 'Daily Night Sky Prize', vars: unlocked(vars), seg });
   });
   // weights per ladder; intercepts per lane (a lane split over several ladders - Kite, Night Sky - shares one L0)
   const L0cat = {};
@@ -429,6 +465,9 @@ function DESIGN(){
   // rung, kept current across the per-resource fits, and no step / move may take a rung's last one
   const rungNZ = {}, rungKeys = (x) => x.at.map(([sh, r]) => sh + ':' + r);
   LADDERS.forEach(L => { if (L.lb) return; L.vars.forEach(x => { if (x.a > 0) rungKeys(x).forEach(k => { rungNZ[k] = (rungNZ[k] || 0) + 1; }); }); });
+  // a LOCKED reward still pays its rung (a Bomb's Ballet milestone whose only reward is a locked ticket is not empty)
+  const lockedNZ = {};
+  LOCKED_VARS.forEach(x => { if (x.a > 0) rungKeys(x).forEach(k => { lockedNZ[k] = (lockedNZ[k] || 0) + 1; rungNZ[k] = (rungNZ[k] || 0) + 1; }); });
   const guarded = (v) => !v.L.lb;
   const canEmpty = (v) => !guarded(v) || rungKeys(v.x).every(k => (rungNZ[k] || 0) > 1);
   const noteChange = (v, before, after) => { if (!guarded(v)) return;
@@ -454,22 +493,34 @@ function DESIGN(){
                    (tadC0 + tgtLin['Target Day'] - refLane('Target Day', res)) + (resid[res] || 0);
     // absorbers: the lanes among ABS with at least one non-zero entry of this resource
     const absCats = Array.from(new Set(LADDERS.filter(L => ABS.indexOf(L.cat) >= 0 && L.vars.some(x => x.res === res && x.a > 0)).map(L => L.cat)));
-    const pool = absCats.reduce((a, cat) => a + refLane(cat, res), 0);
-    alpha[res] = pool > 1e-9 ? growth / pool : 0;
-    LADDERS.forEach(L => {
-      if (L.name in tgtLin) return;
-      const sib = LADDERS.filter(M => M.cat === L.cat), Ssib = sib.reduce((a, M) => a + lin(M, res, 'a'), 0), S = lin(L, res, 'a');
-      const laneC0 = L0cat[L.cat][res] - Ssib;
-      // the lane's reference and intercept, split over its ladders (Night Sky: by segment; others: one ladder)
-      const ref = L.seg ? refSeg(L.cat, res, L.seg) : refLane(L.cat, res);
-      const c0part = L.seg ? (Ssib > 1e-12 ? laneC0 * S / Ssib : 0) : laneC0;
-      const want = (absCats.indexOf(L.cat) >= 0) ? ref * (1 - alpha[res]) : ref;
-      tgtLin[L.name] = Math.max(0, want - c0part);
-    });
     // HARD total over the touched lanes: their reference sum, less what the lanes outside them still gained
     const total = CATS.reduce((a, cat) => a + refLane(cat, res), 0) - (resid[res] || 0);
     let c0 = 0;
     CATS.forEach(cat => { c0 += L0cat[cat][res] - LADDERS.filter(L => L.cat === cat).reduce((a, L) => a + lin(L, res, 'a'), 0); });
+    // every other ladder's reference and intercept (Night Sky: per segment, from its own cells - a segment block only
+    // pays its own segment, so its locked part is exactly what its cells get beyond its free entries)
+    // only a ladder with a FREE entry of this resource can take a share; one whose cells are all locked is intercept
+    const parts = LADDERS.filter(L => !(L.name in tgtLin) && L.vars.some(x => x.res === res)).map(L => {
+      const sib = LADDERS.filter(M => M.cat === L.cat), Ssib = sib.reduce((a, M) => a + lin(M, res, 'a'), 0), S = lin(L, res, 'a');
+      const ref = L.seg ? refSeg(L.cat, res, L.seg) : refLane(L.cat, res);
+      let c0part = L0cat[L.cat][res] - Ssib;
+      if (L.seg){ let z = 0; cells.forEach((c, i) => { if (c.seg === L.seg) z += POP[c.label] * L0cell[L.cat][res][i]; }); c0part = z / POPT - S; }
+      return { L, ref, c0part, abs: absCats.indexOf(L.cat) >= 0 };
+    });
+    // the absorbers' share alpha solves  c0 + SUM targets = total : a lane's LOCKED cells sit in its intercept, so an
+    // absorber whose locked part already exceeds its share takes none and the others take its excess (2026-11-02, the
+    // (9) re-fit: before this, alpha only spread the growing lanes' growth and a locked surplus was never absorbed)
+    const tgtOf = (p, al) => Math.max(0, (p.abs ? p.ref * (1 - al) : p.ref) - p.c0part);
+    const fixedLin = Object.keys(tgtLin).reduce((a, k) => a + tgtLin[k], 0);
+    const sumAt = (al) => c0 + fixedLin + parts.reduce((a, p) => a + tgtOf(p, al), 0);
+    let lo = -4, hi = 1;
+    // absorbers exhausted and still over: a NEUTRAL lane (Hatchling) stops at what it pays now instead of climbing back
+    // to its reference - otherwise it ADDS an envelope tier that is already over (2026-11-02, the (9) re-fit)
+    if (sumAt(1) > total) parts.forEach(p => { if (!p.abs){ const now = lin(p.L, res, 'a'); if (p.ref - p.c0part > now) p.ref = p.c0part + now; } });
+    if (sumAt(hi) > total) lo = hi; else if (sumAt(lo) < total) hi = lo;
+    else for (let it = 0; it < 80; it++){ const mid = (lo + hi) / 2; if (sumAt(mid) > total) lo = mid; else hi = mid; }
+    alpha[res] = (lo + hi) / 2;
+    parts.forEach(p => { tgtLin[p.L.name] = tgtOf(p, alpha[res]); });
     const V = [];
     // a count item (booster, envelope, ticket) may also MOVE to another rung of the same sheet - empty rungs
     // included - which is how a ladder pays one item less often without losing it (a Chuck from the first
@@ -585,6 +636,7 @@ function DESIGN(){
           V.forEach((vj, j) => {
             if (j === i || vj.L !== vi.L || vj.zero || vj.b + vi.st > vj.hi || vj.x.at.length !== vi.x.at.length || vj.x.at[0][0] !== vi.x.at[0][0]) return;
             const d = vi.st;
+            if (badMin(res, vi.b - d) || badMin(res, vj.b + d)) return;
             tryMove((vj.w - vi.w) * d, vi.L, { kind: 'v', i, j, amt: d, halfStep: Math.abs(vj.w - vi.w) * d, tie: 2e-9 },
                     vj.wc.map((x, c) => (x - vi.wc[c]) * d));
           });
@@ -609,6 +661,7 @@ function DESIGN(){
             if (v.b + d < v.lo || v.b + d > v.hi) return;
             if (v.L.lb && (isCount(res) ? !lbBandOk(v, d) : !lbMonoOk(v, v.b + d))) return;
             if (v.b > 0 && v.b + d <= 0 && !canEmpty(v)) return;
+            if (badMin(res, v.b + d)) return;
             // a count item never multiplies: a ladder holds at most the units it had (more only when it is being
             // raised) - otherwise 'give it to the next rung, then step the empty slot back up' creates items
             if (isCount(res) && d > 0 && units(v.L) + d > unitCap[v.L.name]) return;
@@ -654,7 +707,7 @@ function DESIGN(){
     L.vars.forEach(x => { rungKeys(x).forEach(k => { (byRung[k] = byRung[k] || []).push(x); }); });   // a linked entry pays on both sheets
     const keys = Object.keys(byRung);
     keys.forEach(k => {
-      if (byRung[k].some(x => val(x) > 0)) return;
+      if (byRung[k].some(x => val(x) > 0) || lockedNZ[k]) return;
       const [sh, rs] = k.split(':'), r = +rs;
       if (process.env.CALBAL_DEBUG_EMPTY) log('  EMPTY ' + k + ' nz=' + rungNZ[k] + ' had: ' + byRung[k].filter(x => x.a > 0).map(x => x.res + ' ' + x.a + '->' + val(x) + ' (' + x.at.length + ' cells)').join(', '));
       let done = false;
