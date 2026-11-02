@@ -233,10 +233,66 @@ function GATES(){
             pre.calib === null && pre.alwaysOn.length === pre.alwaysOnModel.length);
     } finally { ALBUM_CALIBRATE = keep; fresh(); }
   }
+  console.log('\n================ D89c: the run sized on every cell\'s cost; short cells and the All row ================');
+  {
+    // the set-up: every cell has a pre and a cost, and the costs differ by cell (the first cell is not the mean)
+    fresh();
+    const D = albumDataDays_() || 16;
+    const prep = albumPrepare_('redesign', SEED, D, {});
+    const perms = cloudPermutations_();
+    check('the set-up prepares all ten cells with a pre and a positive cost per player-season',
+          prep._stoppedAt < 0 && perms.every((p, i) => !!prep.pres[i] && prep.ms[i] > 0),
+          perms.map((p, i) => p.label + ' ' + (prep.ms[i] || 0).toFixed(1) + 'ms').join(', '));
+    const mean = prep.ms.reduce((a, x) => a + x, 0) / prep.ms.length;
+    console.log('  cost per player-season: first cell ' + prep.ms[0].toFixed(1) + ' ms, mean ' + mean.toFixed(1) + ' ms (x' + (mean / prep.ms[0]).toFixed(2) + ')');
+    // RULE: running the same prep twice gives the same numbers (the set-up's timing seasons draw no player seed)
+    const nS = 40;
+    const r1 = albumRunPrepared_(prep, nS, SEED, D, {}), r2 = albumRunPrepared_(prep, nS, SEED, D, {});
+    check('RULE: the player pass is deterministic over a prepared season (same prep, same seed, same means)',
+          perms.every(p => r1[p.label] && JSON.stringify(r1[p.label].full) === JSON.stringify(r2[p.label].full)));
+    // RULE: a later cell that no longer fits runs SHORT (named), never silently dropped; one that cannot reach half the floor stops the pass
+    const keepMs = prep.ms.slice(), far = 1e9;
+    try {
+      prep.ms[2] = far / 79.5;                         // ~79 fit in the budget: between ALBUM_MIN_PLAYERS / 2 and n
+      const n = 120, rs = albumRunPrepared_(prep, n, SEED, D, { deadline: new Date().getTime() + far });
+      check('RULE: a cell that no longer fits at n runs at the count that does and is named as short',
+            rs._stoppedAt < 0 && rs[perms[2].label] && rs[perms[2].label].n >= Math.ceil(ALBUM_MIN_PLAYERS / 2) && rs[perms[2].label].n < n &&
+            rs._short.length === 1 && rs._short[0].indexOf(perms[2].label) === 0 && perms.every(p => !!rs[p.label]),
+            rs._short.join(', ') + '; ' + perms[2].label + ' n = ' + (rs[perms[2].label] || {}).n);
+      prep.ms[2] = far / 10;                           // 10 fit: below half the floor
+      const rk = albumRunPrepared_(prep, n, SEED, D, { deadline: new Date().getTime() + far });
+      check('RULE: a cell that cannot reach half of ALBUM_MIN_PLAYERS stops the pass there (the cells before it keep their numbers)',
+            rk._stoppedAt === 2 && !!rk[perms[1].label] && !rk[perms[2].label]);
+      prep.ms[0] = far;                                // the first cell always runs at n
+      const r0 = albumRunPrepared_(prep, 30, SEED, D, { deadline: new Date().getTime() + 1 });
+      check('RULE: the first cell always runs at n, whatever the deadline', r0[perms[0].label] && r0[perms[0].label].n === 30);
+    } finally { prep.ms = keepMs; }
+    // RULE: the All row of album_summary is over the cells a pass ran - a missing cell is not a zero - and the run line names it
+    const fake = (v) => { const o = {}; perms.forEach((p, i) => { o[p.label] = { n: 100, d: { album1: v * (i + 1), packs: 10 * (i + 1), cards: 0, unique: 0, sets: 0 },
+                                                                     full: { album1: 2 * v * (i + 1), packs: 20 * (i + 1), cards: 0, unique: 0, sets: 0 } }; });
+                                    o._days = 28; o._short = []; return o; };
+    const cur = fake(0.01), red = fake(0.02), gone = perms[perms.length - 1].label;
+    delete red[gone];
+    const pop = {}; perms.forEach((p, i) => { pop[p.label] = 1000 * (10 - i); });
+    const keepSum = data[ALBUM_SUMMARY_SHEET];
+    try {
+      const sum = albumWriteSummary_(SpreadsheetApp.getActiveSpreadsheet(), cur, red, {}, { pop: pop, source: 'test' },
+                                     { status: 'computed', note: 'test' }, 100, SEED, D, '0', 'abcd1234');
+      const ran = perms.filter(p => p.label !== gone);
+      const want = (key, vals, list) => list.reduce((a, p) => a + pop[p.label] * vals[p.label][key].album1, 0) / list.reduce((a, p) => a + pop[p.label], 0);
+      check('RULE: the All row\'s REDESIGN columns are the weighted mean of the cells that ran; CURRENT stays over all ten',
+            near(num(sum.all[7]), want('full', red, ran)) && near(num(sum.all[5]), want('full', cur, perms)),
+            num(sum.all[7]).toFixed(5) + ' vs ' + want('full', red, ran).toFixed(5) + ' (zero-filled it would read ' +
+            (ran.reduce((a, p) => a + pop[p.label] * red[p.label].full.album1, 0) / perms.reduce((a, p) => a + pop[p.label], 0)).toFixed(5) + ')');
+      const line = String(data[ALBUM_SUMMARY_SHEET].values[1][0]);
+      check('the run line names the cell a pass did not run', line.indexOf('redesign season did not run ' + gone) >= 0, line.slice(line.indexOf('TIME BUDGET')));
+    } finally { if (keepSum) data[ALBUM_SUMMARY_SHEET] = keepSum; else delete data[ALBUM_SUMMARY_SHEET]; }
+  }
+
   t.values = snapT;
   delete data[ALBUM_CALIB_SHEET]; delete data[ALBUM_SUMMARY_SHEET]; delete data[ALBUM_GAINS_SHEET];
   Logger.log = quiet;
-  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D89/D90 GATES PASS'));
+  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D89/D90/D89c GATES PASS'));
   process.exitCode = failures ? 1 : 0;
 }
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n');
