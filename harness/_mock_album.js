@@ -36,21 +36,41 @@ function GATES(){
     check('Night Sky on the anchor side: a weekend day pays the BASE weekend ladder (NS), a weekday the base weekday one (NS_weekday)',
           JSON.stringify(gotWe.filter(x => x !== '{}')) === JSON.stringify(baseWe) && JSON.stringify(gotWd.filter(x => x !== '{}')) === JSON.stringify(baseWd),
           'weekend ' + gotWe.join(' ') + ' | weekday ' + gotWd.join(' '));
+    // RULE (mutation, no workbook state assumed): a 5-star typed on every NS_v2 round of the segment reaches the
+    // redesign side's weekend rungs and not the anchor side's
+    const snapNS = clone(data['NS_v2']), v = data['NS_v2'].values;
+    let blk = -1;
+    for (let r = 0; r < v.length; r++){ if (String((v[r] || [])[0]).trim() === seg){ blk = r; break; } }
+    const hr = blk + 1, c5 = (v[hr] || []).map(x => String(x).trim()).indexOf('5-star Dly');
+    for (let r = hr + 1; r <= hr + 3; r++) if (v[r] && typeof v[r][0] === 'number') v[r][c5] = num(v[r][c5]) + 1;
+    fresh();
     const v2We = rungPacks(packRungs_('Daily Night Sky Prize', seg, payer, Context.get(), iWe));
-    check('...and the redesign side still pays NS_v2 (the fixture\'s two weekend ladders differ)', JSON.stringify(v2We) !== JSON.stringify(gotWe), v2We.join(' '));
+    const baseWe2 = onBase(b => rungPacks(packRungs_('Daily Night Sky Prize', seg, payer, b, iWe)));
+    check('RULE: a 5-star typed on NS_v2 reaches the redesign side\'s Night Sky rungs and not the anchor side\'s',
+          blk >= 0 && c5 > 0 && v2We.some(x => /5-star/.test(x)) && !baseWe2.some(x => /5-star/.test(x)) &&
+          JSON.stringify(baseWe2) === JSON.stringify(gotWe), v2We.join(' '));
+    data['NS_v2'] = snapNS; fresh();
   }
   {
     const seg = '20-39', payer = 'PAYER';
     const lb = LB_R_SPECS['Target Day'], inst = Context.get().ds.eventInst(lb.inst, seg, payer);
     const ladOf = (sheet) => lbRankDist_(sheet, lb, inst).ladder;
     const packsOfL = (L) => Object.keys(L).sort((a, b) => a - b).map(k => { const o = {}; PACK_RES.forEach(r => { if (num(L[k][r]) > 0) o[r] = num(L[k][r]); }); return JSON.stringify(o); });
-    const differ = JSON.stringify(packsOfL(ladOf('TaD'))) !== JSON.stringify(packsOfL(ladOf('TaD_v2')));
-    const b0 = onBase(b => packRungs_('Target Day', seg, payer, b, 0)), v0 = packRungs_('Target Day', seg, payer, Context.get(), 0);
     const flat = (rr) => rr.groups[0].rungs.map(x => x.label + ':' + JSON.stringify(x.packs || {})).join(' ');
-    const baseL = ladOf('TaD'), v2L = ladOf('TaD_v2');
-    const okB = b0.groups[0].rungs.every(x => { const rk = +String(x.label).replace('rank ', ''); const want = {}; PACK_RES.forEach(r => { if (num((baseL[rk] || {})[r]) > 0) want[r] = num(baseL[rk][r]); }); return JSON.stringify(x.packs || {}) === JSON.stringify(Object.keys(want).length ? want : {}); });
-    check('Target Day on the anchor side draws ranks off TaD, the redesign off TaD_v2 (they differ on this fixture)',
-          differ && okB && flat(b0) !== flat(v0), flat(b0).slice(0, 160));
+    const matches = (rr, L) => rr.groups[0].rungs.every(x => { const rk = +String(x.label).replace('rank ', ''); const want = {};
+      PACK_RES.forEach(r => { if (num((L[rk] || {})[r]) > 0) want[r] = num(L[rk][r]); }); return JSON.stringify(x.packs || {}) === JSON.stringify(want); });
+    const b0 = onBase(b => packRungs_('Target Day', seg, payer, b, 0)), v0 = packRungs_('Target Day', seg, payer, Context.get(), 0);
+    check('Target Day: the anchor side\'s rank rungs pay the TaD ladder, the redesign\'s the TaD_v2 ladder',
+          matches(b0, ladOf('TaD')) && matches(v0, ladOf('TaD_v2')), flat(b0).slice(0, 160));
+    // RULE (mutation): a 1-star added to every TaD_v2 rank moves the redesign's rungs and leaves the anchor's alone
+    const snapT = clone(data['TaD_v2']), tv = data['TaD_v2'].values;
+    const c1 = (tv[lb.hdr] || []).map(x => String(x).trim()).indexOf('1-star Dly');
+    for (let r = lb.r0; r <= lb.r1; r++) if (tv[r]) tv[r][c1] = num(tv[r][c1]) + 1;
+    fresh();
+    const b1 = onBase(b => packRungs_('Target Day', seg, payer, b, 0)), v1 = packRungs_('Target Day', seg, payer, Context.get(), 0);
+    check('RULE: a 1-star added to every TaD_v2 rank reaches the redesign\'s rungs and not the anchor\'s',
+          c1 > 0 && flat(b1) === flat(b0) && flat(v1) !== flat(v0) && v1.groups[0].rungs.every(x => num((x.packs || {})['1-star Pack']) >= 1));
+    data['TaD_v2'] = snapT; fresh();
   }
   {
     const keep = PACK_RUNGS_BASE;
