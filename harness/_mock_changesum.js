@@ -1,8 +1,10 @@
 // Offline harness for ChangeSummary.gs (D85) - the menu run that writes the 'change_summary' sheet: per source,
 // CURRENT (measuredRow_) and NEW (resultRow_) gains, their shares, the % change and the share change, for 18
-// segment x payer blocks, as window totals and as daily averages.
+// segment x payer blocks, as window totals and as daily averages. D88: per player (the export's per-earner amounts
+// x resource_earners / players_in_cell), merges weighted by players_in_cell, the Model / Bottom-up % keys, the red
+// D86 note and the STALE mark.
 //
-//   node harness/_mock_changesum.js              (defaults to --data v3i, LIVE_OPS_V3 (9))
+//   node harness/_mock_changesum.js              (defaults to --data v3k, LIVE_OPS_V3 (15))
 //   node harness/_mock_changesum.js --data v3h
 //
 // The SpreadsheetApp mock and the engine loader are the shared ones from _mock_cards.js. Added here, because only
@@ -12,7 +14,7 @@
 // it should) - never a number frozen from a workbook.
 const fs = require('fs');
 const path = require('path');
-if (process.argv.indexOf('--data') < 0) process.argv.push('--data', 'v3i');
+if (process.argv.indexOf('--data') < 0) process.argv.push('--data', 'v3k');
 
 const CARDS = fs.readFileSync(path.join(__dirname, '_mock_cards.js'), 'utf8');
 const CUT = '// ---------------------------------------------------------------- 1. PackConfig reader';
@@ -25,7 +27,7 @@ function GATES() {
 
   // ---------------------------------------------------------------- the writable, formattable sheet
   const REC = {};                                        // sheet -> recorded formatting
-  const recOf = (n) => (REC[n] = REC[n] || { fmt: {}, bg: {}, fw: {}, borders: [], rules: [], filter: null, removed: 0,
+  const recOf = (n) => (REC[n] = REC[n] || { fmt: {}, bg: {}, fw: {}, fc: {}, borders: [], rules: [], filter: null, removed: 0,
                                               widths: {}, gridHidden: false, max: { rows: 1000, cols: 26 } });
   const putGrid = (map, r1, c1, g) => { for (let i = 0; i < g.length; i++) for (let j = 0; j < g[i].length; j++) map[(r1 + i) + ',' + (c1 + j)] = g[i][j]; };
   const chain = (o) => new Proxy(o, { get: (t, k) => (k in t) ? t[k] : (() => chain(t)) });
@@ -39,6 +41,8 @@ function GATES() {
       setNumberFormats: (g) => { putGrid(rec.fmt, r1, c1, g); return self; },
       setBackgrounds: (g) => { putGrid(rec.bg, r1, c1, g); return self; },
       setFontWeights: (g) => { putGrid(rec.fw, r1, c1, g); return self; },
+      setFontColors: (g) => { putGrid(rec.fc, r1, c1, g); return self; },
+      setFontColor: (x) => { for (let i = 0; i < (nr || 1); i++) for (let j = 0; j < (nc || 1); j++) rec.fc[(r1 + i) + ',' + (c1 + j)] = x; return self; },
       setBorder: (...a) => { rec.borders.push({ r: r1, c: c1, nr, nc, color: a[6], style: a[7] }); return self; },
       createFilter: () => { if (rec.filter) throw new Error('createFilter on a sheet that already has a filter');
         rec.filter = { r: r1, c: c1, nr, nc, remove: () => { rec.filter = null; rec.removed++; } }; return rec.filter; },
@@ -53,7 +57,7 @@ function GATES() {
       getDataRange: () => { const v = data[name].values; return csRange(name, 1, 1, Math.max(1, v.length), Math.max(1, v.reduce((m, r) => Math.max(m, r.length), 0))); },
       getRange: (a, b, c, d) => csRange(name, a, b, c, d),
       getFilter: () => rec.filter,
-      clear: () => { data[name].values = []; data[name].merges = []; rec.fmt = {}; rec.bg = {}; rec.fw = {}; rec.borders = []; },
+      clear: () => { data[name].values = []; data[name].merges = []; rec.fmt = {}; rec.bg = {}; rec.fw = {}; rec.fc = {}; rec.borders = []; },
       clearConditionalFormatRules: () => { rec.rules = []; },
       setConditionalFormatRules: (rules) => { rec.rules = rules.slice(); },
       getMaxRows: () => rec.max.rows, getMaxColumns: () => rec.max.cols,
@@ -65,7 +69,7 @@ function GATES() {
   const toastsCS = [];
   global.SpreadsheetApp = Object.assign({}, SpreadsheetApp, {
     getActiveSpreadsheet: () => ({
-      getSheetByName: (n) => (n === CS_SHEET_NAME) ? csSheet(n) : mkSheet(n),
+      getSheetByName: (n) => (n === CS_SHEET_NAME || n === 'export_scale') ? csSheet(n) : mkSheet(n),
       insertSheet: (n) => { data[n] = { values: [], merges: [] }; return csSheet(n); },
       toast: (m) => { toastsCS.push(String(m)); },
       getSpreadsheetTimeZone: () => 'Europe/Helsinki',
@@ -160,35 +164,50 @@ function GATES() {
   const col = (ti, res) => L.start[ti] + 1 + 1 + (res === 'VALUE' ? 0 : 1 + RESOURCES.indexOf(res));   // 1-based
   const RV = ['VALUE'].concat(RESOURCES);
   const N = (x) => (x === '' || x === undefined) ? 0 : Number(x);
+  const near = (a, b, tol) => Math.abs(N(a) - N(b)) <= (tol || 1e-9) * Math.max(1, Math.abs(N(b)));
 
   // ---------------------------------------------------------------- 2. the sheet IS the engine
   resetSheetCache_mock();
   const ctx = Context.get();
+  const POPI = csPopulation_(ctx);
+  // the D88 conversion, written out independently: an amount the export carries x resource_earners / players_in_cell
+  const convOf = (seg, payer, cat, res) => {
+    const pc = POPI.cells[seg + '|' + payer];
+    const src = (LANE_STANDIN[cat] && laneStandInActive_(cat, ctx)) ? LANE_STANDIN[cat].like : cat;
+    return (POPI.perPlayer && pc && pc.has[src + '|' + res]) ? pc.earners[res] / pc.players : 1;
+  };
+  const convCur = (seg, payer, cat, res) => {
+    const pc = POPI.cells[seg + '|' + payer];
+    return (POPI.perPlayer && pc && pc.has[cat + '|' + res]) ? pc.earners[res] / pc.players : 1;
+  };
+  check('the dump\'s data_gains carries players_in_cell and resource_earners (the D88 per-player basis)', POPI.perPlayer);
   {
     let n = 0, bad = 0, first = '';
     blocks.filter(b => b.pi === 0 && b.seg !== 'All' && b.payer !== 'All').forEach(b => {
       CATEGORY_ORDER.forEach(cat => {
         const m = measuredRow_(cat, b.seg, b.payer, ctx.ds), s = resultRow_(cat, b.seg, b.payer, ctx), r = b.rows[cat];
         RESOURCES.forEach(res => { n++;
-          if (cell(r, col(0, res)) !== num(m[res]) || cell(r, col(2, res)) !== num(s[res])){ bad++;
-            if (!first) first = b.seg + ' ' + b.payer + ' ' + cat + ' ' + res + ': sheet ' + cell(r, col(0, res)) + '/' + cell(r, col(2, res)) + ' engine ' + num(m[res]) + '/' + num(s[res]); } });
+          const wc = num(m[res]) * convCur(b.seg, b.payer, cat, res), wn = num(s[res]) * convOf(b.seg, b.payer, cat, res);
+          if (!near(cell(r, col(0, res)), wc) || !near(cell(r, col(2, res)), wn)){ bad++;
+            if (!first) first = b.seg + ' ' + b.payer + ' ' + cat + ' ' + res + ': sheet ' + cell(r, col(0, res)) + '/' + cell(r, col(2, res)) + ' want ' + wc + '/' + wn; } });
       });
     });
-    check('every single-cell block: CURRENT == measuredRow_ and NEW == resultRow_, bit for bit', bad === 0, n + ' cells, ' + bad + ' off' + (first ? ' - ' + first : ''));
+    check('every single-cell block: CURRENT = measuredRow_ and NEW = resultRow_, each export-anchored amount x resource_earners / players_in_cell',
+          bad === 0, n + ' cells, ' + bad + ' off' + (first ? ' - ' + first : ''));
   }
   {
     let ok = extras.length > 0, why = extras.length ? '' : 'no export-only category on this dump';
     blocks.filter(b => b.pi === 0 && b.seg !== 'All' && b.payer !== 'All').forEach(b => extras.forEach(cat => {
       const d = ctx.ds.dataRow(cat, b.seg, b.payer), r = b.rows[cat];
       if (cell(r, 5) !== 'export only') { ok = false; why = why || cat + ' model ' + cell(r, 5); }
-      RESOURCES.forEach(res => { if (cell(r, col(0, res)) !== num(d[res]) || cell(r, col(2, res)) !== num(d[res])) { ok = false; why = why || (cat + ' ' + res); } });
+      RESOURCES.forEach(res => { const w = num(d[res]) * convCur(b.seg, b.payer, cat, res);
+        if (!near(cell(r, col(0, res)), w) || !near(cell(r, col(2, res)), w)) { ok = false; why = why || (cat + ' ' + res); } });
     }));
     check('a category only the export carries (' + extras.join(', ') + ') is listed, CURRENT = NEW = the export', ok, why);
   }
 
   // ---------------------------------------------------------------- 3. merged blocks, totals, value, order
-  const pop = {}; CS_SEGMENTS.forEach(s => CS_PAYERS.forEach(p => { pop[s + '|' + p] = num(ctx.ds.beh(s, p).unique_players); }));
-  const near = (a, b, tol) => Math.abs(N(a) - N(b)) <= (tol || 1e-9) * Math.max(1, Math.abs(N(b)));
+  const pop = {}; CS_SEGMENTS.forEach(s => CS_PAYERS.forEach(p => { pop[s + '|' + p] = POPI.cells[s + '|' + p].players; }));
   {
     let bad = 0, first = '', n = 0;
     blocks.filter(b => b.pi === 0 && (b.seg === 'All' || b.payer === 'All')).forEach(b => {
@@ -198,7 +217,7 @@ function GATES() {
         let s = 0; mem.forEach(x => { s += pop[x.seg + '|' + x.payer] * N(cell(x.rows[cat], col(ti, res))); });
         if (!near(cell(b.rows[cat], col(ti, res)), s / w)) { bad++; if (!first) first = b.seg + '/' + b.payer + ' ' + cat + ' ' + res; } })));
     });
-    check('a merged block is the unique_players-weighted mean of its cells (All players = all ten)', bad === 0, n + ' cells, ' + bad + ' off ' + first);
+    check('a merged block is the players_in_cell-weighted mean of its cells (All players = all ten)', bad === 0, n + ' cells, ' + bad + ' off ' + first);
   }
   const prices = csPrices_();
   check('prices: item_vals row 3, envelopes included, ToF tickets from the ToF_Value cell',
@@ -265,13 +284,92 @@ function GATES() {
     check('the daily section = the window totals / ' + days + ' days, same shares and changes, same order', bad === 0, bad + ' off ' + first);
   }
 
+  // ---------------------------------------------------------------- 4b. D88: the model keys, the red note, the stale mark
+  const liveRows = (seg, payer, pi) => {                  // source -> row of the block AS THE SHEET NOW HAS IT
+    const o = {}, lab = pi ? 'Daily avg' : days + ' days';
+    V().forEach((r, i) => { if (i >= HR && r[0] === lab && r[1] === seg && r[2] === payer) o[r[L.start[0]]] = i + 1; });
+    return o;
+  };
+  {
+    const b0 = blocks.find(b => b.pi === 0 && b.seg === '20-39' && b.payer === 'PAYER');
+    const modelOf = (cat) => cell(b0.rows[cat], 5), buOf = (cat) => N(cell(b0.rows[cat], 6));
+    check('Model: carried sources say carried, the pack-only ones carried + envelopes, the collection rows card sim',
+          modelOf('Team Race') === 'carried' && modelOf('Flock Flurry') === 'carried + envelopes' && modelOf('Col - Sets') === 'card sim',
+          [modelOf('Team Race'), modelOf('Flock Flurry'), modelOf('Col - Sets')].join(' | '));
+    check('Model: a source the export anchors on every resource reads anchored with Bottom-up % 0 (Daily Night Sky Prize)',
+          modelOf('Daily Night Sky Prize') === 'anchored' && buOf('Daily Night Sky Prize') === 0, modelOf('Daily Night Sky Prize') + ' ' + buOf('Daily Night Sky Prize'));
+    check('Model: the paid Season Pass (no export category) reads bottom-up, Bottom-up % 100',
+          modelOf('Season Pass (Paid)') === 'bottom-up' && near(buOf('Season Pass (Paid)'), 1), modelOf('Season Pass (Paid)') + ' ' + buOf('Season Pass (Paid)'));
+    // Bottom-up % written out: the VALUE share of the resources the export does not carry (both sides)
+    let bad = 0, n = 0;
+    const prices = csPrices_();
+    CATEGORY_ORDER.forEach(cat => {
+      if (LANE_STANDIN[cat] && laneStandInActive_(cat, ctx)) return;
+      const m = measuredRow_(cat, '20-39', 'PAYER', ctx.ds), s = resultRow_(cat, '20-39', 'PAYER', ctx), pc = POPI.cells['20-39|PAYER'];
+      let an = 0, bu = 0;
+      RESOURCES.forEach(res => { const v = (Math.abs(num(m[res]) * convCur('20-39', 'PAYER', cat, res)) + Math.abs(num(s[res]) * convOf('20-39', 'PAYER', cat, res))) * num(prices[res]);
+        if (pc.has[cat + '|' + res]) an += v; else bu += v; });
+      const want = (an + bu > 1e-12) ? bu / (an + bu) : 0; n++;
+      if (!near(buOf(cat), want, 1e-9)) bad++;
+    });
+    check('Bottom-up % = the VALUE share of the resources the export does not carry, row by row', bad === 0, n + ' rows, ' + bad + ' off');
+    if (laneStandInActive_('Chuck Challenge', ctx)){
+      const rec = REC[CS_SHEET_NAME], r = b0.rows['Chuck Challenge'];
+      check('D86: Chuck\'s rows say the rule and are red; the note above the tables is red and names it',
+            modelOf('Chuck Challenge') === "rule: Red's -> Chuck's" && rec.fc[r + ',' + (L.start[0] + 1)] === CS_RED && rec.fc[r + ',5'] === CS_RED &&
+            /CHUCK'S CHALLENGE/.test(String(V()[3][0])) && rec.fc['4,1'] === CS_RED);
+    }
+  }
+  {
+    // RULE: doubling one cell's resource_earners for coins doubles every coin amount the export anchors there, and nothing else
+    const g = data['data_gains'].values, h = g[0], snapG = JSON.stringify(data['data_gains']);
+    const ix = (k) => h.indexOf(k);
+    g.forEach((r, i) => { if (i && r[ix('ab_variant')] === 'Variant A' && r[ix('engagement_segment')] === 'D. 20-39' && r[ix('payer_flag')] === 'PAYER' && r[ix('resource')] === 'HC')
+      r[ix('resource_earners')] = Number(r[ix('resource_earners')]) * 2; });
+    const b0 = blocks.find(b => b.pi === 0 && b.seg === '20-39' && b.payer === 'PAYER');
+    const before = {}; CATEGORY_ORDER.forEach(cat => { before[cat] = [N(cell(b0.rows[cat], col(0, 'HC'))), N(cell(b0.rows[cat], col(0, 'Red')))]; });
+    resetSheetCache_mock(); fillChangeSummary();
+    let bad = 0, n = 0, first = '';
+    const pc = POPI.cells['20-39|PAYER'], rows2 = liveRows('20-39', 'PAYER', 0);
+    CATEGORY_ORDER.forEach(cat => { n++;
+      const want = pc.has[cat + '|HC'] ? before[cat][0] * 2 : before[cat][0];
+      if (!near(N(cell(rows2[cat], col(0, 'HC'))), want, 1e-9) || !near(N(cell(rows2[cat], col(0, 'Red'))), before[cat][1], 1e-9)){ bad++; first = first || cat; } });
+    check('RULE: resource_earners x2 for one cell\'s coins -> its anchored coin amounts x2, unanchored ones and other resources unmoved', bad === 0, n + ' rows, ' + bad + ' off ' + first);
+    data['data_gains'] = JSON.parse(snapG); resetSheetCache_mock(); fillChangeSummary();
+  }
+  {
+    // RULE: a pull without the two columns keeps the D85 sheet - per earner, unique_players weights
+    const g = data['data_gains'].values, snapG = JSON.stringify(data['data_gains']);
+    g[0] = g[0].map(x => x === 'players_in_cell' ? 'players_in_cell_x' : x);
+    resetSheetCache_mock(); fillChangeSummary();
+    const c2 = Context.get(), rows3 = liveRows('0-9', 'NONPAYER', 0);
+    const m = measuredRow_('Target Day', '0-9', 'NONPAYER', c2.ds);
+    check('RULE: no players_in_cell -> amounts per earner exactly as the engine gives them, and the notes say PER EARNER',
+          RESOURCES.every(res => near(cell(rows3['Target Day'], col(0, res)), num(m[res]))) && /PER EARNER/.test(String(V()[2][0])));
+    data['data_gains'] = JSON.parse(snapG); resetSheetCache_mock(); fillChangeSummary();
+  }
+  {
+    // the STALE mark: first edit wins, a fill clears it
+    const stamp = String(V()[1][0]);
+    check('a fill writes the run stamp with an inputs fingerprint', /^Run \d{4}-\d{2}-\d{2} \d{2}:\d{2}  -  inputs #[0-9a-f]{8}/.test(stamp), stamp.slice(0, 60));
+    const ok1 = csMarkStale_('NS_v2'), a2 = String(V()[1][0]);
+    const ok2 = csMarkStale_('TaD_v2'), a2b = String(V()[1][0]);
+    check('an input edit marks row 2 STALE in red, naming the sheet; a second edit keeps the first name',
+          ok1 && !ok2 && /^STALE - NS_v2 was edited/.test(a2) && a2b === a2 && REC[CS_SHEET_NAME].fc['2,1'] === CS_RED, a2.slice(0, 70));
+    fillChangeSummary();
+    check('the next fill clears the STALE mark', /^Run /.test(String(V()[1][0])));
+    check('onEdit marks the summary for any watched input sheet', /csMarkStale_\(name\)/.test(v4Src) &&
+          ['NS_v2', 'Ki_2d_v2', 'PackConfig_v2', 'export_scale', 'cal_new'].every(n => REFRESH_WATCH.indexOf(n) >= 0));
+  }
+  check('the fill refreshes the export_scale table first (D87)', !!data['export_scale'] && (data['export_scale'].values || []).length > 4);
+
   // ---------------------------------------------------------------- 5. formatting wiring
   {
     const rec = REC[CS_SHEET_NAME];
     const f = (r, c) => rec.fmt[r + ',' + c];
     const b0 = blocks[3], r = b0.rows[cats[0]];
-    check('number formats: gains, shares, % change, pp', f(r, col(0, 'HC')) === '#,##0.00' && f(r, col(1, 'HC')) === '0.0%' &&
-          f(r, col(4, 'HC')) === '+0.0%;-0.0%;0.0%' && /pp/.test(f(r, col(5, 'HC'))) && f(r, 2) === '@',
+    check('number formats: gains, shares, % change, pp, Bottom-up %', f(r, col(0, 'HC')) === '#,##0.00' && f(r, col(1, 'HC')) === '0.0%' &&
+          f(r, col(4, 'HC')) === '+0.0%;-0.0%;0.0%' && /pp/.test(f(r, col(5, 'HC'))) && f(r, 2) === '@' && f(r, 6) === '0%',
           [f(r, col(0, 'HC')), f(r, col(1, 'HC')), f(r, col(4, 'HC')), f(r, col(5, 'HC')), f(r, 2)].join(' | '));
     check('TOTAL rows bold, source rows not', rec.fw[b0.r0 + ',' + col(0, 'HC')] === 'bold' && rec.fw[r + ',' + col(0, 'HC')] === 'normal');
     check('one filter, on the header row, over every row and column', rec.filter && rec.filter.r === HR && rec.filter.c === 1 &&
@@ -284,11 +382,11 @@ function GATES() {
 
   // ---------------------------------------------------------------- 6. re-run, and two rules by mutation
   {
-    const body = () => JSON.stringify(V().filter((r, i) => i !== 1));   // row 2 carries the run time stamp
-    const snapV = body();
+    const body = () => JSON.stringify(V().filter((r, i) => i !== 1));   // row 2 carries the run time stamp (and the fingerprint)
+    const snapV = body(), rem0 = REC[CS_SHEET_NAME].removed;
     fillChangeSummary();
     check('re-running reproduces the sheet exactly (bar the run stamp), and replaces the filter rather than stacking one',
-          body() === snapV && REC[CS_SHEET_NAME].removed === 1 && /^Run \d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(String(V()[1][0])));
+          body() === snapV && REC[CS_SHEET_NAME].removed === rem0 + 1 && /^Run \d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(String(V()[1][0])));
   }
   {
     // RULE: doubling the HC price moves every VALUE by exactly its HC gain, and nothing else

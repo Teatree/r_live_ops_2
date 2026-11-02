@@ -5532,14 +5532,20 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   'data_econ','data_econ_daily',
   // ToF reads its own config sheet, the coin-price table and the wallet percentiles; an edit to
   // any of them has to re-run the spill like any other config edit.
-  'ToF','MD','item_vals'];
+  'ToF','MD','item_vals',
+  // D88: every other sheet a sim reads - so the change summary / album summary STALE mark sees an edit to them
+  'Ki_2d_v2','Ki_Tr','Ki_Tr_v2','ToF_v2','PackConfig','PackConfig_v2','AlbumConfig','AlbumConfig_v2',
+  'export_scale','data_econ_daily_by_source','data_rm_pace','data_col_daily','data_col_envelopes','data_col_season'];
 
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){
-  if (!AUTO_REFRESH) return;
   try {
     var name = e && e.range ? e.range.getSheet().getName() : null;
     if (name && REFRESH_WATCH.indexOf(name) === -1) return;
+    // D88: the change summary holds values - mark it STALE whatever AUTO_REFRESH says
+    if (name && typeof csMarkStale_ === 'function') csMarkStale_(name);
+    if (typeof albumMarkStale_ === 'function' && name) albumMarkStale_(name);
+    if (!AUTO_REFRESH) return;
     refreshSims_();
   } catch(err){}
 }
