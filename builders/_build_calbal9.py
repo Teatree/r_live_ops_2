@@ -78,6 +78,20 @@ def pooled(J, side, cat, res, payer=None, no_col=False):
     return t / w if w else 0.0
 
 
+def final_vals(dump, P, sheet):
+    """A sheet of (9) with the re-fit's patches applied."""
+    v = [list(r) for r in dump[sheet]['values']]
+    for p in P['patches'].get(sheet, []):
+        col = CI(''.join(ch for ch in p['cell'] if ch.isalpha())) - 1
+        row = int(''.join(ch for ch in p['cell'] if ch.isdigit())) - 1
+        while len(v) <= row:
+            v.append([])
+        while len(v[row]) <= col:
+            v[row].append('')
+        v[row][col] = p['new']
+    return v
+
+
 def cell_label(dump, sheet, cell):
     """What a cell means, in words: '<event> milestone 4, coins'."""
     col = CI(''.join(ch for ch in cell if ch.isalpha())) - 1
@@ -258,6 +272,35 @@ def main():
     def dd(res, payer):
         x = d(EF, res, payer)
         return 100 * x if x != '' else 0
+    # every per-cell number below is read off the final evaluation, never typed: the 2026-11-02 text was written from
+    # the run before Hatchling's envelopes were held and went stale on the next run (album coins, Night Sky lives)
+    def cell_d(lab, res, no_col=False):
+        x = EF['cells'][lab]
+        c = sum(num(x['meas'][k].get(res, 0)) for k in x['meas'] if not (no_col and k.startswith('Col - ')))
+        s = sum(num(x['sim'][k].get(res, 0)) for k in x['sim'] if not (no_col and k.startswith('Col - ')))
+        return (s - c) / c if abs(c) > 1e-9 else 0.0
+    def seg_d(seg, res):
+        c = s = 0.0
+        for lab, x in EF['cells'].items():
+            if lab.split(' ')[0] != seg:
+                continue
+            c += x['pop'] * sum(num(x['meas'][k].get(res, 0)) for k in x['meas'])
+            s += x['pop'] * sum(num(x['sim'][k].get(res, 0)) for k in x['sim'])
+        return (s - c) / c if c else 0.0
+    alb = sorted(((num(EF['cells'][l]['sim']['Col - Albums'].get('HC', 0)) - num(EF['cells'][l]['meas']['Col - Albums'].get('HC', 0)), l)
+                  for l in EF['cells']), reverse=True)[:2]
+    alb_txt = '; '.join('%s: %.0f -> %.0f' % (l, num(EF['cells'][l]['meas']['Col - Albums'].get('HC', 0)), num(EF['cells'][l]['sim']['Col - Albums'].get('HC', 0)))
+                        for _, l in alb)
+    tk = ', '.join('%s %+.0f%%' % (s, 100 * seg_d(s, 'ToF_Ticket')) for s in SEGS)
+    ulb = sorted(((cell_d(l, 'UL Bomb'), l) for l in EF['cells']))
+    nsv = final_vals(dump, P, 'NS_v2')
+    def ns_r1(v, seg):
+        r0 = next(k for k in range(len(v)) if str(v[k][0]).strip() == seg)
+        h = v[r0 + 1]
+        cu = [str(x).strip() for x in h].index('Unlimited Lives')
+        return [num(v[r0 + 2 + k][cu]) for k in range(3)]
+    nswd = dump['NS_v2_weekday']['values']
+    ns_txt = '; '.join('%s %s (weekday %g)' % (s, '/'.join('%g' % x for x in ns_r1(nsv, s)), ns_r1(nswd, s)[0]) for s in SEGS)
     cav = [
         'ENVELOPES 1-, 2- AND 4-STAR STAY OUTSIDE THE BAND (non-payers / payers: 1-star %+.0f%% / %+.0f%%, 2-star %+.0f%% / %+.0f%%, 4-star %+.0f%% / %+.0f%%). '
         'They come from cells you set and the re-fit holds - the weekend Night Sky pattern, the untouched weekday Night Sky and Target Day - and the '
@@ -269,18 +312,18 @@ def main():
         '5-STAR ENVELOPES +%.0f%% / +%.0f%%, by your choice (Target Day\'s rank-1 5-star on 20 days instead of 12). At item_vals row 3 an envelope is '
         'worth 24.5 to 399.5 coins, so the envelope tiers are what move the all-resource VALUE line: it reads %+.1f%% (all players) against %+.1f%% '
         'for the 13 basics.' % (dd('5-star Pack', 'NONPAYER'), dd('5-star Pack', 'PAYER'), 100 * d(EF, None, res_list=ALLRES), 100 * d(EF, None, res_list=RES13)),
-        'ALBUM COINS: the card sim completes far more albums at 40-99 and 100+ (40-99 PAYER: 26 -> 316 album coins per player over 50 seeded seasons). '
-        'More 5-star envelopes and the 3-stars the re-fit restores supply the rare cards albums are gated on. That is what puts overall coins at '
-        '%+.1f%% / %+.1f%%; without the two collection rows coins are %+.1f%% / %+.1f%%.' %
-        (100 * d(EF, 'HC', 'NONPAYER'), 100 * d(EF, 'HC', 'PAYER'), 100 * d(EF, 'HC', 'NONPAYER', True), 100 * d(EF, 'HC', 'PAYER', True)),
-        'TICKETS -0.9% overall, but regressive: 0-9 gets ~10% fewer and 10-19 ~6% fewer (the weekend Night Sky round-1 ticket moves to round 2 there, or goes), '
-        '20-39 and up ~15% more (the BB / Jigsaw tickets you kept are reached mostly by higher segments). The weekend Night Sky was the only place a '
-        'ticket could come back from: every Rainbow Maker ticket is a milestone\'s only reward.',
-        'THE WEEKEND NIGHT SKY ABSORBS MOST UNLIMITED LIVES: round 1 goes to 7-10 minutes (35 at 100+) against 20 on weekdays, because the weekday sheet '
-        'is held. If that gap reads badly, release the weekday sheet and both days share the cut (v1 had both at 15).',
+        'ALBUM COINS: the card sim completes far more albums at the top (album coins per player over 50 seeded seasons, control -> re-fit: %s). '
+        'More 5-star envelopes and the 3-stars the re-fit restores supply the rare cards albums are gated on; the exact numbers move from run to run. '
+        'That is what puts overall coins at %+.1f%% / %+.1f%%; without the two collection rows coins are %+.1f%% / %+.1f%%.' %
+        (alb_txt, 100 * d(EF, 'HC', 'NONPAYER'), 100 * d(EF, 'HC', 'PAYER'), 100 * d(EF, 'HC', 'NONPAYER', True), 100 * d(EF, 'HC', 'PAYER', True)),
+        'TICKETS %+.1f%% overall, but not evenly: %s. The weekend Night Sky round-1 ticket moves to round 2 or goes, which low segments feel most; '
+        'the BB / Jigsaw tickets you kept are reached mostly by higher segments. The weekend Night Sky was the only place a ticket could come back '
+        'from: every Rainbow Maker ticket is a milestone\'s only reward.' % (100 * d(EF, 'ToF_Ticket', None), tk),
+        'THE WEEKEND NIGHT SKY ABSORBS MOST UNLIMITED LIVES. Weekend Unlimited Lives per round (rounds 1/2/3) after the re-fit: %s. The weekday sheet '
+        'is held, so the weekend takes the whole cut; if that gap reads badly, release the weekday sheet and both days share it (v1 had both at 15).' % ns_txt,
         'Season Pass tiers: every cell lands on its control tier (in (9) two cells had climbed one). SPT is held per cell, as in v1.',
-        'Per-segment rows swing more than the overall rows on the small resources (e.g. UL Bomb 100+ NONPAYER +22%, 10-19 NONPAYER -13%) - one ladder '
-        'serves all ten cells. See Sim per Segment.',
+        'Per-segment rows swing more than the overall rows on the small resources (e.g. UL Bomb %s %+.0f%%, %s %+.0f%%) - one ladder serves all ten '
+        'cells. See Sim per Segment.' % (ulb[-1][1], 100 * ulb[-1][0], ulb[0][1], 100 * ulb[0][0]),
         'Unchanged from v1: Flock Flurry left alone (its 16 -> 12 joins cost ~48 Unlimited Lives minutes per player the engine cannot see); Target '
         'Day\'s Unlimited Lives / Chuck and Kite\'s SPT are not on their sheets and scale with the calendar; Kite opt-in 0.35 for envelopes (D25).',
     ]
