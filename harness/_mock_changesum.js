@@ -293,9 +293,19 @@ function GATES() {
   {
     const b0 = blocks.find(b => b.pi === 0 && b.seg === '20-39' && b.payer === 'PAYER');
     const modelOf = (cat) => cell(b0.rows[cat], 5), buOf = (cat) => N(cell(b0.rows[cat], 6));
+    // the examples come from the engine's own routing tables, never a name frozen here (Flock Flurry left
+    // PACK_ONLY_SPECS for LB_R_SPECS in D91 and this gate went red on a correct sheet)
+    const onRow = (cat) => !!b0.rows[cat];
+    const carriedEx = CATEGORY_ORDER.find(c => onRow(c) && !SOURCES[c] && !PACK_ONLY_SPECS[c] && !CS_COL_CATS[c]);
+    const packOnlyEx = Object.keys(PACK_ONLY_SPECS).find(c => onRow(c) && !SOURCES[c]);
+    const lbEx = Object.keys(LB_R_SPECS).find(c => onRow(c) && SOURCES[c] && !(LANE_STANDIN[c] && laneStandInActive_(c)));
     check('Model: carried sources say carried, the pack-only ones carried + envelopes, the collection rows card sim',
-          modelOf('Team Race') === 'carried' && modelOf('Flock Flurry') === 'carried + envelopes' && modelOf('Col - Sets') === 'card sim',
-          [modelOf('Team Race'), modelOf('Flock Flurry'), modelOf('Col - Sets')].join(' | '));
+          !!carriedEx && !!packOnlyEx && modelOf(carriedEx) === 'carried' && modelOf(packOnlyEx) === 'carried + envelopes' && modelOf('Col - Sets') === 'card sim',
+          [carriedEx + ' ' + modelOf(carriedEx), packOnlyEx + ' ' + modelOf(packOnlyEx), modelOf('Col - Sets')].join(' | '));
+    check('Model: a simulated leaderboard never reads carried',
+          !!lbEx && ['anchored', 'anchored + bottom-up', 'bottom-up'].indexOf(modelOf(lbEx)) >= 0 &&
+          Object.keys(LB_R_SPECS).filter(c => onRow(c) && SOURCES[c]).every(c => String(modelOf(c)).indexOf('carried') < 0),
+          lbEx + ' ' + modelOf(lbEx) + '; Flock Flurry ' + modelOf('Flock Flurry'));
     check('Model: a source the export anchors on every resource reads anchored with Bottom-up % 0 (Daily Night Sky Prize)',
           modelOf('Daily Night Sky Prize') === 'anchored' && buOf('Daily Night Sky Prize') === 0, modelOf('Daily Night Sky Prize') + ' ' + buOf('Daily Night Sky Prize'));
     check('Model: the paid Season Pass (no export category) reads bottom-up, Bottom-up % 100',

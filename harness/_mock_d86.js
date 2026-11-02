@@ -1,8 +1,10 @@
-// D86 / D87 gates (2026-11-02) on the A/B lineage (LIVE_OPS_V3 (15) by default):
+// D86 / D87 / D91 gates (2026-11-02) on the A/B lineage (LIVE_OPS_V3 (15) by default):
 //   D86  Chuck's Challenge stands in for two of Red's (user rule): CURRENT 0, NEW = Red's NEW per
 //        instance x Chuck's instances, reach-weighted - priced off Red's own row, so it moves WITH it
 //   D87  the export is scaled to the window per event (f x W / S', checked against the by-source feed),
 //        falling back to the activity scale where cal_curr's payout days disagree with the feed
+//   D91  Flock Flurry is a simulated leaderboard (F / F_v2): every resource follows the calendar, not only
+//        its envelope
 // Every gate snapshots what it mutates and restores it; none asserts a workbook number.
 //
 //   node harness/_mock_d86.js [--data v3k|v3i|<path>]
@@ -208,7 +210,90 @@ function GATES(){
     console.log('  HC scale at ' + EXPORT_SCALE_REF.join(' ') + ': ' + Object.keys(show).map(k => k + ' ' + show[k]).join(' | '));
   }
 
-  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D86/D87 GATES PASS'));
+  console.log('\n================ D91: Flock Flurry is a simulated leaderboard ================');
+  ctx = fresh();
+  check('the route: Flock Flurry in SOURCES and LB_R_SPECS (F / F_v2), not in PACK_ONLY_SPECS',
+        SOURCES['Flock Flurry'] === simFlockFlurry && LB_R_SPECS['Flock Flurry'] && LB_R_SPECS['Flock Flurry'].base === 'F' &&
+        LB_R_SPECS['Flock Flurry'].v2 === 'F_v2' && !PACK_ONLY_SPECS['Flock Flurry']);
+  check('the export carries Flock Flurry beyond its envelope (the resources D19 left carried)',
+        ['SPT', 'Red', 'Unlimited Lives'].every(r => num(ctx.ds.dataRow('Flock Flurry', '20-39', 'PAYER')[r]) > 0));
+  const flockT = (c, s, p) => timingRatio_(c.calCur['Flock Flurry'] || [], c.calNew['Flock Flurry'] || [], s, p, c.ds);
+  withSheets(['F_v2'], () => {
+    // RULE: with F_v2 = F every resource Flock pays - envelope included - moves by the calendar factor T
+    data['F_v2'] = clone(data['F']);
+    const c1 = fresh();
+    let n = 0, ok = 0, packs = 0, bad = '';
+    CELLS.forEach(([s, p]) => {
+      const T = flockT(c1, s, p), m = measuredRow_('Flock Flurry', s, p, c1.ds), x = resultRow_('Flock Flurry', s, p, c1);
+      RESOURCES.forEach(r => {
+        if (!(num(m[r]) > 0)) return;
+        n++; if (BOTTOMUP_RES.indexOf(r) >= 0) packs++;
+        if (near(num(x[r]), num(m[r]) * T, 1e-9)) ok++; else if (!bad) bad = s + ' ' + p + ' ' + r + ' ' + num(x[r]) + ' vs ' + num(m[r]) * T;
+      });
+    });
+    check('RULE: F_v2 = F -> NEW = CURRENT x T on every resource the export carries, every cell (envelope included)',
+          n > 0 && packs > 0 && ok === n, ok + ' of ' + n + (bad ? '; first miss ' + bad : ''));
+    check('the fixture changes Flock\'s calendar (T != 1 at 20-39 PAYER)', Math.abs(flockT(c1, '20-39', 'PAYER') - 1) > 0.01, flockT(c1, '20-39', 'PAYER').toFixed(4));
+  });
+  withSheets(['F_v2'], () => {
+    // RULE: an F_v2 edit moves exactly what it edits: rank 1's SPT x2 -> NEW SPT x2, every other resource unchanged
+    data['F_v2'] = clone(data['F']);
+    const spec = LB_R_SPECS['Flock Flurry'], v = data['F_v2'].values, c0 = fresh(), s = '20-39', p = 'PAYER';
+    const before = resultRow_('Flock Flurry', s, p, c0);
+    const sc = v[spec.hdr].findIndex(h => String(h).trim() === 'SPT');
+    v[spec.r0][sc] = num(v[spec.r0][sc]) * 2;
+    const after = resultRow_('Flock Flurry', s, p, fresh());
+    check('RULE: doubling rank 1\'s SPT on F_v2 doubles NEW SPT and leaves every other resource as it was',
+          sc > 0 && near(num(after.SPT), 2 * num(before.SPT)) && RESOURCES.every(r => r === 'SPT' || near(num(after[r]), num(before[r]))),
+          num(before.SPT).toFixed(3) + ' -> ' + num(after.SPT).toFixed(3));
+  });
+  withSheets(['cal_new', 'cal_parsed'], () => {
+    // RULE: identical calendars + identical ladders -> DIFF 0 on every Flock resource
+    data['cal_new'] = clone(data['cal_curr']); delete data['cal_parsed'];
+    const keepV2 = data['F_v2']; data['F_v2'] = clone(data['F']);
+    try {
+      const c1 = fresh();
+      let ok = 0;
+      CELLS.forEach(([s, p]) => {
+        const m = measuredRow_('Flock Flurry', s, p, c1.ds), x = resultRow_('Flock Flurry', s, p, c1);
+        if (RESOURCES.every(r => near(num(x[r]), num(m[r]), 1e-9))) ok++;
+      });
+      check('RULE: cal_new = cal_curr and F_v2 = F -> Flock\'s DIFF is 0 on every resource, every cell', ok === CELLS.length, ok + ' of ' + CELLS.length);
+    } finally { data['F_v2'] = keepV2; }
+  });
+  withSheets(['F_v2'], () => {
+    // RULE: the card sim reads F_v2 on the redesign side and F on the anchor side (D90 for this lane too)
+    data['F_v2'] = clone(data['F']);
+    const spec = LB_R_SPECS['Flock Flurry'], v = data['F_v2'].values, hdr = v[spec.hdr];
+    const c2 = hdr.findIndex(h => String(h).trim() === '2-star Dly'), c3 = hdr.findIndex(h => String(h).trim() === '3-star Dly');
+    v[spec.r0][c3] = num(v[spec.r0][c2]) || 1; v[spec.r0][c2] = 0;
+    const c1 = fresh(), s = '100+', p = 'PAYER';
+    const tiers = (rr) => { const o = {}; ((rr && rr.groups) || []).forEach(g => g.rungs.forEach(x => Object.keys(x.packs || {}).forEach(k => { o[k] = 1; }))); return Object.keys(o).sort().join(','); };
+    const nw = packRungs_('Flock Flurry', s, p, c1, 0, null);
+    let base; _baseSide = true; try { base = packRungs_('Flock Flurry', s, p, baseCtx_(c1), 0, null); } finally { _baseSide = false; }
+    check('RULE: a 2-star -> 3-star swap on F_v2 reaches the card sim\'s redesign rungs; the anchor side keeps F\'s 2-star',
+          tiers(nw) === '3-star Pack' && tiers(base) === '2-star Pack', 'new ' + tiers(nw) + ' / anchor ' + tiers(base));
+  });
+  {
+    // RULE: FLOCK_SIMULATED = false (flockRoute_(false)) restores D19: every non-envelope resource carried at the export
+    try {
+      flockRoute_(false); const c1 = fresh();
+      let ok = 0;
+      CELLS.forEach(([s, p]) => {
+        const m = measuredRow_('Flock Flurry', s, p, c1.ds), x = resultRow_('Flock Flurry', s, p, c1);
+        if (RESOURCES.every(r => BOTTOMUP_RES.indexOf(r) >= 0 || near(num(x[r]), num(m[r]), 1e-12))) ok++;
+      });
+      check('RULE: flockRoute_(false) puts Flock back on the D19 route (carried + the F pack overlay)',
+            !SOURCES['Flock Flurry'] && !LB_R_SPECS['Flock Flurry'] && PACK_ONLY_SPECS['Flock Flurry'] === FLOCK_PACK_ONLY_SPEC && ok === CELLS.length,
+            ok + ' of ' + CELLS.length + ' cells carried');
+      check('the change summary names the D19 route \'carried + envelopes\' and the D91 one otherwise',
+            typeof csModelOf_ !== 'function' || csModelOf_('Flock Flurry', 0, null) === 'carried + envelopes');
+    } finally { flockRoute_(true); ctx = fresh(); }
+    check('the change summary no longer calls Flock Flurry carried',
+          typeof csModelOf_ !== 'function' || ['anchored', 'anchored + bottom-up', 'bottom-up'].indexOf(csModelOf_('Flock Flurry', 0.01, null)) >= 0);
+  }
+
+  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D86/D87/D91 GATES PASS'));
   process.exitCode = failures ? 1 : 0;
 }
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n');

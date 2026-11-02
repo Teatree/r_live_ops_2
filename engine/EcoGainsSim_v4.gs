@@ -10,7 +10,7 @@
  *   segment = '0-9' | '10-19' | '20-39' | '40-99' | '100+' | 'A. 0' (appendix, carried+annotated)
  *
  * MODEL PER SOURCE (see SIMULATION_PLAN.md §2 for specs and worked numbers):
- *   carried        Ads, Other, Team Event, Team Race, FlowerCoop, IAPs, Flock Flurry
+ *   carried        Ads, Other, Team Event, Team Race, FlowerCoop, IAPs
  *                                                                    → measured
  *   Core           carried EXCEPT SPT (D17/D18): level completions pay difficulty-tiered SPT.
  *                  Anchor SYNTHESIZED (data_gains has no Core SPT rows): L x E, with
@@ -37,6 +37,7 @@
  *                  edits — e.g. zeroing ULs — now move the sim). Base1 items carried.  [D9]
  *   Daily Gift     measured, HC x streak-weighted ladder ratio (c_day pair)
  *   leaderboard    Bomb/Chuck/Red Challenge, Level Race, Flash Race, Target Day (D4),
+ *                  Flock Flurry (D91 - carried + a pack overlay before),
  *                  and Kite Festival (since 2027-07-06 — payouts are rank-based zero-sum per
  *                  league of 61, so duration doesn't move them; the old score-curve D is gone):
  *                  measured x R x T  (D pinned 2 — rank payouts are end-state).
@@ -64,9 +65,10 @@
  *                    packs = E_v2 x participation_rate x Σ_inst reach(inst)      (no D term)
  *                  reusing the SAME E the R ratio is built from. RM / Night Sky were already
  *                  bottom-up (packs flow via RES_MAP alone). Season Pass prices the whole reached
- *                  track. Team Event + Flock Flurry are CARRIED for every other resource but get
- *                  a pack overlay from their config sheets (PACK_ONLY_SPECS); Team Race, Ads and
- *                  IAPs have no config sheet → 0. A. 0 has no behaviour telemetry → 0.
+ *                  track. Team Event is CARRIED for every other resource but gets a pack overlay
+ *                  from its config sheet (PACK_ONLY_SPECS; Flock Flurry was too until D91);
+ *                  Team Race, Ads and IAPs have no config sheet → 0. A. 0 has no behaviour
+ *                  telemetry → 0.
  *
  * CALENDARS drive cadence + duration: merge = one instance (width = duration), lone filled
  * cell = one 1-day instance, neighbours never collapsed, day = column - 1, weekend =
@@ -96,7 +98,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D87  2026-11-02';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D91  2026-11-02';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -179,6 +181,7 @@ var SOURCES = {
   'Level Race'            : simLevelRace,
   'Flash Race'            : simFlashRace,
   'Target Day'            : simTargetDay,
+  'Flock Flurry'          : simFlockFlurry,      // D91: a leaderboard (carried + a pack overlay before)
   'Hatchling Hideaway'    : simHatchlingHideaway,
   "Bomb's Ballet"         : simBombsBallet,
   'Jigsaw'                : simJigsaw,
@@ -219,7 +222,7 @@ var CAL_LABEL = {
   'Jigsaw':'Jigsaw Puzzle', 'Photoshoot':'Photoshoot', 'Rainbow Maker':'Rainbow Maker',
   'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky',
   'Season Pass (Free)':'Season Pass',   // season-long lane; T from cadence x reach, D pinned 1
-  'Flock Flurry':'Flock Flurry',   // carried in the sim, but scheduled — stats show its cadence
+  'Flock Flurry':'Flock Flurry',   // a simulated leaderboard since D91 (carried + a pack overlay before)
   'ToF':'ToF'                      // one merged 33-day instance: the event is always-on
 };
 
@@ -598,6 +601,8 @@ function simLevelRace     (seg, payer, ctx){ return leaderboardSim_('Level Race'
 function simFlashRace     (seg, payer, ctx){ return leaderboardSim_('Flash Race',      'Flash Race',        seg, payer, ctx); }
 // Target Day (D3): milestones intentionally pay 0 today — it is a pure leaderboard event.
 function simTargetDay     (seg, payer, ctx){ return leaderboardSim_('Target Day',      'Target Day',        seg, payer, ctx); }
+// Flock Flurry (D91): a 5-player flock board on F / F_v2 - see FLOCK_SIMULATED below LB_R_SPECS.
+function simFlockFlurry   (seg, payer, ctx){ return leaderboardSim_('Flock Flurry',    'Flock Flurry',      seg, payer, ctx); }
 
 function leaderboardSim_(cat, calLabel, seg, payer, ctx){
   return timedCore_(cat, calLabel, seg, payer, ctx, function(){ return 1; });
@@ -1379,21 +1384,22 @@ function exportAnchorBottomUp_(cat, seg, payer, ctx, row){
 }
 
 // ---- pack-only sources (D19/3) -------------------------------------------------------------
-// Team Event and Flock Flurry are CARRIED in the gains model (no simulator, no _v2 sheet), but
-// they do have a config sheet with the pack columns and a calendar lane — so their pack columns
-// are simulated bottom-up while every other resource stays measured.
+// Team Event is CARRIED in the gains model (no simulator, no _v2 sheet), but it does have a config
+// sheet with the pack columns and a calendar lane — so its pack columns are simulated bottom-up
+// while every other resource stays measured.
 //   TE  — 'Team Event' sheet: a 7-place Team Leaderboard block AND a 3-place Contribution
 //         Rewards block; a participant is paid from both, so the two are SUMMED.
-//   F   — 'Flock Flurry' sheet: one 5-position goal ladder.
+// Flock Flurry ('F', one 5-position goal ladder) was the second one until D91 made it a simulated
+// leaderboard (FLOCK_SIMULATED, below LB_R_SPECS); FLOCK_PACK_ONLY_SPEC is its D19 entry.
 // Team Race has a calendar lane but NO config sheet -> no packs (same rule as Ads / IAPs).
 // 0-based row/col indices into sheetVals_(); reward blocks span Coins..6-star Dly (c0..c1).
 var PACK_ONLY_SPECS = {
   'Team Event'  : {sheet:'TE', cal:'Team Event',   inst:'Team Event',
                    blocks:[{hdr:14, r0:15, r1:21, c0:1, c1:21},    // Team Leaderboard, 1st..7th
-                           {hdr:24, r0:25, r1:27, c0:1, c1:21}]},  // Contribution Rewards, 1st..3rd
-  'Flock Flurry': {sheet:'F',  cal:'Flock Flurry', inst:'Flock Flurry',
-                   blocks:[{hdr:9,  r0:10, r1:14, c0:1, c1:21}]}   // Goals and Rewards, pos 1..5
+                           {hdr:24, r0:25, r1:27, c0:1, c1:21}]}   // Contribution Rewards, 1st..3rd
 };
+var FLOCK_PACK_ONLY_SPEC = {sheet:'F',  cal:'Flock Flurry', inst:'Flock Flurry',
+                            blocks:[{hdr:9,  r0:10, r1:14, c0:1, c1:21}]};   // Goals and Rewards, pos 1..5
 
 // Expected payout of one rank ladder block. With measured rank quantiles -> their mean payout
 // (same treatment as lbE_). WITHOUT rank telemetry -> a FLAT ladder average (pot / rank count):
@@ -2410,8 +2416,38 @@ var LB_R_SPECS = {
   'Flash Race'      : {base:'Race', v2:'Race_v2', hdr:80, r0:81, r1:90, c0:1, c1:21, inst:'Flash Race'},
   'Target Day'      : {base:'TaD',  v2:'TaD_v2',  hdr:34, r0:35, r1:54, c0:2, c1:22, inst:'Target Day'},
   'Kite Festival'   : {base:'Ki',   v2:'Ki_v2',   hdr:25, r0:26, r1:85, c0:2, c1:22, inst:'Kite Festival',
-                       ms:{hdr:21, r0:22, r1:22, reqC:1, c0:2, c1:22}}
+                       ms:{hdr:21, r0:22, r1:22, reqC:1, c0:2, c1:22}},
+  'Flock Flurry'    : {base:'F',    v2:'F_v2',    hdr:9,  r0:10, r1:14, c0:1, c1:21, inst:'Flock Flurry'}   // D91
 };
+
+// ---- D91 (2026-11-02): Flock Flurry is a simulated leaderboard ----------------------------------
+// It was CARRIED with a pack overlay (D19): every resource stayed at the measured level except the
+// envelope, which packLane_ priced on cal_new. The redesign runs it 12 days in the window instead of
+// 16 (Mon / Thu / Sat against Mon-Thu), so the change summary showed the 2-star envelope down ~25% and
+// nothing else - while the same instances also pay the SPT, the four boosters and the 60-minute
+// Unlimited Lives join grant (data_gains carries all seven). Now it is priced like the other
+// leaderboards: measured x R x T with D = 1, R off the rank ladder on F / F_v2 over the measured
+// position quantiles (data_event_inst), so every resource follows the calendar and an F_v2 edit moves
+// what it edits (the D19 overlay read the base F on both sides). Resources the ladder does not carry
+// (the join grant) are measured x T. The envelope keeps its route (packLane_, D82-anchored on the
+// export), now off F_v2. FLOCK_SIMULATED = false restores the D19 carry + overlay exactly.
+var FLOCK_SIMULATED = true;
+var FLOCK_LB_SPEC = LB_R_SPECS['Flock Flurry'];
+/** Puts Flock Flurry on one route. Every consumer reads SOURCES / LB_R_SPECS / PACK_ONLY_SPECS, so
+ *  moving the entry moves them all (the gains row, packParticipation_, the card sim's rungs, the
+ *  pack provenance, the anchor side, the change summary's Model column). */
+function flockRoute_(on){
+  if (on){
+    SOURCES['Flock Flurry'] = simFlockFlurry;
+    LB_R_SPECS['Flock Flurry'] = FLOCK_LB_SPEC;
+    delete PACK_ONLY_SPECS['Flock Flurry'];
+  } else {
+    delete SOURCES['Flock Flurry'];
+    delete LB_R_SPECS['Flock Flurry'];
+    PACK_ONLY_SPECS['Flock Flurry'] = FLOCK_PACK_ONLY_SPEC;
+  }
+}
+if (!FLOCK_SIMULATED) flockRoute_(false);
 var COLL_R_SPECS = {
   'Jigsaw'             : {base:'J',  v2:'J_v2',  hdr:9,  r0:10, r1:21, reqC:1,  reqFrom:'own',
                           c0:2, c1:22, inst:'Jigsaw'},
