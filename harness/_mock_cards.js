@@ -144,28 +144,41 @@ function mkRange(name, r1, c1, nr, nc) {
     setHorizontalAlignment: () => {},
   };
 }
+// D89: no-op formatting that chains - added to every range the mock hands out
+const FMT_NOOPS = ['setNumberFormats', 'setNumberFormat', 'setFontFamily', 'setFontSize', 'setFontWeight', 'setFontWeights',
+                   'setFontColor', 'setFontColors', 'setBackground', 'setBackgrounds', 'setWrap', 'setBorder',
+                   'setVerticalAlignment', 'setHorizontalAlignments'];
+function withFmt(rng) {
+  FMT_NOOPS.forEach(k => { if (!rng[k]) rng[k] = () => rng; });
+  return rng;
+}
 function mkSheet(name) {
   const sh = data[name];
   if (!sh) return null;
   return {
     getName: () => name,
     getLastRow: () => sh.values.length,
-    getDataRange: () => mkRange(name, 1, 1, sh.values.length,
-      sh.values.reduce((m, r) => Math.max(m, r.length), 0)),
+    getDataRange: () => withFmt(mkRange(name, 1, 1, Math.max(1, sh.values.length),
+      Math.max(1, sh.values.reduce((m, r) => Math.max(m, r.length), 0)))),
     getRange: (a, b, c, d) => {
       if (typeof a === 'string') {
         const m = a.match(/^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/);
         const c1 = colToNum(m[1]), r1 = +m[2];
-        if (!m[3]) return mkRange(name, r1, c1, 1, 1);
-        return mkRange(name, r1, c1, +m[4] - r1 + 1, colToNum(m[3]) - c1 + 1);
+        if (!m[3]) return withFmt(mkRange(name, r1, c1, 1, 1));
+        return withFmt(mkRange(name, r1, c1, +m[4] - r1 + 1, colToNum(m[3]) - c1 + 1));
       }
-      return mkRange(name, a, b, c || 1, d || 1);
+      return withFmt(mkRange(name, a, b, c || 1, d || 1));
     },
+    // D89: the menu runs that write their own sheets (album_summary, album_calibration, export_scale)
+    clear: () => { sh.values = []; sh.merges = []; },
+    setHiddenGridlines: () => {},
   };
 }
 const toasts = [];
 global.SpreadsheetApp = {
-  getActiveSpreadsheet: () => ({ getSheetByName: (n) => mkSheet(n) }),
+  getActiveSpreadsheet: () => ({ getSheetByName: (n) => mkSheet(n),
+                                 insertSheet: (n) => { data[n] = { values: [], merges: [] }; return mkSheet(n); },
+                                 toast: () => {}, getSpreadsheetTimeZone: () => 'Europe/Helsinki' }),
   getActive: () => ({ toast: (msg, title) => toasts.push(msg) }),
 };
 const logs = [];

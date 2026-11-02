@@ -984,8 +984,19 @@ function topRankOf_(ladder){
   return best;
 }
 
+// D90 (2026-11-02): THE ANCHOR SIDE'S RUNGS COME OFF THE BASE LADDERS. packRungs_ read the _v2 sheets
+// whatever the side, so every card-sim batch that runs "cal_curr on the base ladders" (D67's measured
+// side of Col - Sets / Col - Albums, D89's calibration pass and current season) was in fact the REDESIGN's
+// ladders on the current calendar - Night Sky's base round 1 pays no envelope and round 3 a 3-star, and the
+// anchor batch drew the redesign's 1-star and 1-star + 4-star instead. Found by the D89 calibration, whose
+// model side granted no Night Sky 3-star at all. Now, on _baseSide: leaderboards read spec.base (a
+// variant its base twin, D73), collections the base sheet with the base requirement axis, Night Sky NS /
+// NS_weekday by day type (D61d), Rainbow Maker the base RM_1st / RM_2nd. The simulated side is untouched.
+// PACK_RUNGS_BASE = false restores the v2-only read.
+var PACK_RUNGS_BASE = true;
 function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
   var ds = ctx.ds;
+  var baseRungs = PACK_RUNGS_BASE && (typeof _baseSide !== 'undefined') && _baseSide;
   function packsOf(rew){
     var o = null;
     PACK_RES.forEach(function(r){ if (num(rew[r]) > 0){ o = o || {}; o[r] = num(rew[r]); } });
@@ -1030,10 +1041,11 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     var lbInsts = ((ctx.calNew && ctx.calNew[lbLane]) || []).slice().sort(function(x, y){ return x.start - y.start; });
     var lbI = lbInsts[Math.max(0, Math.min(instOrdinal || 0, lbInsts.length - 1))];
     if (lbI && lbI.variant) lb = variantSpec_(lb, lbI.variant);
-    var v = sheetVals_(lb.v2);
+    var lbSheet = (baseRungs && lb.base) ? lb.base : lb.v2;     // D90
+    var v = sheetVals_(lbSheet);
     // The SAME ladder + rank CDF lbE_ prices E from, so the card sim's discrete draw and the gains
     // model's expectation reconcile by construction (see lbRankDist_).
-    var rdk = lbRankDist_(lb.v2, lb, inst), ladder = rdk.ladder;
+    var rdk = lbRankDist_(lbSheet, lb, inst), ladder = rdk.ladder;
     var rungs;
     if (prof && prof.rankTop){
       // FIRST PLACE, every time. The ladder's TOP AUTHORED rank at probability 1 - deliberately not
@@ -1094,8 +1106,8 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     S = pacedSurv_(S, collPace_(cat, seg, payer, ctx));      // D81: the rungs of the event as it runs
     var reqs = collReqs_(coll);
     if (!reqs.length) return null;
-    var vr = collReqsV2_(coll, reqs);                         // D84
-    var cv = sheetVals_(coll.v2), ccols = rewCols_(cv, coll.hdr, coll.c0, coll.c1);
+    var vr = baseRungs ? reqs : collReqsV2_(coll, reqs);     // D84; D90: the base axis on the anchor side
+    var cv = sheetVals_(baseRungs ? coll.base : coll.v2), ccols = rewCols_(cv, coll.hdr, coll.c0, coll.c1);
     var crungs = [], lastReq = 0;
     for (var i = 0; i < vr.length; i++){
       var req = vr[i];
@@ -1125,7 +1137,8 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
                     .sort(function(x, y){ return x.start - y.start; });
     var nsDay = nsInsts.length
       ? nsInsts[Math.max(0, Math.min(instOrdinal || 0, nsInsts.length - 1))].start : 1;
-    var nrungs = nsLadderForDay_(seg, nsDay).map(function(ms, k){
+    var nsLad = baseRungs ? nsBaseLadderForDay_(seg, nsDay) : nsLadderForDay_(seg, nsDay);   // D90
+    var nrungs = nsLad.map(function(ms, k){
       return { label: 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')' +
                       (isWeekend_(nsDay) ? ' [weekend]' : ' [weekday]'), p: profP_(prof, Sn(ms.req)),
                req: ms.req, packs: packsOf(ms.rew), tickets: tkOf(ms.rew) };
@@ -1141,7 +1154,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     var insts = rmSortedInsts_(ctx.calNew);
     var idx = Math.max(0, Math.min(instOrdinal || 0, Math.max(0, insts.length - 1)));
     var rinst = insts[idx] || null;
-    var cfg = rmConfigForInst_(rinst);
+    var cfg = rmConfigForInst_(rinst, baseRungs);             // D90: the base RM_1st / RM_2nd on the anchor side
     if (!cfg.ladder.length) return null;
     // D72: the same in-window rung probability simRainbowMaker prices (cut-offs included), so the
     // card sim and the gains model agree per instance
@@ -2045,6 +2058,8 @@ function resetModuleCaches_(){
   _expScaleTab = undefined;                              // D87: the export_scale table
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
+  if (typeof _albumCalibCache !== 'undefined') _albumCalibCache = undefined;   // CardOpenings.gs (D89)
+  if (typeof _albumGainsCache !== 'undefined'){ _albumGainsCache = undefined; _albumFpMemo = undefined; }   // D89b
   if (typeof DataStore !== 'undefined' && DataStore.reset) DataStore.reset();   // D67: the data_* memo too
 }
 
@@ -2965,6 +2980,15 @@ function nsDayTypeSplit_(seg, payer, ds, ctx, which){
   return { wd: wd / tot, we: we / tot, weekdayDays: wd, weekendDays: we };
 }
 
+// D90: the BASE ladder that applied on one cal_curr day - the weekday base sheet on a weekday when it has
+// a block for the segment (D61d), NS otherwise. The card sim's anchor-side twin of nsLadderForDay_.
+function nsBaseLadderForDay_(seg, day){
+  if (!isWeekend_(day)){
+    var wd = nsBaseWeekdayLadder_(seg);
+    if (wd) return wd;
+  }
+  return nsLadderOn_('NS', seg);
+}
 // The redesign ladder that applies on ONE cal_new day. Weekend days (isWeekend_: Fri/Sat/Sun)
 // read 'NS_v2'; weekdays read 'NS_v2_weekday' when that sheet has a block for the segment.
 function nsLadderForDay_(seg, day){
@@ -3852,6 +3876,11 @@ function colSimSeasons_(seg, payer, ctx, side){
   var key = seg + '|' + payer + (side === 'cur' ? '|cur' : '');
   if (ctx._colSim[key] !== undefined) return ctx._colSim[key];
   if (_colSimBusy || ctx._colBusy) return null;        // re-entry: contribute nothing to our input
+  // D89b: the album run's own seasons (calibrated, its player count) while saved under these inputs
+  if (typeof albumGainsFor_ === 'function'){
+    var saved = albumGainsFor_(seg, payer, side);
+    if (saved) return (ctx._colSim[key] = saved);
+  }
   if (side === 'cur' && !ctx.calCurOk) return (ctx._colSim[key] = null);
   // No card sim in the project (or an older workbook with no PackConfig worth reading) means there
   // is no card collection to pay out. Zero, and say so - not a formula nobody asked for.
@@ -4409,7 +4438,32 @@ function calGridDays_(){
   });
   return (_calGridDaysCache = last - CAL_FIRST_COL + 1);
 }
+// ---- D89 (2026-11-02): a SECOND counted window, for the album season --------------------------------
+// The comparison window is H..AI (Mon Oct 19 .. Sun Nov 15, row 4), but the live album season runs Tue
+// Oct 13 .. Mon Nov 9 = B..AC, and the album data counts its days from Oct 13. To simulate the season as
+// it actually ran (and check it against that data at the same day), the album completion run re-reads
+// the calendars in that window. withWindow_ swaps the counted window for the length of one function:
+// calWindow_, the date above day 1 and its weekday answer for the new day 1 (derived from the normal
+// window's, so nothing has to be typed above column B), and every memo is dropped on the way in and
+// on the way out. Nothing else in the engine changes.
+var _winOverride = null;
+function withWindow_(offset, days, fn){
+  Context.reset();
+  var w = calWindow_(), d1 = calDay1Date_(), dow = calDay1Dow_();
+  var shift = offset - num(w.offset);
+  var ov = { col1: CAL_FIRST_COL + offset, days: days, offset: offset, row: w.row,
+             d1: (d1 != null) ? d1 + shift : null, dow: (((dow - 1 + shift) % 7) + 7) % 7 + 1 };
+  try {
+    Context.reset();
+    _winOverride = ov;
+    return fn(Context.get());
+  } finally {
+    _winOverride = null;
+    Context.reset();
+  }
+}
 function calWindow_(){
+  if (_winOverride) return _winOverride;
   if (_calWinCache !== null) return _calWinCache;
   var nw = calWindowOn_(CAL_NEW), cur = calWindowOn_(CAL_CUR);
   var w = nw || cur || { col1: CAL_FIRST_COL, days: calGridDays_(), offset: 0, row: 0 };
@@ -4584,6 +4638,7 @@ function calDay1DowOn_(sheetName){
   return null;
 }
 function calDay1Dow_(){
+  if (_winOverride) return _winOverride.dow;
   if (_calDowCache !== null) return _calDowCache;
   var nw = calDay1DowOn_(CAL_NEW), cur = calDay1DowOn_(CAL_CUR);
   var dow = nw ? nw.dow : (cur ? cur.dow : CAL_DAY1_DOW_DEFAULT);
@@ -4759,6 +4814,7 @@ function dateDays_(x){
 /** The calendar date (dateDays_) of window day 1: a date typed in any row above the day-number row,
  *  in the column holding the 1 - cal_new first, then cal_curr (the D76 rule). null when none. */
 function calDay1Date_(){
+  if (_winOverride) return _winOverride.d1;
   var w = calWindow_();
   if (!w || !w.col1 || !w.row) return null;
   var names = [CAL_NEW, CAL_CUR];

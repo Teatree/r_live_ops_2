@@ -73,7 +73,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var CARDSIM_BUILD = 'CardOpenings.gs     D59  2026-10-13';
+var CARDSIM_BUILD = 'CardOpenings.gs     D89  2026-11-02';
 
 
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
@@ -927,6 +927,10 @@ function cardSeasonPre_(seg, payer, ctx, prof){
   // sheet carries no percentile columns, in which case everything below behaves exactly as it did.
   var adCurve = (prof && prof.attend != null) ? null : attendanceCurve_(b, DAILY_DAYS);
   var plan = packGrantPlan_(seg, payer, ctx, prof);
+  // D89: the album-data calibration of this cell's inflow (null: off, no table, a profile, or the
+  // calibration pass itself) - the same k table for every card-sim view. The carried streams it adds
+  // ride on the always-on list (alwaysOn = alwaysOnModel + them, set after the object is built).
+  var calib = (ALBUM_CALIBRATE && !prof && typeof albumCalibFor_ === 'function') ? albumCalibFor_(seg, payer) : null;
   // E[reach] ACROSS the cohort, not the reach of the average player. Attached here rather than in
   // packGrantPlan_ because that function is shared with dailyPacksFor_ - the gains model must keep
   // reporting the homogeneous reach it has always reported, and this is the card sim's own view of
@@ -936,13 +940,14 @@ function cardSeasonPre_(seg, payer, ctx, prof){
     plan.forEach(function(pl){
       pl.reachHet = reachHet_(pl.attDays || pl.days, pWd0, pWe0, adCurve, DAILY_DAYS);
     });
-  return {
+  var preOut = {
     ctx:     ctx,
     plan:    plan,
     adCurve: adCurve,
     // D79: Daily Gift + Saga envelopes, per active day at the COHORT's rates (a profile forcing
     // attendance changes how many days it plays, not what an active day pays)
-    alwaysOn: alwaysOnPacks_(seg, payer, ctx, num(b.weekday_active_rate), num(b.weekend_active_rate)),
+    alwaysOnModel: alwaysOnPacks_(seg, payer, ctx, num(b.weekday_active_rate), num(b.weekend_active_rate)),
+    calib: calib,
     spPacks: spPackTiers_(seg, payer, ctx, prof),
     // D79: the track at each player's OWN tier (null -> everyone opens spPacks, the cohort's tier)
     spTrack: (CARD_SP_PER_PLAYER && typeof spTrackForCard_ === 'function') ? spTrackForCard_(seg, payer, ctx, prof) : null,
@@ -979,6 +984,8 @@ function cardSeasonPre_(seg, payer, ctx, prof){
     lvlsP: num(b.levels_played_per_active_day),
     lvlsC: num(b.levels_completed_per_active_day)
   };
+  preOut.alwaysOn = preOut.alwaysOnModel.concat((calib && calib.carriedStreams) ? calib.carriedStreams : []);
+  return preOut;
 }
 
 // ---- ALWAYS-ON envelope sources (D79, 2026-10-30) ----------------------------------------------
@@ -2319,6 +2326,30 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
                  tofWallet0 + '-coin wallet, for ' + seg + ' ' + payer);
   }
 
+  // D89: what the model granted by album day pre.collectGrants, by source group x tier, BEFORE any
+  // calibration (the calibration pass reads it); then the album-data calibration on every grant - k < 1
+  // thins, k > 1 duplicates, on its own stream so no other draw in the season moves
+  var grantsBy = null;
+  if (pre.collectGrants){
+    grantsBy = {};
+    packOpens.forEach(function(po){
+      if (po.day > pre.collectGrants) return;
+      var gk = albumCatGroup_(po.source) + '|' + po.packName;
+      grantsBy[gk] = num(grantsBy[gk]) + 1;
+    });
+  }
+  if (pre.calib && pre.calib.k){
+    var calRand = mulberry32((seed | 0) ^ 0x6c8e9cf5), calOut = [];
+    packOpens.forEach(function(po){
+      var kk = albumK_(pre.calib, po.source, po.packName);
+      if (kk === 1){ calOut.push(po); return; }
+      var nn = Math.floor(kk), fr = kk - nn;
+      if (fr > 1e-12 && calRand() < fr) nn += 1;
+      for (var qq = 0; qq < nn; qq++) calOut.push(po);
+    });
+    packOpens = calOut;
+  }
+
   packOpens.sort(function(a, b){ return a.day - b.day; });
   Logger.log('Stage 1: ' + packOpens.length + ' packs granted (expected ' +
              expectedTotal.toFixed(2) + ') for ' + seg + ' ' + payer);
@@ -2454,6 +2485,7 @@ function runOneCardSeason_(seg, payer, seed, cfg, cat, pre){
     tofCoinsSpent: tofCoinsSpent, tofContinues: tofContinues, tofWallet: tofWallet0,
     chestsBought: chestsBought, chestsByTier: chestsByTier,
     spTier: spTierOwn,                      // D79: this player's own Season Pass tier (null: cohort's)
+    grantsBy: grantsBy,                     // D89: the calibration pass's tally (null otherwise)
     // How many of the 33 days this player opened the game. Drawn once per day above (D32) and used
     // by every instance, so it is the same attendance the packs were granted against - not a
     // second estimate of it. The cloud sheet divides by this to answer "packs on a day I play".
@@ -4180,11 +4212,506 @@ function albumPopulationStats_(byCell, popInfo){
            covered: popInfo.total ? ranPop / popInfo.total : 0 };
 }
 
+// ==================================================================================================
+// D89 (2026-11-02, user decisions): ALBUM COMPLETION ON THE ALBUM DATA'S OWN FOOTING
+// ==================================================================================================
+// What the run reported until now: a fresh 28-day season from Mon Oct 19 (window day 1) on cal_new with
+// the _v2 configs - a hypothetical REDESIGN season - next to which the album data's 1.47% (16 days of the
+// REAL season, from Tue Oct 13, on the current calendar) read as a contradiction. Three things change:
+//   1. BOTH seasons are simulated (user decision): the current season as it ran - cal_curr on the base
+//      configs, album day 1 = column B (withWindow_) - and the redesign season; each is read at the data's
+//      day (16 on LIVE_OPS_V3 (15)) and at day 28, next to the measured day-D numbers.
+//   2. THE INFLOW IS CALIBRATED TO THE ALBUM DATA (user decision). On Oct 19-28, on the current calendar,
+//      the model handed out 1.03-1.81x FEWER envelopes per player than the album data, the gap growing
+//      with engagement. Per cell, per source group x tier:
+//          k = measured envelopes per player (data_col_envelopes, album days 1..D)
+//              / the model's own (the same season core on the current season, uncalibrated, days 1..D)
+//      applied to every envelope the core grants - thinned when k < 1, duplicated when k > 1, on its own
+//      seeded stream - so the timing and the per-player spread stay the model's and the MEAN is the
+//      data's. The redesign season gets the same k: model_new x measured / model_cur (the D82 rule).
+//      Red's / Chuck's / Bomb's are pooled (cal_curr draws Bomb's where Chuck's ran) and so are the two
+//      Season Pass tracks; a tier with fewer than ALBUM_CALIB_MIN_COUNT envelopes behind it (measured or
+//      modelled) takes its source's k. A source the model has no ladder for (special offers, Team Race)
+//      or that it never grants is paid per ACTIVE day at its measured rate - 'carried', the same on both
+//      sides. Chests and set rewards are the core's OUTPUT and are never calibrated: they are part of
+//      what the day-D check tests.
+//   3. The k table is CACHED on ALBUM_CALIB_SHEET with an inputs fingerprint and re-used until an input
+//      changes, and every card-sim view reads it (cardSeasonPre_): the cloud, the Col rows of the gains
+//      model, the single-player log and this run all see the same calibrated inflow.
+// The result lands on ALBUM_SUMMARY_SHEET (this run's table, and a history row per run) as well as in the
+// dialog. ALBUM_CALIBRATE = false restores the uncalibrated sim exactly.
+var ALBUM_CALIBRATE = true;
+var ALBUM_CALIB_SHEET = 'album_calibration';
+var ALBUM_SUMMARY_SHEET = 'album_summary';
+var ALBUM_ENV_SHEET = 'data_col_envelopes';
+var ALBUM_SEASON_SHEET = 'data_col_season';
+var ALBUM_SEASON_GRID_START = 1;      // grid day of the live album season's day 1: column B = Tue Oct 13
+var ALBUM_SEASON_DAYS = 28;           // Oct 13 .. Nov 9
+var ALBUM_CALIB_PLAYERS = 300;        // players per cell for the calibration pass
+var ALBUM_CALIB_MIN_COUNT = 50;       // envelopes behind a tier's own k (else its source's k)
+var ALBUM_MIN_PLAYERS = 100;          // the floor the time budget may cut a season pass to
+var ALBUM_CARRIED_SRC = 'Album data (carried)';
+// album data source (an 'UNMAPPED:' prefix stripped) -> the card sim's source group. null = a grant the
+// season core MAKES (set rewards, chests); a name not listed is 'carried' (and named in the table).
+var ALBUM_SRC_GROUP = {
+  'dreamheist_event': 'Daily Night Sky Prize', 'Daily Night Sky Prize': 'Daily Night Sky Prize',
+  'Rainbow Maker': 'Rainbow Maker', 'dream_pass_event': 'Season Pass', 'Season Pass': 'Season Pass',
+  'ArcheryArena': 'Target Day', 'Target Day': 'Target Day', 'Hatchling Hideaway': 'Hatchling Hideaway',
+  'Jigsaw': 'Jigsaw', 'Daily Gift': 'Daily Gift', 'FlockRush': 'Flock Flurry', 'Flock Flurry': 'Flock Flurry',
+  'Tower of Fortune': 'ToF', 'ToF': 'ToF', 'bomb_ballet_event': "Bomb's Ballet", "Bomb's Ballet": "Bomb's Ballet",
+  'Kite Festival': 'Kite Festival', 'kite_festival_event': 'Kite Festival',
+  'red_event': 'Challenges', 'chuck_event': 'Challenges', 'bomb_event': 'Challenges',
+  'team_collection': 'Team Event', 'Team Event': 'Team Event',
+  'Single Collection': null, 'open_big_reward_chest': null, 'Col - Sets': null, 'Col - Albums': null, 'Col - Chests': null
+};
+function albumSrcGroup_(src){
+  var s = String(src == null ? '' : src).trim().replace(/^UNMAPPED:/, '');
+  if (ALBUM_SRC_GROUP.hasOwnProperty(s)) return ALBUM_SRC_GROUP[s];
+  return 'carried';
+}
+/** The card sim's grant source (a CATEGORY_ORDER name, Daily Gift, a Season Pass track, ToF) -> group. */
+function albumCatGroup_(cat){
+  if (cat === 'Red Challenge' || cat === 'Chuck Challenge' || cat === 'Bomb Challenge') return 'Challenges';
+  if (cat === 'Season Pass (Free)' || cat === 'Season Pass (Paid)') return 'Season Pass';
+  return cat;
+}
+function albumK_(calib, source, tier){
+  if (!calib || !calib.k) return 1;
+  var g = albumCatGroup_(source), k = calib.k[g + '|' + tier];
+  if (k == null) k = calib.k[g];
+  return (k == null) ? 1 : k;
+}
+var _albumCalibCache;                 // undefined = not read (resetModuleCaches_)
+var _albumCalibOff = false;           // the calibration pass itself runs the model uncalibrated
+function albumCellLabel_(seg, payer){ return seg + ' ' + payer; }
+/** The album data's last day (data_col_daily), else the export's span, else null. */
+function albumDataDays_(){
+  var v = sheetVals_(SHEET_COL_DAILY), mx = 0;
+  if (v && v.length > 1){
+    var h = headerIndex_(v[0]);
+    for (var i = 1; i < v.length; i++){
+      if (h['status'] != null && String(v[i][h['status']]).trim().toUpperCase() === 'FAKE') continue;
+      mx = Math.max(mx, Math.round(num(v[i][h['day']])));
+    }
+  }
+  if (mx > 0) return mx;
+  try { var ds = Context.get().ds; if (ds && ds.span) return ds.span.days; } catch (e){}
+  return null;
+}
+/** data_col_envelopes -> {cell: {players, g: {group: {tier: per player}}}}, or null. FAKE rows skipped:
+ *  this feeds a simulated value. */
+function albumMeasured_(){
+  var v = sheetVals_(ALBUM_ENV_SHEET);
+  if (!v || v.length < 2) return null;
+  var h = headerIndex_(v[0]);
+  if (h['source'] == null || h['pack_tier'] == null || h['envelopes_mean'] == null || h['segment'] == null) return null;
+  var out = {}, unknown = {};
+  for (var i = 1; i < v.length; i++){
+    var r = v[i];
+    if (h['status'] != null && String(r[h['status']]).trim().toUpperCase() === 'FAKE') continue;
+    var seg = String(r[h['segment']]).trim(), payer = String(r[h['payer_flag']]).trim().toUpperCase();
+    if (!seg) continue;
+    var g = albumSrcGroup_(r[h['source']]);
+    if (g === null) continue;
+    if (g === 'carried') unknown[String(r[h['source']]).trim()] = 1;
+    var c = out[albumCellLabel_(seg, payer)] || (out[albumCellLabel_(seg, payer)] = { players: 0, g: {} });
+    if (h['cell_players'] != null) c.players = Math.max(c.players, num(r[h['cell_players']]));
+    var t = String(r[h['pack_tier']]).trim(), gg = c.g[g] || (c.g[g] = {});
+    gg[t] = num(gg[t]) + num(r[h['envelopes_mean']]);
+  }
+  out._carriedNames = Object.keys(unknown).sort();
+  return Object.keys(out).length > 1 ? out : null;
+}
+/** data_col_season per cell (to its data day): the measured side of the summary. */
+function albumMeasuredSeason_(){
+  var v = sheetVals_(ALBUM_SEASON_SHEET), out = {};
+  if (!v || v.length < 2) return out;
+  var h = headerIndex_(v[0]);
+  for (var i = 1; i < v.length; i++){
+    var r = v[i];
+    if (h['status'] != null && String(r[h['status']]).trim().toUpperCase() === 'FAKE') continue;
+    var seg = String(r[h['segment']] == null ? '' : r[h['segment']]).trim();
+    if (!seg) continue;
+    var g = function(k){ return (h[k] != null && r[h[k]] !== '' && r[h[k]] != null) ? num(r[h[k]]) : null; };
+    out[albumCellLabel_(seg, String(r[h['payer_flag']]).trim().toUpperCase())] = {
+      players: g('unique_players'), album1: g('album1_completion_rate'), packs: g('envelopes_opened_mean'),
+      recv: g('envelopes_received_mean'), cards: g('cards_drawn_mean'), unique: g('new_cards_mean'),
+      sets: g('sets_completed_mean'), recvP90: g('envelopes_received_p90') };
+  }
+  return out;
+}
+/** The album population per cell (data_col_season - the pull album completion is measured on), else
+ *  data_seg_beh's unique_players. */
+function albumPopInfo_(ctx){
+  var ms = albumMeasuredSeason_(), out = {}, total = 0, src = ALBUM_SEASON_SHEET;
+  cloudPermutations_().forEach(function(p){
+    var u = (ms[p.label] && ms[p.label].players > 0) ? ms[p.label].players : null;
+    if (u == null){ u = num((ctx.ds.beh(p.seg, p.payer) || {}).unique_players); src = 'data_seg_beh'; }
+    out[p.label] = u; total += u;
+  });
+  return { pop: out, total: total, source: src };
+}
+/** FNV-1a over everything the calibration depends on: the configs, both calendars, the album and
+ *  behaviour pulls. Two runs on the same inputs print the same tag and share one k table. */
+function albumFingerprint_(){
+  var names = (typeof REFRESH_WATCH !== 'undefined') ? REFRESH_WATCH.filter(function(n){ return n !== 'data_econ_daily_by_source' && n !== 'data_gains'; }) : [];
+  names = names.concat([SHEET_PACK, SHEET_PACK + '_v2', SHEET_ALBUM, SHEET_ALBUM + '_v2', ALBUM_ENV_SHEET, ALBUM_SEASON_SHEET, SHEET_COL_DAILY]);
+  var h = 0x811c9dc5, seen = {};
+  names.forEach(function(n){
+    if (seen[n]) return; seen[n] = 1;
+    var v; try { v = sheetVals_(n); } catch (e){ v = null; }
+    var s = n + ':' + JSON.stringify(v || []);
+    for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0; }
+  });
+  return ('00000000' + h.toString(16)).slice(-8);
+}
+/** Rows (the album_calibration columns, as objects) -> per cell {k: {group|tier or group: k}, carried: {tier:
+ *  per active day}, carriedStreams}. Shared by the sheet reader and the calibration pass. */
+function albumCalibCells_(rows){
+  var cells = {};
+  rows.forEach(function(x){
+    var c = cells[x.cell] || (cells[x.cell] = { k: {}, carried: {} });
+    if (x.kind === 'carried'){
+      if (num(x.carried) > 0) c.carried[x.tier] = num(c.carried[x.tier]) + num(x.carried);
+      c.k[x.group + '|' + x.tier] = 0;               // the model's sliver of it goes: the data's rate replaces it
+      return;
+    }
+    if (x.k === '' || x.k == null) return;
+    if (x.kind === 'source') c.k[x.group] = num(x.k);
+    c.k[x.group + '|' + x.tier] = num(x.k);
+  });
+  for (var cl in cells){
+    var cc = cells[cl];
+    cc.carriedStreams = Object.keys(cc.carried).length ? [{ cat: ALBUM_CARRIED_SRC, perDay: cc.carried }] : [];
+  }
+  return cells;
+}
+/** The k table off ALBUM_CALIB_SHEET: {fp, D, when, players, cells}, or null. */
+function albumCalibTab_(){
+  if (_albumCalibCache !== undefined) return _albumCalibCache;
+  _albumCalibCache = null;
+  var v = sheetVals_(ALBUM_CALIB_SHEET);
+  if (!v || v.length < 5) return null;
+  var meta = {};
+  (v[1] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim(); if (k && i + 1 < v[1].length) meta[k] = v[1][i + 1]; });
+  var hr = -1, h = {};
+  for (var r = 0; r < v.length && hr < 0; r++){
+    var hh = headerIndex_(v[r] || []);
+    if (hh['cell'] != null && hh['group'] != null && hh['k'] != null){ hr = r; h = hh; }
+  }
+  if (hr < 0) return null;
+  var rows = [];
+  for (var i = hr + 1; i < v.length; i++){
+    var x = v[i] || [], cell = String(x[h['cell']] == null ? '' : x[h['cell']]).trim();
+    if (!cell) break;
+    rows.push({ cell: cell, group: String(x[h['group']]).trim(), tier: String(x[h['tier']] == null ? '' : x[h['tier']]).trim(),
+                k: x[h['k']], kind: String(x[h['kind']]).trim(), carried: x[h['carried per active day']] });
+  }
+  return (_albumCalibCache = { fp: String(meta['inputs'] || ''), D: num(meta['data days']), when: String(meta['written'] || ''),
+                               players: num(meta['players per cell']), cells: albumCalibCells_(rows) });
+}
+/** The calibration for one cell, or null (off, no table, or the calibration pass itself running). */
+function albumCalibFor_(seg, payer){
+  if (!ALBUM_CALIBRATE || _albumCalibOff) return null;
+  var tab = albumCalibTab_();
+  return (tab && tab.cells[albumCellLabel_(seg, payer)]) || null;
+}
+/** A season pre with a given calibration (null = the pure model): a shallow copy - the core never mutates
+ *  what cardSeasonPre_ returns, so the plan, the track and the ToF config are shared, not rebuilt. */
+function albumPreWith_(pre, cal){
+  var o = {};
+  for (var k in pre) o[k] = pre[k];
+  o.calib = cal || null;
+  o.alwaysOn = (pre.alwaysOnModel || pre.alwaysOn || []).concat((cal && cal.carriedStreams) ? cal.carriedStreams : []);
+  return o;
+}
+/** One season pass over the ten cells. which = 'current' (cal_curr, base configs, the live season from
+ *  column B) or 'redesign' (cal_new, _v2, the counted window). Per cell: the means at day D and at the
+ *  season's end, and (keepRecs) a trimmed record per player for the population block.
+ *  opts.calibrate = {meas, nCal}: before a cell's players run, nCal of them run the PURE model and their
+ *  grants by day D against the album data give that cell's k (rows on out._calRows) - one pre per cell
+ *  for both. opts.sizeFn(msPerSeason) is called once, after the first timing, and returns the player
+ *  count for every cell. opts.deadline: a cell that would end past it is not run (out._stoppedAt). */
+function albumSeasonRuns_(which, n, seed, D, opts){
+  opts = opts || {};
+  var perms = cloudPermutations_(), out = { _calRows: opts.calibrate ? [] : null, _n: n, _stoppedAt: -1 };
+  var body = function(ctx){
+    var cfg = loadPackConfig_();
+    var album = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(cardSheet_(SHEET_ALBUM));
+    if (!album) throw new Error("Sheet '" + cardSheet_(SHEET_ALBUM) + "' not found.");
+    var cat = loadCardCatalog_(cfg, album), tStart = new Date().getTime(), runs = 0, runMs = 0;
+    var timed = function(fn){ var a = new Date().getTime(), r = fn(); runMs += new Date().getTime() - a; runs++; return r; };
+    for (var pi = 0; pi < perms.length; pi++){
+      var p = perms[pi];
+      if (opts.deadline && pi > 0){
+        var el = new Date().getTime() - tStart;
+        if (new Date().getTime() + el / pi > opts.deadline){ out._stoppedAt = pi; break; }
+      }
+      var pre = cardSeasonPre_(p.seg, p.payer, ctx);
+      var actD = 0;
+      for (var d = 1; d <= Math.min(D, DAILY_DAYS); d++) actD += isWeekend_(d) ? pre.pWe : pre.pWd;
+      if (opts.calibrate){
+        var pre0 = albumPreWith_(pre, null);
+        pre0.collectGrants = D;
+        var g = {}, nc = opts.calibrate.nCal;
+        for (var kc = 0; kc < nc; kc++){
+          var rc = timed(function(){ return runOneCardSeason_(p.seg, p.payer, playerSeed_(seed ^ 0x2545f491, pi, kc), cfg, cat, pre0); });
+          for (var gk in (rc.grantsBy || {})) g[gk] = num(g[gk]) + rc.grantsBy[gk];
+        }
+        for (var gk2 in g) g[gk2] /= Math.max(1, nc);
+        var model = {}; model[p.label] = { grants: g, actD: actD };
+        var rows = albumCalibRows_(opts.calibrate.meas, model, nc, [p]);
+        rows.forEach(function(r){ out._calRows.push(r); });
+        pre = albumPreWith_(pre, albumCalibCells_(rows)[p.label] || null);
+      }
+      if (pi === 0 && opts.sizeFn){
+        if (!runs) for (var kp = 0; kp < 5; kp++) timed(function(){ return runOneCardSeason_(p.seg, p.payer, playerSeed_(seed ^ 0x3c6ef372, 0, kp), cfg, cat, pre); });
+        n = out._n = opts.sizeFn(runMs / Math.max(1, runs));
+      }
+      var z = function(){ return { album1: 0, packs: 0, cards: 0, unique: 0, sets: 0 }; };
+      var acc = { n: 0, d: z(), full: z(), recs: [], actD: actD, gSets: zeroRow_(), gAlbums: zeroRow_(), albums: 0 };
+      for (var k = 0; k < n; k++){
+        var r = runOneCardSeason_(p.seg, p.payer, playerSeed_(seed, pi, k), cfg, cat, pre);
+        var dc = r.dailyCloud || [], atD = dc[Math.min(D, dc.length) - 1] || {}, last = dc[dc.length - 1] || {};
+        acc.n++;
+        acc.d.album1 += (r.dayAlbumCompleted >= 1 && r.dayAlbumCompleted <= D) ? 1 : 0;
+        ['packs', 'cards', 'unique', 'sets'].forEach(function(m){ acc.d[m] += num(atD[m]); acc.full[m] += num(last[m]); });
+        acc.full.album1 += (r.albumIdx >= 1) ? 1 : 0;
+        acc.albums += num(r.albumIdx);
+        var gs = colGainsToRow_(r.setRewardGains), ga = colGainsToRow_(r.albumRewardGains);
+        RESOURCES.forEach(function(rs){ acc.gSets[rs] += num(gs[rs]); acc.gAlbums[rs] += num(ga[rs]); });
+        if (opts.keepRecs) acc.recs.push({ albumIdx: r.albumIdx, packsAtAlbum1: r.packsAtAlbum1, cardsAtAlbum1: r.cardsAtAlbum1,
+                                           cardsBySrcAtAlbum1: r.cardsBySrcAtAlbum1, packValue: r.packValue });
+      }
+      ['album1', 'packs', 'cards', 'unique', 'sets'].forEach(function(m){ acc.d[m] /= Math.max(1, acc.n); acc.full[m] /= Math.max(1, acc.n); });
+      RESOURCES.forEach(function(rs){ acc.gSets[rs] /= Math.max(1, acc.n); acc.gAlbums[rs] /= Math.max(1, acc.n); });
+      acc.albums /= Math.max(1, acc.n);
+      out[p.label] = acc;
+    }
+    out._days = DAILY_DAYS;
+  };
+  var wasOff = _albumCalibOff;
+  _albumCalibOff = (opts.calibrated === false);
+  try {
+    if (which === 'current'){
+      return withWindow_(ALBUM_SEASON_GRID_START - 1, ALBUM_SEASON_DAYS, function(sctx){
+        var b = baseCtx_(sctx), was = _baseSide;
+        _baseSide = true;
+        try { body(b); } finally { _baseSide = was; }
+        return out;
+      });
+    }
+    body(Context.get());
+    return out;
+  } finally { _albumCalibOff = wasOff; }
+}
+/** The k rows for the given cells (default: all ten): per (group, tier) the measured and modelled
+ *  envelopes per player over days 1..D and the k applied (or the carried rate). Pure. */
+function albumCalibRows_(meas, model, nCal, perms){
+  var rows = [], tiers = PACK_RES;
+  (perms || cloudPermutations_()).forEach(function(p){
+    var m = meas[p.label] || { players: 0, g: {} }, mod = model[p.label] || { grants: {}, actD: 0 };
+    var groups = {};
+    for (var g in m.g) groups[g] = 1;
+    for (var gk in mod.grants) groups[gk.split('|')[0]] = 1;
+    Object.keys(groups).sort().forEach(function(g){
+      var M = 0, C = 0;
+      tiers.forEach(function(t){ M += num((m.g[g] || {})[t]); C += num(mod.grants[g + '|' + t]); });
+      var srcOk = (g !== 'carried') && C > 0 && C * nCal >= ALBUM_CALIB_MIN_COUNT;
+      var kSrc = srcOk ? Math.min(10, M / C) : null;
+      tiers.forEach(function(t){
+        var mt = num((m.g[g] || {})[t]), ct = num(mod.grants[g + '|' + t]);
+        if (!(mt > 0) && !(ct > 0)) return;
+        var row = { cell: p.label, group: g, tier: t, meas: mt, model: ct, k: '', kind: '', carried: '', note: '' };
+        var carry = function(why){ row.kind = 'carried'; row.carried = (mod.actD > 0) ? mt / mod.actD : 0; row.note = why; };
+        if (g === 'carried') carry('no ladder in the model: paid per active day at the measured rate, the same on both seasons');
+        else if (ct * nCal >= ALBUM_CALIB_MIN_COUNT){
+          // the model grants this tier often enough to scale: the redesign's own change to it carries through
+          row.kind = 'tier'; row.k = Math.min(10, mt / ct);
+          if (!(mt > 0)) row.note = 'the data shows none of this tier from this source';
+        } else if (mt * m.players >= ALBUM_CALIB_MIN_COUNT)
+          // the data shows it in volume, the model (nearly) never grants it: k would multiply nothing
+          carry(ct > 0 ? 'the model grants too few to scale: paid per active day at the measured rate (a redesign change to it is not seen)'
+                       : 'the model never grants this tier: paid per active day at the measured rate (a redesign change to it is not seen)');
+        else if (ct > 0 && kSrc != null){
+          row.kind = 'source'; row.k = kSrc; row.note = 'too few envelopes on either side for a tier k: the source\'s';
+        } else {
+          row.kind = 'none'; row.note = 'too few envelopes on either side to calibrate: left at the model\'s level';
+        }
+        rows.push(row);
+      });
+    });
+  });
+  return rows;
+}
+function albumWriteCalib_(ss, rows, fp, D, nCal, carriedNames){
+  var sh = ss.getSheetByName(ALBUM_CALIB_SHEET) || ss.insertSheet(ALBUM_CALIB_SHEET);
+  sh.clear();
+  var hdr = ['cell', 'group', 'tier', 'measured per player', 'model per player', 'k', 'kind', 'carried per active day', 'note'];
+  var grid = [['ALBUM CALIBRATION (D89) - envelopes per player over album days 1..' + D + ': ' + ALBUM_ENV_SHEET +
+               ' against the season core on the current season (cal_curr, base configs, from column B), uncalibrated. ' +
+               'k multiplies every envelope of that source x tier on BOTH seasons. Written by Album completion; re-used while the inputs are unchanged.'],
+              ['inputs', fp, 'data days', D, 'written', stampNow_(), 'players per cell', nCal,
+               'carried sources', (carriedNames || []).join(', ')],
+              [], hdr];
+  rows.forEach(function(r){
+    grid.push([r.cell, r.group, r.tier, Math.round(r.meas * 10000) / 10000, Math.round(r.model * 10000) / 10000,
+               (r.k === '') ? '' : Math.round(r.k * 10000) / 10000, r.kind,
+               (r.carried === '') ? '' : Math.round(r.carried * 100000) / 100000, r.note]);
+  });
+  var w = grid.reduce(function(a, r){ return Math.max(a, r.length); }, 0);
+  sh.getRange(1, 1, grid.length, w).setValues(grid.map(function(r){ var x = r.slice(); while (x.length < w) x.push(''); return x; }));
+  delete _sheetValsCache[ALBUM_CALIB_SHEET];
+  _albumCalibCache = undefined;
+}
+/** The summary sheet: this run's table, and the history (one row per run, the older rows kept). */
+function albumWriteSummary_(ss, cur, red, meas, popInfo, calib, nPass, seed, D, secs, fp){
+  var sh = ss.getSheetByName(ALBUM_SUMMARY_SHEET);
+  var hist = [];
+  if (sh){
+    var old = sh.getDataRange().getValues(), at = -1;
+    for (var i = 0; i < old.length; i++) if (String(old[i][0]).indexOf('HISTORY') === 0){ at = i; break; }
+    if (at >= 0) for (var j = at + 2; j < old.length; j++){ if (String(old[j][0] == null ? '' : old[j][0]).trim() === '') break; hist.push(old[j]); }
+  } else sh = ss.insertSheet(ALBUM_SUMMARY_SHEET);
+  var perms = cloudPermutations_(), when = stampNow_();
+  var hdr = ['Segment', 'Payer', 'Album players', 'MEASURED album 1 (day ' + D + ')', 'CURRENT sim album 1 (day ' + D + ')',
+             'CURRENT sim album 1 (day ' + ALBUM_SEASON_DAYS + ')', 'REDESIGN sim album 1 (day ' + D + ')',
+             'REDESIGN sim album 1 (day ' + red._days + ')', '+- 95% (redesign, end)',
+             'MEASURED envelopes opened (day ' + D + ')', 'CURRENT sim envelopes (day ' + D + ')', 'REDESIGN sim envelopes (day ' + D + ')',
+             'MEASURED cards (day ' + D + ')', 'CURRENT sim cards (day ' + D + ')', 'MEASURED new cards (day ' + D + ')',
+             'CURRENT sim new cards (day ' + D + ')', 'MEASURED sets (day ' + D + ')', 'CURRENT sim sets (day ' + D + ')',
+             'CURRENT sim envelopes (day ' + ALBUM_SEASON_DAYS + ')', 'REDESIGN sim envelopes (day ' + red._days + ')'];
+  var body = [], W = 0, tot = [];
+  for (var c = 0; c < hdr.length; c++) tot.push(0);
+  perms.forEach(function(p){
+    var m = meas[p.label] || {}, a = cur[p.label], b = red[p.label], w = num(popInfo.pop[p.label]);
+    var se = b ? 1.96 * Math.sqrt(b.full.album1 * (1 - b.full.album1) / Math.max(1, b.n)) : '';
+    var row = [p.seg, p.payer, w, (m.album1 == null) ? '' : m.album1, a ? a.d.album1 : '', a ? a.full.album1 : '',
+               b ? b.d.album1 : '', b ? b.full.album1 : '', se,
+               (m.packs == null) ? '' : m.packs, a ? a.d.packs : '', b ? b.d.packs : '',
+               (m.cards == null) ? '' : m.cards, a ? a.d.cards : '', (m.unique == null) ? '' : m.unique, a ? a.d.unique : '',
+               (m.sets == null) ? '' : m.sets, a ? a.d.sets : '', a ? a.full.packs : '', b ? b.full.packs : ''];
+    body.push(row);
+    W += w;
+    for (var c2 = 3; c2 < row.length; c2++) if (c2 !== 8) tot[c2] += w * num(row[c2]);
+  });
+  var all = ['All', 'All', W];
+  for (var c3 = 3; c3 < hdr.length; c3++) all.push(c3 === 8 ? '' : (W > 0 ? tot[c3] / W : ''));
+  body.push(all);
+  hist.push([when, nPass, seed, calib.status, D, all[3], all[4], all[5], all[6], all[7], fp, CARDSIM_BUILD]);
+  var grid = [['ALBUM COMPLETION - the current season as it ran vs the redesign season (D89)'],
+              ['Run ' + when + '  -  inputs #' + fp + '  -  ' + nPass + ' players per cell and season, seed ' + seed + '  -  ' + secs + ' s  -  ' +
+               'inflow calibrated to the album data: ' + calib.status + ' (' + calib.note + ')  -  MEASURED = ' + ALBUM_SEASON_SHEET + ' to album day ' + D],
+              ['CURRENT = cal_curr on the base configs from Tue Oct 13 (album day 1 = column B), the live season. REDESIGN = cal_new on the _v2 configs ' +
+               'from window day 1. Album 1 = share of players who finished album 1. Day ' + D + ' is where the data stands; day ' + ALBUM_SEASON_DAYS +
+               ' is the full season. Weights: ' + popInfo.source + ' players. A day-' + D + ' CURRENT that misses MEASURED says how far to trust the ' +
+               'day-' + ALBUM_SEASON_DAYS + ' figures.'],
+              [], hdr].concat(body).concat([[], ['HISTORY (one row per run, oldest first)'],
+              ['Run', 'Players per cell', 'Seed', 'Calibrated', 'Data day', 'MEASURED album 1', 'CURRENT day D', 'CURRENT day 28',
+               'REDESIGN day D', 'REDESIGN end', 'inputs #', 'build']]).concat(hist);
+  var w2 = grid.reduce(function(x, r){ return Math.max(x, r.length); }, 0);
+  var pad = grid.map(function(r){ var x = r.slice(); while (x.length < w2) x.push(''); return x; });
+  sh.clear();
+  var rng = sh.getRange(1, 1, pad.length, w2);
+  var fmt = pad.map(function(r, ri){ return r.map(function(x, ci){
+    if (ri >= 5 && ri < 5 + body.length) return (ci >= 3 && ci <= 8) ? '0.00%' : (ci === 2 ? '#,##0' : (ci >= 9 ? '#,##0.0' : '@'));
+    if (ri >= 5 + body.length + 3) return (ci >= 5 && ci <= 9) ? '0.00%' : '@';
+    return '@'; }); });
+  rng.setNumberFormats(fmt);
+  rng.setValues(pad);
+  try {
+    rng.setFontFamily('Arial').setFontSize(10);
+    sh.getRange(1, 1).setFontSize(14).setFontWeight('bold');
+    sh.getRange(5, 1, 1, w2).setFontWeight('bold').setBackground('#D9D9D9').setWrap(true);
+    sh.getRange(5 + body.length, 1, 1, w2).setFontWeight('bold');
+    sh.getRange(5 + body.length + 2, 1).setFontWeight('bold');
+    sh.getRange(5 + body.length + 3, 1, 1, w2).setFontWeight('bold').setBackground('#D9D9D9');
+    if (sh.setHiddenGridlines) sh.setHiddenGridlines(true);
+  } catch (e){}
+  return { all: all, rows: body };
+}
+// ---- D89b: the collection rows read the album run's own seasons -------------------------------------
+// Col - Sets / Col - Albums were priced off 50 seeded seasons per cell and side (colSimSeasons_), a second
+// simulation of the same feature beside the album run: uncalibrated, and so noisy at the low completion
+// rates that a cell's album row moved -100% / +500% between runs. The album run now saves each cell's mean
+// set and album rewards for BOTH seasons (the current one as it ran, the redesign) on ALBUM_GAINS_SHEET with
+// its inputs fingerprint, and colSimSeasons_ returns those while the fingerprint still matches: the change
+// summary's collection rows then describe the very seasons album_summary reports, at its player count and on
+// its calibration. A stale or missing table falls back to the 50-season batch, as before.
+var ALBUM_GAINS_SHEET = 'album_gains';
+var ALBUM_GAINS_FOR_COL = true;
+var _albumGainsCache, _albumFpMemo;
+function albumWriteGains_(ss, cur, red, fp, n){
+  var sh = ss.getSheetByName(ALBUM_GAINS_SHEET) || ss.insertSheet(ALBUM_GAINS_SHEET);
+  sh.clear();
+  var grid = [['ALBUM GAINS (D89b) - mean set and album rewards per player per season, written by Album completion. Col - Sets / ' +
+               'Col - Albums read these while the inputs fingerprint matches (else their own 50-season batch).'],
+              ['inputs', fp, 'written', stampNow_(), 'players per cell', n], [],
+              ['cell', 'season', 'what', 'albums per player'].concat(RESOURCES)];
+  cloudPermutations_().forEach(function(p){
+    [['current', cur[p.label]], ['redesign', red[p.label]]].forEach(function(sx){
+      var a = sx[1];
+      if (!a) return;
+      grid.push([p.label, sx[0], 'sets', a.albums].concat(RESOURCES.map(function(r){ return Math.round(num(a.gSets[r]) * 10000) / 10000; })));
+      grid.push([p.label, sx[0], 'albums', a.albums].concat(RESOURCES.map(function(r){ return Math.round(num(a.gAlbums[r]) * 10000) / 10000; })));
+    });
+  });
+  var w = grid.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
+  sh.getRange(1, 1, grid.length, w).setValues(grid.map(function(r){ var x = r.slice(); while (x.length < w) x.push(''); return x; }));
+  delete _sheetValsCache[ALBUM_GAINS_SHEET];
+  _albumGainsCache = undefined;
+}
+/** {sets, albums, n, albumsPerSeason} for one cell and side ('cur' = current season, 'new' = redesign) off
+ *  ALBUM_GAINS_SHEET, or null (off, missing, or saved under other inputs). */
+function albumGainsFor_(seg, payer, side){
+  if (!ALBUM_GAINS_FOR_COL) return null;
+  if (_albumGainsCache === undefined){
+    _albumGainsCache = null;
+    var v = sheetVals_(ALBUM_GAINS_SHEET);
+    if (v && v.length > 4){
+      var meta = {};
+      (v[1] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim(); if (k && i + 1 < v[1].length) meta[k] = v[1][i + 1]; });
+      var h = headerIndex_(v[3] || []), cells = {};
+      if (h['cell'] != null && h['season'] != null && h['what'] != null){
+        for (var i = 4; i < v.length; i++){
+          var x = v[i] || [], cell = String(x[h['cell']] == null ? '' : x[h['cell']]).trim();
+          if (!cell) break;
+          var key = cell + '|' + String(x[h['season']]).trim(), o = cells[key] || (cells[key] = { sets: zeroRow_(), albums: zeroRow_(), n: num(meta['players per cell']), albumsPerSeason: 0 });
+          var row = (String(x[h['what']]).trim() === 'sets') ? o.sets : o.albums;
+          RESOURCES.forEach(function(r){ if (h[r] != null) row[r] = num(x[h[r]]); });
+          o.albumsPerSeason = num(x[h['albums per player']]);
+        }
+        _albumGainsCache = { fp: String(meta['inputs'] || ''), cells: cells };
+      }
+    }
+  }
+  if (!_albumGainsCache) return null;
+  if (_albumFpMemo === undefined) _albumFpMemo = albumFingerprint_();
+  if (_albumGainsCache.fp !== _albumFpMemo) return null;
+  return _albumGainsCache.cells[albumCellLabel_(seg, payer) + '|' + (side === 'cur' ? 'current' : 'redesign')] || null;
+}
+/** onEdit hook (EcoGainsSim_v4.gs): an input changed after the last album run -> A2 red. Never throws. */
+function albumMarkStale_(edited){
+  try {
+    var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ALBUM_SUMMARY_SHEET);
+    if (!sh || edited === ALBUM_SUMMARY_SHEET || edited === ALBUM_CALIB_SHEET) return false;
+    var cell = sh.getRange(2, 1), was = String(cell.getValue() == null ? '' : cell.getValue());
+    if (was.indexOf('STALE') === 0) return false;
+    cell.setValue('STALE - ' + edited + ' was edited ' + stampNow_() + ', after this run. Re-run EcoGainsSim > Album completion ' +
+                  'before reading it.   (ran: ' + was.replace(/^Run /, '').slice(0, 16) + ')');
+    cell.setFontColor('#CC0000').setFontWeight('bold').setBackground('#F4CCCC');
+    return true;
+  } catch (e){ return false; }
+}
+
 /**
  * MENU: EcoGainsSim > Album completion across the population.
- * Runs the same season core the rest of the card sim uses, over the ten measured cells, and writes
- * the block. Reads the player count and seed from Col_Cards_Totals B2/D2 - the same two inputs the
- * cloud run uses, so the two are comparable and reproducible from one seed.
+ * D89: the current season as it ran (cal_curr, base configs, from column B) and the redesign season, both
+ * on the album-data calibration, each read at the album data's day and at the season's end; saved to
+ * ALBUM_SUMMARY_SHEET (with a history row per run) beside the population block and the dialog, which
+ * keep describing the redesign season's end. Reads the player count and seed from Col_Cards_Totals B2/D2.
+ * The two passes share the time budget: when they would not fit at B2 players, both run at the largest
+ * count that does (never below ALBUM_MIN_PLAYERS) and the summary says so.
  */
 function SimulateAlbumCompletion(){
   requireCompanions_();
@@ -4204,34 +4731,51 @@ function SimulateAlbumCompletion(){
     seed = Math.floor(Math.random() * 2147483647) + 1;
     totals.getRange(CLOUD_SEED_CELL).setValue(seed);
   }
-
-  var cfg = loadPackConfig_();
-  var cat = loadCardCatalog_(cfg, album);
-  var ctx = Context.get();
   var perms = cloudPermutations_();
-  var byCell = {}, stoppedAt = -1;
 
-  for (var pi = 0; pi < perms.length; pi++){
-    var elapsed = new Date().getTime() - t0;
-    if (pi > 0 && elapsed + (elapsed / pi) > CLOUD_TIME_BUDGET_MS){
-      stoppedAt = pi;
-      Logger.log('TIME BUDGET: stopping after ' + pi + ' of ' + perms.length + ' cells.');
-      break;
-    }
-    var p = perms[pi];
-    // The SAME seeding as the cloud run, so a cell simulated by both entry points at the same
-    // (seed, players) contains exactly the same players and the two sheets cannot disagree.
-    var pre = cardSeasonPre_(p.seg, p.payer, ctx);
-    var runs = [];
-    for (var k = 0; k < nPlayers; k++)
-      runs.push(runOneCardSeason_(p.seg, p.payer, playerSeed_(seed, pi, k), cfg, cat, pre));
-    byCell[p.label] = albumCellStats_(runs);
+  // D89: the album data's day; the calibration - re-used while the inputs are unchanged, else computed
+  // inside the current-season pass (one pre per cell for both); both passes sized on the first timing
+  var D = albumDataDays_() || 16;
+  var meas = ALBUM_CALIBRATE ? albumMeasured_() : null;
+  var fp = albumFingerprint_();
+  var have = meas ? albumCalibTab_() : null;
+  var nCal = Math.min(nPlayers, ALBUM_CALIB_PLAYERS), cells = perms.length;
+  var calib = !ALBUM_CALIBRATE ? { status: 'off', note: 'ALBUM_CALIBRATE is false' }
+            : !meas ? { status: 'off', note: 'no usable ' + ALBUM_ENV_SHEET + ' sheet - the model\'s own envelope level' }
+            : (have && have.fp === fp && have.D === D)
+              ? { status: 'reused', note: 'k table of ' + have.when + ' (' + have.players + ' players per cell, inputs unchanged)' }
+              : { status: 'computed', note: 'k table computed in this run (' + nCal + ' players per cell)' };
+  var deadline = t0 + CLOUD_TIME_BUDGET_MS;
+  var curOpts = { calibrate: (calib.status === 'computed') ? { meas: meas, nCal: nCal } : null,
+                  calibrated: (calib.status === 'off') ? false : undefined };
+  curOpts.sizeFn = function(ms){
+    var left = deadline - new Date().getTime();
+    var calLeft = curOpts.calibrate ? nCal * (cells - 1) * ms : 0;
+    var nn = Math.min(nPlayers, Math.max(ALBUM_MIN_PLAYERS, Math.floor(0.85 * (left - calLeft) / Math.max(1e-3, 2 * cells * ms))));
+    var curWork = calLeft + nn * cells * ms, all = curWork + nn * cells * ms;
+    curOpts.deadline = new Date().getTime() + Math.max(0, left) * (all > 0 ? curWork / all : 0.5);
+    return nn;
+  };
+  var cur = albumSeasonRuns_('current', nPlayers, seed, D, curOpts);
+  if (cur._calRows){
+    if (cur._stoppedAt < 0){ albumWriteCalib_(ss, cur._calRows, fp, D, nCal, meas._carriedNames); }
+    else calib = { status: 'off', note: 'the time budget stopped the calibration pass after ' + cur._stoppedAt +
+                                        ' cells - no k table saved, the redesign runs uncalibrated' };
   }
+  var nPass = cur._n;
+  if (nPass < nPlayers) Logger.log('Album completion: ' + nPlayers + ' players per cell would not fit the time budget twice over; ' +
+                                   'both seasons ran at ' + nPass + '.');
+  var red = albumSeasonRuns_('redesign', nPass, seed, D, { keepRecs: true, deadline: deadline,
+                                                           calibrated: (calib.status === 'off') ? false : undefined });
 
-  var popInfo = cellPopulations_(ctx);
+  // the population block and the panel keep describing the REDESIGN season's end
+  var ctx = Context.get();
+  var byCell = {};
+  perms.forEach(function(p){ if (red[p.label]) byCell[p.label] = albumCellStats_(red[p.label].recs); });
+  var popInfo = albumPopInfo_(ctx);
   var pop = albumPopulationStats_(byCell, popInfo);
   var half = albumCI_(byCell, popInfo);
-  var wrote = writeAlbumBlock_(totals, tVals, byCell, pop, popInfo, nPlayers, seed);
+  var wrote = writeAlbumBlock_(totals, tVals, byCell, pop, popInfo, nPass, seed);
 
   // Mirror the headline percentage to wherever the sheet asks for it.
   var mirrored = '';
@@ -4245,25 +4789,20 @@ function SimulateAlbumCompletion(){
     } else {
       tgt.range.setValue(pop.rate);                    // the RAW fraction; format the cell as %
       mirrored = tgt.sheet + '!' + tgt.a1;
-      Logger.log('Mirrored the completion rate to ' + mirrored + ' (raw fraction - format that ' +
-                 'cell as a percentage).');
     }
   }
 
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
-  var msg = (100 * pop.rate).toFixed(2) + '% of ' + pop.population.toLocaleString() +
-            ' players finish album 1  |  a finisher opens ' + pop.packs.toFixed(1) +
-            ' envelopes and draws ' + pop.cards.toFixed(0) + ' cards to do it  |  ' +
-            pop.finishers + ' finishers in ' + pop.players + ' simulated (' + secs + 's, seed ' +
-            seed + ')' +
-            (mirrored ? '  |  rate also written to ' + mirrored : '') +
-            (stoppedAt >= 0 ? '  --  STOPPED EARLY on the time budget after ' + pop.cells +
-                              ' of ' + pop.allCells + ' cells (' + Math.round(100 * pop.covered) +
-                              '% of the player base). LOWER B2 and run it again.' : '') +
-            (wrote ? '' : "  --  BLOCK NOT WRITTEN: no '" + TB_ALBUM + "' bar in column A of " +
-                          SHEET_TOTALS);
+  var sum = albumWriteSummary_(ss, cur, red, albumMeasuredSeason_(), popInfo, calib, nPass, seed, D, secs, fp);
+  if (cur._stoppedAt < 0 && red._stoppedAt < 0) albumWriteGains_(ss, cur, red, fp, nPass);   // D89b: the Col rows' seasons
+  var A = sum.all, pc = function(x){ return (x === '' || x == null) ? '-' : (100 * num(x)).toFixed(2) + '%'; };
+  var msg = 'Album 1: measured ' + pc(A[3]) + ' by day ' + D + '  |  current season ' + pc(A[4]) + ' by day ' + D + ', ' + pc(A[5]) +
+            ' by day ' + ALBUM_SEASON_DAYS + '  |  redesign ' + pc(A[6]) + ' by day ' + D + ', ' + pc(A[7]) + ' at the end  |  ' +
+            nPass + ' players per cell and season, calibration ' + calib.status + ' (' + secs + 's, seed ' + seed + ')  |  saved on ' +
+            ALBUM_SUMMARY_SHEET + (mirrored ? '  |  redesign rate also written to ' + mirrored : '') +
+            (wrote ? '' : "  --  BLOCK NOT WRITTEN: no '" + TB_ALBUM + "' bar in column A of " + SHEET_TOTALS);
   Logger.log(msg);
-  showAlbumDialog_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote, msg);
+  showAlbumDialog_(pop, popInfo, half, nPass, seed, secs, mirrored, wrote, msg, { rows: sum.rows, D: D, calib: calib });
   return pop.rate;
 }
 
@@ -4273,8 +4812,8 @@ function SimulateAlbumCompletion(){
  * neither of which should cost a six-minute run its answer. Falls back to the toast, and the toast
  * falls back to the log.
  */
-function showAlbumDialog_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote, msg){
-  var html = albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote);
+function showAlbumDialog_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote, msg, two){
+  var html = albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote, two);
   try {
     if (typeof HtmlService !== 'undefined' && SpreadsheetApp.getUi){
       // Taller since the card-source table landed (2026-09-10): ~16 category rows plus a chest
@@ -4458,9 +4997,24 @@ function albumCopyHtml_(inner){
          'ok?"  copied":"  select the box and press Ctrl+C";}<\/script></details>';
 }
 
-function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote){
-  var body = albumPanelHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote);
+function albumDialogHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote, two){
+  var body = (two ? albumTwoSeasonHtml_(two) : '') + albumPanelHtml_(pop, popInfo, half, nPlayers, seed, secs, mirrored, wrote);
   return body + albumCopyHtml_(body);
+}
+/** D89: the two seasons at the data's day and at the end, measured beside them - on top of the panel. */
+function albumTwoSeasonHtml_(two){
+  var pc = function(x){ return (x === '' || x == null) ? '-' : (100 * num(x)).toFixed(2) + '%'; };
+  var rows = two.rows.map(function(r){
+    return '<tr><td style="text-align:left">' + albumEsc_(r[0] + ' ' + r[1]) + '</td><td>' + pc(r[3]) + '</td><td>' + pc(r[4]) +
+           '</td><td>' + pc(r[5]) + '</td><td>' + pc(r[6]) + '</td><td>' + pc(r[7]) + '</td></tr>';
+  }).join('');
+  return '<div style="font:12px Arial,Helvetica,sans-serif;padding:14px 20px 0">' +
+    '<div style="font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a8290;margin-bottom:6px">' +
+    'Album 1 finished - current season vs redesign (saved on ' + albumEsc_(ALBUM_SUMMARY_SHEET) + ')</div>' +
+    '<table style="border-collapse:collapse;width:100%;text-align:right"><tr style="color:#7a8290">' +
+    '<th style="text-align:left">cell</th><th>measured d' + two.D + '</th><th>current d' + two.D + '</th><th>current d' +
+    ALBUM_SEASON_DAYS + '</th><th>redesign d' + two.D + '</th><th>redesign end</th></tr>' + rows + '</table>' +
+    '<div style="color:#7a8290;margin-top:6px">' + albumEsc_('Inflow calibrated to the album data: ' + two.calib.status + ' - ' + two.calib.note) + '</div></div>';
 }
 
 /** The panel itself. Split out from albumDialogHtml_ so the copy block can be handed the exact

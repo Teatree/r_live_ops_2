@@ -845,6 +845,12 @@ function GATES() {
   // static note - "if I hand out fewer envelopes, fewer players finish" is the question being
   // asked, so a run that reported the same rate after the ladders were emptied would be worse than
   // no run at all.
+  // D89: these gates test the POPULATION BLOCK's mechanics on the model's own inflow - with the album-data
+  // calibration on, the sources the model has no ladder for keep paying at their measured rate, so
+  // "every ladder emptied -> nobody finishes" would no longer hold by construction. The calibration has
+  // its own gates in _mock_album.js; here it is switched off by removing its input for the section.
+  const envSnapD89 = data['data_col_envelopes'];
+  delete data['data_col_envelopes']; delete data['album_calibration']; delete data['album_gains'];
   {
     const vT = data['Col_Cards_Totals'].values;
     const snapT = JSON.stringify(vT);
@@ -1241,6 +1247,7 @@ function GATES() {
     data['Col_Cards_Totals'].values = JSON.parse(snapT);
     reset2();
   }
+  if (envSnapD89) data['data_col_envelopes'] = envSnapD89; delete data['album_summary']; delete data['album_calibration']; delete data['album_gains'];
 
   // ---------------------------------------------------------------- 11. namespace hygiene
   {
