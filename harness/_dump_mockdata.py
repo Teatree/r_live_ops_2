@@ -122,6 +122,10 @@ SHEETS = [
     # anchor sheets above, FAKE rows here are READ (the lane feeds no simulated value), so the
     # overlay can be seen working before real data lands.
     'data_col_daily',
+    # D87-D89 (2026-11-02): the small tables the menu runs write and the engine READS back (the pooled
+    # by-source feed, the album calibration and the album run's seasons), and the two outputs the
+    # harness compares against the engine (staleness, D88)
+    'export_scale', 'album_calibration', 'album_gains', 'album_summary', 'change_summary',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The

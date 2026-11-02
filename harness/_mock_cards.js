@@ -52,7 +52,10 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        v3i: '_mockdata_v3i.json',
                        // LIVE_OPS_V3 (15) (2026-11-02 14:14): the v2 re-fit applied plus the user's own edits (BB / Jigsaw / Hatchling
                        // minutes, NS_v2_weekday cuts, Target Day envelopes, Kite 2-day envelopes, TaD!B7 7 -> 1); data and calendars as (9)
-                       v3k: '_mockdata_v3k.json' };
+                       v3k: '_mockdata_v3k.json',
+                       // LIVE_OPS_V3 (17) (2026-11-02 17:43): the user's re-entered cal_curr lead-in (cal_parsed NOT re-run),
+                       // the D86-D90 engine pasted, export_scale / album_summary / album_calibration filled (album_gains absent)
+                       v3m: '_mockdata_v3m.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
