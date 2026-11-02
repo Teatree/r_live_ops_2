@@ -470,7 +470,7 @@ function rewardR_(cat, seg, payer, ds, pace){
     var reqs = collReqs_(coll);
     if (!reqs.length) return null;
     eBase = collE_(coll.base, coll, reqs, S);
-    eV2   = collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, pacedSurv_(S, pace));   // D81
+    eV2   = collE_(coll.v2,   coll, collReqsV2_(coll, reqs), pacedSurv_(S, pace));   // D81, D84
   }
   var R = {};
   RESOURCES.forEach(function(r){
@@ -645,6 +645,14 @@ function collReqs_(spec, v2Side){
   for (var i = 0; i < n; i++) reqs.push(num(v[row0 + i] && v[row0 + i][reqC]));
   reqs.own = (spec.reqFrom === 'own');
   return reqs.some(function(x){ return x > 0; }) ? reqs : [];
+}
+
+// D84 (2026-11-02): the redesign side's requirement axis - the v2 sheet's own column or helper, never the base
+// sheet's (D83 lets only the BASE side read the base helper). Mirrors engine/EcoGainsSim_v4.gs.
+function collReqsV2_(coll, reqs){
+  if (coll.reqFrom === 'own') return collReqs_(coll, true);
+  var v = collReqs_(coll, true);
+  return v.length ? v : reqs;
 }
 
 /** {r, c} (0-based) of the first cell on rows 0..maxRow whose text starts with `label`, or null. */

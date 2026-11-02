@@ -96,7 +96,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D83  2026-11-01';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D84  2026-11-02';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -1047,7 +1047,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     S = pacedSurv_(S, collPace_(cat, seg, payer, ctx));      // D81: the rungs of the event as it runs
     var reqs = collReqs_(coll);
     if (!reqs.length) return null;
-    var vr = (coll.reqFrom === 'own') ? collReqs_(coll, true) : reqs;
+    var vr = collReqsV2_(coll, reqs);                         // D84
     var cv = sheetVals_(coll.v2), ccols = rewCols_(cv, coll.hdr, coll.c0, coll.c1);
     var crungs = [], lastReq = 0;
     for (var i = 0; i < vr.length; i++){
@@ -1169,7 +1169,7 @@ function packProvFor_(cat, seg, payer, ctx){
                                 [num(inst.final_balance_p75),.75]]) : null;
       var reqs = S ? collReqs_(coll) : [];
       if (S && reqs.length)
-        collE_(coll.v2, coll, reqs.own ? collReqs_(coll, true) : reqs, pacedSurv_(S, collPace_(cat, seg, payer, ctx)), prov);
+        collE_(coll.v2, coll, collReqsV2_(coll, reqs), pacedSurv_(S, collPace_(cat, seg, payer, ctx)), prov);   // D84
     }
     return prov;
   }
@@ -2383,7 +2383,7 @@ function rewardE_(cat, seg, payer, ds, variant, pace){
   return { inst: inst,
            eBase: collE_(coll.base, coll, reqs, S),
            // D81: the redesign side reaches its milestones on the balance of ITS duration
-           eV2:   collE_(coll.v2,   coll, reqs.own ? collReqs_(coll, true) : reqs, pacedSurv_(S, pace)) };
+           eV2:   collE_(coll.v2,   coll, collReqsV2_(coll, reqs), pacedSurv_(S, pace)) };   // D84
 }
 
 function rewardR_(cat, seg, payer, ds){
@@ -2620,6 +2620,16 @@ function collReqs_(spec, v2Side){
   for (var i = 0; i < n; i++) reqs.push(num(v[row0 + i] && v[row0 + i][reqC]));
   reqs.own = (spec.reqFrom === 'own');
   return reqs.some(function(x){ return x > 0; }) ? reqs : [];
+}
+
+// D84 (2026-11-02): the redesign side's requirement axis. D83 let the BASE side of a reqFrom 'v2' pair read the base
+// sheet's own helper, but the three pricing sites kept handing the base-side axis to the v2 side as well, so with a
+// base helper present an edit to HH_v2's boards priced nothing at all (the calendar-rebalance boards of 2026-11-01
+// moved no number). 'own' pairs and 'v2' pairs without a base helper are unchanged - their v2 axis is what they read.
+function collReqsV2_(coll, reqs){
+  if (coll.reqFrom === 'own') return collReqs_(coll, true);
+  var v = collReqs_(coll, true);
+  return v.length ? v : reqs;
 }
 
 /** {r, c} (0-based) of the first cell on rows 0..maxRow whose text starts with `label`, or null. */

@@ -1835,6 +1835,32 @@ if (data['HH_v2'] && data['HH'] && typeof collReqs_ === 'function') {
     const b1 = collReqs_(spec, false).slice(), v2b = collReqs_(spec, true).slice();
     gate('D83: a base helper is read on the base side', b1.every((x, i) => Math.abs(x - 2 * v2[i]) < 1e-9), b1.join(','));
     gate('D83: the v2 side still reads the v2 helper', JSON.stringify(v2b) === JSON.stringify(v2), v2b.join(','));
+    // D84: the PRICING reads it too. Until D84 rewardE_, packRungs_ and packProvFor_ handed the base-side axis to the
+    // v2 side, so with a base helper present the v2 E was priced on the base boards and a board edit moved nothing.
+    const ds84 = Context.get().ds, seg84 = '20-39', pay84 = 'PAYER';
+    const inst84 = ds84.eventInst(spec.inst, seg84, pay84);
+    const S84 = survival_([[Number(inst84.final_balance_p25), .25], [Number(inst84.final_balance_p50), .5], [Number(inst84.final_balance_p75), .75]]);
+    const e84 = rewardE_('Hatchling Hideaway', seg84, pay84, ds84, null, 1);
+    const onV2 = collE_(spec.v2, spec, v2, S84), onBase = collE_(spec.v2, spec, b1, S84);
+    const same = (a, b) => RESOURCES.every(r => Math.abs((Number(a[r]) || 0) - (Number(b[r]) || 0)) < 1e-9);
+    gate('D84: with a base helper, the v2 E is priced on the v2 boards (not the base ones)', same(e84.eV2, onV2) && !same(e84.eV2, onBase),
+         'eV2 HC ' + (Number(e84.eV2.HC) || 0).toFixed(3) + ', on v2 boards ' + (Number(onV2.HC) || 0).toFixed(3) + ', on base boards ' + (Number(onBase.HC) || 0).toFixed(3));
+    gate('D84: ... and the base E on the base boards', same(e84.eBase, collE_(spec.base, spec, b1, S84)));
+    // the rule: halving HH_v2's helper boards (base helper present) moves the v2 side and leaves the base side
+    const snapV = JSON.stringify(data['HH_v2']);
+    for (let r = hit.r + 1; r <= hit.r + v2.length; r++) data['HH_v2'].values[r][hit.c] = Number(data['HH_v2'].values[r][hit.c]) / 2;
+    resetSheetCache();
+    const e84h = rewardE_('Hatchling Hideaway', seg84, pay84, Context.get().ds, null, 1);
+    gate('D84: halving the HH_v2 boards moves the v2 E and not the base E', !same(e84h.eV2, e84.eV2) && same(e84h.eBase, e84.eBase),
+         'eV2 HC ' + (Number(e84.eV2.HC) || 0).toFixed(3) + ' -> ' + (Number(e84h.eV2.HC) || 0).toFixed(3));
+    // a 1-star envelope on every milestone, so the card sim has a rung to show for each (the dump may pay none)
+    const hv = data['HH_v2'].values, c1s = rewCols_(hv, spec.hdr, spec.c0, spec.c1)['1-star Pack'];
+    for (let r = spec.r0; r <= spec.r1; r++) hv[r][c1s] = 1;
+    resetSheetCache();
+    const rungs = packRungs_('Hatchling Hideaway', seg84, pay84, Context.get(), 0, null);
+    const labs = rungs ? rungs.groups[0].rungs.map(x => x.label).join(' | ') : '';
+    gate('D84: the card sim\'s rungs carry the v2 boards', labs.indexOf('(req ' + (v2[0] / 2) + ')') >= 0, labs.slice(0, 140));
+    data['HH_v2'] = JSON.parse(snapV);
   }
   data['HH'] = JSON.parse(snapB); resetSheetCache();
 }
