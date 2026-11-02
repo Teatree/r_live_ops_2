@@ -5014,7 +5014,7 @@ function ECOGAINS_BUILD(nonce){
   }
 
   rows.push(['--- build stamps (which COPY of each file won) ---', '', '', '']);
-  ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD', 'SPS_BUILD'].forEach(function(v){
+  ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD', 'SPS_BUILD', 'CHANGESUM_BUILD'].forEach(function(v){
     rows.push([v, has(v) ? eval(v) : 'NOT IN THIS PROJECT', '', has(v) ? '' : 'NO']);
   });
 
@@ -5061,6 +5061,7 @@ function onOpen(){
     .addItem('Refresh simulations', 'refreshSims_')
     .addItem('Check code versions', 'checkCodeVersions')
     .addItem('Fill Sim per Segment', 'fillSimPerSegment')   // SimPerSegmentFill.gs
+    .addItem('Fill change summary', 'fillChangeSummary')     // ChangeSummary.gs (D85)
     // D52 (2026-09-10): the answer to "Exceeded maximum execution time (line 0)". A custom
     // function gets 30 seconds and its OWN cold cache, so all 48 ECOGAINS_ formulas rebuild
     // Context + DataStore + every sheet read independently (~2,060 getValues round trips for a

@@ -46,7 +46,10 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        eval: '_mockdata_v3g_eval.json',
                        // the 12:37 re-export of LIVE_OPS_V3 (8): new data_gains / live feed, same configs and calendars;
                        // the calendar rebalance (harness/_design_calbal.js) is designed on it
-                       v3h: '_mockdata_v3h.json' };
+                       v3h: '_mockdata_v3h.json',
+                       // LIVE_OPS_V3 (9) (2026-11-02): the rebalance configs as the user applied them (HH requirements
+                       // kept, NS_v2_weekday untouched), the D83 engine pasted; data and calendars identical to (8)
+                       v3i: '_mockdata_v3i.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
