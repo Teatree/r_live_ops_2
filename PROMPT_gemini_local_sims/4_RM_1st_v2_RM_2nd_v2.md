@@ -1,5 +1,5 @@
 Edit only sheets `RM_1st_v2` and `RM_2nd_v2`, only cells `AI1:AS23`. Formulas only — no Apps Script, no
-typed numbers in computed cells, no LAMBDA / BYROW / BYCOL / MAP. Read `RM_1st` / `RM_2nd` (the old
+typed numbers in computed cells. Read `RM_1st` / `RM_2nd` (the old
 configs) but never edit them. **Replace the whole current block** — it reads `data_RM`; nothing may
 reference `data_RM` any more.
 
@@ -15,7 +15,7 @@ dropdown `NONPAYER, PAYER`; `AI4` `Config` / `AJ4` dropdown `RM_1st, RM_2nd` —
 the whole row (`#999999`) with conditional formatting `=AND(ISNUMBER($AI6),$AI6>$B$3)` on `AI6:AS12`
 (same with `$AI17` on `AI17:AS23`).
 
-**Score on day d = matchables.** Use exactly this (segment `0-9`, day cell `$AI17`; change the segment
+**Score on day d = matchables.** This formula implements the rule (write it however you like, but keep the rule) (segment `0-9`, day cell `$AI17`; change the segment
 literal per column, the day cell per row, and `RM_1st!$B$3` to `RM_2nd!$B$3` on `RM_2nd_v2`):
 
 ```
@@ -38,8 +38,7 @@ literal per column, the day cell per row, and `RM_1st!$B$3` to `RM_2nd!$B$3` on 
 ```
 
 **Ladders** (same layout on all four sheets): requirement `C16:C45` (Req Accum), rewards `E16:Z45`,
-headers `E15:Z15`; the ladder ends at the first row whose column A is not a number (25 milestones on the
-`_v2` sheets, 30 on the old ones). `m` = requirements ≤ score. Value of the first `m` rows = Σ amount ×
+headers `E15:Z15`; the ladder ends at the first row whose column A is not a number. `m` = requirements ≤ score. Value of the first `m` rows = Σ amount ×
 price; price by header **name** from `item_vals` (names `B2:U2`, prices `B3:U3`; `ToF_Ticket` uses
 `ToF_Value`; no match = 0).
 
@@ -63,10 +62,4 @@ price; price by header **name** from `item_vals` (names `B2:U2`, prices `B3:U3`;
 `#FFF2CC`; formula cells fill `#E2EFDA`; no merges, no borders. Widths: `AI` 14, ms/score 14, reward text
 40, val 18.
 
-**Check** on `RM_1st_v2` (`p50`, `NONPAYER`), Part A ms per segment 0-9 / 10-19 / 20-39 / 40-99 / 100+:
-- day 1: `0 -> 1`, `4 -> 7`, `8 -> 9`, `11 -> 12`, `14 -> 14`
-- day 2: `4 -> 6`, `8 -> 9`, `11 -> 12`, `14 -> 16`, `18 -> 19`
-- day 3 (grey): `5`, `10`, `13`, `17`, `21`; day 4 (grey): `7`, `11`, `14`, `19`, `23`
-- Part B score day 1 / day 4: `94 / 4,617`, `1,973 / 15,644`, `6,102 / 33,372`, `16,316 / 73,451`, `27,148 / 136,193`
-
-No errors anywhere in `AI1:AS23`. If a check fails, fix the formula, never type the number.
+**Check:** day rows run to the longer of the two durations, and only the days past the new duration are grey (none when the new event is as long as the old one); changing `AJ2` or `AJ3` changes both tables; no errors anywhere in `AI1:AS23`. Fix formulas, never type numbers.

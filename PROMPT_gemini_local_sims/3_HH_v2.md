@@ -1,5 +1,5 @@
 Edit only sheet `HH_v2`, only cells `AI1:AS23` (leave the helper block `AU2:AW9` as it is). Formulas only
-— no Apps Script, no typed numbers in computed cells, no LAMBDA / BYROW / BYCOL / MAP. Read sheet `HH`
+— no Apps Script, no typed numbers in computed cells. Read sheet `HH`
 (the old config) but never edit it. Find every `data_*` column by its row-1 header
 (`INDEX(sheet!$A:$ZZ,0,MATCH("name",sheet!$1:$1,0))`), never by letter.
 
@@ -37,5 +37,4 @@ requirements ≤ score. Value of the first `m` gates = Σ amount × price; price
 `#FFF2CC`; formula cells fill `#E2EFDA`; no merges, no borders. Widths: `AI` 14, ms/score 14, reward text
 40, val 18.
 
-**Check:** day 4 rows are grey, days 1-3 show arrows; changing `AJ2` or `AJ3` changes both tables; no
-errors anywhere in `AI1:AS23`. Fix formulas, never type numbers.
+**Check:** day rows run to the longer of the two durations, and only the days past the new duration are grey (none when the new event is as long as the old one); changing `AJ2` or `AJ3` changes both tables; no errors anywhere in `AI1:AS23`. Fix formulas, never type numbers.

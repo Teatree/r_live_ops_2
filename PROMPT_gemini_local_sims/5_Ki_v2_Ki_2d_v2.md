@@ -1,6 +1,6 @@
 Edit only sheets `Ki_v2` and `Ki_2d_v2`, only cells `AI1:AS23`. Both sheets end at column Z: add columns
 so `AI:AS` exist, change nothing in `A:Z`. Formulas only — no Apps Script, no typed numbers in computed
-cells, no LAMBDA / BYROW / BYCOL / MAP. Read sheet `Ki` (the old config for **both**) but never edit it.
+cells. Read sheet `Ki` (the old config for **both**) but never edit it.
 Find every `data_*` column by its row-1 header (`INDEX(sheet!$A:$ZZ,0,MATCH("name",sheet!$1:$1,0))`),
 never by letter. Neither sheet has a local sim yet: **build it**.
 
@@ -8,7 +8,7 @@ never by letter. Neither sheet has a local sim yet: **build it**.
 `AJ3` dropdown `NONPAYER, PAYER` (start at `NONPAYER`).
 
 **Days:** new duration `$B$6`, old duration `Ki!$B$6`. Day cells `AI6:AI12` and `AI17:AI23` = 1…7, blank
-past `MAX(new, old)`. A day > new duration is a **grey day** (only on `Ki_2d_v2`, day 3): show only the old
+past `MAX(new, old)`. A day > new duration is a **grey day**: show only the old
 number, and grey the whole row (`#999999`) with conditional formatting `=AND(ISNUMBER($AI6),$AI6>$B$6)` on
 `AI6:AS12` (same with `$AI17` on `AI17:AS23`).
 
@@ -48,6 +48,4 @@ number, and grey the whole row (`#999999`) with conditional formatting `=AND(ISN
 `#FFF2CC`; formula cells fill `#E2EFDA`; no merges, no borders. Widths: `AI` 14, ms/score 14, reward text
 40, val 18.
 
-**Check:** `Ki_v2` has 3 day rows, none grey; `Ki_2d_v2` has 3, day 3 grey; on `Ki_2d_v2` day 2 the new
-value includes the rank reward and the old one does not yet; changing `AJ2`/`AJ3` changes both tables; no
-errors anywhere in `AI1:AS23`. Fix formulas, never type numbers.
+**Check:** day rows run to the longer of the two durations and only the days past the new duration are grey; on a side's last day its value includes the rank reward, and not before; changing `AJ2` or `AJ3` changes both tables; no errors anywhere in `AI1:AS23`. Fix formulas, never type numbers.

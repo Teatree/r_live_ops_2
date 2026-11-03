@@ -1,5 +1,5 @@
 Edit only sheet `TaD_v2`, only cells `AI1:AS23`. Formulas only — no Apps Script, no typed numbers in
-computed cells, no LAMBDA / BYROW / BYCOL / MAP. Read sheet `TaD` (the old config) but never edit it. Find
+computed cells. Read sheet `TaD` (the old config) but never edit it. Find
 every `data_*` column by its row-1 header (`INDEX(sheet!$A:$ZZ,0,MATCH("name",sheet!$1:$1,0))`), never by
 letter. Target Day is a 1-day leaderboard; the block at `AI1:AS6` shows each segment's rank.
 
