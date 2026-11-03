@@ -55,7 +55,10 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        v3k: '_mockdata_v3k.json',
                        // LIVE_OPS_V3 (17) (2026-11-02 17:43): the user's re-entered cal_curr lead-in (cal_parsed NOT re-run),
                        // the D86-D90 engine pasted, export_scale / album_summary / album_calibration filled (album_gains absent)
-                       v3m: '_mockdata_v3m.json' };
+                       v3m: '_mockdata_v3m.json',
+                       // LIVE_OPS_V3 (18) (2026-11-03 09:52): vs (17) NS_v2 / NS_v2_weekday edits and re-drawn album card
+                       // pools; change_summary as filled by the D87 engine; no album_gains (Col rows on their 50-season batch)
+                       v3n: '_mockdata_v3n.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
