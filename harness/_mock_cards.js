@@ -58,7 +58,9 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        v3m: '_mockdata_v3m.json',
                        // LIVE_OPS_V3 (18) (2026-11-03 09:52): vs (17) NS_v2 / NS_v2_weekday edits and re-drawn album card
                        // pools; change_summary as filled by the D87 engine; no album_gains (Col rows on their 50-season batch)
-                       v3n: '_mockdata_v3n.json' };
+                       v3n: '_mockdata_v3n.json',
+                       // LIVE_OPS_V3 (19) (2026-11-03 13:16): the workbook the Gemini local-sim prompts were written against
+                       v3o: '_mockdata_v3o.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
