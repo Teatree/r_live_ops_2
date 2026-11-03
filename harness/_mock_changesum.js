@@ -306,8 +306,18 @@ function GATES() {
           !!lbEx && ['anchored', 'anchored + bottom-up', 'bottom-up'].indexOf(modelOf(lbEx)) >= 0 &&
           Object.keys(LB_R_SPECS).filter(c => onRow(c) && SOURCES[c]).every(c => String(modelOf(c)).indexOf('carried') < 0),
           lbEx + ' ' + modelOf(lbEx) + '; Flock Flurry ' + modelOf('Flock Flurry'));
-    check('Model: a source the export anchors on every resource reads anchored with Bottom-up % 0 (Daily Night Sky Prize)',
-          modelOf('Daily Night Sky Prize') === 'anchored' && buOf('Daily Night Sky Prize') === 0, modelOf('Daily Night Sky Prize') + ' ' + buOf('Daily Night Sky Prize'));
+    // the example is found by the rule too: Night Sky was frozen here and went red on (17), whose NS_v2 adds round-1
+    // UL Red / Chuck / Bomb the export never paid (D92) - a correct 'anchored + bottom-up'
+    const pc0 = POPI.cells['20-39|PAYER'];
+    const fullyAnchored = (cat) => {
+      const m = measuredRow_(cat, '20-39', 'PAYER', ctx.ds), s = resultRow_(cat, '20-39', 'PAYER', ctx);
+      let any = false;
+      const ok = RESOURCES.every(r => { const nz = Math.abs(num(m[r])) > 1e-12 || Math.abs(num(s[r])) > 1e-12; if (nz) any = true; return !nz || !!pc0.has[cat + '|' + r]; });
+      return ok && any;
+    };
+    const ancEx = CATEGORY_ORDER.find(c => onRow(c) && SOURCES[c] && !CS_COL_CATS[c] && !(LANE_STANDIN[c] && laneStandInActive_(c, ctx)) && fullyAnchored(c));
+    check('Model: a simulated source the export anchors on every resource it pays reads anchored with Bottom-up % 0',
+          !!ancEx && modelOf(ancEx) === 'anchored' && buOf(ancEx) === 0, ancEx + ' ' + (ancEx ? modelOf(ancEx) + ' ' + buOf(ancEx) : ''));
     check('Model: the paid Season Pass (no export category) reads bottom-up, Bottom-up % 100',
           modelOf('Season Pass (Paid)') === 'bottom-up' && near(buOf('Season Pass (Paid)'), 1), modelOf('Season Pass (Paid)') + ' ' + buOf('Season Pass (Paid)'));
     // Bottom-up % written out: the VALUE share of the resources the export does not carry (both sides)
@@ -325,8 +335,9 @@ function GATES() {
     check('Bottom-up % = the VALUE share of the resources the export does not carry, row by row', bad === 0, n + ' rows, ' + bad + ' off');
     if (laneStandInActive_('Chuck Challenge', ctx)){
       const rec = REC[CS_SHEET_NAME], r = b0.rows['Chuck Challenge'];
-      check('D86: Chuck\'s rows say the rule and are red; the note above the tables is red and names it',
-            modelOf('Chuck Challenge') === "rule: Red's -> Chuck's" && rec.fc[r + ',' + (L.start[0] + 1)] === CS_RED && rec.fc[r + ',5'] === CS_RED &&
+      // 2026-11-03 (user): the rows are no longer painted red - black like every other source row
+      check('D86: Chuck\'s rows say the rule in black (not red); the note above the tables is red and names it',
+            modelOf('Chuck Challenge') === "rule: Red's -> Chuck's" && rec.fc[r + ',' + (L.start[0] + 1)] === '#000000' && rec.fc[r + ',5'] === '#000000' &&
             /CHUCK'S CHALLENGE/.test(String(V()[3][0])) && rec.fc['4,1'] === CS_RED);
     }
   }
