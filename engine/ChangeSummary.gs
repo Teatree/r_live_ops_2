@@ -53,7 +53,7 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD().
-var CHANGESUM_BUILD = 'ChangeSummary.gs  D88  2026-11-02';
+var CHANGESUM_BUILD = 'ChangeSummary.gs  D88b 2026-11-03';
 
 var CS_SHEET = 'change_summary';
 var CS_SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+'];
@@ -97,13 +97,15 @@ function fillChangeSummary(){
 
   var L = csLayout_();
   var head = csHeadRows_(L, ctx, days, extras, ss, popInfo, standIn);
-  var body = [], marks = [];                          // marks: {total, first, fmtAbs, red}
+  var body = [], marks = [];                          // marks: {total, first, fmtAbs}
   [{ label: days + ' days', k: 1, fmtAbs: '#,##0.00' },
    { label: 'Daily avg', k: 1 / days, fmtAbs: '#,##0.000' }].forEach(function(per, pi){
     blocks.forEach(function(b, bi){
       var rows = csBlockRows_(b, per, prices, groupOf, L, standIn);
       rows.forEach(function(r, ri){
-        marks.push({ total: ri === 0, first: ri === 0 && bi === 0 && pi > 0, fmtAbs: per.fmtAbs, red: !!standIn[r[CS_KEYS.length]] });
+        // the Chuck's Challenge rows are NOT painted red (user, 2026-11-03): the Model column ('rule: Red's ->
+        // Chuck's') and the row-4 note already say they are a rule, and red read as an error
+        marks.push({ total: ri === 0, first: ri === 0 && bi === 0 && pi > 0, fmtAbs: per.fmtAbs });
         body.push(r);
       });
     });
@@ -134,7 +136,7 @@ function fillChangeSummary(){
       f.push(csFmt_(col, m.fmtAbs));
       b.push(m.total ? (col.t != null ? CS_TABLES[col.t].tot : (col.kind === 'key' ? '#EFEFEF' : '#FFFFFF')) : '#FFFFFF');
       w.push(m.total ? 'bold' : 'normal');
-      k.push(m.red && (col.kind === 'src' || (col.kind === 'key' && col.name === 'Model')) ? CS_RED : '#000000');
+      k.push('#000000');
     }
     fmt.push(f); bg.push(b); fw.push(w); fc.push(k);
   });
