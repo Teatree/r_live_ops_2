@@ -73,7 +73,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var CARDSIM_BUILD = 'CardOpenings.gs     D89c 2026-11-02';
+var CARDSIM_BUILD = 'CardOpenings.gs     D93  2026-11-03';
 
 
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
@@ -766,13 +766,49 @@ var ATT_QUAD_N = 40;
 // days_available column, the export's span, the calendar's whole grid (33 on every older workbook,
 // which keeps them bit-identical). And the share is taken both ways now: a 28-day window over a
 // 16-day pull scales the percentiles UP (x 1.75), where D74d only ever scaled down.
+// D93 (2026-11-03): ...but the export's span is ANOTHER sheet's day count. Refresh data_gains to 21 days
+// and leave data_seg_beh at 16 (or the other way round) and every player's active days were silently
+// rescaled by 16/21 (or 21/16): the card sim's attendance, its Season Pass climb and the album run all
+// moved with no input of their own changing. data_seg_beh does not carry days_available yet, but it
+// does say its own day count: its highest active-day percentile over the cells - the most engaged players
+// of a pull are active on every day of it (16 in all ten cells of LIVE_OPS_V3 (18), whose span is 16, so
+// nothing moves today). That reading wins over the span, and a disagreement is logged. Workbooks without
+// a span (every pre-A/B one) never reach this branch and stay bit-identical. SEG_BEH_OWN_DAYS = false
+// restores D79 exactly.
+var SEG_BEH_OWN_DAYS = true;
+var _segBehTopMemo, _segBehTopLogged = false;
+function segBehTopDays_(){
+  if (_segBehTopMemo !== undefined) return _segBehTopMemo;
+  var v = sheetVals_('data_seg_beh'), mx = 0;
+  if (typeof armRows_ === 'function') v = armRows_(v, 'data_seg_beh');
+  if (v && v.length > 1){
+    var h = headerIndex_(v[0]);
+    ['active_days_p25', 'active_days_p50', 'active_days_p75', 'active_days_p90', 'active_days_p95', 'active_days_p98']
+      .forEach(function(k){
+        if (h[k] == null) return;
+        for (var i = 1; i < v.length; i++){
+          if (h['segment'] != null && !String(v[i][h['segment']] == null ? '' : v[i][h['segment']]).trim()) continue;   // a stray table below the rows
+          mx = Math.max(mx, num(v[i][h[k]]));
+        }
+      });
+  }
+  return (_segBehTopMemo = Math.round(mx));
+}
 function attDataDays_(b){
   var own = b ? num(b['days_available']) : 0;
   if (own > 0) return own;
   if (typeof DATA_SPAN_RESCALE === 'undefined' || DATA_SPAN_RESCALE){
     try {
       var ds = Context.get().ds;
-      if (ds && ds.span && ds.span.days > 0) return ds.span.days;
+      if (ds && ds.span && ds.span.days > 0){
+        var top = SEG_BEH_OWN_DAYS ? segBehTopDays_() : 0;
+        if (top > 0 && top !== ds.span.days && !_segBehTopLogged){
+          _segBehTopLogged = true;
+          Logger.log('data_seg_beh counts its active days over ' + top + ' days but data_gains covers ' + ds.span.days +
+                     ' - the active-day percentiles are read over ' + top + '. Re-pull both to the same data_through_date.');
+        }
+        return (top > 0) ? top : ds.span.days;
+      }
     } catch (e){}
   }
   if (typeof calGridDays_ === 'function') return calGridDays_();
