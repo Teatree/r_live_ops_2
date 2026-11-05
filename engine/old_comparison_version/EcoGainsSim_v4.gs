@@ -95,7 +95,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D41  2026-09-07';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D41+p  2026-11-05';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -1345,6 +1345,49 @@ function mdParam_(v, r0, label){
   return null;
 }
 
+// ---- the 'p' column (2026-11-05, this comparison copy only) ------------------------------------
+// TOF_USE_P = false restores equal doors exactly.
+var TOF_USE_P = true;
+function tofDoorP_(x){
+  if (typeof x === 'number') return isFinite(x) ? x : null;
+  var t = String(x == null ? '' : x).trim();
+  if (t === '') return null;
+  var f = parseFloat(t);
+  if (!isFinite(f)) return null;
+  return (t.charAt(t.length - 1) === '%') ? f / 100 : f;
+}
+// Per-slot weights over the presented doors, summing to 1, or null for equal doors: the switch is
+// off, the stage's p's are all equal (the same game, on the same code path), or a p is unusable.
+function tofDoorWeights_(slots, stageN){
+  if (!TOF_USE_P) return null;
+  var sum = 0, bad = false, first = null, allEqual = true;
+  slots.forEach(function(sl){
+    if (sl.kind === 'empty') return;
+    if (sl.p == null || !(sl.p >= 0)){ bad = true; return; }   // null >= 0 is true in JS
+    if (first === null) first = sl.p;
+    if (Math.abs(sl.p - first) > 1e-9) allEqual = false;
+    sum += sl.p;
+  });
+  if (bad || !(sum > 0)){
+    try { Logger.log('ToF stage ' + stageN + ': a presented door has no usable p - this stage uses equal doors.'); } catch(e){}
+    return null;
+  }
+  if (allEqual) return null;
+  if (Math.abs(sum - 1) > 0.02)
+    try { Logger.log('ToF stage ' + stageN + ": the doors' p add up to " + sum.toFixed(3) + ' - normalised to 1.'); } catch(e){}
+  return slots.map(function(sl){ return (sl.kind === 'empty') ? 0 : sl.p / sum; });
+}
+// One door of a stage, one random draw. Shared by the card sim's walk.
+function tofPickDoor_(st, rand){
+  var doors = st.doors, u = rand();
+  if (!st.doorP) return doors[Math.floor(u * doors.length)] || doors[doors.length - 1];
+  for (var i = 0, c = 0; i < doors.length; i++){
+    c += st.doorP[i];
+    if (u < c) return doors[i];
+  }
+  return doors[doors.length - 1];
+}
+
 // The whole MD config, read once per execution. Returns null when the sheet is absent or has no
 // stage ladder, which is how a workbook without Mighty Doors keeps working: ToF then carries.
 var _tofCfgCache = null;
@@ -1383,8 +1426,9 @@ function tofConfig_(){
   // actually presented, so:
   //
   //   nonEmpty = slots whose type is not 'empty'      (what the player sees: 2, 3 or 4 doors)
-  //   H        = P(survive) = 1 - pigs / nonEmpty
-  //   rew      = the reward GIVEN SURVIVAL = the arithmetic MEAN of the reward slots
+  //   w        = each presented door's 'p', normalised over the presented doors (see TOF_USE_P)
+  //   H        = P(survive) = 1 - the pig doors' w
+  //   rew      = the reward GIVEN SURVIVAL = the w-weighted MEAN of the reward slots
   //
   // `rew` is conditional on purpose. tofRunOnce_ pays the pot as `rew x I x pBank` and pBank is
   // already P(survived to cash-out), so pricing the stage unconditionally here would apply survival
@@ -1392,10 +1436,11 @@ function tofConfig_(){
   // "survived but got nothing" probability is now expressed directly, as a reward slot whose
   // amounts are all zero.
   //
-  // The sheet's own 'p' column is NOT read (user decision): the choice is uniform over the doors
-  // presented, so p is derived as 1/nonEmpty and cannot drift from the slot rows beside it. The
-  // 'Empty Slots' column is vestigial and likewise ignored - emptiness is already stated by the
-  // slot's own type.
+  // The sheet's 'p' column IS read (2026-11-05, this comparison copy only, user decision): it sets
+  // each door's chance, for the gains model and for the card sim's walk. A stage where a presented
+  // door has no usable p falls back to equal doors and says so; TOF_USE_P = false restores equal
+  // doors everywhere, random stream included. The 'Empty Slots' column is vestigial and ignored -
+  // emptiness is already stated by the slot's own type.
   if (cols['card type'] == null)
     throw new Error("ToF STAGES has no 'card type' column. This engine reads the SLOT layout " +
                     '(one row per door, card type = reward / pig / empty). A sheet still on the ' +
@@ -1431,7 +1476,7 @@ function tofConfig_(){
       byN[sn] = { n: sn, type: String(v[r][cols['Type']] || '').trim(), slots: [] };
       order.push(sn);
     }
-    byN[sn].slots.push({ kind: kind, rew: rew2 });
+    byN[sn].slots.push({ kind: kind, rew: rew2, p: (cols['p'] != null) ? tofDoorP_(v[r][cols['p']]) : null });
   }
 
   order.forEach(function(sn){
@@ -1452,9 +1497,20 @@ function tofConfig_(){
     if (nonEmpty < 2)
       try { Logger.log('ToF stage ' + sn + ': only ' + nonEmpty + ' door is presented (the design ' +
                        'minimum is 2), so that outcome is certain.'); } catch(e){}
+    var doorW = tofDoorWeights_(s.slots, sn);                 // null -> equal doors
     var H = 1 - pigs / nonEmpty;
     var rew = {};
-    if (rewSlots.length){
+    if (doorW){
+      var wPig = 0, wRew = 0;
+      s.slots.forEach(function(sl, si){
+        if (sl.kind === 'empty') return;
+        if (sl.kind === 'pig'){ wPig += doorW[si]; return; }
+        wRew += doorW[si];
+        for (var resW in sl.rew) rew[resW] = num(rew[resW]) + doorW[si] * num(sl.rew[resW]);
+      });
+      H = 1 - wPig;
+      if (wRew > 0) for (var resW2 in rew) rew[resW2] = rew[resW2] / wRew;   // p-weighted MEAN, given survival
+    } else if (rewSlots.length){
       rewSlots.forEach(function(rw){
         for (var res in rw) rew[res] = num(rew[res]) + num(rw[res]);
       });
@@ -1464,10 +1520,10 @@ function tofConfig_(){
     // is shown. The gains model never needs it (it works in expectations), but the card sim walks a
     // run door by door and has to pick a real one, so the structure is kept rather than collapsed
     // into H and a mean. Both models then read the same rows: there is no second ladder to drift.
-    var doors = [];
-    s.slots.forEach(function(sl){ if (sl.kind !== 'empty') doors.push(sl); });
+    var doors = [], doorP = doorW ? [] : null;
+    s.slots.forEach(function(sl, si){ if (sl.kind !== 'empty'){ doors.push(sl); if (doorW) doorP.push(doorW[si]); } });
     stages.push({ n: s.n, type: s.type, H: H, I: 1, rew: rew,
-                  nonEmpty: nonEmpty, pigs: pigs, doors: doors });
+                  nonEmpty: nonEmpty, pigs: pigs, doors: doors, doorP: doorP });
   });
 
   if (!stages.length) return (_tofCfgCache = false);

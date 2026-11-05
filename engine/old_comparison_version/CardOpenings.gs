@@ -73,7 +73,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var CARDSIM_BUILD = 'CardOpenings.gs     D59  2026-10-13';
+var CARDSIM_BUILD = 'CardOpenings.gs     D59+p  2026-11-05';
 
 
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
@@ -938,7 +938,7 @@ function cardSeasonPre_(seg, payer, ctx, prof){
  * model's P(run banks) and then hand over the average ladder; a player's log therefore showed an
  * average, never an outcome. This walks the run the way the event is played:
  *
- *   at each stage: pick ONE of the doors actually presented, uniformly
+ *   at each stage: pick ONE of the doors actually presented, by the sheet's p (tofPickDoor_)
  *     pig    -> the run is over and the whole pot is LOST, unless a continue is bought, which
  *               retries the SAME stage (paying it is what a continue buys - not a skip)
  *     reward -> that door's OWN rewards go into the pot
@@ -974,7 +974,7 @@ function walkTofRun_(W, rand, wallet){
     if (!doors.length) continue;
     var survived = false;
     while (!survived){
-      var d = doors[Math.floor(rand() * doors.length)] || doors[doors.length - 1];
+      var d = tofPickDoor_(st, rand);
       out.doors.push(st.n + ':' + d.kind);
       if (d.kind !== 'pig'){
         survived = true;
