@@ -54,7 +54,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D79  2026-10-30';
+var DAILY_BUILD   = 'EcoGainsSim_Daily.gs D94  2026-11-05';
 
 
 var DAILY_DAYS = 33;
@@ -631,7 +631,8 @@ function econShift_(v, h){
 }
 
 function econDaily_(seg, payer){
-  var v = sheetVals_(econSheet_());
+  var feed = econSheet_();
+  var v = sheetVals_(feed);
   if (!v.length) return null;
   var h = headerIndex_(v[0]);
   if (h['currency'] == null || h['day_index'] == null ||
@@ -639,8 +640,9 @@ function econDaily_(seg, payer){
   var gain = emptyDays_(), spend = emptyDays_(), found = false, lastDay = 0, firstDay = 0, has = {};
   var dowChecked = false, feedDow = null;
   var shift = econShift_(v, h);                            // D74: feed day = window day + shift
+  var cseg = econSeg_(seg);                                // D94: one spelling per segment ('100+' = '100-249')
   for (var i = 1; i < v.length; i++){ var r = v[i];
-    if (String(r[h['segment']]).trim() !== seg || String(r[h['payer_flag']]).trim() !== payer) continue;
+    if (econSeg_(r[h['segment']]) !== cseg || String(r[h['payer_flag']]).trim() !== payer) continue;
     var res = String(r[h['currency']]).trim();
     if (RESOURCES.indexOf(res) === -1) continue;
     var d = Math.round(num(r[h['day_index']])) - shift;
@@ -658,7 +660,7 @@ function econDaily_(seg, payer){
   if (feedDow != null && typeof dowIndex_ === 'function' && typeof calDay1Dow_ === 'function'){
     var fd = dowIndex_(feedDow), cd = calDay1Dow_();
     if (fd && cd && fd !== cd)
-      Logger.log(econSheet_() + ' says day 1 is a ' + String(feedDow) + ' but the calendar sheet ' +
+      Logger.log(feed + ' says day 1 is a ' + String(feedDow) + ' but the calendar sheet ' +
                  'says ' + DOW_NAMES[cd - 1] + ' - retype the weekday row on cal_curr / cal_new ' +
                  '(or re-pull the feed from the right start date).');
   }
@@ -674,9 +676,44 @@ function econUsable_(v){
   return h['currency'] != null && h['day_index'] != null &&
          h['gain_per_earner_day'] != null && h['spend_per_earner_day'] != null;
 }
+// D94 (2026-11-05): ...unless the BASE sheet is itself the anchor pull's daily feed. LIVE_OPS_V3 (20)'s
+// data_econ_daily is the A/B pull re-run with data_gains (its arm column, its dates, all seven segments,
+// through Nov 3), while data_econ_daily_live is still the 5-segment query (no arm, no 250+ / ALL, a day
+// shorter, another population). A base sheet that carries its own calendar dates and reaches at least as
+// far as the live one therefore wins; the August pull (no dates) never does, so every older workbook
+// reads what it read. Logged once per execution.
+var _econPick = null;                  // {live, base, liveV, pick}: the choice and what it was made on (flag + the two sheets as read)
+function econSeg_(x){ return (typeof segCanon_ === 'function') ? segCanon_(x) : String(x == null ? '' : x).trim(); }
+/** The last calendar date (days since 1970) a feed carries, or null when it has no calendar_date. */
+function econLastDate_(v){
+  var h = headerIndex_((v || [])[0] || []);
+  if (h['calendar_date'] == null) return null;
+  var mx = null;
+  for (var i = 1; i < v.length; i++){
+    var d = ymdDay_(v[i][h['calendar_date']]);
+    if (d == null && typeof dateDays_ === 'function') d = dateDays_(v[i][h['calendar_date']]);
+    if (d != null && (mx == null || d > mx)) mx = d;
+  }
+  return mx;
+}
 function econSheet_(){
-  if (DAILY_ECON_PREFER_LIVE && econUsable_(sheetVals_(DAILY_ECON_SHEET_LIVE))) return DAILY_ECON_SHEET_LIVE;
-  return DAILY_ECON_SHEET;
+  var base = sheetVals_(DAILY_ECON_SHEET), liveV = sheetVals_(DAILY_ECON_SHEET_LIVE);
+  if (_econPick && _econPick.live === DAILY_ECON_PREFER_LIVE && _econPick.base === base && _econPick.liveV === liveV)
+    return _econPick.pick;
+  var pick = DAILY_ECON_SHEET;
+  if (DAILY_ECON_PREFER_LIVE && econUsable_(liveV)){
+    pick = DAILY_ECON_SHEET_LIVE;
+    if (econUsable_(base)){
+      var bd = econLastDate_(base), ld = econLastDate_(liveV);
+      if (bd != null && (ld == null || bd >= ld)){
+        pick = DAILY_ECON_SHEET;
+        try { Logger.log(DAILY_ECON_SHEET + ' carries its own dates and reaches as far as ' + DAILY_ECON_SHEET_LIVE +
+                         ': it is the anchor pull\'s daily feed, so the data blocks read it.'); } catch (e){}
+      }
+    }
+  }
+  _econPick = { live: DAILY_ECON_PREFER_LIVE, base: base, liveV: liveV, pick: pick };
+  return pick;
 }
 
 // 33x13 grid of '' — the NET blocks' blank spill. MUST be '' text cells, not an empty/1x1 array:

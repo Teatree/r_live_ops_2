@@ -166,13 +166,22 @@ function hcwRow_(sheetName, k1, v1, k2, v2){
     if (v[0][c] != null && v[0][c] !== '') h[String(v[0][c])] = c;
   if (h[k1] == null || h[k2] == null) return null;
   for (var r = 1; r < v.length; r++){
-    if (String(v[r][h[k1]]) === v1 && String(v[r][h[k2]]) === v2){
+    // D94: a 'segment' key matches by meaning ('100+' is '100-249'), every other key exactly
+    var m1 = (k1 === 'segment') ? hcwSegSame_(v[r][h[k1]], v1) : String(v[r][h[k1]]) === v1;
+    var m2 = (k2 === 'segment') ? hcwSegSame_(v[r][h[k2]], v2) : String(v[r][h[k2]]) === v2;
+    if (m1 && m2){
       var o = {};
       for (var name in h) o[name] = v[r][h[name]];
       return o;
     }
   }
   return null;
+}
+// D94: two labels name the same segment when the engine says so ('100+' is '100-249'); plain equality
+// when this file runs without the engine.
+function hcwSegSame_(a, b){
+  if (typeof segCanon_ === 'function') return segCanon_(a) === segCanon_(b);
+  return String(a) === String(b);
 }
 // the data_econ row for (segment, payer, currency = 'HC'); null if absent.
 function hcwEconHC_(seg, payer){
@@ -183,7 +192,7 @@ function hcwEconHC_(seg, payer){
     if (v[0][c] != null && v[0][c] !== '') h[String(v[0][c])] = c;
   if (h['segment'] == null || h['payer_flag'] == null || h['currency'] == null) return null;
   for (var r = 1; r < v.length; r++){
-    if (String(v[r][h['segment']]) === seg && String(v[r][h['payer_flag']]) === payer &&
+    if (hcwSegSame_(v[r][h['segment']], seg) && String(v[r][h['payer_flag']]) === payer &&
         String(v[r][h['currency']]) === 'HC'){
       var o = {};
       for (var name in h) o[name] = v[r][h[name]];

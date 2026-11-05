@@ -73,7 +73,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var CARDSIM_BUILD = 'CardOpenings.gs     D93  2026-11-03';
+var CARDSIM_BUILD = 'CardOpenings.gs     D94  2026-11-05';
 
 
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
@@ -1143,10 +1143,12 @@ function cardTofConfig_(seg, payer, ctx, prof){
   // take-up, cash-out stage, runs per day, continue cap, wallet - so the ceiling is authored on the
   // sheet rather than in this file. Unknown row name, or no profile: the player's real segment.
   var behSeg = (prof && prof.tofRow && cfg.beh[prof.tofRow]) ? prof.tofRow : seg;
-  if (!cfg.beh[behSeg]) return null;
+  // D94: the row by the segment's config labels ('100-249' reads '100+', '250+' its parent's, ALL the
+  // member rows averaged) - tofBeh_
+  if (!tofBeh_(cfg, behSeg, payer)) return null;
   var run = tofRun_(behSeg, payer, ctx.ds);
   if (!run) return null;
-  var cashOut = tofCashOutN_(cfg, behSeg);
+  var cashOut = tofCashOutN_(cfg, behSeg, payer);
   var lad = tofLadderRow_(cfg, cashOut);
   // FRACTIONAL on purpose since the slot model landed (2026-09-09). A stage that carries an
   // envelope on one of three doors contributes 1/3 of one, so the ladder total is rarely a whole
@@ -1164,7 +1166,7 @@ function cardTofConfig_(seg, payer, ctx, prof){
   ((ctx.calNewOk && ctx.calNew[TOF_CAT]) || []).forEach(function(inst){
     ((inst && inst.days) || []).forEach(function(d){ if (d >= 1 && d <= DAILY_DAYS) live[d] = 1; });
   });
-  var beh = cfg.beh[behSeg];
+  var beh = tofBeh_(cfg, behSeg, payer);
   // THE ACTUAL RUN (2026-09-09). Everything below `walk` is what the card sim needs to play a run
   // door by door instead of drawing one Bernoulli on pBank and paying the average ladder: the
   // stages with their real doors, the continue ladder, and the wallet percentiles a continue is
@@ -2548,8 +2550,9 @@ function SimulatePackOpenings() {
   var seg   = String(simOut.getRange(SIM_SEG_CELL).getValue()   || '').trim();
   var payer = String(simOut.getRange(SIM_PAYER_CELL).getValue() || '').trim().toUpperCase();
   if (!seg)   throw new Error(SHEET_SIM + '!' + SIM_SEG_CELL + ' is empty, pick a player segment.');
-  if (SEG_TO_GAINS[seg] == null)
-    throw new Error('Unknown segment "' + seg + '" (use ' + Object.keys(SEG_TO_GAINS).join(' / ') + ').');
+  // D94: any segment data_seg_beh carries (250+, ALL), under any label that means it ('100+' = 100-249)
+  if (!cardSegKnown_(seg))
+    throw new Error('Unknown segment "' + seg + '" (use ' + cardSegNames_().join(' / ') + ').');
   if (payer !== 'NONPAYER' && payer !== 'PAYER')
     throw new Error(SHEET_SIM + '!' + SIM_PAYER_CELL + ' must be NONPAYER or PAYER (got "' + payer + '").');
 
@@ -2868,8 +2871,26 @@ var SHEET_TOTALS = 'Col_Cards_Totals';
 // 'A. 0' is deliberately absent: data_seg_beh has no row for it, packGrantPlan_ refuses to price
 // reach without behaviour telemetry, and spPackTiers_ now carries the same guard - so it could only
 // ever produce ten columns of zeros that read like a bug.
-var CLOUD_SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+'];
+var CLOUD_SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+'];   // the fallback: a pull with no data_seg_beh rows
 var CLOUD_PAYERS   = ['NONPAYER', 'PAYER'];
+// D94 (2026-11-05): the cells are the pull's own. Every member segment data_seg_beh carries, under the
+// label it uses there ('100-249' and '250+' on LIVE_OPS_V3 (20), '100+' before) - and never ALL, which is
+// the whole population rather than a cohort of it (user decision: not on the cloud or the totals sheet).
+function cloudSegments_(){
+  var mem = [];
+  try { var ds = Context.get().ds; mem = segMembers_(ds).map(function(s){ return segLabel_(s, ds); }); } catch (e){ mem = []; }
+  return mem.length ? mem : CLOUD_SEGMENTS.slice();
+}
+/** Is `seg` a segment the card sim can play: a member, ALL, or the appendix (which then draws nothing). */
+function cardSegKnown_(seg){
+  var c = segCanon_(seg);
+  if (c === 'A. 0') return true;
+  try { return Context.get().ds.segs().indexOf(c) >= 0; } catch (e){ return SEG_TO_GAINS[seg] != null; }
+}
+function cardSegNames_(){
+  try { var ds = Context.get().ds; return ds.segs().map(function(s){ return segLabel_(s, ds); }).concat(['A. 0']); }
+  catch (e){ return Object.keys(SEG_TO_GAINS); }
+}
 
 // The six cumulative series. Keys match runOneCardSeason_'s dailyCloud rows.
 var CLOUD_METRICS = [
@@ -3050,7 +3071,7 @@ var CLOUD_SRC_ROWS = 30;
 /** The 10 MEASURED permutations, in sheet column order. */
 function cloudPermutations_(){
   var out = [];
-  CLOUD_SEGMENTS.forEach(function(seg){
+  cloudSegments_().forEach(function(seg){
     CLOUD_PAYERS.forEach(function(payer){
       out.push({ seg: seg, payer: payer, label: seg + ' ' + payer });
     });
@@ -3418,8 +3439,8 @@ function colDailyActuals_(){
     var status = String(row[hdr['status']] == null ? '' : row[hdr['status']]).trim().toUpperCase();
     var isFake = (status === 'FAKE');
     if (isFake && !CLOUD_ACTUALS_READ_FAKE) continue;
-    var cell = seg + '|' + pay;
-    var bucket = out[cell] || (out[cell] = { metrics: {}, lastDay: 0, anyFake: false, pop: 0 });
+    var cell = segCanon_(seg) + '|' + pay;                 // D94: one spelling per segment
+    var bucket = out[cell] || (out[cell] = { metrics: {}, lastDay: 0, anyFake: false, pop: 0, label: seg });
     // players_in_cell, when the pull sends it. This is the DENOMINATOR the actuals were averaged
     // over, and comparing it against data_seg_beh is the only cheap way to catch the two sheets
     // being segmented on different axes - see popWarning_.
@@ -3559,7 +3580,7 @@ function popProfile_(actuals){
   var perms = cloudPermutations_(), byCell = {}, lo = null, hi = null, loCell = '', hiCell = '';
   var logSum = 0, n = 0;
   perms.forEach(function(p){
-    var cmp = popCompare_(actuals[p.seg + '|' + String(p.payer).toUpperCase()], p.seg, p.payer);
+    var cmp = popCompare_(actuals[segCanon_(p.seg) + '|' + String(p.payer).toUpperCase()], p.seg, p.payer);
     if (!cmp || !(cmp.ratio > 0)) return;
     byCell[p.label] = cmp;
     logSum += Math.log(cmp.ratio); n++;
@@ -3620,7 +3641,10 @@ function popWarning_(prof, label){
 // reorders its columns, inserts one, or starts carrying a statistic it did not carry before.
 function actFormulaRow_(perm, firstDataRow, lastDataRow){
   var dayRange = '$' + colLetter_(1) + firstDataRow + ':$' + colLetter_(1) + lastDataRow;
-  var keyCrit = cdCol_('segment')    + ',"' + perm.seg + '",' +
+  // D94: the criterion is data_col_daily's OWN spelling of the segment (it may say '100+' where
+  // data_seg_beh says '100-249'); a cell it has no row for keeps the permutation's label
+  var actC = colDailyActuals_()[segCanon_(perm.seg) + '|' + String(perm.payer).toUpperCase()];
+  var keyCrit = cdCol_('segment')    + ',"' + ((actC && actC.label) || perm.seg) + '",' +
                 cdCol_('payer_flag') + ',"' + String(perm.payer).toUpperCase() + '",';
   var out = [];
   CLOUD_METRICS.forEach(function(met){
@@ -3714,7 +3738,7 @@ function writeCloudSheet_(sh, agg, nPlayers, seed){
     // finds a block with MATCH(B2, A:A, 0), an EXACT match, so appending "actuals through day 14"
     // here would break the chart's lookup outright. The actuals' provenance goes on the group row.
     sh.getRange(r0, 1).setValue(perms[j].label + (a ? '' : '   (not run)'));
-    var act = actuals[perms[j].seg + '|' + String(perms[j].payer).toUpperCase()] || null;
+    var act = actuals[segCanon_(perms[j].seg) + '|' + String(perms[j].payer).toUpperCase()] || null;
     grp = ['']; hdr = ['Day'];
     CLOUD_METRICS.forEach(function(met){
       CLOUD_STATS.forEach(function(st, i){ grp.push(i === 0 ? met.label : ''); hdr.push(st); });
@@ -3971,9 +3995,19 @@ function writeTotalsSheet_(sh, tVals, agg, nPlayers, seed, cfg){
   perms.forEach(function(pm, j){
     var label = TB_MIX_PREFIX + pm.label;
     var r = findBlockRow_(tVals, label);
+    // D94: a sheet built before the pull renamed the segment still carries the bar under its old name
+    // ('PACK & CARD MIX - 100+ PAYER' for the 100-249 cell): any label that means the same segment finds it
+    if (r < 0 && !pm.prof && typeof segCanon_ === 'function'){
+      var canonP = segCanon_(pm.seg);
+      Object.keys(SEG_ALIAS).concat([canonP]).forEach(function(al){
+        if (r < 0 && al !== pm.seg && segCanon_(al) === canonP) r = findBlockRow_(tVals, TB_MIX_PREFIX + al + ' ' + pm.payer);
+      });
+    }
     if (r < 0){
-      Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped. Re-import " +
-                 'display/Col_Cards_Totals_v1.xlsx to add the per-permutation mix tables.');
+      skipped.push(label);
+      Logger.log("Col_Cards_Totals has no '" + label + "' bar - block skipped. Import " +
+                 'display/Col_Cards_Totals_v2.xlsx (it reserves a mix table for every cell of this pull), or add the bar ' +
+                 'in column A under the last table with ' + (CLOUD_SRC_ROWS + 3) + ' free rows below it.');
       return;
     }
     var hdr = ['Source'];
@@ -4285,6 +4319,10 @@ var ALBUM_SEASON_GRID_START = 1;      // grid day of the live album season's day
 var ALBUM_SEASON_DAYS = 28;           // Oct 13 .. Nov 9
 var ALBUM_CALIB_PLAYERS = 300;        // players per cell for the calibration pass
 var ALBUM_CALIB_MIN_COUNT = 50;       // envelopes behind a tier's own k (else its source's k)
+// D94: album players behind a cell's own calibration. LIVE_OPS_V3 (20)'s 250+ cells hold 3 and 5 album
+// players - a k fitted on them is those players' luck - so a cell under this floor that has a parent
+// segment (SEG_PARENT: 250+ -> 100-249) takes its parent's k table, and says so on album_calibration.
+var ALBUM_CALIB_MIN_CELL = 100;
 var ALBUM_MIN_PLAYERS = 100;          // the floor the time budget may cut a season pass to
 var ALBUM_CARRIED_SRC = 'Album data (carried)';
 // album data source (an 'UNMAPPED:' prefix stripped) -> the card sim's source group. null = a grant the
@@ -4319,7 +4357,13 @@ function albumK_(calib, source, tier){
 }
 var _albumCalibCache;                 // undefined = not read (resetModuleCaches_)
 var _albumCalibOff = false;           // the calibration pass itself runs the model uncalibrated
-function albumCellLabel_(seg, payer){ return seg + ' ' + payer; }
+// D94: the segment under the label data_seg_beh uses for it, so an album pull that still says '100+' and a
+// permutation called '100-249' name the same cell. A SAVED table (album_calibration, album_gains) is read
+// under the labels it was written with, on purpose: a row written as '100+ PAYER' while the pull already
+// said '100-249' was computed for a segment the engine of the day could not resolve (LIVE_OPS_V3 (20)'s
+// table: no envelopes modelled, every k 'carried'), so it must not be re-attached to 100-249 - that cell
+// runs uncalibrated until Album completion is run again.
+function albumCellLabel_(seg, payer){ return segLabel_(seg) + ' ' + payer; }
 /** The album data's last day (data_col_daily), else the export's span, else null. */
 function albumDataDays_(){
   var v = sheetVals_(SHEET_COL_DAILY), mx = 0;
@@ -4500,7 +4544,8 @@ function albumInSeason_(which, calibrated, fn){
 function albumPrepare_(which, seed, D, opts){
   opts = opts || {};
   var perms = cloudPermutations_();
-  var out = { which: which, pres: [], ms: [], actD: [], preMs: 0, _calRows: opts.calibrate ? [] : null, _stoppedAt: -1 };
+  var out = { which: which, pres: [], ms: [], actD: [], preMs: 0, _calRows: opts.calibrate ? [] : null, _stoppedAt: -1,
+              _calByCell: {}, _borrowed: [] };
   return albumInSeason_(which, opts.calibrated, function(ctx){
     var cfg = out.cfg = loadPackConfig_();
     var album = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(cardSheet_(SHEET_ALBUM));
@@ -4527,6 +4572,20 @@ function albumPrepare_(which, seed, D, opts){
         for (var gk2 in g) g[gk2] /= Math.max(1, nc);
         var model = {}; model[p.label] = { grants: g, actD: actD };
         var rows = albumCalibRows_(opts.calibrate.meas, model, nc, [p]);
+        // D94: too few album players for a k of its own -> the parent segment's (set up earlier in this loop)
+        var mCell = opts.calibrate.meas[p.label], parSeg = SEG_PARENT[segCanon_(p.seg)];
+        var parLabel = parSeg ? albumCellLabel_(parSeg, p.payer) : null;
+        if (parLabel && out._calByCell[parLabel] && !(mCell && mCell.players >= ALBUM_CALIB_MIN_CELL)){
+          var nOwn = mCell ? Math.round(num(mCell.players)) : 0;
+          rows = out._calByCell[parLabel].map(function(r){
+            var c = {}; for (var kk in r) c[kk] = r[kk];
+            c.cell = p.label;
+            c.note = 'borrowed from ' + parLabel + ' (' + nOwn + ' album players here, under ' + ALBUM_CALIB_MIN_CELL + ')' + (r.note ? ' - ' + r.note : '');
+            return c;
+          });
+          out._borrowed.push(p.label + ' <- ' + parLabel + ' (' + nOwn + ' album players)');
+        }
+        out._calByCell[p.label] = rows;
         rows.forEach(function(r){ out._calRows.push(r); });
         pre = albumPreWith_(pre, albumCalibCells_(rows)[p.label] || null);
       }
@@ -4833,7 +4892,8 @@ function SimulateAlbumCompletion(){
   var nCal = Math.min(nPlayers, ALBUM_CALIB_PLAYERS), cells = perms.length;
   var calib = !ALBUM_CALIBRATE ? { status: 'off', note: 'ALBUM_CALIBRATE is false' }
             : !meas ? { status: 'off', note: 'no usable ' + ALBUM_ENV_SHEET + ' sheet - the model\'s own envelope level' }
-            : (have && have.fp === fp && have.D === D)
+            // D94: ...and it calibrates every cell this run plays (a table from before 250+ / the relabel does not)
+            : (have && have.fp === fp && have.D === D && perms.every(function(pp){ return !!have.cells[pp.label]; }))
               ? { status: 'reused', note: 'k table of ' + have.when + ' (' + have.players + ' players per cell, inputs unchanged)' }
               : { status: 'computed', note: 'k table computed in this run (' + nCal + ' players per cell)' };
   var deadline = t0 + CLOUD_TIME_BUDGET_MS;

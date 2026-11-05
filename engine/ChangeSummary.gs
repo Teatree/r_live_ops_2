@@ -30,10 +30,17 @@
  * it, per player of the behaviour population (data_seg_beh). The 'Bottom-up %' key is the share of a row's VALUE
  * priced that way.
  *
- * ROWS: one band per (segment, payer) block - {All, 0-9 .. 100+} x {All payers, NONPAYER, PAYER}, All players
- * first. A merged block is the players_in_cell-weighted mean of its cells - the population of the same pull, so a
- * merged per-player amount is exactly the pooled amount over the pooled players (D88; it was weighted by
- * data_seg_beh's unique_players, a different population: 71k against data_gains' 100k). The 18 blocks are written
+ * ROWS: one band per (segment, payer) block - {ALL, every segment the pull carries} x {All payers, NONPAYER,
+ * PAYER}, the whole population first. A merged block is the players_in_cell-weighted mean of its cells - the
+ * population of the same pull, so a merged per-player amount is exactly the pooled amount over the pooled players
+ * (D88; it was weighted by data_seg_beh's unique_players, a different population: 71k against data_gains' 100k).
+ * THE WHOLE-POPULATION BAND IS THE PULL'S OWN 'ALL' SEGMENT (D94, 2026-11-05, user decision) where the pull
+ * carries one (LIVE_OPS_V3 (20)): ALL x NONPAYER and ALL x PAYER are engine cells like any other - their own
+ * gains, activity, ranks and balances, with the sources configured per segment (Saga, Night Sky, ToF, the
+ * collection rows) pooled from the member segments - and only ALL x All payers is a merge, of those two cells.
+ * It replaces the 'All' band that was the weighted mean of every segment cell; the note on row 3 prints both
+ * totals so the difference is on the sheet. A pull with no ALL segment keeps the weighted 'All' band.
+ * The blocks are written
  * twice: the window total, then the daily average (window total / window days). Every row carries Period /
  * Segment / Payer / Group / Model / Bottom-up %, every table repeats the Source name (no frozen panes on a sim
  * sheet), and a filter sits on the header row.
@@ -53,11 +60,22 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD().
-var CHANGESUM_BUILD = 'ChangeSummary.gs  D88b 2026-11-03';
+var CHANGESUM_BUILD = 'ChangeSummary.gs  D94  2026-11-05';
 
 var CS_SHEET = 'change_summary';
-var CS_SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+'];
+var CS_SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+'];   // the fallback: a pull with no data_seg_beh rows
 var CS_PAYERS = ['NONPAYER', 'PAYER'];
+var CS_ALL_MERGED = 'All';             // the whole-population band when it is a merge of the segment cells
+/** The member segments of the pull (D94), under data_seg_beh's own labels ('100-249', '250+' on (20)). */
+function csSegments_(ctx){
+  var mem = [];
+  try { mem = segMembers_(ctx.ds).map(function(sg){ return segLabel_(sg, ctx.ds); }); } catch (e){ mem = []; }
+  return mem.length ? mem : CS_SEGMENTS.slice();
+}
+/** The pull's own ALL segment ('ALL'), or null when it carries none. */
+function csAllSeg_(ctx){
+  try { return (ctx.ds.segs().indexOf(SEG_ALL) >= 0) ? SEG_ALL : null; } catch (e){ return null; }
+}
 var CS_HEADER_ROW = 6;                 // the filter row; rows 1-5: title, run stamp, notes, red notes, table bars
 var CS_KEYS = ['Period', 'Segment', 'Payer', 'Group', 'Model', 'Bottom-up %'];
 var CS_TABLES = [
@@ -88,7 +106,8 @@ function fillChangeSummary(){
   var cats = CATEGORY_ORDER.concat(extras);
   var popInfo = csPopulation_(ctx);
   var cells = csCellRows_(ctx, extras, popInfo);
-  var blocks = csBlocks_(cells, cats, prices);
+  var blocks = csBlocks_(cells, cats, prices, ctx);
+  var allCmp = csAllCompare_(cells, cats, prices, ctx);     // D94: the ALL band against the weighted merge it replaces
   var grp = (typeof spsGroupOf_ === 'function') ? spsGroupOf_().map : {};
   var dflt = (typeof SPS_DEFAULT_GROUP !== 'undefined') ? SPS_DEFAULT_GROUP : 'META';
   var groupOf = function(cat){ return grp[cat] || dflt; };
@@ -96,7 +115,7 @@ function fillChangeSummary(){
   CATEGORY_ORDER.forEach(function(c){ if (typeof laneStandInActive_ === 'function' && laneStandInActive_(c, ctx)) standIn[c] = 1; });
 
   var L = csLayout_();
-  var head = csHeadRows_(L, ctx, days, extras, ss, popInfo, standIn);
+  var head = csHeadRows_(L, ctx, days, extras, ss, popInfo, standIn, allCmp);
   var body = [], marks = [];                          // marks: {total, first, fmtAbs}
   [{ label: days + ' days', k: 1, fmtAbs: '#,##0.00' },
    { label: 'Daily avg', k: 1 / days, fmtAbs: '#,##0.000' }].forEach(function(per, pi){
@@ -224,14 +243,16 @@ function csExportOnlyCats_(){
  *  export): every amount then stays per earner and the merge weight is data_seg_beh's unique_players. */
 function csPopulation_(ctx){
   var v = sheetVals_('data_gains'), out = { perPlayer: false, cells: {} };
-  var inv = {};
-  for (var s in SEG_TO_GAINS) inv[SEG_TO_GAINS[s]] = s;
+  // D94: every cell the pull carries (the member segments and ALL), keyed by the label data_seg_beh uses
+  // for the segment - the label the blocks print - whatever data_gains calls it ('F. 100-249')
+  var want = {};
+  csSegments_(ctx).concat(csAllSeg_(ctx) ? [SEG_ALL] : []).forEach(function(sg){ want[segCanon_(sg)] = sg; });
   if (v && v.length > 1){
     var h = headerIndex_(v[0]);
     var ok = h['players_in_cell'] != null && h['resource_earners'] != null && h['engagement_segment'] != null;
     for (var i = 1; ok && i < v.length; i++){
-      var r = v[i], seg = inv[String(r[h['engagement_segment']]).trim()];
-      if (!seg || CS_SEGMENTS.indexOf(seg) < 0) continue;
+      var r = v[i], seg = want[segCanon_(r[h['engagement_segment']])];
+      if (!seg) continue;
       var key = seg + '|' + String(r[h['payer_flag']]).trim();
       var o = out.cells[key] || (out.cells[key] = { players: 0, earners: {}, has: {} });
       o.players = num(r[h['players_in_cell']]);
@@ -246,8 +267,8 @@ function csPopulation_(ctx){
 /** One engine pass per segment x payer cell: every category's current (measured) and new (simulated) row, per
  *  player (D88), with the resources the export anchors marked. */
 function csCellRows_(ctx, extras, popInfo){
-  var cells = [];
-  CS_SEGMENTS.forEach(function(seg){
+  var cells = [], allSeg = csAllSeg_(ctx);
+  csSegments_(ctx).concat(allSeg ? [allSeg] : []).forEach(function(seg){
     CS_PAYERS.forEach(function(payer){
       var pc = popInfo && popInfo.cells[seg + '|' + payer];
       var per = !!(popInfo && popInfo.perPlayer && pc && pc.players > 0);
@@ -275,18 +296,30 @@ function csCellRows_(ctx, extras, popInfo){
         rows[cat] = { cur: d, nw: d, anc: anc };
       });
       var pop = per ? pc.players : num(ctx.ds.beh(seg, payer).unique_players);
-      cells.push({ seg: seg, payer: payer, pop: pop, rows: rows });
+      cells.push({ seg: seg, payer: payer, pop: pop, rows: rows, all: (seg === allSeg) });
     });
   });
   return cells;
 }
 /** The 18 blocks: a single cell is its own row; a merged block the population-weighted mean of its cells. Each row
  *  also carries its bottom-up share of VALUE (both sides together). */
-function csBlocks_(cells, cats, prices){
+function csBlocks_(cells, cats, prices, ctx, mergedAll){
   var out = [];
-  ['All'].concat(CS_SEGMENTS).forEach(function(seg){
+  // D94: the whole-population band is the pull's ALL segment where it has one (its two cells; merged only
+  // over the payer flag); otherwise - and when `mergedAll` asks for the old band - the weighted merge of
+  // every member cell. An ALL cell is never part of another band.
+  var hasAll = !mergedAll && cells.some(function(x){ return x.all; });
+  var allSeg = hasAll ? cells.filter(function(x){ return x.all; })[0].seg : CS_ALL_MERGED;
+  var segs = [], seenSeg = {};
+  cells.forEach(function(x){ if (!x.all && !seenSeg[x.seg]){ seenSeg[x.seg] = 1; segs.push(x.seg); } });
+  [allSeg].concat(segs).forEach(function(seg){
     ['All'].concat(CS_PAYERS).forEach(function(payer){
-      var mem = cells.filter(function(x){ return (seg === 'All' || x.seg === seg) && (payer === 'All' || x.payer === payer); });
+      var top = (seg === allSeg);
+      var mem = cells.filter(function(x){
+        if (payer !== 'All' && x.payer !== payer) return false;
+        if (top) return hasAll ? x.all : !x.all;
+        return !x.all && x.seg === seg;
+      });
       var w = 0;
       mem.forEach(function(x){ w += x.pop; });
       var rows = {};
@@ -340,7 +373,18 @@ function csFingerprint_(){
   });
   return ('00000000' + h.toString(16)).slice(-8);
 }
-function csHeadRows_(L, ctx, days, extras, ss, popInfo, standIn){
+/** D94: what replacing the weighted 'All' band with the pull's ALL segment changed - the VALUE per player of
+ *  both, current and new, over all players. null when the pull has no ALL segment. */
+function csAllCompare_(cells, cats, prices, ctx){
+  if (!cells.some(function(x){ return x.all; })) return null;
+  var tot = function(blocks){
+    var b = blocks[0], c = 0, n = 0;
+    cats.forEach(function(cat){ c += csValue_(b.rows[cat].cur, prices); n += csValue_(b.rows[cat].nw, prices); });
+    return { cur: c, nw: n, pct: (Math.abs(c) > CS_EPS) ? n / c - 1 : 0, pop: b.pop };
+  };
+  return { all: tot(csBlocks_(cells, cats, prices, ctx)), merged: tot(csBlocks_(cells, cats, prices, ctx, true)) };
+}
+function csHeadRows_(L, ctx, days, extras, ss, popInfo, standIn, allCmp){
   var blank = function(){ var a = []; for (var c = 0; c < L.nCols; c++) a.push(''); return a; };
   var r1 = blank(), r2 = blank(), r3 = blank(), r4 = blank(), r5 = blank(), r6 = blank();
   var when = '';
@@ -365,6 +409,12 @@ function csHeadRows_(L, ctx, days, extras, ss, popInfo, standIn){
               'population - Bottom-up % says how much of a row that is. '
             : 'PER EARNER - this data_gains has no players_in_cell / resource_earners: amounts are per earner of each resource and VALUE ' +
               'adds unlike denominators; merged rows weighted by unique_players. ') +
+          (allCmp ? 'ALL is the pull\'s own whole-population segment (D94), not the weighted mean of the segments: VALUE per player ' +
+                    allCmp.all.cur.toFixed(0) + ' -> ' + allCmp.all.nw.toFixed(0) + ' (' + (allCmp.all.pct >= 0 ? '+' : '') + (100 * allCmp.all.pct).toFixed(2) +
+                    '%) against ' + allCmp.merged.cur.toFixed(0) + ' -> ' + allCmp.merged.nw.toFixed(0) + ' (' + (allCmp.merged.pct >= 0 ? '+' : '') +
+                    (100 * allCmp.merged.pct).toFixed(2) + '%) for the weighted mean it replaces; its Saga, Night Sky, ToF and collection rows are ' +
+                    'the member segments pooled (they are configured per segment). '
+                  : '') +
           'One band per segment x payer (TOTAL first, then sources by CURRENT value); the ' + days + '-day totals, then the daily ' +
           'averages. Filter any column on row ' + CS_HEADER_ROW + '. Model: anchored = measured x the model\'s change; bottom-up = no ' +
           'measured level; carried = no simulator, NEW = CURRENT; card sim = 50 seeded seasons per cell (noisy)' +

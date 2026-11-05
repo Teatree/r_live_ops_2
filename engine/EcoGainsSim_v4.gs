@@ -7,7 +7,8 @@
  * CUSTOM FUNCTIONS (per segment block, spills 25x19):
  *   =LET(payer, $C$3, segment, $B$6, ECOGAINS_SIM(payer, segment))     // C<firstDataRow>
  *   =LET(payer, $C$3, segment, $B$6, ECOGAINS_DIFF(payer, segment))    // O<firstDataRow>
- *   segment = '0-9' | '10-19' | '20-39' | '40-99' | '100+' | 'A. 0' (appendix, carried+annotated)
+ *   segment = any segment data_seg_beh carries - '0-9' | '10-19' | '20-39' | '40-99' | '100-249' | '250+' | 'ALL'
+ *             ('100+' is read as '100-249', D94) - or 'A. 0' (appendix, carried+annotated)
  *
  * MODEL PER SOURCE (see SIMULATION_PLAN.md §2 for specs and worked numbers):
  *   carried        Ads, Other, Team Event, Team Race, FlowerCoop, IAPs
@@ -98,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D93  2026-11-03';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D96  2026-11-05';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -164,9 +165,173 @@ var CATEGORY_ORDER = [
   'Col - Sets','Col - Albums'
 ];
 
-// display segment -> data_gains label (D8: '0-9' anchors to B. 1-9; A. 0 = appendix, own label)
+// display segment -> data_gains label (D8: '0-9' anchors to B. 1-9; A. 0 = appendix, own label).
+// Kept as the list of labels a sheet may name; every LOOKUP goes through segCanon_ (D94) instead.
 var SEG_TO_GAINS = {'0-9':'B. 1-9','10-19':'C. 10-19','20-39':'D. 20-39','40-99':'E. 40-99',
-                    '100+':'F. 100+','A. 0':'A. 0'};
+                    '100+':'F. 100+','100-249':'F. 100-249','250+':'G. 250+','ALL':'ALL','A. 0':'A. 0'};
+
+// ============================== SEGMENTS (D94, 2026-11-05) ===================================
+// LIVE_OPS_V3 (20) re-pulled every data_* sheet with two more segments and one renamed:
+//   '100+'  is GONE  - the pull calls it '100-249' (data_gains: 'F. 100-249'). User decision: a
+//           '100+' left on any sheet - a config block (c_saga, NS, ToF), a sim sheet's tag, a
+//           dropdown, an older feed - MEANS 100-249. SEG_ALIAS says so once, for every reader.
+//   '250+'  is new, split out of the old 100+. It has no config block of its own (yet): a config
+//           reader that finds no '250+' block reads its PARENT's ('100-249', i.e. the '100+' block),
+//           and a behaviour row the pull lacks for it falls back the same way (SEG_PARENT). Its
+//           measured gains never fall back - a missing data_gains row is a measured 0.
+//   'ALL'   is new and is NOT a sum of the others: it is the pull's own row for the whole
+//           population, read like any segment (its own gains, activity, ranks, balances, streaks).
+//           The exception is what is CONFIGURED per segment - the Saga coin ladder, the Night Sky
+//           ladders, the ToF behaviour rows: an ALL player has no ladder, so those rows are the
+//           pooled result of the member segments, each weighted by its players (mixRow_), and the
+//           collection rows are the member segments' card seasons pooled (colSimSeasons_).
+// One canonical spelling inside the engine (segCanon_), whatever a sheet or a pull writes; the
+// labels the engine PRINTS are the ones data_seg_beh uses (segLabel_), so an older workbook keeps
+// reading '100+' and (20) reads '100-249'. The member list is data_seg_beh's own rows (D12).
+var SEG_ALL = 'ALL';
+var SEG_ALIAS = { '100+': '100-249', '1-9': '0-9' };
+var SEG_PARENT = { '250+': '100-249' };
+// Sources whose ALL row is the member segments POOLED (mixRow_) instead of ALL's own average player:
+//   Saga, Night Sky, ToF      configured per segment - an ALL player has no ladder / behaviour row
+//   Season Pass (Free, Paid)  a TIER is a threshold each player crosses or not (user decision
+//                             2026-11-05, measured on (20)): ALL's average player (1,728 tokens) sat
+//                             just above a tier edge and dropped a whole tier on the redesign (Free
+//                             -3.1%, Paid -7.8%) while no single segment crossed one (0.0%), and the
+//                             modelled Paid track read 1,021 for the average player against 854 for
+//                             the segments' average - one average player reaches tiers the low
+//                             segments never do. Six segments describe the population better than one.
+var SEG_MIX_CATS = { 'Saga': 1, 'Daily Night Sky Prize': 1, 'ToF': 1,
+                     'Season Pass (Free)': 1, 'Season Pass (Paid)': 1 };
+/** The engine's one spelling of a segment label: trimmed, data_gains' 'F. ' prefix dropped,
+ *  aliases applied. '' for a blank. */
+function segCanon_(x){
+  var s = String(x == null ? '' : x).trim();
+  if (!s) return '';
+  if (s === 'A. 0' || s === 'A.0') return 'A. 0';
+  var m = /^[A-Z]\.\s*(\S.*)$/.exec(s);                  // 'B. 1-9', 'F. 100-249', 'G. 250+'
+  if (m) s = m[1].trim();
+  if (/^all$/i.test(s)) return SEG_ALL;
+  return SEG_ALIAS[s] || s;
+}
+function segIsAll_(seg){ return segCanon_(seg) === SEG_ALL; }
+function segIsAppendix_(seg){ return segCanon_(seg) === 'A. 0'; }
+/** The labels a CONFIG block for `seg` may carry, best first: its own spellings, then its parent's
+ *  ('250+' -> '250+', '100-249', '100+'). ALL has none - its config is a mixture (segMembers_). */
+function segCfgKeys_(seg){
+  var out = [], seen = {}, cur = segCanon_(seg), hops = 0;
+  function add(x){ if (x && !seen[x]){ seen[x] = 1; out.push(x); } }
+  while (cur && hops++ < 4){
+    add(cur);
+    for (var a in SEG_ALIAS) if (SEG_ALIAS[a] === cur) add(a);
+    cur = SEG_PARENT[cur];
+  }
+  return out;
+}
+/** Index into `labels` of the config block `seg` reads (segCfgKeys_ order), or -1. */
+function segCfgPick_(labels, seg){
+  var keys = segCfgKeys_(seg);
+  for (var k = 0; k < keys.length; k++)
+    for (var i = 0; i < labels.length; i++)
+      if (String(labels[i] == null ? '' : labels[i]).trim() === keys[k]) return i;
+  return -1;
+}
+/** The label the engine prints for a segment: data_seg_beh's own spelling of it, else canonical. */
+function segLabel_(seg, ds){
+  var c = segCanon_(seg);
+  try { ds = ds || Context.get().ds; } catch (e){ ds = null; }
+  var l = (ds && ds.segLabel) ? ds.segLabel(c) : null;
+  return l || c;
+}
+/** The member segments of the population, canonical, in data_seg_beh's rank order: every segment
+ *  the pull carries except ALL (and the appendix). */
+function segMembers_(ds){
+  try { ds = ds || Context.get().ds; } catch (e){ return []; }
+  return ((ds && ds.segs) ? ds.segs() : []).filter(function(s){ return s !== SEG_ALL && s !== 'A. 0'; });
+}
+/** How many players stand behind one per-earner amount: the resource's earners where the export
+ *  carries (category, resource) for the cell, else the cell's players (a bottom-up amount is per
+ *  player). The weight a member segment's row takes in the ALL mixture. */
+function segWeight_(ds, seg, payer, cat, r){
+  var e = ds.hasGain(seg, payer, cat, r) ? ds.earners(seg, payer, r) : 0;
+  return (e > 0) ? e : ds.players(seg, payer);
+}
+/** [{seg, w}] over the member segments of one payer flag, w = share of their players (sums to 1). */
+function segMix_(payer, ds){
+  var mem = segMembers_(ds), tot = 0, out = [];
+  mem.forEach(function(s){ var n = ds.players(s, payer); if (n > 0){ out.push({ seg: s, w: n }); tot += n; } });
+  out.forEach(function(x){ x.w = x.w / tot; });
+  return out;
+}
+/** The segment whose per-segment CONFIG one simulated player is given (the play-by-play view): itself,
+ *  except ALL - a single ALL player has to stand on one ladder, and that is the member segment whose
+ *  7-day saga range holds ALL's own weekly saga pace (saga completions per active day x the active days
+ *  of a week). On LIVE_OPS_V3 (20): ~32 a week at either payer flag -> the 20-39 ladders. */
+function segCfgRep_(seg, payer, ds){
+  var c = segCanon_(seg);
+  if (c !== SEG_ALL) return c;
+  try { ds = ds || Context.get().ds; } catch (e){ return c; }
+  var b = ds.beh(SEG_ALL, payer) || {};
+  var perDay = num(b.saga_completes_per_active_day) || num(b.levels_completed_per_active_day);
+  var pace = perDay * (4 * num(b.weekday_active_rate) + 3 * num(b.weekend_active_rate));   // Fri/Sat/Sun = weekend
+  var mem = segMembers_(ds), pick = mem.length ? mem[0] : c;
+  mem.forEach(function(sg){ var m = /^(\d+)/.exec(sg); if (m && pace >= +m[1]) pick = sg; });
+  return pick;
+}
+/** The MEASURED side of an ALL row of a pooled source: the export's own ALL amount wherever it carries
+ *  one; where it is silent - a synthetic anchor (the paid Season Pass track, a bottom-up column) - the
+ *  member segments' measured rows pooled per player, never the anchor of one average ALL player.
+ *  `core`: the members' export-only rows (measuredRowCore_), as the anchor side asks for them. */
+function mixMeasured_(cat, payer, ds, core){
+  if (cat === 'Daily Night Sky Prize' && !nsAnchored_() && NS_SIMULATE) return zeroRow_();   // a NEW source has no current side
+  var own = ds.dataRow(cat, SEG_ALL, payer), out = zeroRow_(), pooled = null;
+  RESOURCES.forEach(function(r){
+    if (num(own[r]) > 0){ out[r] = num(own[r]); return; }
+    if (!pooled){
+      pooled = zeroRow_();
+      segMembers_(ds).forEach(function(sg){
+        var m = core ? measuredRowCore_(cat, sg, payer, ds) : measuredRow_(cat, sg, payer, ds);
+        RESOURCES.forEach(function(q){ pooled[q] += segWeight_(ds, sg, payer, cat, q) * num(m[q]); });
+      });
+    }
+    var nA = segWeight_(ds, SEG_ALL, payer, cat, r);
+    out[r] = (nA > 0) ? pooled[r] / nA : 0;
+  });
+  return out;
+}
+/** The ALL row of a source configured per segment: the member segments' rows pooled. Per resource
+ *      ALL_new = ALL_measured x SUM_s N_s x new_s / SUM_s N_s x measured_s
+ *  - the pooled change of the members applied to ALL's own measured level, so identical configs
+ *  still give DIFF 0 - and, where no member has a measured amount (a bottom-up column the export
+ *  does not carry), the pooled per-player amount SUM_s N_s x new_s / N_ALL. N = segWeight_.
+ *  null when the pull has no member segment (the caller carries). */
+function mixRow_(cat, payer, ctx){
+  var ds = ctx.ds, mem = segMembers_(ds);
+  if (!mem.length) return null;
+  var measAll = measuredRow_(cat, SEG_ALL, payer, ds), nu = zeroRow_(), de = zeroRow_();
+  mem.forEach(function(s){
+    var x = resultRow_(cat, s, payer, ctx), m = measuredRow_(cat, s, payer, ds);
+    RESOURCES.forEach(function(r){
+      var n = segWeight_(ds, s, payer, cat, r);
+      nu[r] += n * num(x[r]); de[r] += n * num(m[r]);
+    });
+  });
+  var out = zeroRow_();
+  RESOURCES.forEach(function(r){
+    if (de[r] > 1e-12) out[r] = num(measAll[r]) * nu[r] / de[r];
+    else if (nu[r] > 0){
+      var nA = segWeight_(ds, SEG_ALL, payer, cat, r);
+      out[r] = (nA > 0) ? nu[r] / nA : 0;
+    }
+  });
+  return out;
+}
+/** The simulator of (category, segment): the source's own function, or the member mixture for ALL
+ *  on a source configured per segment. */
+function simFor_(cat, seg, payer, ctx){
+  if (SEG_MIX_CATS[cat] && segIsAll_(seg)) return mixRow_(cat, payer, ctx);
+  var fn = SOURCES[cat];
+  return fn ? fn(seg, payer, ctx, cat) : null;
+}
 
 // category -> its own named simulator (D15). Unlisted => carried (= measured).
 var SOURCES = {
@@ -275,7 +440,11 @@ function ECOGAINS_CAL_STATS(cal){
 }
 
 function resultRow_(cat, seg, payer, ctx){
-  if (seg === 'A. 0' || seg === 'A.0') return appendixRow_(cat, payer, ctx);   // §3 block
+  seg = segCanon_(seg);                                                        // D94: one spelling inside
+  if (seg === 'A. 0') return appendixRow_(cat, payer, ctx);                    // §3 block
+  // D94: ALL on a source configured per segment is the member segments pooled - already final
+  // (its members' rows carry the D82 anchoring), so it skips the overlays below
+  if (seg === SEG_ALL && SEG_MIX_CATS[cat]) return mixRow_(cat, payer, ctx) || measuredRow_(cat, seg, payer, ctx.ds);
   var fn = SOURCES[cat];
   var row = fn ? (fn(seg, payer, ctx, cat) || measuredRow_(cat, seg, payer, ctx.ds))
                : measuredRow_(cat, seg, payer, ctx.ds);                        // carried
@@ -295,8 +464,10 @@ function resultRow_(cat, seg, payer, ctx){
 // re-pull delivers real Core SPT rows, the raw value takes back over (no double count).
 // A. 0 stays raw (appendix — no behaviour telemetry, §3).
 function measuredRow_(cat, seg, payer, ds){
+  seg = segCanon_(seg);                                  // D94
+  if (seg === SEG_ALL && SEG_MIX_CATS[cat]) return mixMeasured_(cat, payer, ds, _baseSide);   // D94: pooled where the export is silent
   var row = measuredRowCore_(cat, seg, payer, ds);
-  if (_baseSide || seg === 'A. 0' || seg === 'A.0') return row;
+  if (_baseSide || seg === 'A. 0') return row;
   // D61: the bottom-up columns of the MEASURED side (see PACK_ANCHORED). Only where the export is
   // silent on every one of them - a pull that one day carries real pack rows takes over by itself.
   if (cat === TOF_CAT){
@@ -331,6 +502,7 @@ function spFreePacksSynth_(seg, payer, ds){
 }
 
 function measuredRowCore_(cat, seg, payer, ds){
+  if (SEG_MIX_CATS[cat] && segIsAll_(seg)) return mixMeasured_(cat, payer, ds, true);         // D94
   // D86: a stand-in lane has no current side (Chuck's: cal_curr runs none - user rule)
   if (LANE_STANDIN[cat] && laneStandInActive_(cat)) return zeroRow_();
   var row = ds.dataRow(cat, seg, payer);
@@ -499,6 +671,18 @@ function addSagaBase0_(out, seg, payer, ctx){
   return out;
 }
 function sagaRatio_(seg){
+  if (segIsAll_(seg)){
+    // D94: no ALL ladder. Outside the mixture row (mixRow_) this is only a fallback: the members'
+    // ratios weighted by their players (both payer flags).
+    var ds, mem;
+    try { ds = Context.get().ds; mem = segMembers_(ds); } catch (e){ mem = []; }
+    var nu = 0, de = 0;
+    mem.forEach(function(sg){
+      var w = ds.players(sg, 'NONPAYER') + ds.players(sg, 'PAYER');
+      nu += w * sagaRatio_(sg); de += w;
+    });
+    return (de > 0) ? nu / de : 1;
+  }
   var baseAvg = sagaCycleAvg_(readSagaBase_(seg)), v2Avg = sagaCycleAvg_(readSagaV2_(seg));
   return (baseAvg && baseAvg > 0 && v2Avg != null) ? v2Avg/baseAvg : 1;
 }
@@ -1130,6 +1314,24 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     return mk(cpart, false, crungs);   // cumulative ladder: rungs fire independently
   }
 
+  if (cat === 'Daily Night Sky Prize' && segIsAll_(seg)){
+    // D94: an ALL player has no ladder. Their Night Sky rungs are every member segment's rounds, each at
+    // that segment's own streak survival and opt-in, times the segment's share of the players - so the
+    // expected envelopes are the pooled population's. (One real player is in one segment; an 'ALL'
+    // player is the average of them - flagged, the same approximation as the ALL row itself.)
+    var allRungs = [];
+    segMix_(payer, ds).forEach(function(x){
+      var one = packRungs_(cat, x.seg, payer, ctx, instOrdinal, prof);
+      if (!one) return;
+      (one.groups || []).forEach(function(g){
+        (g.rungs || []).forEach(function(rg){
+          allRungs.push({ label: rg.label + ' [' + segLabel_(x.seg, ds) + ']', p: num(rg.p) * num(one.participation) * x.w,
+                          req: rg.req, progress: rg.progress, packs: rg.packs, tickets: rg.tickets });
+        });
+      });
+    });
+    return allRungs.length ? { participation: 1, groups: [{ exclusive: false, rungs: allRungs }] } : null;
+  }
   if (cat === 'Daily Night Sky Prize'){
     var st = ds.nsStreak(seg, payer);
     var Sn = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
@@ -1341,7 +1543,7 @@ function packAnchorRow_(cat, seg, payer){
   if (!ctx || !ctx.calCurOk) return (_packAnchorCache[key] = null);
   var bctx = baseCtx_(ctx), row = null;
   _baseSide = true;
-  try { row = pack ? packOnlyRow_(cat, seg, payer, bctx) : fn(seg, payer, bctx, cat); }
+  try { row = pack ? packOnlyRow_(cat, seg, payer, bctx) : simFor_(cat, seg, payer, bctx); }   // D94: ALL = its members pooled
   finally { _baseSide = false; }
   if (!row) return (_packAnchorCache[key] = null);
   var out = {};
@@ -1781,7 +1983,7 @@ function tofConfig_(){
 
   // ---- per-segment behaviour ----
   var sbh = mdBlock_(v, 'SEGMENT BEHAVIOUR');
-  cfg.beh = {};
+  cfg.beh = {}; cfg.behBy = {};
   if (sbh >= 0){
     var bh = mdHeaderRow_(v, sbh, 'Segment'), bc = {};
     if (bh < 0) bh = sbh + 1;
@@ -1801,16 +2003,63 @@ function tofConfig_(){
       // between, so "stop at the first empty cell" swallowed all five of them as segments named
       // after their own prose. A segment row is one whose take-up cell holds a NUMBER.
       if (contC == null || typeof v[r3][contC] !== 'number') continue;
-      cfg.beh[segName] = {
+      var behRow = {
         continueP:   num(v[r3][contC]),
         cashOut:     num(v[r3][bc['Cash-Out Stage']]),
         runsPerDay:  num(v[r3][bc['Runs per Active Day']]),
         maxContinues: (bc['Max Continues per Run'] != null) ? num(v[r3][bc['Max Continues per Run']]) : 0,
         balance:     (balC != null) ? num(v[r3][balC]) : 0
       };
+      cfg.beh[segName] = behRow;
+      // D94: the same row under its own payer flag, when the block has a Payer column (tofBeh_)
+      if (bc['Payer'] != null){
+        var pf = String(v[r3][bc['Payer']] == null ? '' : v[r3][bc['Payer']]).trim().toUpperCase();
+        if (pf) cfg.behBy[segName + '|' + pf] = behRow;
+      }
     }
   }
   return (_tofCfgCache[_side] = cfg);
+}
+
+// ---- which SEGMENT BEHAVIOUR row a (segment, payer) reads (D94, 2026-11-05) ---------------------
+// Rows are found by the segment's config labels (segCfgKeys_): its own spelling, an alias ('100-249'
+// reads a row called '100+'), then its parent's ('250+' reads the 100+ row until it is given one).
+// ALL has no row unless one is authored: it reads the member segments' rows averaged by their
+// players - an ASSUMPTION, used by the card sim's ALL player and the anchor walk (the ALL ToF row of
+// the gains grid is the member segments pooled, mixRow_).
+// TOF_BEH_BY_PAYER (default FALSE = the engine as it has always run): the block carries one row per
+// (segment, payer) since the D53 layout, but cfg.beh is keyed by segment alone, so the LAST row of a
+// segment - the PAYER one - is what every player of it reads, non-payers included (continue take-up
+// 0.08 for a 0-9 non-payer where the sheet authors 0.05). true reads each payer flag's own row.
+// FLAGGED, not switched on: it moves every non-payer ToF number, and nobody asked for that here.
+var TOF_BEH_BY_PAYER = false;
+function tofBeh_(cfg, seg, payer){
+  if (!cfg || !cfg.beh) return null;
+  var keys = segCfgKeys_(seg), pf = String(payer == null ? '' : payer).trim().toUpperCase();
+  // a row name that is not a segment at all (the MAX ceiling row) is read as written
+  var raw = String(seg == null ? '' : seg).trim();
+  if (keys.indexOf(raw) < 0) keys.unshift(raw);
+  for (var k = 0; k < keys.length; k++){
+    if (TOF_BEH_BY_PAYER && pf && cfg.behBy && cfg.behBy[keys[k] + '|' + pf]) return cfg.behBy[keys[k] + '|' + pf];
+    if (cfg.beh[keys[k]]) return cfg.beh[keys[k]];
+  }
+  if (!segIsAll_(seg)) return null;
+  cfg._allBeh = cfg._allBeh || {};
+  if (cfg._allBeh[pf] !== undefined) return cfg._allBeh[pf];
+  var ds, mix;
+  try { ds = Context.get().ds; mix = segMix_(pf || 'NONPAYER', ds); } catch (e){ mix = []; }
+  var acc = { continueP: 0, cashOut: 0, runsPerDay: 0, maxContinues: 0, balance: 0 }, wsum = 0;
+  mix.forEach(function(x){
+    var b = tofBeh_(cfg, x.seg, pf);
+    if (!b) return;
+    for (var f in acc) acc[f] += x.w * num(b[f]);
+    wsum += x.w;
+  });
+  if (!(wsum > 0)) return (cfg._allBeh[pf] = null);
+  for (var f2 in acc) acc[f2] = acc[f2] / wsum;
+  // stages, run counts and continue caps are whole numbers on the sheet
+  acc.cashOut = Math.round(acc.cashOut); acc.maxContinues = Math.round(acc.maxContinues);
+  return (cfg._allBeh[pf] = acc);
 }
 
 // Affordability factor. r = wallet / price of the next continue.
@@ -1899,7 +2148,7 @@ function tofCumCost_(costs, k){
 function tofRun_(seg, payer, ds){
   var cfg = tofConfig_();
   if (!cfg) return null;
-  var beh = cfg.beh[seg];
+  var beh = tofBeh_(cfg, seg, payer);                       // D94
   if (!beh || !(beh.continueP >= 0)) return null;
   // An authored 'Coin Balance override' REPLACES the measured percentiles for that segment -- that
   // is the whole point of it, and it is how MAX gets a wallet no real player has. Blank (0) means
@@ -1929,18 +2178,23 @@ function tofBalances_(seg, payer){
   if (v.length){
     var h = headerIndex_(v[0]);
     if (h['segment'] != null && h['payer_flag'] != null){
-      for (var i = 1; i < v.length; i++){
-        var r = v[i];
-        if (String(r[h['segment']]).trim() !== seg) continue;
-        if (String(r[h['payer_flag']]).trim() !== payer) continue;
-        var cur = String(h['currency'] != null ? r[h['currency']] : 'HC').trim().toUpperCase();
-        if (cur !== 'HC' && cur !== 'COINS') continue;
-        TOF_BAL_PCTS.forEach(function(p){
-          if (h[p] == null) return;
-          var x = num(r[h[p]]);
-          if (x > 0) out.push(x);
-        });
-        if (out.length) break;
+      // D94: canonical segment match; a cell the pull has no wallet for reads its parent's (250+ -> 100-249)
+      var want = segCanon_(seg), hops = 0;
+      while (want && !out.length && hops++ < 4){
+        for (var i = 1; i < v.length; i++){
+          var r = v[i];
+          if (segCanon_(r[h['segment']]) !== want) continue;
+          if (String(r[h['payer_flag']]).trim() !== payer) continue;
+          var cur = String(h['currency'] != null ? r[h['currency']] : 'HC').trim().toUpperCase();
+          if (cur !== 'HC' && cur !== 'COINS') continue;
+          TOF_BAL_PCTS.forEach(function(p){
+            if (h[p] == null) return;
+            var x = num(r[h[p]]);
+            if (x > 0) out.push(x);
+          });
+          if (out.length) break;
+        }
+        want = SEG_PARENT[want];
       }
     }
   }
@@ -1979,7 +2233,7 @@ function tofTicketIncome_(seg, payer, ctx, skip, measured){
 function tofRunBudget_(seg, payer, ctx, ticketsBackPerRun, measured){
   var cfg = tofConfig_();
   if (!cfg) return null;
-  var beh = cfg.beh[seg];
+  var beh = tofBeh_(cfg, seg, payer);                       // D94
   if (!beh) return null;
   var insts = (ctx.calNewOk && ctx.calNew[TOF_CAT]) || [];
   if (!insts.length) return { runs: 0, perDay: [], ticketsEarned: 0, ticketsLeft: 0, noLane: true };
@@ -2063,6 +2317,7 @@ function resetModuleCaches_(){
   _calGridDaysCache = null;                              // D79
   _expScaleTab = undefined;                              // D87: the export_scale table
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
+  if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
   if (typeof _albumCalibCache !== 'undefined') _albumCalibCache = undefined;   // CardOpenings.gs (D89)
   if (typeof _albumGainsCache !== 'undefined'){ _albumGainsCache = undefined; _albumFpMemo = undefined; }   // D89b
@@ -2208,8 +2463,8 @@ function tofLadderRow_(cfg, cashOutN){
 // The cash-out stage actually modelled for a segment: the authored one, or the end of the ladder if
 // it is blank. NOT a policy -- see the note on tofRunOnce_: the run banks at this stage and nowhere
 // else, so a deeper stage is strictly harder to reach and pays strictly less in expectation.
-function tofCashOutN_(cfg, seg){
-  var beh = cfg.beh[seg];
+function tofCashOutN_(cfg, seg, payer){
+  var beh = tofBeh_(cfg, seg, payer);                       // D94
   if (!beh) return 0;
   return (beh.cashOut > 0) ? beh.cashOut : cfg.stages[cfg.stages.length - 1].n;
 }
@@ -2227,7 +2482,7 @@ function tofPolicyLog_(cfg, segs, payer, ctx){
     segs.forEach(function(sg){
       var run = tofRun_(sg, payer, ctx.ds);
       if (run && run.pBank < 0.01)
-        deep.push(sg + ' (stage ' + tofCashOutN_(cfg, sg) + ', P(bank) ' + run.pBank.toExponential(2) + ')');
+        deep.push(sg + ' (stage ' + tofCashOutN_(cfg, sg, payer) + ', P(bank) ' + run.pBank.toExponential(2) + ')');
     });
     Logger.log('ToF policy: the run banks ONLY at the segment Cash-Out Stage. The authored ' +
                'Cash-Out Variant (' + cfg.cashOutVariant + ') is NOT modelled - Variant A would ' +
@@ -2258,8 +2513,8 @@ function ECOGAINS_TOF(payer, block, nonce){
                 'Cash-out stage','Ladder value if banked (coins-eq)','Expected value banked (coins-eq)']];
     segs.forEach(function(sg){
       var run = tofRun_(sg, p, ctx.ds);
-      var lad = tofLadderRow_(cfg, tofCashOutN_(cfg, sg));
-      if (!run){ out.push([sg,0,0,0,0,0,0, tofCashOutN_(cfg, sg), lad.coins, 0]); return; }
+      var lad = tofLadderRow_(cfg, tofCashOutN_(cfg, sg, p));
+      if (!run){ out.push([sg,0,0,0,0,0,0, tofCashOutN_(cfg, sg, p), lad.coins, 0]); return; }
       // MAX is a ceiling case, not an engagement segment: data_seg_beh has no row for it, so there
       // are no activity rates to price reach with and no ticket income to bank. Its PER-RUN numbers
       // are the point of it -- what the deep ladder is worth and what it costs to get there -- so
@@ -2267,7 +2522,7 @@ function ECOGAINS_TOF(payer, block, nonce){
       // nothing" instead of "this question does not apply to MAX".
       var beh = ctx.ds.beh(sg, p);
       var hasRates = num(beh.weekday_active_rate) > 0 || num(beh.weekend_active_rate) > 0;
-      var tail = [tofCashOutN_(cfg, sg), lad.coins, lad.coins * run.pBank];
+      var tail = [tofCashOutN_(cfg, sg, p), lad.coins, lad.coins * run.pBank];
       if (!hasRates){ out.push([sg, '', run.pBank, run.spend, '', '', ''].concat(tail)); return; }
       var b = tofRunBudget_(sg, p, ctx, num(run.bank[TOF_TICKET])) || {runs:0,ticketsEarned:0,ticketsLeft:0};
       out.push([sg, b.runs, run.pBank, run.spend, run.spend * b.runs,
@@ -2282,7 +2537,7 @@ function ECOGAINS_TOF(payer, block, nonce){
     // (x runs in window). The identity expected = if banked x P(run banks) is gated.
     var hdr = ['Resource'], pRow = ['P(run banks)'];
     var pre = segs.map(function(sg){
-      return { run: tofRun_(sg, p, ctx.ds), lad: tofLadderRow_(cfg, tofCashOutN_(cfg, sg)) };
+      return { run: tofRun_(sg, p, ctx.ds), lad: tofLadderRow_(cfg, tofCashOutN_(cfg, sg, p)) };
     });
     segs.forEach(function(sg, i){
       hdr.push(sg + ' if banked', sg + ' expected');
@@ -2336,7 +2591,7 @@ function ECOGAINS_TOF(payer, block, nonce){
 function tofStageCurve_(seg, payer, ctx){
   var cfg = tofConfig_();
   if (!cfg) return null;
-  var beh = cfg.beh[seg];
+  var beh = tofBeh_(cfg, seg, payer);                       // D94
   if (!beh) return null;
   var stages = cfg.stages, vals = itemVals_();
   var cashOutN = (beh.cashOut > 0) ? beh.cashOut : stages[stages.length - 1].n;
@@ -2949,6 +3204,7 @@ function simNightSky(seg, payer, ctx){
 // Returns {eBase, eV2} or null when the segment has no streak distribution or no base ladder
 // (either way there is nothing to anchor on -> callers carry measured).
 function nsE_(seg, payer, ds, ctx){
+  if (segIsAll_(seg)) return nsEAll_(payer, ds, ctx);      // D94
   var st = ds.nsStreak(seg, payer);
   var S = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
                           [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
@@ -2974,6 +3230,33 @@ function nsE_(seg, payer, ds, ctx){
            split: sh, baseSplit: bsh, hasWeekdayVariant: !!wdLad, hasBaseWeekdayVariant: !!bWdLad,
            // D92: the rounds themselves, for pricing a reward added to one of them (nsRungAdd_)
            ladders: { S: S, bWe: base, bWd: bWdLad || base, vWe: vWeLad, vWd: wdLad || vWeLad, sh: sh, bsh: bsh } };
+}
+
+/** D94: ALL has no Night Sky ladder. Its per-active-day E is the member segments' E, each on its own
+ *  ladder and its own streak survival, weighted by the Night Sky days its players play (players x the
+ *  window's expected active days). The day-type split is ALL's own. `ladders` is null: the round-level
+ *  pricing of D92 lives in the members' rows, which the ALL row pools (mixRow_). Used by the daily
+ *  view's day-type placement and anything that asks ALL for an E; null when no member has one. */
+function nsEAll_(payer, ds, ctx){
+  var keys = ['eBase', 'eV2', 'eV2Weekday', 'eV2Weekend', 'eBaseWeekday', 'eBaseWeekend'];
+  var acc = {}, wsum = 0, anyWd = false, anyBWd = false;
+  keys.forEach(function(k){ acc[k] = zeroRow_(); });
+  segMembers_(ds).forEach(function(sg){
+    var E = nsE_(sg, payer, ds, ctx);
+    if (!E) return;
+    var b = ds.beh(sg, payer) || {};
+    var w = ds.players(sg, payer) * pDaySum_(1, windowDays_(), num(b.weekday_active_rate), num(b.weekend_active_rate));
+    if (!(w > 0)) return;
+    keys.forEach(function(k){ RESOURCES.forEach(function(r){ acc[k][r] += w * num(E[k][r]); }); });
+    wsum += w; anyWd = anyWd || E.hasWeekdayVariant; anyBWd = anyBWd || E.hasBaseWeekdayVariant;
+  });
+  if (!(wsum > 0)) return null;
+  keys.forEach(function(k){ RESOURCES.forEach(function(r){ acc[k][r] = acc[k][r] / wsum; }); });
+  var sh = nsDayTypeSplit_(SEG_ALL, payer, ds, ctx);
+  return { eBase: acc.eBase, eV2: acc.eV2, eV2Weekday: acc.eV2Weekday, eV2Weekend: acc.eV2Weekend,
+           eBaseWeekday: acc.eBaseWeekday, eBaseWeekend: acc.eBaseWeekend,
+           split: sh, baseSplit: anyBWd ? nsDayTypeSplit_(SEG_ALL, payer, ds, ctx, 'cur') : sh,
+           hasWeekdayVariant: anyWd, hasBaseWeekdayVariant: anyBWd, ladders: null };
 }
 
 // ---- D92 (2026-11-02): a reward ADDED to a Night Sky round is priced off what that round pays -----
@@ -3266,6 +3549,12 @@ function rmMatchShare_(ds, seg, payer, t, L){
 // the exact-length rule only.
 var RM_PACE_STRETCH = true;
 var RM_PACE_SHEET = 'data_rm_pace';
+/** D95: a data_rm_pace row of an instance that had not finished when the pull was taken. */
+function rmPaceIncomplete_(r, h){
+  if (h['instance_complete'] == null) return false;
+  var x = r[h['instance_complete']];
+  return x === false || /^(false|0|no)$/i.test(String(x == null ? '' : x).trim());
+}
 var _rmPaceCache = null;
 function rmClaimPace_(seg, payer, L){
   if (!_rmPaceCache){
@@ -3276,21 +3565,36 @@ function rmClaimPace_(seg, payer, L){
       (v[0] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim().toLowerCase(); if (k && h[k] == null) h[k] = i; });
       var need = ['segment', 'payer_flag', 'instance_length_days', 'instance_day', 'cum_pooled_share'];
       if (need.every(function(k){ return h[k] != null; })){
+        // D95: LIVE_OPS_V3 (20)'s pull is PER INSTANCE (instance_id; three weekly events, two event ids
+        // per arm) - several rows per (cell, length, day, resource). The last row used to win, i.e.
+        // whichever instance the sheet happened to list last. Rows of one key are pooled, weighted by
+        // their participants; an instance still running at the pull's last day is skipped. One row per
+        // key (every older pull) is that row, bit for bit.
+        var wsum = {};
         for (var i = 1; i < v.length; i++){
           var r = v[i];
           if (h['status'] != null && String(r[h['status']]).trim().toUpperCase() === 'FAKE') continue;
-          var sg = String(r[h['segment']]).trim(), py = String(r[h['payer_flag']]).trim().toUpperCase();
+          if (rmPaceIncomplete_(r, h)) continue;
+          var sg = segCanon_(r[h['segment']]), py = String(r[h['payer_flag']]).trim().toUpperCase();
           var len = Math.round(num(r[h['instance_length_days']])), day = Math.round(num(r[h['instance_day']]));
           if (!sg || !(len > 0) || !(day > 0) || String(r[h['cum_pooled_share']]).trim() === '') continue;
           var res = (h['resource'] != null && String(r[h['resource']]).trim()) ? String(r[h['resource']]).trim() : 'ALL';
           var key = sg + '|' + py + '|' + len;
           var t = (_rmPaceCache.tab[key] = _rmPaceCache.tab[key] || {});
-          (t[res] = t[res] || {})[day] = num(r[h['cum_pooled_share']]);
+          var w = (h['n_participants'] != null && num(r[h['n_participants']]) > 0) ? num(r[h['n_participants']]) : 1;
+          var wk = key + '|' + res + '|' + day, tr = (t[res] = t[res] || {});
+          if (wsum[wk] === undefined){ wsum[wk] = w; tr[day] = num(r[h['cum_pooled_share']]); }
+          else { tr[day] = (tr[day] * wsum[wk] + num(r[h['cum_pooled_share']]) * w) / (wsum[wk] + w); wsum[wk] += w; }
         }
       }
     }
   }
-  var base = seg + '|' + String(payer).toUpperCase() + '|';
+  // D94: canonical segment; a cell the pull has no pace for reads its parent's (250+ -> 100-249)
+  var cseg = segCanon_(seg), base = cseg + '|' + String(payer).toUpperCase() + '|', hop = 0;
+  while (SEG_PARENT[cseg] && hop++ < 4 &&
+         !Object.keys(_rmPaceCache.tab).some(function(k){ return k.indexOf(base) === 0; })){
+    cseg = SEG_PARENT[cseg]; base = cseg + '|' + String(payer).toUpperCase() + '|';
+  }
   var Lp = _rmPaceCache.tab[base + (L + 1)] ? L + 1 : (_rmPaceCache.tab[base + L] ? L : 0);
   if (!Lp && RM_PACE_STRETCH && L > 0){
     // the carried length closest to this instance (in event days: dates spanned - 1)
@@ -3418,21 +3722,47 @@ function rmLiveTab_(){
   var need = ['segment', 'payer_flag', 'instance_length_days', 'instance_day',
               'cum_matchables_p25', 'cum_matchables_p50', 'cum_matchables_p75', 'cum_matchables_mean'];
   if (!need.every(function(k){ return h[k] != null; })) return _rmLiveCache;
+  // D95: one record per (cell, length, day) AND instance (instance_id when the pull is per instance -
+  // LIVE_OPS_V3 (20); '' otherwise, which is every older pull and exactly the old read), then the
+  // instances pooled by their participants. The percentiles of a pool are not the mean of the
+  // instances' percentiles - close here (the same event a week apart), FLAGGED.
+  var byInst = {};
   for (var i = 1; i < v.length; i++){
     var r = v[i];
     if (h['status'] != null && String(r[h['status']]).trim().toUpperCase() === 'FAKE') continue;
+    if (rmPaceIncomplete_(r, h)) continue;
     // the matchables are per (player, instance), the same on every resource row: read ALL, else the first
     var res = (h['resource'] != null) ? String(r[h['resource']]).trim() : 'ALL';
-    var sg = String(r[h['segment']]).trim(), py = String(r[h['payer_flag']]).trim().toUpperCase();
+    var sg = segCanon_(r[h['segment']]), py = String(r[h['payer_flag']]).trim().toUpperCase();
     var len = Math.round(num(r[h['instance_length_days']])), day = Math.round(num(r[h['instance_day']]));
     if (!sg || !(len > 1) || !(day > 0) || String(r[h['cum_matchables_p50']]).trim() === '') continue;
-    var key = sg + '|' + py, t = (_rmLiveCache[key] = _rmLiveCache[key] || {});
-    var L = (t[len] = t[len] || {});
-    if (L[day] && L[day].res === 'ALL') continue;
-    L[day] = { res: res, p25: num(r[h['cum_matchables_p25']]), p50: num(r[h['cum_matchables_p50']]),
+    var iid = (h['instance_id'] != null) ? String(r[h['instance_id']] == null ? '' : r[h['instance_id']]).trim() : '';
+    var bk = sg + '|' + py + '|' + len + '|' + day, slot = (byInst[bk] = byInst[bk] || { order: [], rec: {} });
+    if (slot.rec[iid] && slot.rec[iid].res === 'ALL') continue;
+    if (!slot.rec[iid]) slot.order.push(iid);
+    slot.rec[iid] = { res: res, p25: num(r[h['cum_matchables_p25']]), p50: num(r[h['cum_matchables_p50']]),
                p75: num(r[h['cum_matchables_p75']]), mean: num(r[h['cum_matchables_mean']]),
-               ms: (h['cum_milestones_claimed_mean'] != null) ? num(r[h['cum_milestones_claimed_mean']]) : null };
+               ms: (h['cum_milestones_claimed_mean'] != null) ? num(r[h['cum_milestones_claimed_mean']]) : null,
+               w: (h['n_participants'] != null && num(r[h['n_participants']]) > 0) ? num(r[h['n_participants']]) : 1,
+               seg: sg, py: py, len: len, day: day };
   }
+  Object.keys(byInst).forEach(function(bk){
+    var slot = byInst[bk], first = slot.rec[slot.order[0]], rec;
+    if (slot.order.length === 1) rec = { res: first.res, p25: first.p25, p50: first.p50, p75: first.p75, mean: first.mean, ms: first.ms };
+    else {
+      rec = { res: 'ALL', p25: 0, p50: 0, p75: 0, mean: 0, ms: null };
+      var ws = 0, msW = 0, msS = 0;
+      slot.order.forEach(function(id){
+        var x = slot.rec[id];
+        rec.p25 += x.w * x.p25; rec.p50 += x.w * x.p50; rec.p75 += x.w * x.p75; rec.mean += x.w * x.mean; ws += x.w;
+        if (x.ms != null){ msS += x.w * x.ms; msW += x.w; }
+      });
+      rec.p25 /= ws; rec.p50 /= ws; rec.p75 /= ws; rec.mean /= ws;
+      if (msW > 0) rec.ms = msS / msW;
+    }
+    var key = first.seg + '|' + first.py, t = (_rmLiveCache[key] = _rmLiveCache[key] || {});
+    (t[first.len] = t[first.len] || {})[first.day] = rec;
+  });
   return _rmLiveCache;
 }
 /** The survival over one date's distribution: P(matchables >= x). */
@@ -3467,9 +3797,11 @@ function rmLiveQuantile_(q, u){
 var _rmLiveCell = {};
 function rmLive_(seg, payer){
   if (!RM_LIVE_MATCHABLES) return null;
-  var key = seg + '|' + String(payer).toUpperCase();
+  var key = segCanon_(seg) + '|' + String(payer).toUpperCase();
   if (_rmLiveCell[key] !== undefined) return _rmLiveCell[key];
-  var t = rmLiveTab_()[key];
+  // D94: canonical segment; a cell the pull has no distribution for reads its parent's (250+ -> 100-249)
+  var t = rmLiveTab_()[key], pseg = segCanon_(seg), hop = 0;
+  while (!t && SEG_PARENT[pseg] && hop++ < 4){ pseg = SEG_PARENT[pseg]; t = rmLiveTab_()[pseg + '|' + String(payer).toUpperCase()]; }
   if (!t) return (_rmLiveCell[key] = null);
   var Ls = 0;
   Object.keys(t).forEach(function(k){ if (+k > Ls) Ls = +k; });    // the longest measured instance
@@ -3969,9 +4301,29 @@ function colSimSeasons_(seg, payer, ctx, side){
   try { ctx = ctx || Context.get(); } catch (e){ return null; }
   if (!ctx) return null;
   ctx._colSim = ctx._colSim || {};
+  seg = segCanon_(seg);                                 // D94
   var key = seg + '|' + payer + (side === 'cur' ? '|cur' : '');
   if (ctx._colSim[key] !== undefined) return ctx._colSim[key];
   if (_colSimBusy || ctx._colBusy) return null;        // re-entry: contribute nothing to our input
+  // D94: ALL is not a cohort the card sim plays - album and set completion are threshold outcomes of
+  // each segment's own activity, ranks and ladders, so the population's seasons are its member
+  // segments' seasons pooled by their players (the album run's own 'All' rule, D89).
+  if (seg === SEG_ALL){
+    var mixA = segMix_(payer, ctx.ds), pooled = null, wA = 0;
+    mixA.forEach(function(x){
+      var one = colSimSeasons_(x.seg, payer, ctx, side);
+      if (!one) return;
+      pooled = pooled || { sets: zeroRow_(), albums: zeroRow_(), n: one.n, albumsPerSeason: 0, pooled: true };
+      RESOURCES.forEach(function(r){ pooled.sets[r] += x.w * num(one.sets[r]); pooled.albums[r] += x.w * num(one.albums[r]); });
+      pooled.albumsPerSeason += x.w * num(one.albumsPerSeason);
+      wA += x.w;
+    });
+    if (pooled && wA > 0 && wA < 1 - 1e-9){               // a member with no seasons: over the ones that ran
+      RESOURCES.forEach(function(r){ pooled.sets[r] /= wA; pooled.albums[r] /= wA; });
+      pooled.albumsPerSeason /= wA;
+    }
+    return (ctx._colSim[key] = pooled);
+  }
   // D89b: the album run's own seasons (calibrated, its player count) while saved under these inputs
   if (typeof albumGainsFor_ === 'function'){
     var saved = albumGainsFor_(seg, payer, side);
@@ -4023,7 +4375,7 @@ function colSimSeasons_(seg, payer, ctx, side){
 }
 
 function colRewardRow_(which, seg, payer, ctx){
-  if (seg === 'A. 0' || seg === 'A.0') return zeroRow_();   // no behaviour telemetry -> no packs
+  if (segIsAppendix_(seg)) return zeroRow_();               // no behaviour telemetry -> no packs
   var sim = colSimSeasons_(seg, payer, ctx, 'new');
   if (!sim) return zeroRow_();
   var walkNew = (which === 'sets') ? sim.sets : sim.albums;
@@ -5035,6 +5387,17 @@ function exportScaleTab_(){
   Object.keys(h).forEach(function(k){ var m = /^d(-?\d+)$/.exec(k); if (m) dayCols.push([+m[1], h[k]]); });
   if (!dayCols.length) return null;
   dayCols.sort(function(a, b){ return a[0] - b[0]; });
+  // D96: the days the FEED carries, when the stamp rows say (a table written before D96 does not: the
+  // whole span, as it was read then)
+  var feedFirst = dayCols[0][0], feedLast = dayCols[dayCols.length - 1][0];
+  for (var rr = 0; rr < hr; rr++){
+    var mrow = v[rr] || [];
+    for (var cc = 0; cc + 1 < mrow.length; cc++){
+      if (String(mrow[cc] == null ? '' : mrow[cc]).trim() !== 'feed days') continue;
+      var fm = /^\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*$/.exec(String(mrow[cc + 1]));
+      if (fm){ feedFirst = +fm[1]; feedLast = +fm[2]; }
+    }
+  }
   var src = {};
   for (var i = hr + 1; i < v.length; i++){
     var x = v[i] || [], cat = String(x[h['source']] == null ? '' : x[h['source']]).trim();
@@ -5046,7 +5409,8 @@ function exportScaleTab_(){
     o.res[res] = { days: days, rec: rec };
     if (!o.best || rec > o.res[o.best].rec) o.best = res;
   }
-  return (_expScaleTab = { first: dayCols[0][0], last: dayCols[dayCols.length - 1][0], src: src });
+  return (_expScaleTab = { first: dayCols[0][0], last: dayCols[dayCols.length - 1][0], src: src,
+                           feedFirst: feedFirst, feedLast: feedLast });
 }
 /** f: the share of (cat, res)'s export mass granted inside window days [o1, o2]; null when unknown.
  *  A resource with too few recipient-days to have a timing of its own borrows the source's best. */
@@ -5172,14 +5536,23 @@ function exportScaleCheck_(cat, res, ctx){
                  (ctx.dataSpan ? ctx.dataSpan.first + '..' + ctx.dataSpan.last : 'has no span') + ' - re-run Compute export scale';
   else if (!ov) out.reason = 'the export does not overlap the window';
   else if (!tab.src[cat]) out.reason = 'the feed has no rows for this source';
+  // D96: a feed that starts after the export does cannot say what share of it the lead-in days hold
+  else if (tab.feedFirst > tab.first)
+    out.reason = 'the feed starts on day ' + tab.feedFirst + ', after the export (day ' + tab.first + ')';
+  else if (Math.min(tab.last, tab.feedLast) < ov.o1)
+    out.reason = 'the feed ends (day ' + tab.feedLast + ') before the window part of the export (days ' + ov.o1 + '..' + ov.o2 + ')';
   else {
     var o = tab.src[cat];
     var enough = function(r){ return o.res[r] && o.res[r].rec >= EXPORT_SCALE_MIN_REC; };
     out.use = enough(res) ? res : (enough('HC') ? 'HC' : o.best);
+    // D96: the feed may END before the export does (LIVE_OPS_V3 (20): the feed runs to Nov 1, data_gains
+    // to Nov 3). Its days are the only ones with a profile, so everything measured is measured on them -
+    // fl = the last day the feed carries, c2 = the last WINDOW day it carries.
+    var fl = Math.min(tab.last, tab.feedLast), c2 = Math.min(ov.o2, fl);
     var e = o.res[out.use], feed = {}, spanMass = 0, inMass = 0;
-    for (var d = tab.first; d <= tab.last; d++){
+    for (var d = tab.first; d <= fl; d++){
       var m = num(e.days[d]); spanMass += m;
-      if (d >= ov.o1 && d <= ov.o2){ feed[d] = m; inMass += m; }
+      if (d >= ov.o1 && d <= c2){ feed[d] = m; inMass += m; }
     }
     out.f = (spanMass > 0) ? inMass / spanMass : null;
     var top = function(p){
@@ -5196,7 +5569,7 @@ function exportScaleCheck_(cat, res, ctx){
       exportOffsets_(cat).forEach(function(off){
         var pr = exportScaleProfile_(cat, EXPORT_SCALE_REF[0], EXPORT_SCALE_REF[1], ctx, ov.o1, ov.o2, off);
         if (!(pr.S > 0)) return;
-        var sc = profileMatch_(pr.prof, feed, ov.o1, ov.o2);
+        var sc = profileMatch_(pr.prof, feed, ov.o1, c2);
         if (!best || sc > best.score) best = { score: sc, off: off, prof: pr.prof, S: pr.S, inst: pr.n ? pr.W / pr.n : 0 };
       });
       if (!best) out.reason = 'cal_curr pays no instance inside window days ' + ov.o1 + '..' + ov.o2;
@@ -5207,9 +5580,20 @@ function exportScaleCheck_(cat, res, ctx){
         // not draw does not - Hatchling's Oct 19 claims of the Oct 15-18 event read x2.4 without this)
         var near = function(d){ for (var k in best.prof) if (num(best.prof[k]) > 0 && Math.abs(d - k) <= EXPORT_SCALE_NEAR) return true; return false; };
         var expl = 0;
-        for (var d2 = ov.o1; d2 <= ov.o2; d2++) if (near(d2)) expl += num(feed[d2]);
-        out.f = expl / spanMass;
-        out.ok = best.score >= EXPORT_SCALE_MATCH && best.S >= 0.5 * best.inst;
+        for (var d2 = ov.o1; d2 <= c2; d2++) if (near(d2)) expl += num(feed[d2]);
+        // D96: the export's window days the feed does not carry are taken to pay, per predicted
+        // instance, what the carried window days did: rho = predicted payouts there / on the carried
+        // days, and f = the explained mass x (1 + rho) over the export so completed. rho = 0 (a feed as
+        // long as the export) is exactly the D87 form expl / spanMass.
+        var Sc = 0, Su = 0;
+        for (var pk in best.prof){ if (+pk <= c2) Sc += num(best.prof[pk]); else Su += num(best.prof[pk]); }
+        var rho = (c2 < ov.o2 && Sc > 0) ? Su / Sc : 0;
+        out.rho = rho; out.feedTo = c2;
+        out.f = expl * (1 + rho) / (spanMass + expl * rho);
+        out.ok = best.score >= EXPORT_SCALE_MATCH && best.S >= 0.5 * best.inst && (Sc > 0 || !(Su > 0));
+        if (c2 < ov.o2 && !(Sc > 0) && Su > 0)
+          out.reason = 'cal_curr pays inside the window part only on days the feed does not carry (' + (c2 + 1) + '..' + ov.o2 + ')';
+        else
         if (best.score < EXPORT_SCALE_MATCH)
           out.reason = 'payout days disagree with the feed (match ' + (100 * best.score).toFixed(0) + '%: cal_curr pays on window days ' +
                        out.predDays.join(',') + ', the feed on days ' + out.feedDays.join(',') + ')';
@@ -5272,6 +5656,7 @@ function exportScaleGrid_(ctx){
   var h = headerIndex_(v[0] || []);
   if (h['source'] == null || h['currency'] == null || h['gain_total'] == null) return null;
   var d1 = calDay1Date_(), first = ctx.dataSpan.first, last = ctx.dataSpan.last, agg = {};
+  var fMin = null, fMax = null;                            // D96: the days the feed itself carries
   for (var i = 1; i < v.length; i++){
     var r = v[i], cat = String(r[h['source']] == null ? '' : r[h['source']]).trim();
     if (!cat || cat === 'ALL') continue;
@@ -5279,6 +5664,8 @@ function exportScaleGrid_(ctx){
     if (h['calendar_date'] != null && d1 != null){ var dd = dateDays_(r[h['calendar_date']]); if (dd != null) day = dd - d1 + 1; }
     if (day == null && h['day_index'] != null) day = Math.round(num(r[h['day_index']])) + first - 1;
     if (day == null || day < first || day > last) continue;
+    if (fMin == null || day < fMin) fMin = day;
+    if (fMax == null || day > fMax) fMax = day;
     var res = String(r[h['currency']]).trim();
     var o = ((agg[cat] = agg[cat] || {})[res] = agg[cat][res] || { days: {}, rec: 0 });
     o.days[day] = num(o.days[day]) + num(r[h['gain_total']]);
@@ -5288,7 +5675,8 @@ function exportScaleGrid_(ctx){
   for (var d = first; d <= last; d++) hdr.push('d' + d);
   var grid = [['EXPORT SCALE - ' + EXPORT_SCALE_FEED + ' pooled over cells: granted amount per window day of the export (D87). ' +
                'Written by EcoGainsSim > Compute export scale; the engine reads this table, never the feed.'],
-              ['export days', first + '..' + last, 'window days', '1..' + ctx.window.days, 'written', stampNow_(), 'build', ENGINE_BUILD],
+              ['export days', first + '..' + last, 'window days', '1..' + ctx.window.days, 'written', stampNow_(), 'build', ENGINE_BUILD,
+               'feed days', (fMin == null ? first : fMin) + '..' + (fMax == null ? last : fMax)],
               [], hdr];
   Object.keys(agg).sort().forEach(function(cat){
     Object.keys(agg[cat]).sort().forEach(function(res){
@@ -5306,7 +5694,7 @@ function exportScaleReport_(ctx){
   var rows = [['source', 'resource', 'scale used', 'payout-day match', 'granted', 'f: share inside window days',
                'scale at ' + EXPORT_SCALE_REF.join(' '), 'scale range over cells', 'activity scale', 'reason']];
   var cells = [], tab = exportScaleTab_();
-  ['0-9', '10-19', '20-39', '40-99', '100+'].forEach(function(s){ ['NONPAYER', 'PAYER'].forEach(function(p){ cells.push([s, p]); }); });
+  segMembers_(ctx.ds).forEach(function(s){ ['NONPAYER', 'PAYER'].forEach(function(p){ cells.push([s, p]); }); });   // D94: the pull's own cells
   var act = ctx.dataSpan ? spanScale_(EXPORT_SCALE_REF[0], EXPORT_SCALE_REF[1], ctx) : 1;
   Object.keys(EXPORT_SCALE_FAMILY).forEach(function(cat){
     var resList = (tab && tab.src[cat]) ? Object.keys(tab.src[cat].res).sort() : ['HC'];
@@ -5319,7 +5707,10 @@ function exportScaleReport_(ctx){
                  (chk.off == null) ? '' : (chk.off === 0 ? 'on the day' : '+' + chk.off + ' day'),
                  (chk.f != null) ? Math.round(chk.f * 1000) / 1000 : '', (ref != null) ? Math.round(ref * 1000) / 1000 : '',
                  rng, Math.round(act * 1000) / 1000,
-                 chk.ok ? ((chk.use && chk.use !== res) ? 'timed on ' + chk.use + ' (too few recipients of its own)' : '') : chk.reason]);
+                 chk.ok ? [((chk.use && chk.use !== res) ? 'timed on ' + chk.use + ' (too few recipients of its own)' : ''),
+                           (chk.rho > 0 ? 'the feed ends on day ' + chk.feedTo + ': the export\'s later window days are taken to pay like the carried ones (x' + (1 + chk.rho).toFixed(2) + ')' : '')]
+                            .filter(function(x){ return x; }).join('; ')
+                        : chk.reason]);
     });
   });
   return rows;
@@ -5375,22 +5766,39 @@ var DataStore = (function(){
     accVals = armRows_(accVals, 'data_event_accrual'); kiteVals = armRows_(kiteVals, 'data_event_kite_accrual');
     rmVals = armRows_(rmVals || [], 'data_RM'); streaksVals = armRows_(streaksVals, 'data_streaks');
     instVals = armRows_(instVals, 'data_event_inst');
-    var gh = headerIndex_(gainsVals[0] || []), gMap = {};
+    // D94: every map is keyed by the CANONICAL segment (segCanon_), so '100+' in one pull and
+    // '100-249' in another are the same key, and data_gains' 'F. 100-249' needs no table.
+    var gh = headerIndex_(gainsVals[0] || []), gMap = {}, gEarn = {}, gPlayers = {};
     for (var i = 1; i < gainsVals.length; i++){ var r = gainsVals[i];
       if (!r[gh['engagement_segment']]) continue;
-      gMap[[r[gh['engagement_segment']], r[gh['payer_flag']], r[gh['category']], r[gh['resource']]].join('|')]
-        = num(r[gh['amount_per_earner']]); }
-    var bh = headerIndex_(behVals[0] || []), bMap = {};
+      var gs = segCanon_(r[gh['engagement_segment']]);
+      gMap[[gs, r[gh['payer_flag']], r[gh['category']], r[gh['resource']]].join('|')]
+        = num(r[gh['amount_per_earner']]);
+      // the pull's own population behind each amount (D88 / D94): earners of the resource, players of the cell
+      if (gh['resource_earners'] != null) gEarn[[gs, r[gh['payer_flag']], r[gh['resource']]].join('|')] = num(r[gh['resource_earners']]);
+      if (gh['players_in_cell'] != null) gPlayers[[gs, r[gh['payer_flag']]].join('|')] = num(r[gh['players_in_cell']]); }
+    var bh = headerIndex_(behVals[0] || []), bMap = {}, segRows = [], segSeen = {};
     for (var j = 1; j < behVals.length; j++){ var b = behVals[j];
       if (!b[bh['segment']]) continue;
       var o = {}; for (var nm in bh) o[nm] = b[bh[nm]];
-      bMap[[b[bh['segment']], b[bh['payer_flag']]].join('|')] = o; }
+      var bs = segCanon_(b[bh['segment']]);
+      bMap[[bs, b[bh['payer_flag']]].join('|')] = o;
+      if (!segSeen[bs]){ segSeen[bs] = 1;
+        segRows.push({ seg: bs, label: String(b[bh['segment']]).trim(),
+                       rank: (bh['seg_rank'] != null && b[bh['seg_rank']] !== '') ? num(b[bh['seg_rank']]) : 1e6 + segRows.length }); } }
+    segRows.sort(function(x, y){ return x.rank - y.rank; });
+    // D94: a behaviour row the pull lacks for a split-out segment is read off its parent (250+ -> 100-249)
+    function withParent(map, mk, seg){
+      var c = segCanon_(seg), hops = 0;
+      while (c && hops++ < 4){ var v = map[mk(c)]; if (v !== undefined) return v; c = SEG_PARENT[c]; }
+      return undefined;
+    }
     function accIndex(vals){
       if (!vals || !vals.length) return {};
       var h = headerIndex_(vals[0]), m = {};
       for (var k = 1; k < vals.length; k++){ var r = vals[k], ev = r[h['event_name']];
         if (!ev) continue;
-        var key = [ev, r[h['payer_flag']], r[h['segment']]].join('|');
+        var key = [ev, r[h['payer_flag']], segCanon_(r[h['segment']])].join('|');
         (m[key] = m[key] || []).push({day: num(r[h['event_day']]), share: num(r[h['cum_token_share_p50']]),
           // D60: the MEAN column too (null when the pull predates it)
           shareMean: (h['cum_token_share_mean'] != null) ? num(r[h['cum_token_share_mean']]) : null}); }
@@ -5400,42 +5808,61 @@ var DataStore = (function(){
     var rh = headerIndex_(rmVals[0] || []), rMap = {};
     for (var q = 1; q < rmVals.length; q++){ var w = rmVals[q];
       if (!w[rh['segment']]) continue;
-      rMap[[w[rh['segment']], w[rh['payer_flag']]].join('|')] = {
+      rMap[[segCanon_(w[rh['segment']]), w[rh['payer_flag']]].join('|')] = {
         p10: num(w[rh['p10_matchables_window']]), p25: num(w[rh['p25_matchables_window']]),
         p50: num(w[rh['p50_matchables_window']]), p75: num(w[rh['p75_matchables_window']]),
         p90: num(w[rh['p90_matchables_window']]) }; }
     var th = headerIndex_((streaksVals || [])[0] || []), tMap = {};
     for (var t = 1; t < (streaksVals || []).length; t++){ var s = streaksVals[t];
       if (!s[th['segment']]) continue;
-      tMap[[s[th['segment']], s[th['payer_flag']]].join('|')] = {
+      tMap[[segCanon_(s[th['segment']]), s[th['payer_flag']]].join('|')] = {
         p25: num(s[th['max_streak_per_day_p25']]), p50: num(s[th['max_streak_per_day_p50']]),
         p75: num(s[th['max_streak_per_day_p75']]), p90: num(s[th['max_streak_per_day_p90']]) }; }
     var eh = headerIndex_((instVals || [])[0] || []), eMap = {};
     for (var e = 1; e < (instVals || []).length; e++){ var x = instVals[e];
       if (!x[eh['event_name']]) continue;
       var eo = {}; for (var en in eh) eo[en] = x[eh[en]];
-      eMap[[x[eh['event_name']], x[eh['segment']], x[eh['payer_flag']]].join('|')] = eo; }
+      eMap[[x[eh['event_name']], segCanon_(x[eh['segment']]), x[eh['payer_flag']]].join('|')] = eo; }
     return {
       // D71: the window rescale hook (null = none). Only EXPORT amounts pass through here.
       scaleFn: null,
       // D79: the dates the export covers ({start, end, days} in days since 1970), or null
       span: dataSpanOf_(gainsVals),
       gains: function(seg, payer, cat, res){
-        var v = num(gMap[[SEG_TO_GAINS[seg]||seg, payer, cat, res].join('|')]);
-        return (v && this.scaleFn) ? v * this.scaleFn(cat, seg, payer, res) : v; },
+        var cs = segCanon_(seg);
+        var v = num(gMap[[cs, payer, cat, res].join('|')]);       // never the parent's: a missing row is a measured 0
+        return (v && this.scaleFn) ? v * this.scaleFn(cat, cs, payer, res) : v; },
       dataRow: function(cat, seg, payer){ var o = {}, self = this;
         RESOURCES.forEach(function(r){ o[r] = self.gains(seg, payer, cat, r); }); return o; },
-      beh: function(seg, payer){ return bMap[[seg, payer].join('|')] || {}; },
-      nsStreak: function(seg, payer){ return tMap[[seg, payer].join('|')] || null; },
+      // D94: the pull's population behind an amount. hasGain: the export carries (category, resource) for
+      // the cell; earners: the resource's earners there (0 = unknown); players: the cell's players
+      // (data_gains' players_in_cell, else data_seg_beh's).
+      hasGain: function(seg, payer, cat, res){ return num(gMap[[segCanon_(seg), payer, cat, res].join('|')]) > 0; },
+      earners: function(seg, payer, res){ return num(gEarn[[segCanon_(seg), payer, res].join('|')]); },
+      players: function(seg, payer){
+        var cs = segCanon_(seg), n = num(gPlayers[[cs, payer].join('|')]);
+        if (n > 0) return n;
+        var b = bMap[[cs, payer].join('|')] || {};
+        return num(b.players_in_cell) > 0 ? num(b.players_in_cell) : num(b.unique_players); },
+      // D94: the segments data_seg_beh carries, canonical, in its rank order (ALL included when pulled),
+      // and the label the pull itself uses for one
+      segs: function(){ return segRows.map(function(x){ return x.seg; }); },
+      segLabel: function(seg){ var c = segCanon_(seg);
+        for (var i = 0; i < segRows.length; i++) if (segRows[i].seg === c) return segRows[i].label;
+        return null; },
+      beh: function(seg, payer){ return withParent(bMap, function(c){ return [c, payer].join('|'); }, seg) || {}; },
+      // true when the pull has its OWN behaviour row for the cell (not the parent's)
+      hasBeh: function(seg, payer){ return bMap[[segCanon_(seg), payer].join('|')] !== undefined; },
+      nsStreak: function(seg, payer){ return withParent(tMap, function(c){ return [c, payer].join('|'); }, seg) || null; },
       eventInst: function(ev, seg, payer){
-        var x = eMap[[ev, seg, payer].join('|')];
+        var x = withParent(eMap, function(c){ return [ev, c, payer].join('|'); }, seg);
         if (x) return x;
         // D79: an event the pull has no rows for borrows a sibling's rank/progress distribution
         var px = EVENT_INST_PROXY[ev];
-        return (px && eMap[[px, seg, payer].join('|')]) || null; },
-      rmPct: function(seg, payer){ return rMap[[seg, payer].join('|')] || null; },
+        return (px && withParent(eMap, function(c){ return [px, c, payer].join('|'); }, seg)) || null; },
+      rmPct: function(seg, payer){ return withParent(rMap, function(c){ return [c, payer].join('|'); }, seg) || null; },
       accrualCurve: function(ev, seg, payer, kite){ var m = kite ? kMap : aMap;
-        return m[[ev, payer, seg].join('|')] || m[[ev, payer, '0-9'].join('|')] || []; },
+        return withParent(m, function(c){ return [ev, payer, c].join('|'); }, seg) || m[[ev, payer, '0-9'].join('|')] || []; },
       // The MEAN column of the same curve (D60, 2026-10-14). cum_token_share_p50 is the median
       // PLAYER's progress - for every 2-day event it reads 1.0 on day 1 while the mean reads
       // 0.81-0.96 - whereas a day ALLOCATION of a cohort total needs the cohort's share of
@@ -5885,11 +6312,13 @@ function readSagaLadder_(sheetName, seg){
     if (String(hdr[c] == null ? '' : hdr[c]).trim() === 'Levels Req') reqCols.push(c);
   var pick = null;
   if (seg != null){
-    for (var k = 0; k < reqCols.length; k++){
-      var lbl = String(above[reqCols[k]] == null ? '' : above[reqCols[k]]).trim() ||
-                String(above[reqCols[k] - 1] == null ? '' : above[reqCols[k] - 1]).trim();
-      if (lbl === seg){ pick = reqCols[k]; break; }
-    }
+    // D94: the block the segment's config labels name ('100-249' reads a '100+' block, '250+' its own
+    // or its parent's - segCfgKeys_)
+    var lbls = reqCols.map(function(rc){
+      return String(above[rc] == null ? '' : above[rc]).trim() || String(above[rc - 1] == null ? '' : above[rc - 1]).trim();
+    });
+    var pk = segCfgPick_(lbls, seg);
+    if (pk >= 0) pick = reqCols[pk];
   }
   if (pick == null) pick = reqCols[0];
   var hcCol = -1;
@@ -5974,11 +6403,9 @@ function readNSLadder_(seg, sheetName){
 }
 function nsLadderOn_(sheetName, seg){
   var v = sheetVals_(sheetName);
-  for (var r = 0; r < v.length; r++){
-    if (String(v[r][0]).trim() !== String(seg)) continue;
-    return readLadder_(v.slice(r + 1), 'Cum Streak Req');
-  }
-  return [];
+  // D94: the block the segment's config labels name (segCfgKeys_: own spelling, alias, parent)
+  var r = segCfgPick_(v.map(function(row){ return (row || [])[0]; }), seg);
+  return (r >= 0) ? readLadder_(v.slice(r + 1), 'Cum Streak Req') : [];
 }
 
 // Generic ladder reader: finds the header row containing reqCol, maps reward columns through

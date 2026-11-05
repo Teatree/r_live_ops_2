@@ -72,7 +72,7 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD() like every other engine file.
-var SIMFILL_BUILD = 'SimFill.gs          D69  2026-10-27';
+var SIMFILL_BUILD = 'SimFill.gs          D94  2026-11-05';
 
 /**
  * The sheets to scan. REFRESH_SHEETS (EcoGainsSim_v4.gs) is the list refreshSims_ already
@@ -260,7 +260,91 @@ var SIMFILL_FAMILIES = {
   'MD':                   { kind: 'tof' },
   'cal_new':              { kind: 'cal' }
 };
-var SIMFILL_SEGMENT_TAGS = ['0-9', '10-19', '20-39', '40-99', '100+', 'A. 0'];
+// D94: '100-249' (what the pull now calls the old '100+'; either tag fills the same segment), '250+', 'ALL'
+var SIMFILL_SEGMENT_TAGS = ['0-9', '10-19', '20-39', '40-99', '100+', '100-249', '250+', 'ALL', 'A. 0'];
+
+// ---- D94 (2026-11-05, user decision): the fill ADDS the tables a sheet lacks for the pull's segments ----
+// 'Nothing is regenerated' still holds for every table that exists: none moves, none is resized. But a
+// segment the pull carries and the sheet has no table for (LIVE_OPS_V3 (20): 250+ and ALL on
+// EcoGainsSim_so_far) used to be silently absent. On the sheets named here the fill copies the last
+// simulated table (labels, formats - never the A. 0 appendix) to the rows under everything else,
+// re-writes its tag and title, blanks the copied numbers, and then fills it by label like any other.
+var SIMFILL_GROW_SHEETS = ['EcoGainsSim_so_far'];
+/** The segment tables of a grid sheet: [{r, c, tag, seg}] - a tag cell in one of the first two columns
+ *  with 'Source' under it (the rule simFillLayoutAnchors_ reads the blocks by). */
+function simFillSegTags_(v){
+  var tags = [];
+  for (var r = 1; r <= v.length; r++){
+    var row = v[r - 1] || [];
+    for (var c = 1; c <= Math.min(2, row.length); c++){
+      var t = simFillTxt_(row[c - 1]);
+      if (SIMFILL_SEGMENT_TAGS.indexOf(t) < 0) continue;
+      if (simFillTxt_((v[r] || [])[c - 1]).toLowerCase() !== 'source') continue;
+      tags.push({ r: r, c: c, tag: t, seg: (typeof segCanon_ === 'function') ? segCanon_(t) : t });
+    }
+  }
+  return tags;
+}
+/** Append a table for every segment the pull carries that the sheet has none for. Returns the labels
+ *  added ([] when the sheet is not one that grows, or nothing is missing). Never throws: a sheet that
+ *  cannot be grown is filled as it stands. */
+function simFillAddSegBlocks_(ss, sheetName){
+  var added = [];
+  try {
+    if (SIMFILL_GROW_SHEETS.indexOf(sheetName) < 0 || typeof segCanon_ !== 'function') return added;
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return added;
+    var ds = Context.get().ds, want = ds.segs ? ds.segs() : [];
+    if (!want.length) return added;
+    var v = sh.getDataRange().getValues(), tags = simFillSegTags_(v);
+    if (!tags.length) return added;
+    var have = {};
+    tags.forEach(function(t){ have[t.seg] = 1; });
+    var missing = want.filter(function(sg){ return !have[sg]; });
+    if (!missing.length) return added;
+    var ti = -1;
+    for (var i = tags.length - 1; i >= 0; i--) if (tags[i].seg !== 'A. 0'){ ti = i; break; }
+    if (ti < 0) return added;
+    var t = tags[ti], end = (ti + 1 < tags.length) ? tags[ti + 1].r - 1 : v.length;
+    var blank = function(row){ return !(row || []).some(function(x){ return simFillTxt_(x) !== ''; }); };
+    while (end > t.r && blank(v[end - 1])) end--;
+    var h = end - t.r + 1, w = v.reduce(function(m, row){ return Math.max(m, row.length); }, 0);
+    var dest = v.length + 2;                                 // one blank row under the sheet's last used row
+    missing.forEach(function(sg){
+      var lab = (typeof segLabel_ === 'function') ? segLabel_(sg, ds) : sg;
+      if (typeof sh.getMaxRows === 'function' && typeof sh.insertRowsAfter === 'function'){
+        var need = dest + h - sh.getMaxRows();
+        if (need > 0) sh.insertRowsAfter(sh.getMaxRows(), need);
+      }
+      var src = sh.getRange(t.r, 1, h, w), dst = sh.getRange(dest, 1, h, w);
+      if (typeof src.copyTo === 'function') src.copyTo(dst); else dst.setValues(src.getValues());
+      // the tag row: the tag itself, and the titles beside it that begin with the template's tag
+      var tagRow = sh.getRange(dest, 1, 1, w), tv = tagRow.getValues()[0], tf = tagRow.getFormulas()[0];
+      for (var c = 0; c < tv.length; c++){
+        if (tf[c]) continue;
+        var txt = String(tv[c] == null ? '' : tv[c]);
+        if (c === t.c - 1) sh.getRange(dest, c + 1).setValue(lab);
+        else if (txt.trim().indexOf(t.tag) === 0) sh.getRange(dest, c + 1).setValue(txt.replace(t.tag, lab));
+      }
+      // the copied numbers are the template segment's: blank every plain number of the data rows, so a
+      // cell the fill has no label for is empty rather than another segment's value. Formulas stay.
+      if (h > 2){
+        var body = sh.getRange(dest + 2, 1, h - 2, w), bv = body.getValues(), bf = body.getFormulas(), anyF = false, nums = [];
+        for (var r = 0; r < bv.length; r++) for (var c2 = 0; c2 < bv[r].length; c2++){
+          if (bf[r][c2]){ anyF = true; continue; }
+          if (typeof bv[r][c2] === 'number'){ bv[r][c2] = ''; nums.push([r, c2]); }
+        }
+        if (!anyF) body.setValues(bv);
+        else nums.forEach(function(rc){ sh.getRange(dest + 2 + rc[0], rc[1] + 1).clearContent(); });
+      }
+      added.push(lab);
+      dest += h + 1;
+    });
+  } catch (e){
+    try { Logger.log('SimFill: could not add segment tables to ' + sheetName + ' (' + e + ') - filled as it stands.'); } catch (e2){}
+  }
+  return added;
+}
 var SIMFILL_NONCE_REF = 'sim_refresh!$A$1';
 // The daily view's bars -> the ECOGAINS_DAILY block key. Matched in THIS order: 'NEW NET' must not
 // be read as 'NET', and the two delta bars ('GAINS data - sim', 'NET data - sim') come last.
@@ -358,16 +442,7 @@ function simFillLayoutAnchors_(sheetName, v, maxRows, maxCols){
     var pay = simFillFind_(v, 'Payer', 1, 8, 1, 4);
     if (!pay){ notes.push(sheetName + ": no 'Payer' label in rows 1-8"); return { anchors: out, notes: notes }; }
     var payRef = simFillRef_(pay.r, pay.c + 1);
-    var tags = [];
-    for (r = 1; r <= v.length; r++){
-      row = v[r - 1] || [];
-      for (c = 1; c <= Math.min(2, row.length); c++){
-        if (SIMFILL_SEGMENT_TAGS.indexOf(simFillTxt_(row[c - 1])) < 0) continue;
-        var below = v[r] || [];
-        if (simFillTxt_(below[c - 1]).toLowerCase() !== 'source') continue;
-        tags.push({ r: r, c: c });
-      }
-    }
+    var tags = simFillSegTags_(v);
     if (!tags.length) notes.push(sheetName + ": no segment block found (a '0-9'.. tag with 'Source' under it)");
     tags.forEach(function(t, i){
       var hdr = t.r + 1, d0 = t.r + 2, hrow = v[hdr - 1] || [];
@@ -619,12 +694,15 @@ function fillAllSims(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var props = PropertiesService.getDocumentProperties();
   var sheets = simFillSheets_(ss);
-  var jobs = [], skipped = [], stoppedAt = '', notes = [], derived = 0, present = [], dropped = [];
+  var jobs = [], skipped = [], stoppedAt = '', notes = [], derived = 0, present = [], dropped = [], grown = [];
 
   // ---- 1. collect every anchor, and snapshot the formulas BEFORE anything is replaced --------
   sheets.forEach(function(name){
     if (!ss.getSheetByName(name)) return;
     present.push(name);
+    // D94: a table for every segment the pull carries, on the sheets that grow (EcoGainsSim_so_far)
+    var addedSeg = simFillAddSegBlocks_(ss, name);
+    if (addedSeg.length) grown.push(name + ': ' + addedSeg.join(', '));
     var anchors = simFillAnchors_(ss, name, props, notes, dropped);
     if (!anchors.length) return;
     props.setProperty(SIMFILL_PROP + name, JSON.stringify(anchors.map(function(a){
@@ -737,6 +815,7 @@ function fillAllSims(){
   var msg = done.length + ' of ' + jobs.length + ' sim blocks filled as values (' +
             cells.toLocaleString() + ' cells) in ' + secs + 's' +
             (derived ? ' - ' + derived + ' anchor(s) located from the sheet labels' : '') +
+            (grown.length ? '  --  segment table(s) ADDED: ' + grown.join('; ') : '') +
             (dropped.length ? '  --  ' + dropped.length + ' remembered anchor(s) from an older layout dropped: ' + dropped.join(', ') : '') +
             (stoppedAt ? '  --  STOPPED EARLY on the time budget: ' + stoppedAt +
                          '. Run it again to finish.' : '') +
@@ -754,6 +833,8 @@ function fillAllSims(){
   var lines = [done.length + ' of ' + jobs.length + ' sim blocks filled as values in ' + secs + 's.'];
   Object.keys(perSheet).forEach(function(n){ lines.push('   ' + n + ': ' + perSheet[n] + ' block(s)'); });
   if (derived) lines.push(derived + ' anchor(s) were located from the sheet labels (no formula, no snapshot).');
+  if (grown.length) lines.push('', 'Segment tables ADDED under the last table (the pull carries these segments, the sheet had no table for them):',
+                               '   ' + grown.join('\n   '));
   if (dropped.length) lines.push('', 'Remembered from an older layout of the sheet and NOT filled (the labels place the blocks elsewhere now):',
                                  '   ' + dropped.join(', '));
   if (unplaced.length) lines.push('', 'NOT ON THE SHEET - the engine has rows / columns this layout has no label for (not written):',

@@ -33,7 +33,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var SPS_BUILD     = 'SimPerSegmentFill.gs D36 2026-09-03';
+var SPS_BUILD     = 'SimPerSegmentFill.gs D94 2026-11-05';
 
 
 var SPS_SHEET = 'Sim per Segment';
@@ -146,7 +146,7 @@ function fillSimPerSegment(){
   // faucets outside the 25 categories are left untouched.
   function netRow(payer, seg, res, gs){
     if (!econ) return null;
-    var ec = econ[[seg, payer, res].join('|')];
+    var ec = econ[[spsSeg_(seg), payer, res].join('|')];
     if (!ec) return null;
     var G = 0, M = 0;
     for (var i = 0; i < gs.cur.length; i++){ G += gs.cur[i]; M += gs.sim[i]; }
@@ -244,11 +244,14 @@ function readEcon_(ss){
   var m = {};
   for (var i = 1; i < v.length; i++){ var r = v[i];
     if (!r[h['segment']]) continue;
-    m[[r[h['segment']], r[h['payer_flag']], r[h['currency']]].join('|')] =
+    m[[spsSeg_(r[h['segment']]), r[h['payer_flag']], r[h['currency']]].join('|')] =
       { gain: num(r[h['gain_per_earner']]), spend: num(r[h['spend_per_earner']]),
         earners: num(r[h['resource_earners']]) };
   }
   return m;
 }
+
+// D94: one spelling per segment - the sheet's '100+' rows read the pull's '100-249' (segCanon_).
+function spsSeg_(x){ return (typeof segCanon_ === 'function') ? segCanon_(x) : x; }
 
 function round2_(x){ return Math.round(x * 100) / 100; }

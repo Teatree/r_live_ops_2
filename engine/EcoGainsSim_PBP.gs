@@ -229,7 +229,11 @@ function pbpSimulate_(a){
   // --- per-play increments (pass 2: scale calibrated events to their measured day target) ---
   // Saga node ladder ({levels, rew} per node, cycled every sum(levels) levels): a node pays its
   // FULL bundle on the win whose ABSOLUTE level lands on that node's cumulative boundary.
-  var sagaNodes = pbpSagaNodes_(a.cal, a.seg);
+  // D94: the per-segment configs (the saga coin ladder here, the Night Sky ladder below) are read for the
+  // segment's CONFIG segment - itself, its parent's block for 250+, and for ALL the member segment its own
+  // weekly saga pace falls in (segCfgRep_): one simulated player has to stand on one ladder.
+  var cfgSeg = (typeof segCfgRep_ === 'function') ? segCfgRep_(a.seg, a.payer, ctx.ds) : a.seg;
+  var sagaNodes = pbpSagaNodes_(a.cal, cfgSeg);
   var sagaEnds = [], sagaCycle = 0;
   sagaNodes.forEach(function(n){ sagaCycle += Math.max(1, n.levels); sagaEnds.push(sagaCycle); });
   var progress = active.filter(function(ev){ return ev.family === 'token' || ev.family === 'rm' || ev.family === 'score'; });
@@ -307,7 +311,8 @@ function pbpSimulate_(a){
     // D23: on cal_new the ladder also depends on the DAY — 'NS_v2' is the weekend variant and
     // 'NS_v2_weekday' the weekday one (nsLadderForDay_; no weekday sheet -> 'NS_v2' every day, the
     // D22 behaviour). cal_curr is unaffected: the live game runs one Night Sky.
-    var nsLad = (a.cal === CAL_NEW) ? nsLadderForDay_(a.seg, a.day) : readNSLadder_(a.seg, 'NS');
+    var nsSeg = (typeof segCfgRep_ === 'function') ? segCfgRep_(a.seg, a.payer, ctx.ds) : a.seg;   // D94
+    var nsLad = (a.cal === CAL_NEW) ? nsLadderForDay_(nsSeg, a.day) : readNSLadder_(nsSeg, 'NS');
     nsLad.forEach(function(ms, mi){
       if (ms.req <= effStreak + 1e-9)
         grantsE.push({ cat: 'Daily Night Sky Prize', rew: ms.rew,
@@ -470,10 +475,19 @@ function pbpSagaNodes_(cal, seg){
     if (String(v[r][0]).trim() === 'Node'){ hdrRow = r; break; }
   if (hdrRow < 0) return [];
   var lvCol = 1, hcCol = 2;
-  if (cal === CAL_NEW){
-    var segRow = v[hdrRow - 1] || [];
-    for (var c = 0; c < segRow.length; c++)
-      if (String(segRow[c]).trim() === seg){ lvCol = c; hcCol = c + 1; break; }
+  // D94: the block the segment's config labels name ('100-249' reads '100+', '250+' its parent's), on
+  // EITHER sheet - the base sheet is segmented too since workbook (15) - and its HC column by HEADER:
+  // the next 'HC Reward' right of the block's 'Levels Req'. The old `HC = levels column + 1` read the
+  // RewardChestId column of the triple layout (Levels Req | RewardChestId | HC Reward) as coins.
+  var segRow = v[hdrRow - 1] || [];
+  var pc = (typeof segCfgPick_ === 'function') ? segCfgPick_(segRow, seg) : -1;
+  if (pc < 0 && cal === CAL_NEW) for (var c = 0; c < segRow.length; c++)
+    if (String(segRow[c]).trim() === seg){ pc = c; break; }
+  if (pc >= 0) lvCol = pc;
+  for (var ch = lvCol + 1; ch < v[hdrRow].length; ch++){
+    var hs = String(v[hdrRow][ch] == null ? '' : v[hdrRow][ch]).trim();
+    if (hs === 'HC Reward'){ hcCol = ch; break; }
+    if (hs === 'Levels Req') break;
   }
   var resCols = {};
   for (var c2 = 0; c2 < v[hdrRow].length; c2++){
@@ -714,10 +728,33 @@ function pbpProfile_(seg, payer){
     rows.push(['P(active weekday / weekend)', Math.round(num(beh.weekday_active_rate)*1000)/10 + '% / ' +
        Math.round(num(beh.weekend_active_rate)*1000)/10 + '%',
        'Chance this cohort plays at all on a given day; the sim already conditions on playing (data_seg_beh)']);
+  // D94: which per-segment ladders this player stands on, when they are not a block of their own name
+  if (typeof segCfgRep_ === 'function'){
+    var cs = segCanon_(seg), rep = segCfgRep_(seg, payer, Context.get().ds);
+    if (cs === SEG_ALL)
+      rows.push(['Config ladders (saga coins, Night Sky)', segLabel_(rep),
+                 'ALL has no ladder of its own: one simulated player stands on the ladders of the segment their ' +
+                 'weekly saga pace falls in. The window sims pool every segment instead (D94)']);
+    else if (SEG_PARENT[cs])
+      rows.push(['Config ladders (saga coins, Night Sky)', segLabel_(SEG_PARENT[cs]),
+                 'No ' + cs + ' block on the config sheets yet: this segment reads the block of its parent segment (100+)']);
+  }
   return rows;
 }
 
 // ============================== PBP DATA LAYER ===============================================
+// D94: one spelling per segment (segCanon_ - '100+' is '100-249'), and the parent's row for a split-out
+// segment the pull has none for (SEG_PARENT). Identities when the v4 engine predates D94.
+function pbpSeg_(x){ return (typeof segCanon_ === 'function') ? segCanon_(x) : x; }
+function pbpPick_(map, mk, seg){
+  var c = pbpSeg_(seg), hops = 0;
+  while (c && hops++ < 4){
+    var v = map[mk(c)];
+    if (v !== undefined) return v;
+    c = (typeof SEG_PARENT !== 'undefined') ? SEG_PARENT[c] : null;
+  }
+  return undefined;
+}
 var PBPData = (function(){
   var _c = null;
   function get(){
@@ -726,19 +763,19 @@ var PBPData = (function(){
     for (var i = 1; i < sv.length; i++){ var r = sv[i];
       if (!r[sh['segment']]) continue;
       var o = {}; for (var nm in sh) o[nm] = r[sh[nm]];
-      sMap[[r[sh['segment']], r[sh['payer_flag']]].join('|')] = o; }
+      sMap[[pbpSeg_(r[sh['segment']]), r[sh['payer_flag']]].join('|')] = o; }
     var iv = sheetVals_('data_event_inst'), ih = headerIndex_(iv[0] || []), iMap = {};
     for (var j = 1; j < iv.length; j++){ var w = iv[j];
       if (!w[ih['event_name']]) continue;
       var o2 = {}; for (var nm2 in ih) o2[nm2] = w[ih[nm2]];
-      iMap[[w[ih['event_name']], w[ih['segment']], w[ih['payer_flag']]].join('|')] = o2; }
+      iMap[[w[ih['event_name']], pbpSeg_(w[ih['segment']]), w[ih['payer_flag']]].join('|')] = o2; }
     function meanCurve(name){
       var v = sheetVals_(name);
       if (!v.length) return {};
       var h = headerIndex_(v[0]), m = {};
       for (var k = 1; k < v.length; k++){ var row = v[k], ev = row[h['event_name']];
         if (!ev) continue;
-        var key = [ev, row[h['segment']], row[h['payer_flag']]].join('|');
+        var key = [ev, pbpSeg_(row[h['segment']]), row[h['payer_flag']]].join('|');
         (m[key] = m[key] || []).push({ day: num(row[h['event_day']]), share: num(row[h['cum_token_share_mean']]) }); }
       for (var kk in m) m[kk].sort(function(x,y){ return x.day - y.day; });
       return m;
@@ -747,13 +784,14 @@ var PBPData = (function(){
     return _c;
   }
   return {
-    streaks: function(seg, payer){ return get().s[[seg, payer].join('|')] || null; },
-    inst: function(ev, seg, payer){ return get().i[[ev, seg, payer].join('|')] || null; },
+    // D94: canonical segment keys; a row the pull lacks for a split-out segment is its parent's
+    streaks: function(seg, payer){ return pbpPick_(get().s, function(c){ return [c, payer].join('|'); }, seg) || null; },
+    inst: function(ev, seg, payer){ return pbpPick_(get().i, function(c){ return [ev, c, payer].join('|'); }, seg) || null; },
     // absolute cumulative-share interpolator raw(d): 0 at 0, curve through measured days,
     // capped at the curve max (shortened instances scale down; we never extrapolate up).
     shareFn: function(ev, seg, payer, kite){
       var m = kite ? get().k : get().a;
-      var curve = m[[ev, seg, payer].join('|')] || [];
+      var curve = pbpPick_(m, function(c){ return [ev, c, payer].join('|'); }, seg) || [];
       if (!curve.length) return function(d){ return d > 0 ? 1 : 0; };
       var maxShare = curve[curve.length-1].share || 1;
       return function(d){

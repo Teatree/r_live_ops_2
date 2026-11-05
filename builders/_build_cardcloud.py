@@ -21,6 +21,19 @@ DISPLAY = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'displa
 DAYS = 33
 SEGMENTS = ['0-9', '10-19', '20-39', '40-99', '100+']      # == CLOUD_SEGMENTS ('A. 0' excluded)
 PAYERS = ['NONPAYER', 'PAYER']                              # == CLOUD_PAYERS
+# D94 (2026-11-05): the engine's cells are the pull's own member segments (cloudSegments_), so a pull with
+# other segments needs sheets that reserve THEIR blocks. --segments / --suffix build that layout beside v1:
+#     python builders/_build_cardcloud.py --segments "0-9,10-19,20-39,40-99,100-249,250+" --suffix v2
+# -> display/Col_Cards_Cloud_v2.xlsx + Col_Cards_Totals_v2.xlsx (LIVE_OPS_V3 (20): 12 cells + MAX).
+# No arguments = the v1 files exactly as before (the 10-cell layout every older workbook carries).
+import argparse as _ap
+_a = _ap.ArgumentParser()
+_a.add_argument('--segments', default=None, help='comma-separated member segments, in column order')
+_a.add_argument('--suffix', default='v1')
+_args = _a.parse_args()
+if _args.segments:
+    SEGMENTS = [x.strip() for x in _args.segments.split(',') if x.strip()]
+SUFFIX = _args.suffix
 PERMS = [f'{s} {p}' for s in SEGMENTS for p in PAYERS]      # 10, in engine column order
 NPERM = len(PERMS)
 
@@ -185,7 +198,7 @@ ws.column_dimensions['A'].width = 10.0
 for c in range(2, max(MEANS_COLS, BAND_COLS) + 1):
     ws.column_dimensions[CL(c)].width = 11.0
 
-out_cloud = os.path.join(DISPLAY, 'Col_Cards_Cloud_v1.xlsx')
+out_cloud = os.path.join(DISPLAY, f'Col_Cards_Cloud_{SUFFIX}.xlsx')
 wb.save(out_cloud)
 
 # =============================== Col_Cards_Totals ==============================================
@@ -274,15 +287,15 @@ ws2.column_dimensions['A'].width = 34.0
 for c in range(2, max(UL_COLS, MIX_COLS) + 1):
     ws2.column_dimensions[CL(c)].width = 15.0
 
-out_totals = os.path.join(DISPLAY, 'Col_Cards_Totals_v1.xlsx')
+out_totals = os.path.join(DISPLAY, f'Col_Cards_Totals_{SUFFIX}.xlsx')
 wb2.save(out_totals)
 
-print('written Col_Cards_Cloud_v1.xlsx')
+print(f'written Col_Cards_Cloud_{SUFFIX}.xlsx')
 print(f'  {BAR_MEANS!r} bar at row {MEANS_BAR}, {DAYS} data rows, {MEANS_COLS} cols')
 print(f'  {BAR_P98!r} bar at row {P98_BAR}, {DAYS} data rows, {MEANS_COLS} cols')
 print(f'  {BAR_BANDS!r} bar at row {BANDS_BAR}, {NPERM} blocks x {BAND_STRIDE} rows, {BAND_COLS} cols')
 print(f'  chart prompt at row {PROMPT_R}')
-print('written Col_Cards_Totals_v1.xlsx')
+print(f'written Col_Cards_Totals_{SUFFIX}.xlsx')
 for perm in TPERMS:
     print("  '%s%s' bar at row %d" % (TB_MIX_PREFIX, perm, positions[TB_MIX_PREFIX + perm]))
 for label, _ in TB:
