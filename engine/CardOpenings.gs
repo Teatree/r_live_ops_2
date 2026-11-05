@@ -73,7 +73,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var CARDSIM_BUILD = 'CardOpenings.gs     D94  2026-11-05';
+var CARDSIM_BUILD = 'CardOpenings.gs     D97  2026-11-06';
 
 
 var SHEET_SIM   = 'Col_Cards_Daily';   // renamed from 'SimOutput' 2026-08-18
@@ -583,7 +583,7 @@ function loadCardCatalog_(cfg, album){
   var validRarities = {};
   cfg.rarityOrder.forEach(function(x){ validRarities[x] = true; });
   var catLastRow  = album.getLastRow();
-  var catalogData = catLastRow >= 3 ? album.getRange(3, 1, catLastRow - 2, 5).getValues() : [];
+  var catalogData = catLastRow >= 3 ? album.getRange(3, 1, catLastRow - 2, ALBUM_CATALOG_COLS).getValues() : [];
 
   // RARITY NAME RECONCILIATION. AlbumConfig and PackConfig are authored separately and had drifted:
   // AlbumConfig labels its top tier '6-star' while PackConfig RARITY DEFINITIONS calls the 6th tier
@@ -952,7 +952,8 @@ function reachHet_(days, pWd, pWe, curve, nDays){
  *  sweep by 50 for an identical result. Nothing in the core mutates what this returns. */
 function cardSeasonPre_(seg, payer, ctx, prof){
   ctx = ctx || Context.get();
-  var b = ctx.ds.beh(seg, payer);
+  // D97: the album players' own behaviour row when the workbook has one (data_col_beh), else the cell's
+  var bSrc = cardBeh_(seg, payer, ctx), b = bSrc.row;
   var pWd0 = num(b.weekday_active_rate), pWe0 = num(b.weekend_active_rate);
   // A profile that forces attendance replaces the measured rates here, so reach, the plan and the
   // per-day draw all see the same thing. It also has no intensity SPREAD to draw from - a ceiling
@@ -980,6 +981,7 @@ function cardSeasonPre_(seg, payer, ctx, prof){
     ctx:     ctx,
     plan:    plan,
     adCurve: adCurve,
+    behSource: bSrc.source,              // D97: which sheet this player's attendance came from
     // D79: Daily Gift + Saga envelopes, per active day at the COHORT's rates (a profile forcing
     // attendance changes how many days it plays, not what an active day pays)
     alwaysOnModel: alwaysOnPacks_(seg, payer, ctx, num(b.weekday_active_rate), num(b.weekend_active_rate)),
@@ -4355,6 +4357,62 @@ function albumK_(calib, source, tier){
   if (k == null) k = calib.k[g];
   return (k == null) ? 1 : k;
 }
+// ---- D97 (2026-11-06, user decision: the album population is the players who HAVE the album, and no
+// spread is fitted to make the run land on a number) -------------------------------------------------
+// The album run plays ONE population, so every input has to describe it. The album sheets (data_col_*)
+// are pulled on the album players; the player's ATTENDANCE came from data_seg_beh, which since the
+// filters were dropped describes every player of the cell seen in the window - on LIVE_OPS_V3 (21),
+// 0-9 NONPAYER: 84,143 players active 7.3 days of 22 (p25 1, p90 21) against 14.8 days for the album
+// pull's 31,228. Attending like the whole cell, the simulated album players were far too unlike each
+// other: with the measured inflow of the players who have the album, album 1 by day 22 read 3.07%
+// against 1.59% measured; attending at the album pull's own level it read 1.41%
+// (harness/_probe_album_participation.js --activity album).
+// So when the workbook carries ALBUM_BEH_SHEET - data_seg_beh's query run on the album players, same
+// columns - the card sim's player takes THAT row for its activity rates and its active-day percentile
+// curve. Nothing else reads it: the gains engine, the ladders, the ranks and the balances stay on the
+// cell (their level reaches the card sim through the album-data calibration). A cell the sheet has no
+// row for reads its parent segment's album row (250+ -> 100-249), else the cell's own data_seg_beh row.
+// No sheet = every pull so far = bit-identical. ALBUM_PLAYER_BEH = false ignores the sheet.
+var ALBUM_BEH_SHEET = 'data_col_beh';
+var ALBUM_PLAYER_BEH = true;
+// The CARD CATALOG block of AlbumConfig: Card ID | Card Name | Set # | Set Name | Rarity. One number for
+// the reader and for the inputs fingerprint, so the tag covers exactly what the reader reads.
+var ALBUM_CATALOG_COLS = 5;
+var _albumBehCache;                   // undefined = not read (resetModuleCaches_)
+/** ALBUM_BEH_SHEET -> {'segment|PAYER': row object by header}, or null (no sheet, no usable row). The
+ *  anchor arm only when the sheet carries ab_variant; FAKE rows skipped (this feeds a simulated value). */
+function albumBehMap_(){
+  if (_albumBehCache !== undefined) return _albumBehCache;
+  _albumBehCache = null;
+  var v = sheetVals_(ALBUM_BEH_SHEET);
+  if (!v || v.length < 2) return null;
+  if (typeof armRows_ === 'function') v = armRows_(v, ALBUM_BEH_SHEET);
+  var h = headerIndex_(v[0] || []);
+  if (h['segment'] == null || h['payer_flag'] == null || h['weekday_active_rate'] == null || h['weekend_active_rate'] == null) return null;
+  var out = {}, n = 0;
+  for (var i = 1; i < v.length; i++){
+    var r = v[i] || [];
+    if (!r[h['segment']]) continue;
+    if (h['status'] != null && String(r[h['status']]).trim().toUpperCase() === 'FAKE') continue;
+    var o = {}; for (var nm in h) o[nm] = r[h[nm]];
+    out[segCanon_(r[h['segment']]) + '|' + String(r[h['payer_flag']]).trim().toUpperCase()] = o; n++;
+  }
+  return (_albumBehCache = n ? out : null);
+}
+/** The behaviour row the card sim's player attends on: {row, source}. */
+function cardBeh_(seg, payer, ctx){
+  var cell = (ctx || Context.get()).ds.beh(seg, payer);
+  if (!ALBUM_PLAYER_BEH) return { row: cell, source: 'data_seg_beh' };
+  var m = albumBehMap_();
+  if (!m) return { row: cell, source: 'data_seg_beh' };
+  var c = segCanon_(seg), hops = 0;
+  while (c && hops++ < 4){
+    var o = m[c + '|' + payer];
+    if (o) return { row: o, source: ALBUM_BEH_SHEET + (c === segCanon_(seg) ? '' : ' (' + segLabel_(c) + ')') };
+    c = SEG_PARENT[c];
+  }
+  return { row: cell, source: 'data_seg_beh' };
+}
 var _albumCalibCache;                 // undefined = not read (resetModuleCaches_)
 var _albumCalibOff = false;           // the calibration pass itself runs the model uncalibrated
 // D94: the segment under the label data_seg_beh uses for it, so an album pull that still says '100+' and a
@@ -4435,11 +4493,18 @@ function albumPopInfo_(ctx){
  *  behaviour pulls. Two runs on the same inputs print the same tag and share one k table. */
 function albumFingerprint_(){
   var names = (typeof REFRESH_WATCH !== 'undefined') ? REFRESH_WATCH.filter(function(n){ return n !== 'data_econ_daily_by_source' && n !== 'data_gains'; }) : [];
-  names = names.concat([SHEET_PACK, SHEET_PACK + '_v2', SHEET_ALBUM, SHEET_ALBUM + '_v2', ALBUM_ENV_SHEET, ALBUM_SEASON_SHEET, SHEET_COL_DAILY]);
+  names = names.concat([SHEET_PACK, SHEET_PACK + '_v2', SHEET_ALBUM, SHEET_ALBUM + '_v2', ALBUM_ENV_SHEET, ALBUM_SEASON_SHEET, SHEET_COL_DAILY,
+                        ALBUM_BEH_SHEET]);
   var h = 0x811c9dc5, seen = {};
   names.forEach(function(n){
     if (seen[n]) return; seen[n] = 1;
     var v; try { v = sheetVals_(n); } catch (e){ v = null; }
+    // D97b: of the album sheets, only the CARD CATALOG columns - the ones loadCardCatalog_ reads. To
+    // their right the sheet keeps a random pool-draw helper ('Pooool' / 'Poool after') that re-rolls
+    // on every recalculation, so the tag moved with no input changed (LIVE_OPS_V3 (20) -> (21): only
+    // those cells differ, fb4f69fd -> 3e4fa1be): the k table was never re-used, and album_gains was
+    // stale for Fill change summary the moment anything recalculated after the album run.
+    if (v && (n === SHEET_ALBUM || n === SHEET_ALBUM + '_v2')) v = v.map(function(row){ return (row || []).slice(0, ALBUM_CATALOG_COLS); });
     var s = n + ':' + JSON.stringify(v || []);
     for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0; }
   });
@@ -4706,6 +4771,43 @@ function albumWriteCalib_(ss, rows, fp, D, nCal, carriedNames){
   delete _sheetValsCache[ALBUM_CALIB_SHEET];
   _albumCalibCache = undefined;
 }
+/** D97: whose attendance the simulated players had, for the summary - and, while it is the whole
+ *  cell's, how far the album pull's own players are from it. */
+function albumBehNote_(){
+  var perms = cloudPermutations_(), ctx = Context.get(), from = {};
+  var sv = sheetVals_(ALBUM_SEASON_SHEET), adm = {}, have = {}, all = {};
+  if (sv && sv.length > 1){
+    var h = headerIndex_(sv[0]);
+    for (var i = 1; i < sv.length; i++){
+      var sg = String(sv[i][h['segment']] == null ? '' : sv[i][h['segment']]).trim();
+      if (!sg) continue;
+      var lab = albumCellLabel_(sg, String(sv[i][h['payer_flag']]).trim().toUpperCase());
+      if (h['active_days_mean'] != null) adm[lab] = num(sv[i][h['active_days_mean']]);
+      if (h['players_nonzero'] != null && h['unique_players'] != null){ have[lab] = num(sv[i][h['players_nonzero']]); all[lab] = num(sv[i][h['unique_players']]); }
+    }
+  }
+  var lo = null, hi = null, worst = '', nHave = 0, nAll = 0;
+  perms.forEach(function(p){
+    var s = cardBeh_(p.seg, p.payer, ctx);
+    from[s.source.split(' (')[0]] = 1;
+    if (all[p.label] > 0){ nHave += num(have[p.label]); nAll += all[p.label]; }
+    var own = num(s.row.active_days_mean), alb = adm[p.label];
+    if (s.source !== 'data_seg_beh' || !(alb > 0) || !(own > 0)) return;
+    var ratio = alb / own;
+    if (lo == null || ratio < lo) lo = ratio;
+    if (hi == null || ratio > hi){ hi = ratio; worst = p.label + ': ' + own.toFixed(1) + ' against ' + alb.toFixed(1) + ' days'; }
+  });
+  var src = Object.keys(from).sort().join(' + ');
+  // plain facts, no threshold: whose attendance was played, how far the album sheets' own players are from
+  // it, and how many of the players those sheets count never opened an envelope
+  var out = 'ATTENDANCE of the simulated players: ' + src +
+            (src === ALBUM_BEH_SHEET ? ' (the behaviour rows of the album players themselves).'
+             : ' (every player of the cell)' + (lo != null ? '; the players of the album sheets are active x' + lo.toFixed(2) + ' to x' + hi.toFixed(2) +
+               ' as many days (' + worst + '). Their own rows (' + ALBUM_BEH_SHEET + ': the data_seg_beh query run on the album players) are not in the workbook.' : '.'));
+  if (nAll > 0) out += '  ALBUM SHEETS: ' + Math.round(nAll) + ' players, ' + (100 * (1 - nHave / nAll)).toFixed(0) + '% of them with no envelope by the data day' +
+                       ' (every simulated player has the album: pull the album sheets on the players who have it).';
+  return out;
+}
 /** The summary sheet: this run's table, and the history (one row per run, the older rows kept). */
 function albumWriteSummary_(ss, cur, red, meas, popInfo, calib, nPass, seed, D, secs, fp){
   var sh = ss.getSheetByName(ALBUM_SUMMARY_SHEET);
@@ -4756,7 +4858,7 @@ function albumWriteSummary_(ss, cur, red, meas, popInfo, calib, nPass, seed, D, 
                'from window day 1. Album 1 = share of players who finished album 1. Day ' + D + ' is where the data stands; day ' + ALBUM_SEASON_DAYS +
                ' is the full season. Weights: ' + popInfo.source + ' players. A day-' + D + ' CURRENT that misses MEASURED says how far to trust the ' +
                'day-' + ALBUM_SEASON_DAYS + ' figures.'],
-              [], hdr].concat(body).concat([[], ['HISTORY (one row per run, oldest first)'],
+              [albumBehNote_()], hdr].concat(body).concat([[], ['HISTORY (one row per run, oldest first)'],
               ['Run', 'Players per cell', 'Seed', 'Calibrated', 'Data day', 'MEASURED album 1', 'CURRENT day D', 'CURRENT day 28',
                'REDESIGN day D', 'REDESIGN end', 'inputs #', 'build']]).concat(hist);
   var w2 = grid.reduce(function(x, r){ return Math.max(x, r.length); }, 0);

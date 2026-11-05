@@ -2320,6 +2320,7 @@ function resetModuleCaches_(){
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
   if (typeof _albumCalibCache !== 'undefined') _albumCalibCache = undefined;   // CardOpenings.gs (D89)
+  if (typeof _albumBehCache !== 'undefined') _albumBehCache = undefined;       // CardOpenings.gs (D97)
   if (typeof _albumGainsCache !== 'undefined'){ _albumGainsCache = undefined; _albumFpMemo = undefined; }   // D89b
   if (typeof _segBehTopMemo !== 'undefined'){ _segBehTopMemo = undefined; _segBehTopLogged = false; }   // D93 (CardOpenings.gs)
   if (typeof DataStore !== 'undefined' && DataStore.reset) DataStore.reset();   // D67: the data_* memo too
@@ -6114,7 +6115,8 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   'ToF','MD','item_vals',
   // D88: every other sheet a sim reads - so the change summary / album summary STALE mark sees an edit to them
   'Ki_2d_v2','Ki_Tr','Ki_Tr_v2','ToF_v2','PackConfig','PackConfig_v2','AlbumConfig','AlbumConfig_v2',
-  'export_scale','data_econ_daily_by_source','data_rm_pace','data_col_daily','data_col_envelopes','data_col_season'];
+  'export_scale','data_econ_daily_by_source','data_rm_pace','data_col_daily','data_col_envelopes','data_col_season',
+  'data_col_beh'];   // D97: the album players' own behaviour rows (the card sim's attendance)
 
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){

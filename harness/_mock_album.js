@@ -308,10 +308,148 @@ function GATES(){
     } finally { if (keepSum) data[ALBUM_SUMMARY_SHEET] = keepSum; else delete data[ALBUM_SUMMARY_SHEET]; }
   }
 
+
+  console.log('');
+  console.log('================ D97: the card sim attends on the album players own rows; what the inputs tag covers ================');
+  {
+    // D97b: the inputs tag covers the CARD CATALOG columns of AlbumConfig - what loadCardCatalog_ reads -
+    // and nothing to their right, where the sheet keeps a random pool-draw helper that re-rolls on recalc
+    const fp0 = albumFingerprint_(), snapA = clone(data[SHEET_ALBUM]);
+    const va = data[SHEET_ALBUM].values, far = ALBUM_CATALOG_COLS + 12;
+    while (va[5].length <= far) va[5].push('');
+    va[5][far] = 'a helper cell that re-rolled';
+    fresh();
+    const fpHelper = albumFingerprint_();
+    data[SHEET_ALBUM] = clone(snapA);
+    const vb = data[SHEET_ALBUM].values, ri = vb.findIndex((r, i) => i >= 2 && /^CARD/i.test(String((r || [])[0])));
+    vb[ri][ALBUM_CATALOG_COLS - 1] = String(vb[ri][ALBUM_CATALOG_COLS - 1]) + ' (edited)';
+    fresh();
+    const fpCat = albumFingerprint_();
+    data[SHEET_ALBUM] = snapA; fresh();
+    check('D97b RULE: a cell right of the CARD CATALOG columns does not move the inputs tag; a catalog cell does',
+          ri >= 2 && fp0 === fpHelper && fp0 !== fpCat && albumFingerprint_() === fp0, fp0 + ' | helper ' + fpHelper + ' | catalog ' + fpCat);
+    check('D97b: the catalog reader and the tag share one width (ALBUM_CATALOG_COLS)',
+          /getRange\(3, 1, catLastRow - 2, ALBUM_CATALOG_COLS\)/.test(cardSrc) && /slice\(0, ALBUM_CATALOG_COLS\)/.test(cardSrc));
+  }
+  {
+    const perms = cloudPermutations_();
+    // a dump that already carries the sheet: set it aside, the gates build their own
+    const snapBeh = data[ALBUM_BEH_SHEET];
+    delete data[ALBUM_BEH_SHEET]; fresh();
+    const p0 = perms[Math.min(4, perms.length - 1)];
+    const cellRow = Context.get().ds.beh(p0.seg, p0.payer);
+    const pre0 = cardSeasonPre_(p0.seg, p0.payer, Context.get());
+    check('D97 RULE: no data_col_beh sheet -> the player attends on the cell (data_seg_beh), as every pull so far',
+          pre0.behSource === 'data_seg_beh' && pre0.pWd === num(cellRow.weekday_active_rate) && pre0.pWe === num(cellRow.weekend_active_rate),
+          p0.label + ' ' + pre0.pWd + ' / ' + pre0.pWe);
+
+    // the fixture: data_seg_beh's own rows as the album players rows, with (1) one cell's activity changed,
+    // (2) every segment that has a parent removed, (3) a row of another arm and a FAKE row for that cell
+    // carrying absurd rates - neither may be read
+    const src = data['data_seg_beh'].values, h = src[0].map(String), ci = (k) => h.indexOf(k);
+    const rows = clone(src);
+    let hit = -1;
+    for (let i = 1; i < rows.length; i++)
+      if (segCanon_(rows[i][ci('segment')]) === segCanon_(p0.seg) && String(rows[i][ci('payer_flag')]).trim() === p0.payer &&
+          (ci('ab_variant') < 0 || String(rows[i][ci('ab_variant')]).trim() === ANCHOR_ARM)) hit = i;
+    rows[hit][ci('weekday_active_rate')] = 0.8; rows[hit][ci('weekend_active_rate')] = 0.7;
+    ['active_days_p25', 'active_days_p50', 'active_days_p75', 'active_days_p90', 'active_days_p95', 'active_days_p98'].forEach((k, j) => {
+      if (ci(k) >= 0) rows[hit][ci(k)] = [12, 16, 19, 21, 22, 22][j]; });
+    const kept = rows.filter((r, i) => i === 0 || !SEG_PARENT[segCanon_(r[ci('segment')])]);
+    if (ci('ab_variant') >= 0){ const o = clone(rows[hit]); o[ci('ab_variant')] = 'Some other arm'; o[ci('weekday_active_rate')] = 0.01; o[ci('weekend_active_rate')] = 0.01; kept.push(o); }
+    if (ci('status') >= 0){ const f = clone(rows[hit]); f[ci('status')] = 'FAKE'; f[ci('weekday_active_rate')] = 0.02; f[ci('weekend_active_rate')] = 0.02; kept.push(f); }
+    data[ALBUM_BEH_SHEET] = { values: kept, merges: [] };
+    fresh();
+    const pre1 = cardSeasonPre_(p0.seg, p0.payer, Context.get());
+    check('D97 RULE: with a data_col_beh row the player attends at ITS rates and on ITS active-day curve (anchor arm only, FAKE rows skipped)',
+          pre1.behSource === ALBUM_BEH_SHEET && pre1.pWd === 0.8 && pre1.pWe === 0.7 && JSON.stringify(pre1.adCurve) !== JSON.stringify(pre0.adCurve),
+          pre1.behSource + ' ' + pre1.pWd + ' / ' + pre1.pWe);
+    {
+      const cfgA = loadPackConfig_(), catA = loadCardCatalog_(cfgA, SpreadsheetApp.getActiveSpreadsheet().getSheetByName(cardSheet_(SHEET_ALBUM)));
+      const meanAct = (pre) => { let a = 0; for (let k = 0; k < 80; k++) a += runOneCardSeason_(p0.seg, p0.payer, playerSeed_(SEED, 3, k), cfgA, catA, pre).activeDays; return a / 80; };
+      const a0 = meanAct(pre0), a1 = meanAct(pre1);
+      const want1 = expectedActiveDays_({ weekday_active_rate: 0.8, weekend_active_rate: 0.7 }, DAILY_DAYS);
+      check('...and the simulated seasons play that many days (the level is the album rows own rates)',
+            Math.abs(a1 - want1) < 0.08 * want1 && a1 > a0, a1.toFixed(2) + ' days against ' + want1.toFixed(2) + ' expected (the cell: ' + a0.toFixed(2) + ')');
+    }
+    const kids = perms.filter(pp => SEG_PARENT[segCanon_(pp.seg)]);
+    if (!kids.length) console.log('SKIP a cell with no album row reads its parent segment (no segment with a parent in this pull)');
+    else {
+      const k0 = kids[0], par = SEG_PARENT[segCanon_(k0.seg)];
+      const got = cardBeh_(k0.seg, k0.payer, Context.get()), parRow = albumBehMap_()[par + '|' + k0.payer];
+      check('D97 RULE: a cell the sheet has no row for reads its PARENT segment album row, and says so',
+            !!parRow && got.row === parRow && got.source.indexOf(ALBUM_BEH_SHEET + ' (') === 0, k0.label + ' <- ' + got.source);
+    }
+    {
+      const drop = segCanon_(perms[0].seg);
+      data[ALBUM_BEH_SHEET].values = kept.filter((r, i) => i === 0 || segCanon_(r[ci('segment')]) !== drop);
+      const c2 = fresh(), g0 = cardBeh_(perms[0].seg, perms[0].payer, c2);
+      check('D97 RULE: no album row and no parent album row -> the cell own data_seg_beh row',
+            g0.source === 'data_seg_beh' && g0.row === c2.ds.beh(perms[0].seg, perms[0].payer), perms[0].label + ' <- ' + g0.source);
+      data[ALBUM_BEH_SHEET].values = kept; fresh();
+    }
+    {
+      // the gains engine does not read the sheet: every non-collection row of the cell, both sides
+      const allRows = (c) => CATEGORY_ORDER.filter(cat => !/^Col - /.test(cat))
+        .map(cat => JSON.stringify(resultRow_(cat, p0.seg, p0.payer, c)) + JSON.stringify(measuredRow_(cat, p0.seg, p0.payer, c.ds))).join('|');
+      const withSheet = allRows(fresh());
+      const keepSheet = data[ALBUM_BEH_SHEET]; delete data[ALBUM_BEH_SHEET];
+      const without = allRows(fresh());
+      data[ALBUM_BEH_SHEET] = keepSheet; fresh();
+      check('D97 RULE: the gains engine does not read data_col_beh (every non-collection row of the cell identical with and without it)',
+            withSheet === without && withSheet.length > 100);
+    }
+    {
+      const keepFlag = ALBUM_PLAYER_BEH;
+      try {
+        ALBUM_PLAYER_BEH = false; fresh();
+        const preF = cardSeasonPre_(p0.seg, p0.payer, Context.get());
+        check('D97 RULE: ALBUM_PLAYER_BEH = false ignores the sheet',
+              preF.behSource === 'data_seg_beh' && preF.pWd === pre0.pWd && preF.pWe === pre0.pWe && JSON.stringify(preF.adCurve) === JSON.stringify(pre0.adCurve));
+      } finally { ALBUM_PLAYER_BEH = keepFlag; fresh(); }
+    }
+    {
+      const fpWith = albumFingerprint_(), noteWith = albumBehNote_();
+      const keepSheet = data[ALBUM_BEH_SHEET]; delete data[ALBUM_BEH_SHEET]; fresh();
+      const fpWithout = albumFingerprint_(), noteWithout = albumBehNote_();
+      data[ALBUM_BEH_SHEET] = keepSheet; fresh();
+      check('D97 RULE: the sheet is an input of the album run (it moves the inputs tag), and the summary names whose attendance was played',
+            fpWith !== fpWithout && noteWith.indexOf('players: ' + ALBUM_BEH_SHEET) >= 0 && noteWith.indexOf('as many days') < 0 && noteWithout.indexOf('players: data_seg_beh') >= 0,
+            noteWith.slice(0, 90));
+    }
+    delete data[ALBUM_BEH_SHEET]; fresh();
+    {
+      // while attendance is the whole cell: a warning exactly when the album pull's players are far from it
+      const sv = data[ALBUM_SEASON_SHEET] && data[ALBUM_SEASON_SHEET].values, hs = sv ? sv[0].map(String) : [];
+      const am = hs.indexOf('active_days_mean'), sg = hs.indexOf('segment'), pf = hs.indexOf('payer_flag');
+      if (!sv || am < 0) console.log('SKIP the attendance warning (no active_days_mean on ' + ALBUM_SEASON_SHEET + ' in this dump)');
+      else {
+        const snapS = clone(sv), ds = Context.get().ds;
+        let at = -1;
+        for (let i = 1; i < sv.length; i++){
+          if (!sv[i] || !sv[i][sg]) continue;
+          const b = ds.beh(sv[i][sg], String(sv[i][pf]).trim().toUpperCase()) || {};
+          sv[i][am] = num(b.active_days_mean);
+          if (segCanon_(sv[i][sg]) === segCanon_(p0.seg) && String(sv[i][pf]).trim().toUpperCase() === p0.payer) at = i;
+        }
+        fresh();
+        const calm = albumBehNote_();
+        sv[at][am] = 3 * num(sv[at][am]);
+        fresh();
+        const loud = albumBehNote_();
+        data[ALBUM_SEASON_SHEET].values = snapS; fresh();
+        check('D97 RULE: on the cell rows the summary states how far the album sheets players are from the cell (x1.00 when they are the same), and names the furthest cell',
+              at > 0 && /active x1\.00 to x1\.00 as many days/.test(calm) && /to x3\.00 as many days/.test(loud) && loud.indexOf(p0.label + ':') >= 0, loud.slice(0, 190));
+      }
+    }
+    if (snapBeh) data[ALBUM_BEH_SHEET] = snapBeh; else delete data[ALBUM_BEH_SHEET];
+    fresh();
+  }
+
   t.values = snapT;
   delete data[ALBUM_CALIB_SHEET]; delete data[ALBUM_SUMMARY_SHEET]; delete data[ALBUM_GAINS_SHEET];
   Logger.log = quiet;
-  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D89/D90/D89c GATES PASS'));
+  console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D89/D90/D89c/D97 GATES PASS'));
   process.exitCode = failures ? 1 : 0;
 }
 eval(PRELUDE + '\n(' + GATES.toString() + ')();\n');
