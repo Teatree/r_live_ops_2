@@ -65,7 +65,12 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // 3 Nov exports): every data_* sheet re-pulled without the old filters (22 days, Oct 13 .. Nov 3; players per
                        // cell x2-3), the 250+ and ALL segments, '100+' relabelled '100-249'; the by-source and live daily feeds
                        // still on the 5-segment query (no arm column, 20 / 21 days)
-                       v3p: '_mockdata_v3p.json' };
+                       v3p: '_mockdata_v3p.json',
+                       // LIVE_OPS_V3 (21) (2026-11-05 23:48): (20) with data_econ_daily_by_source RE-PULLED - seven segments
+                       // (100-249, 250+, ALL), 19 currencies (envelopes and ToF tickets back), the ToF / Col sources, 22 days
+                       // to Nov 3 like data_gains. Nothing else differs bar AlbumConfig's random helper block (Q:V). The
+                       // engine in the workbook is still D93 (no 250+ / ALL tables filled yet)
+                       v3q: '_mockdata_v3q.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';

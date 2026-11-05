@@ -253,5 +253,10 @@ with open(OUT, 'w', encoding='utf-8') as f:
 # non-latin-1 filename (an emoji in a one-off export) would crash the script AFTER it had
 # already written the dump. Report a console-safe name instead.
 safe = os.path.basename(SRC).encode('ascii', 'replace').decode('ascii')
-print('written', os.path.relpath(OUT, os.path.join(HERE, '..')), 'from',
+# relpath raises when --out is on another drive than the repo (C: scratch vs D: repo): name it in full then
+try:
+    _shown = os.path.relpath(OUT, os.path.join(HERE, '..'))
+except ValueError:
+    _shown = OUT
+print('written', _shown, 'from',
       safe, '—', len(out) - 1, 'sheets')
