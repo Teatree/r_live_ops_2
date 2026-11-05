@@ -1,10 +1,13 @@
 // Per-block totals of the change summary's own numbers (CURRENT / NEW per player, VALUE and a few
 // resources) for one dump, so two engines or two segment sets can be compared block by block.
 //
-//   node harness/_probe_segments.js --data v3p [--out f.json] [--engine-dir <dir>] [--quiet]
+//   node harness/_probe_segments.js --data v3p [--out f.json] [--engine-dir <dir>] [--quiet] [--asis]
 //
 // Uses ChangeSummary.gs's own functions (csPopulation_, csCellRows_, csBlocks_), so what it prints is
-// what Fill change summary would write on the TOTAL rows.
+// what Fill change summary would write on the TOTAL rows. Like that fill, it first rebuilds the per-event
+// export scale from the dump's own feed (a dump's export_scale sheet can be from an older pull, and a
+// table over other days is ignored: every source then falls back to the activity scale). --asis keeps
+// the dump's table.
 const fs = require('fs');
 const path = require('path');
 if (process.argv.indexOf('--data') < 0) process.argv.push('--data', 'v3p');
@@ -26,6 +29,10 @@ function PROBE() {
   eval(fs.readFileSync(ENGINE('SimPerSegmentFill.gs'), 'utf8'));
   eval(fs.readFileSync(ENGINE('ChangeSummary.gs'), 'utf8'));
   const say = global.__say;
+  if (process.argv.indexOf('--asis') < 0 && typeof exportScaleGrid_ === 'function'){
+    const g = exportScaleGrid_(Context.get());
+    if (g){ data['export_scale'] = { values: g, merges: [] }; resetSheetCache_mock(); }
+  }
   const ctx = Context.get();
   const prices = csPrices_(), extras = csExportOnlyCats_(), cats = CATEGORY_ORDER.concat(extras);
   const popInfo = csPopulation_(ctx);
