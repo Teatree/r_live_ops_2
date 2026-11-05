@@ -163,8 +163,11 @@ function GATES(){
   const S = () => data[ALBUM_SUMMARY_SHEET].values;
   check('a run writes album_calibration and album_summary', !!data[ALBUM_CALIB_SHEET] && !!data[ALBUM_SUMMARY_SHEET]);
   const tab = (fresh(), albumCalibTab_());
-  check('the k table reads back: ten cells, the data day, the inputs fingerprint', !!tab && Object.keys(tab.cells).length === 10 && tab.D > 0 && /^[0-9a-f]{8}$/.test(tab.fp),
-        tab ? tab.D + ' days, #' + tab.fp : 'none');
+  // D94: the cells are the pull's member segments x payer (ten before LIVE_OPS_V3 (20), twelve on it) -
+  // the count is read from the engine, never frozen here
+  const NCELLS = cloudPermutations_().length;
+  check('the k table reads back: every cell the run plays, the data day, the inputs fingerprint', !!tab && Object.keys(tab.cells).length === NCELLS && tab.D > 0 && /^[0-9a-f]{8}$/.test(tab.fp),
+        tab ? Object.keys(tab.cells).length + ' of ' + NCELLS + ' cells, ' + tab.D + ' days, #' + tab.fp : 'none');
   {
     // the central property: the calibrated inflow per cell equals the measured external inflow
     const c = data[ALBUM_CALIB_SHEET].values, h = c[3], ix = (k) => h.indexOf(k), by = {};
@@ -173,14 +176,30 @@ function GATES(){
       b.m += m; b.e += (kind === 'carried') ? m : (kind === 'none' ? mo : mo * (+k)); });
     const worst = Object.keys(by).reduce((w, cl) => Math.max(w, Math.abs(by[cl].e / by[cl].m - 1)), 0);
     check('RULE: in every cell the calibrated inflow (k x model + carried) equals the album data\'s external envelopes within 3%',
-          Object.keys(by).length === 10 && worst < 0.03, 'worst ' + (100 * worst).toFixed(2) + '%');
+          Object.keys(by).length === NCELLS && worst < 0.03, 'worst ' + (100 * worst).toFixed(2) + '% over ' + Object.keys(by).length + ' cells');
+    // D94: a cell with fewer than ALBUM_CALIB_MIN_CELL album players has no k of its own - its rows are its
+    // parent segment's, and say so. A dump with no such cell (every pull before (20)) skips the gate.
+    const noteCol = ix('note'), small = cloudPermutations_().filter(pp => SEG_PARENT[segCanon_(pp.seg)]);
+    if (!small.length) console.log('SKIP a small cell borrows its parent\'s calibration (no segment with a parent in this pull)');
+    else {
+      const rowsOf = (lab) => c.slice(4).filter(r => r[0] === lab);
+      const bad = small.filter(pp => {
+        const own = rowsOf(pp.label), par = rowsOf(albumCellLabel_(SEG_PARENT[segCanon_(pp.seg)], pp.payer));
+        const borrowed = own.length > 0 && own.every(r => /^borrowed from /.test(String(r[noteCol])));
+        const sameK = own.length === par.length && own.every((r, i) => String(r[ix('k')]) === String(par[i][ix('k')]) && r[ix('kind')] === par[i][ix('kind')]);
+        return !(borrowed && sameK);
+      });
+      check('D94 RULE: a cell under ALBUM_CALIB_MIN_CELL album players carries its parent segment\'s k, row for row, and names it',
+            noteCol >= 0 && bad.length === 0, small.map(pp => pp.label).join(', ') + (bad.length ? ' - NOT borrowed: ' + bad.map(pp => pp.label).join(', ') : ''));
+    }
   }
   {
     const v = S(), hdr = v[4] || [];
     const allRow = v.find(r => r[0] === 'All' && r[1] === 'All');
-    check('the summary: the measured column next to both seasons at day D and the end, ten cells and an All row',
+    check('the summary: the measured column next to both seasons at day D and the end, every cell and an All row',
           /MEASURED album 1 \(day \d+\)/.test(String(hdr[3])) && /CURRENT sim album 1/.test(String(hdr[4])) && /REDESIGN sim album 1/.test(String(hdr[6])) &&
-          v.filter(r => CLOUD_PAYERS.indexOf(r[1]) >= 0).length === 10 && !!allRow);
+          v.filter(r => CLOUD_PAYERS.indexOf(r[1]) >= 0).length === NCELLS && !!allRow,
+          v.filter(r => CLOUD_PAYERS.indexOf(r[1]) >= 0).length + ' of ' + NCELLS + ' cell rows');
     const hi = v.findIndex(r => String(r[0]).indexOf('HISTORY') === 0);
     check('a history block with one row for this run', hi > 0 && v.slice(hi + 2).filter(r => String(r[0]).trim()).length === 1);
     // the All row is the album-population-weighted mean of the cells
@@ -240,7 +259,7 @@ function GATES(){
     const D = albumDataDays_() || 16;
     const prep = albumPrepare_('redesign', SEED, D, {});
     const perms = cloudPermutations_();
-    check('the set-up prepares all ten cells with a pre and a positive cost per player-season',
+    check('the set-up prepares every cell with a pre and a positive cost per player-season',
           prep._stoppedAt < 0 && perms.every((p, i) => !!prep.pres[i] && prep.ms[i] > 0),
           perms.map((p, i) => p.label + ' ' + (prep.ms[i] || 0).toFixed(1) + 'ms').join(', '));
     const mean = prep.ms.reduce((a, x) => a + x, 0) / prep.ms.length;
