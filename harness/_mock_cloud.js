@@ -24,6 +24,35 @@ const PRELUDE = CARDS.slice(0, CARDS.indexOf(CUT));
 function GATES() {
   const N = 24;                       // players per permutation for the gates (kept small: fast)
   const SEED = 20260901;
+  // 2026-11-05: a dump carries album_calibration / album_gains / album_summary only when someone ran
+  // Album completion before the export, and what they hold is that run's (LIVE_OPS_V3 (20)'s were
+  // written under labels its pull no longer uses). These gates assert the MODEL's rules - a grant
+  // matches the player's own expectation, every source row is an engine category - which the album-data
+  // calibration deliberately bends; its gates are in _mock_album.js. So the tables are dropped from RAW
+  // (every reset() restarts from it), and the result no longer depends on what was run before a dump.
+  {
+    const d0 = JSON.parse(RAW);
+    let dropped = [];
+    ['album_calibration', 'album_gains', 'album_summary'].forEach(n => { if (d0[n]) { delete d0[n]; dropped.push(n); } });
+    if (dropped.length) {
+      RAW = JSON.stringify(d0); data = JSON.parse(RAW); _sheetValsCache = {};
+      if (typeof resetModuleCaches_ === 'function') resetModuleCaches_();
+      console.log('dropped from the dump for this harness: ' + dropped.join(', '));
+    }
+  }
+  // A fixture's bar: the sheet's OWN when it already has one (the engine resolves the first bar with a
+  // label, so a second one appended below it would be read by the gate and never written by the engine -
+  // which is what the v2 card sheets, built after the builder grew these blocks, did to three gates),
+  // else appended under everything with `room` empty rows and an end marker. Returns the 1-based row.
+  const fixtureBar = (vals, label, room, endLabel) => {
+    for (let i = 0; i < vals.length; i++)
+      if (String((vals[i] || [])[0]).trim() === label) return i + 1;
+    vals.push([]);
+    const r = vals.push([label]);
+    for (let i = 0; i < room; i++) vals.push([]);
+    if (endLabel) vals.push([endLabel]);
+    return r;
+  };
   // TWO AXES since D49 (2026-09-09). Col_Cards_Cloud carries the ten MEASURED permutations;
   // Col_Cards_Totals carries those ten plus the MAX ceiling column. A gate that reads the wrong one
   // is off by exactly one column, which is the quietest possible way to check the wrong number - so
@@ -56,9 +85,13 @@ function GATES() {
   // ---------------------------------------------------------------- 0. shape
   console.log('data: ' + (data._meta ? data._meta.source : '(no _meta)'));
   console.log('');
-  check('10 permutations, five real segments x two payer flags',
-    perms.length === 10 && !perms.some(p => p.seg === 'A. 0'),
-    perms.map(p => p.label).join(', '));
+  // D94: the cells are the pull's member segments x the two payer flags (ten before LIVE_OPS_V3 (20),
+  // twelve on it) - never the A. 0 appendix, never the ALL row
+  const memberSegs = (typeof segMembers_ === 'function') ? segMembers_(Context.get().ds) : null;
+  check('one permutation per member segment x payer flag, no A. 0 and no ALL',
+    perms.length === 2 * (memberSegs ? memberSegs.length : 5) && perms.length >= 10 &&
+    !perms.some(p => p.seg === 'A. 0' || /^all$/i.test(String(p.seg))),
+    perms.length + ': ' + perms.map(p => p.label).join(', '));
   check('Col_Cards_Totals adds the MAX ceiling column, and Col_Cards_Cloud does not',
     tperms.length === perms.length + 1 &&
     tperms[tperms.length - 1].label === PLAYER_PROFILES.MAX.label &&
@@ -293,7 +326,7 @@ function GATES() {
   {
     const seeds = {};
     let dupes = 0;
-    for (let p = 0; p < 10; p++)
+    for (let p = 0; p < tperms.length; p++)
       for (let k = 0; k < 200; k++) {
         const s = playerSeed_(SEED, p, k);
         if (seeds[s]) dupes++;
@@ -555,8 +588,14 @@ function GATES() {
         // alone can invert them. That is exactly what MAX does: he plays all 33 days, so active
         // days == calendar days and the two rates are the same number, printed as 6.23 and 6.234.
         // A 2dp write can be half a unit in the last place below the truth, hence 0.006.
+        // 2026-11-05: ...and ONE day may carry packs without being played - the album's last day, when
+        // the season-end spend-down converts the leftover stars whether or not the player opens the game
+        // (user rule, 2026-09-09). It never showed while every cell had far more active days than pack
+        // days; LIVE_OPS_V3 (20)'s 250+ cells play ~7 days of 28 and draw a pack on each, so their pack
+        // days are active days + that one. The bound is therefore act x nAct / (nAct + 1); the rule
+        // itself is asserted per player below.
         const eps = 0.006;
-        if (!(pkd >= act - eps && act >= cal - eps)) { ordered = false; atW = pm.label; }
+        if (!(pkd >= act * nAct / (nAct + 1) - eps && act >= cal - eps)) { ordered = false; atW = pm.label; }
       });
       check('packs per CALENDAR day x 33 == Total Packs Opened',
         wCal < 0.025, 'worst ' + wCal.toFixed(4));
@@ -564,7 +603,7 @@ function GATES() {
         rAct <= 1, 'worst ' + wAct.toFixed(4) + ' = ' + (100 * rAct).toFixed(0) + '% of the rounding bound');
       check('packs on a PACK day x days with a pack == Total Packs Opened (within the sheet rounding)',
         rPack <= 1, 'worst ' + wPack.toFixed(4) + ' = ' + (100 * rPack).toFixed(0) + '% of the rounding bound');
-      check('the three rates are ordered pack-day >= active day >= calendar day',
+      check('the three rates are ordered pack-day >= active day >= calendar day (one spend-down day allowed)',
         ordered, ordered ? 'on all ' + tperms.length + ' permutations' : 'violated at ' + atW);
 
       // the same rule stated on the day counts, which is where it is legible: a pack cannot drop
@@ -572,12 +611,45 @@ function GATES() {
       let daysOk = true, atD = '';
       tperms.forEach((pm, j) => {
         const c = 1 + j;
-        if (get('Days with a pack (mean, of 33)', c) > get('Active days (mean, of 33)', c) + 1e-9) {
+        if (get('Days with a pack (mean, of 33)', c) > get('Active days (mean, of 33)', c) + 1 + 1e-9) {
           daysOk = false; atD = pm.label;
         }
       });
-      check('days with a pack never exceed days played', daysOk,
+      check('days with a pack never exceed days played + the spend-down day', daysOk,
         daysOk ? 'on all ' + tperms.length + ' permutations' : 'violated at ' + atD);
+
+      // THE RULE ITSELF, per player (2026-11-05), which the two sheet-level gates above only bound: an
+      // envelope a SOURCE grants is opened on a day the player played, and the only envelopes opened on
+      // a day that has none of those are the chests of the season-end spend-down, on the album's last
+      // day. Counted off each season's own log, so it holds for a cell that plays 7 days as for one
+      // that plays 25, and a pass envelope landing beside '(did not play)' fails it in any cell.
+      {
+        const cfgP = loadPackConfig_();
+        const catP = loadCardCatalog_(cfgP, SpreadsheetApp.getActiveSpreadsheet().getSheetByName(cardSheet_(SHEET_ALBUM)));
+        const ctxP = Context.get();
+        const lastAlbum = SEASON_CUTOFF ? Math.min(DAILY_DAYS, SEASON_LAST_DAY) : DAILY_DAYS;
+        let over = 0, stray = 0, seasons = 0, chestOnlySeasons = 0, at = '';
+        perms.forEach((pm, pi) => {
+          const pre = cardSeasonPre_(pm.seg, pm.payer, ctxP);
+          for (let k = 0; k < 30; k++) {
+            const r = runOneCardSeason_(pm.seg, pm.payer, playerSeed_(SEED, pi, k), cfgP, catP, pre);
+            const srcDays = {}, chestDays = {};
+            (r.log || []).forEach(row => {
+              if (!row[1]) return;                                   // a filler or a ToF run row: no envelope
+              if (String(row[2]).indexOf(' Chest Opened') > 0) chestDays[row[0]] = 1; else srcDays[row[0]] = 1;
+            });
+            seasons++;
+            if (Object.keys(srcDays).length > r.activeDays) { over++; at = at || pm.label; }
+            const chestOnly = Object.keys(chestDays).filter(d => !srcDays[d]);
+            if (chestOnly.length) chestOnlySeasons++;
+            if (chestOnly.some(d => +d !== lastAlbum)) { stray++; at = at || pm.label; }
+          }
+        });
+        check('RULE: per player, days with a source envelope never exceed days played; a chest-only day is the album\'s last day',
+          seasons > 0 && over === 0 && stray === 0,
+          seasons + ' seasons over ' + perms.length + ' cells, ' + chestOnlySeasons + ' with a spend-down-only day' +
+          (over || stray ? ' - ' + over + ' over, ' + stray + ' stray chest days, first at ' + at : ''));
+      }
     }
   }
 
@@ -749,11 +821,9 @@ function GATES() {
     const rP98Bar = vC.push([CLOUD_BAR_P98]);            // 1-based row of the bar
     for (let i = 0; i < DAILY_DAYS + 2; i++) vC.push([]);
 
-    vT.push([]);
-    const rMixBar = vT.push([TB_MIX_PREFIX + PLAYER_PROFILES.MAX.label]);
     const MIX_RESERVE = CLOUD_SRC_ROWS + 1 + 1;          // source rows + TOTAL + the header row
-    for (let i = 0; i < MIX_RESERVE; i++) vT.push([]);
-    vT.push(['END OF FIXTURE']);                         // a bar, so roomFor_ has something to stop at
+    // the end marker is a bar, so roomFor_ has something to stop at
+    const rMixBar = fixtureBar(vT, TB_MIX_PREFIX + PLAYER_PROFILES.MAX.label, MIX_RESERVE, 'END OF FIXTURE');
 
     reset2();
     SimulateCardCloud();
@@ -854,10 +924,7 @@ function GATES() {
   {
     const vT = data['Col_Cards_Totals'].values;
     const snapT = JSON.stringify(vT);
-    vT.push([]);
-    const rBar = vT.push([TB_ALBUM]);                       // 1-based row of the bar
-    for (let i = 0; i < ALBUM_ROWS.length + 4; i++) vT.push([]);
-    vT.push(['END OF ALBUM FIXTURE']);
+    const rBar = fixtureBar(vT, TB_ALBUM, ALBUM_ROWS.length + 4, 'END OF ALBUM FIXTURE');   // 1-based row of the bar
     reset2();
     setInputs(N, SEED);
 
@@ -869,7 +936,8 @@ function GATES() {
       return null;
     };
     const hdrA = (T[rBar] || []).map(x => String(x == null ? '' : x).trim());
-    check('the album block writes a label column, a POPULATION column and the 10 measured cells',
+    while (hdrA.length && !hdrA[hdrA.length - 1]) hdrA.pop();   // a sheet's own row is padded to its width (or sparse)
+    check('the album block writes a label column, a POPULATION column and every measured cell',
       hdrA[0] === 'Metric' && hdrA[1] === 'POPULATION' &&
       hdrA.length === 2 + perms.length &&
       hdrA.slice(2).join('|') === perms.map(p => p.label).join('|') &&
@@ -1289,7 +1357,10 @@ function GATES() {
   if (!data[SHEET_COL_DAILY]) {
     console.log('SKIP ACT-formula gates: no ' + SHEET_COL_DAILY + ' sheet in this dump (run with --data adjust)');
   } else {
-    const SEG = '100+', PAY = 'PAYER', LABEL = SEG + ' ' + PAY;
+    // D94: the segment the old pulls called '100+', under the label this pull uses for it ('100-249' on
+    // LIVE_OPS_V3 (20)) - the band block's label row and the formulas' criteria both carry that label
+    const SEG = (typeof segLabel_ === 'function') ? segLabel_(segCanon_('100+')) : '100+';
+    const PAY = 'PAYER', LABEL = SEG + ' ' + PAY;
     const dailySnap = JSON.stringify(data[SHEET_COL_DAILY].values);
     const cloudRows = () => data['Col_Cards_Cloud'].values;
     const blockRow = (label) => cloudRows().findIndex(
@@ -1401,7 +1472,7 @@ function GATES() {
     const otherF = String(cloudRows()[blockRow(otherLabel) + 3][SIMW]);
     check('the ' + otherLabel + ' block wires itself, not ' + LABEL,
       otherF.indexOf('"0-9"') >= 0 && otherF.indexOf('"NONPAYER"') >= 0 &&
-      otherF.indexOf('"100+"') < 0,
+      otherF.indexOf('"' + SEG + '"') < 0,
       otherF.slice(0, 96) + '...');
 
     // (6) THE THREE PROPERTIES THAT MOVED INTO THE FORMULA. Each is a deliberate choice and each
@@ -1561,14 +1632,19 @@ function GATES() {
 
       // (c) A SPREAD -> the axis warning. Populations that climb with the segment rank are exactly
       // what the profile-level pull produced.
-      const rank = { '0-9': 0.002, '10-19': 0.08, '20-39': 0.3, '40-99': 1.2, '100+': 30 };
-      prof = setPops((ours, seg) => Math.max(1, Math.round(ours * rank[seg])));
+      // a factor that climbs with the segment's place in the pull's own order (any number of segments)
+      const climb = [0.002, 0.08, 0.3, 1.2, 30, 300];
+      const segOrder = [];
+      cloudPermutations_().forEach(pm => { if (segOrder.indexOf(pm.seg) < 0) segOrder.push(pm.seg); });
+      const canon = (x) => (typeof segCanon_ === 'function') ? segCanon_(x) : x;
+      const rankOf = (seg) => { const i = segOrder.map(canon).indexOf(canon(seg)); return i < 0 ? 1 : climb[Math.min(i, climb.length - 1)]; };
+      prof = setPops((ours, seg) => Math.max(1, Math.round(ours * rankOf(seg))));
       const tagsC = cloudPermutations_().map(pm => popWarning_(prof, pm.label));
       check('cells that disagree WITH EACH OTHER raise the axis warning',
         prof.spread > POP_SPREAD_TOL &&
         tagsC.some(t => t.indexOf('DIFFERENT AXIS') >= 0),
         'spread ' + Math.round(prof.spread) + 'x, ' +
-        tagsC.filter(t => t.indexOf('DIFFERENT AXIS') >= 0).length + ' of 10 tagged');
+        tagsC.filter(t => t.indexOf('DIFFERENT AXIS') >= 0).length + ' of ' + tagsC.length + ' tagged');
 
       // (d) the warning names both populations and the spread, and lands on the GROUP row
       runCloud();

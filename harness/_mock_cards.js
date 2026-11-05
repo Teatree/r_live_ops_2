@@ -352,6 +352,13 @@ function resetSheetCache_mock(){
 {
   const d79 = JSON.parse(RAW);
   ['PackConfig_v2', 'AlbumConfig_v2', 'ToF_v2'].forEach(n => { delete d79[n]; delete data[n]; });
+  // 2026-11-05: ...and the album tables a dump carries only when Album completion was run before the
+  // export (album_calibration thins / duplicates every grant to the album data's level, album_gains
+  // replaces the Col rows' own seasons). The gates below assert the MODEL's rules - a granted count is
+  // unbiased against the player's own expectation, the card sim reconciles with the gains flow - which
+  // the calibration bends on purpose; its gates are in _mock_album.js. LIVE_OPS_V3 (20)'s tables were
+  // also written under labels its pull no longer uses.
+  ['album_calibration', 'album_gains', 'album_summary'].forEach(n => { delete d79[n]; delete data[n]; });
   RAW = JSON.stringify(d79);
 }
 resetSheetCache_mock();

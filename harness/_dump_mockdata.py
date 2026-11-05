@@ -33,6 +33,10 @@ ap.add_argument('--out', help='output json path (default: harness/_mockdata.json
 ap.add_argument('--overlay-into', dest='overlay_into',
                 help='patch the PENDING_IMPORT sheets into an EXISTING dump and exit, without '
                      'reading a workbook (its source workbook may no longer be on disk)')
+ap.add_argument('--pending',
+                help='override the PENDING_IMPORT map for this run: "Sheet=display_file.xlsx,Sheet2=file2.xlsx" '
+                     '(a workbook whose pull has more cells than the v1 card sheets reserve needs the v2 files: '
+                     '"Col_Cards_Cloud=Col_Cards_Cloud_v2.xlsx,Col_Cards_Totals=Col_Cards_Totals_v2.xlsx")')
 args = ap.parse_args()
 
 # --overlay-into needs no workbook at all, so resolving one first would fail on a machine where the
@@ -170,6 +174,17 @@ SHEETS = [
 # failure this map has caused twice before. The builder's file stays in display/ as the schema
 # reference and for a cold start; it is no longer the truth.
 PENDING_IMPORT = {'Col_Cards_Totals': 'Col_Cards_Totals_v1.xlsx'}
+# --pending replaces the map for this run (2026-11-05): LIVE_OPS_V3 (20) plays twelve cells (250+ split
+# out of 100+), and the v1 card sheets reserve ten - its dump carries the v2 pair instead.
+if args.pending:
+    PENDING_IMPORT = {}
+    for part in args.pending.split(','):
+        if not part.strip():
+            continue
+        if '=' not in part:
+            raise SystemExit('--pending wants Sheet=file.xlsx pairs, got: ' + part)
+        k, v = part.split('=', 1)
+        PENDING_IMPORT[k.strip()] = v.strip()
 
 
 def dump_sheet(ws):
