@@ -60,7 +60,12 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // pools; change_summary as filled by the D87 engine; no album_gains (Col rows on their 50-season batch)
                        v3n: '_mockdata_v3n.json',
                        // LIVE_OPS_V3 (19) (2026-11-03 13:16): the workbook the Gemini local-sim prompts were written against
-                       v3o: '_mockdata_v3o.json' };
+                       v3o: '_mockdata_v3o.json',
+                       // LIVE_OPS_V3 (20) (2026-11-05 16:47; downloaded on this machine as '(18)', renamed - (18) and (19) are the
+                       // 3 Nov exports): every data_* sheet re-pulled without the old filters (22 days, Oct 13 .. Nov 3; players per
+                       // cell x2-3), the 250+ and ALL segments, '100+' relabelled '100-249'; the by-source and live daily feeds
+                       // still on the 5-segment query (no arm column, 20 / 21 days)
+                       v3p: '_mockdata_v3p.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';

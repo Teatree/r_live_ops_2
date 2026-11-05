@@ -126,6 +126,9 @@ SHEETS = [
     # by-source feed, the album calibration and the album run's seasons), and the two outputs the
     # harness compares against the engine (staleness, D88)
     'export_scale', 'album_calibration', 'album_gains', 'album_summary', 'change_summary',
+    # 2026-11-05, LIVE_OPS_V3 (18): the Night Sky round-claim feed and the Core SPT by-difficulty feed
+    # (both re-pulled with the corrected filters; (18) adds the 250+ and ALL segments to every data_* sheet)
+    'data_ns_rounds', 'data_core_spt',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The
