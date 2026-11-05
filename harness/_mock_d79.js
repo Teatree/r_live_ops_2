@@ -290,6 +290,52 @@ function GATES(){
     });
   }
 
+  // D93 (2026-11-03): the active-day percentiles are read over data_seg_beh's OWN day count, not data_gains' span
+  console.log('\n================ D93: data_seg_beh says its own day count ================');
+  {
+    const hg = headerIndex_(data['data_gains'].values[0] || []), ce = hg['data_through_date'];
+    const hb = headerIndex_(data['data_seg_beh'].values[0] || []);
+    if (ce == null || hb['active_days_p90'] == null || hb['days_available'] != null) {
+      console.log('   (skipped: this dump has no data_gains span, no active-day percentiles, or already a days_available column)');
+    } else {
+      let c0 = fresh();
+      const span0 = c0.ds.span.days, top0 = segBehTopDays_(), b = c0.ds.beh(SEG, PAY), N = windowDays_();
+      const anc0 = JSON.stringify(activeDaysAnchors_(b, N));
+      check('as shipped the basis is data_seg_beh\'s top percentile (' + top0 + ' days; data_gains span ' + span0 + ')',
+            top0 > 0 && attDataDays_(b) === top0);
+      // data_gains re-pulled 5 days further, data_seg_beh untouched: nothing about attendance may move
+      withSheets(['data_gains'], () => {
+        data['data_gains'].values.slice(1).forEach(r => {
+          const d = dateDays_(r[ce]);
+          if (d != null) r[ce] = new Date((d + 5) * 86400000).toISOString().slice(0, 10);
+        });
+        const c1 = fresh();
+        check('RULE: data_gains 5 days longer, data_seg_beh unchanged -> the span moves, the basis does not',
+              c1.ds.span.days === span0 + 5 && attDataDays_(c1.ds.beh(SEG, PAY)) === top0, 'span ' + c1.ds.span.days + ', basis ' + attDataDays_(c1.ds.beh(SEG, PAY)));
+        check('RULE: ... so every active-day anchor is unchanged', JSON.stringify(activeDaysAnchors_(c1.ds.beh(SEG, PAY), N)) === anc0);
+        SEG_BEH_OWN_DAYS = false; resetSheetCache_mock(); Context.reset();
+        const was = attDataDays_(Context.get().ds.beh(SEG, PAY));
+        SEG_BEH_OWN_DAYS = true;
+        check('RULE: SEG_BEH_OWN_DAYS = false restores D79 (the basis follows the span)', was === span0 + 5, 'got ' + was);
+      });
+      // data_seg_beh re-pulled over more days: the basis follows ITS top percentile
+      withSheets(['data_seg_beh'], () => {
+        const k = hb['active_days_p98'] != null ? hb['active_days_p98'] : hb['active_days_p90'];
+        data['data_seg_beh'].values.slice(1).forEach(r => { if (String(r[hb['segment']] || '').trim() && num(r[k]) >= top0) r[k] = top0 + 5; });
+        check('RULE: data_seg_beh\'s top percentile 5 days higher -> the basis follows it', attDataDays_(fresh().ds.beh(SEG, PAY)) === top0 + 5);
+      });
+      // a stray table under the rows (LIVE_OPS_V3 (18) has one) is not read
+      withSheets(['data_seg_beh'], () => {
+        const w = data['data_seg_beh'].values[0].length, row = new Array(w).fill('');
+        row[hb['active_days_p90']] = 999;
+        data['data_seg_beh'].values.push(row);
+        fresh();
+        check('RULE: a row with no segment (a table pasted below) does not count', segBehTopDays_() === top0, 'got ' + segBehTopDays_());
+      });
+      check('RULE: an own days_available column still wins', attDataDays_(Object.assign({}, b, { days_available: 20 })) === 20);
+    }
+  }
+
   console.log('\n' + (failures ? failures + ' FAILED' : 'ALL D79 GATES PASS'));
   process.exitCode = failures ? 1 : 0;
 }

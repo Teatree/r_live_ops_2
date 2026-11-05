@@ -98,7 +98,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D92  2026-11-02';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D93  2026-11-03';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -2066,6 +2066,7 @@ function resetModuleCaches_(){
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
   if (typeof _albumCalibCache !== 'undefined') _albumCalibCache = undefined;   // CardOpenings.gs (D89)
   if (typeof _albumGainsCache !== 'undefined'){ _albumGainsCache = undefined; _albumFpMemo = undefined; }   // D89b
+  if (typeof _segBehTopMemo !== 'undefined'){ _segBehTopMemo = undefined; _segBehTopLogged = false; }   // D93 (CardOpenings.gs)
   if (typeof DataStore !== 'undefined' && DataStore.reset) DataStore.reset();   // D67: the data_* memo too
 }
 
