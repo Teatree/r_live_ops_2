@@ -72,7 +72,7 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD() like every other engine file.
-var SIMFILL_BUILD = 'SimFill.gs          D98  2026-11-06';
+var SIMFILL_BUILD = 'SimFill.gs          D98b 2026-11-06';
 
 /**
  * The sheets to scan. REFRESH_SHEETS (EcoGainsSim_v4.gs) is the list refreshSims_ already
@@ -983,10 +983,22 @@ function simFillSay_(text){
 /** The end-of-run pop-up. A menu run has a UI; a trigger or the harness does not, and neither
  *  should cost the run its result - so it falls back to the log. */
 function simFillPopup_(title, text){
+  Logger.log(title + ': ' + text);
+  // D98b: a window that does NOT hold the run open. ui.alert waits for its OK button, so a run started
+  // from the Apps Script editor (where the window opens in the spreadsheet's tab, out of sight) or left
+  // unattended stayed 'running' until someone clicked it - LIVE_OPS_V3 (22) was completely filled while
+  // the run still showed as going after 20 minutes. A modeless dialog returns at once.
+  try {
+    var esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var html = HtmlService.createHtmlOutput('<pre style="font:12px Arial,sans-serif;white-space:pre-wrap;margin:0">' + esc + '</pre>')
+                          .setWidth(720).setHeight(480);
+    SpreadsheetApp.getUi().showModelessDialog(html, title);
+    return;
+  } catch (e){}
   try {
     var ui = SpreadsheetApp.getUi();
     ui.alert(title, text, ui.ButtonSet.OK);
-  } catch (e){ Logger.log(title + ': ' + text); }
+  } catch (e2){}
 }
 
 /**

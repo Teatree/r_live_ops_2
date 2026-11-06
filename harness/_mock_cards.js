@@ -70,7 +70,7 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // (100-249, 250+, ALL), 19 currencies (envelopes and ToF tickets back), the ToF / Col sources, 22 days
                        // to Nov 3 like data_gains. Nothing else differs bar AlbumConfig's random helper block (Q:V). The
                        // engine in the workbook is still D93 (no 250+ / ALL tables filled yet)
-                       v3q: '_mockdata_v3q.json' };
+                       v3q: '_mockdata_v3q.json', v3r: '_mockdata_v3r.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
