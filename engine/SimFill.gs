@@ -72,7 +72,7 @@
  ************************************************************************************************/
 
 // Build stamp, read back by ECOGAINS_BUILD() like every other engine file.
-var SIMFILL_BUILD = 'SimFill.gs          D94  2026-11-05';
+var SIMFILL_BUILD = 'SimFill.gs          D98  2026-11-06';
 
 /**
  * The sheets to scan. REFRESH_SHEETS (EcoGainsSim_v4.gs) is the list refreshSims_ already
@@ -720,6 +720,9 @@ function fillAllSims(){
   }
 
   // ---- 2. compute. ONE execution, so Context / DataStore / _sheetValsCache are built once -----
+  // D98: the run says where it is. Its only other message is the pop-up at the very end, so a run the
+  // platform killed (6 minutes on a personal account) and a run still working looked the same.
+  simFillSay_('Computing ' + jobs.length + ' sim blocks...');
   var done = [];
   for (var i = 0; i < jobs.length; i++){
     var elapsed = new Date().getTime() - t0;
@@ -753,6 +756,7 @@ function fillAllSims(){
     done.push({ job: j, grid: grid, fn: tgt.name });
   }
 
+  simFillSay_(done.length + ' of ' + jobs.length + ' blocks computed in ' + Math.round((new Date().getTime() - t0) / 1000) + 's. Writing them...');
   // ---- 3. write. Clear the anchor first so the old spill collapses, then lay the grid down. ----
   // D65: a spill is written into the ROOM its layout leaves and nothing more. The rows past the
   // next block (or the columns past the header) are dropped and the clip is reported - the user
@@ -805,10 +809,17 @@ function fillAllSims(){
 
   // ---- 4. Sim per Segment, in the SAME execution (user decision 2026-10-27): its reads share
   // this run's caches, and one menu item leaves no sheet behind.
+  // D98: inside the time budget like the blocks above. It used to start however late the run was,
+  // and a run killed inside it never reached the pop-up.
   var spsLine = '';
   if (typeof fillSimPerSegment === 'function'){
-    try { fillSimPerSegment(); spsLine = 'Sim per Segment filled.'; }
-    catch (e){ spsLine = 'Sim per Segment NOT filled: ' + e; }
+    if (new Date().getTime() - t0 > SIMFILL_BUDGET_MS){
+      spsLine = 'Sim per Segment NOT filled: the time budget was used up. Run EcoGainsSim > Fill Sim per Segment.';
+    } else {
+      simFillSay_('Sim blocks written. Filling Sim per Segment...');
+      try { fillSimPerSegment(); spsLine = 'Sim per Segment filled.'; }
+      catch (e){ spsLine = 'Sim per Segment NOT filled: ' + e; }
+    }
   }
 
   var secs = ((new Date().getTime() - t0) / 1000).toFixed(1);
@@ -962,6 +973,11 @@ function simFillTail_(sh, r0, c0, w, rMax, head){
   }
   if (k > 0) sh.getRange(r0, c0, k, w).clearContent();
   return k;
+}
+
+/** D98: a progress line while the run works (a toast; nothing waits on it). */
+function simFillSay_(text){
+  try { SpreadsheetApp.getActive().toast(text, 'Fill all sims', 30); } catch (e){}
 }
 
 /** The end-of-run pop-up. A menu run has a UI; a trigger or the harness does not, and neither

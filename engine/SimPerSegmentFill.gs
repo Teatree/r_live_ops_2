@@ -33,7 +33,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var SPS_BUILD     = 'SimPerSegmentFill.gs D94 2026-11-05';
+var SPS_BUILD     = 'SimPerSegmentFill.gs D98 2026-11-06';
 
 
 var SPS_SHEET = 'Sim per Segment';
@@ -160,6 +160,7 @@ function fillSimPerSegment(){
   }
 
   var filled = 0, skipped = [], netFilled = 0;
+  _spsBuf = {};                                        // D98: rows are collected, then written in blocks
   for (var r = 0; r < vals.length; r++){
     var mMatch = String(vals[r][1] || '').match(/^◆\s*(.+)$/);
     if (!mMatch) continue;
@@ -204,31 +205,65 @@ function fillSimPerSegment(){
     });
     filled++;
   }
+  var nCalls = spsFlush_(sh);
   var msg = 'Sim per Segment: ' + filled + ' tables filled' +
             (econ ? ' · ' + netFilled + ' net rows'
                   : ' · NET skipped (data_econ missing or lacks per-earner columns)') +
-            (skipped.length ? ' · flagged: ' + skipped.join(', ') : '');
+            (skipped.length ? ' · flagged: ' + skipped.join(', ') : '') +
+            ' · ' + nCalls + ' sheet writes';
   try { ss.toast(msg, 'EcoGainsSim', 8); } catch(e){}
   Logger.log(msg);
 }
 
+// D98 (2026-11-06): THE ROWS ARE WRITTEN IN BLOCKS. Each row used to cost 9 to 11 separate sheet calls
+// (two value ranges, seven single-cell formulas, the NET cells): 1,726 calls for the 13 tables of
+// LIVE_OPS_V3 (21), every one a round trip, inside Fill all sims and outside its time budget. The
+// three writers below now only collect their row; spsFlush_ writes each run of neighbouring rows as
+// four rectangles (C:G, I:M, O:S, U:X) - 104 calls for the same cells, the same values and the same
+// formulas (a string starting with '=' written through setValues IS a formula). A NET row with no
+// data_econ line is written as four empty cells, which is what clearContent left.
+var _spsBuf = null;                                    // row -> { g:[C..G], s:[I..M], d:[O..S], n:[U..X] }
+function spsRow_(row){ return (_spsBuf[row] = _spsBuf[row] || {}); }
 // C:F current groups, I:L simulated, G/M Total (=SUM), O:S delta (=sim/cur-1)
 function writeGainsRow_(sh, row, gs){
-  sh.getRange(row, 3, 1, 4).setValues([gs.cur]);
-  sh.getRange(row, 9, 1, 4).setValues([gs.sim]);
-  sh.getRange(row, 7 ).setFormula('=SUM(C' + row + ':F' + row + ')');
-  sh.getRange(row, 13).setFormula('=SUM(I' + row + ':L' + row + ')');
+  var o = spsRow_(row);
+  o.g = gs.cur.concat(['=SUM(C' + row + ':F' + row + ')']);
+  o.s = gs.sim.concat(['=SUM(I' + row + ':L' + row + ')']);
+  o.d = [];
   for (var j = 0; j < 5; j++){
     var curC = String.fromCharCode(67 + j), simC = String.fromCharCode(73 + j);   // C..G / I..M
-    sh.getRange(row, 15 + j).setFormula('=IFERROR(' + simC + row + '/' + curC + row + '-1,"")');
+    o.d.push('=IFERROR(' + simC + row + '/' + curC + row + '-1,"")');
   }
 }
-// U cur spend, V cur net, W new net, X net Δ (=W-V)
+// U cur spend, V cur net, W new net, X net delta (=W-V)
 function writeNetRow_(sh, row, nr){
-  sh.getRange(row, SPS_NET_C0,     1, 3).setValues([[nr.spend, nr.curNet, nr.newNet]]);
-  sh.getRange(row, SPS_NET_C0 + 3).setFormula('=IFERROR(W' + row + '-V' + row + ',"")');
+  spsRow_(row).n = [nr.spend, nr.curNet, nr.newNet, '=IFERROR(W' + row + '-V' + row + ',"")'];
 }
-function clearNetRow_(sh, row){ sh.getRange(row, SPS_NET_C0, 1, 4).clearContent(); }
+function clearNetRow_(sh, row){ spsRow_(row).n = ['', '', '', '']; }
+/** Writes everything collected, one rectangle per (run of neighbouring rows, column group). Returns
+ *  the number of sheet calls it made. */
+function spsFlush_(sh){
+  var buf = _spsBuf || {}, calls = 0;
+  _spsBuf = null;
+  var rows = Object.keys(buf).map(Number).sort(function(a, b){ return a - b; });
+  [['g', 3], ['s', 9], ['d', 15], ['n', SPS_NET_C0]].forEach(function(grp){
+    var k = grp[0], c0 = grp[1], start = null, block = [];
+    function put(){
+      if (!block.length) return;
+      sh.getRange(start, c0, block.length, block[0].length).setValues(block);
+      calls++; block = []; start = null;
+    }
+    rows.forEach(function(r){
+      var x = buf[r][k];
+      if (!x){ put(); return; }
+      if (start != null && r !== start + block.length) put();
+      if (start == null) start = r;
+      block.push(x);
+    });
+    put();
+  });
+  return calls;
+}
 
 // data_econ: segment | payer_flag | currency -> gain_per_earner, spend_per_earner, resource_earners
 // (per-EARNER v2 columns; a v1 per-active-player-only data_econ has no gain_per_earner header ->
