@@ -6027,7 +6027,7 @@ function ECOGAINS_BUILD(nonce){
   }
 
   rows.push(['--- build stamps (which COPY of each file won) ---', '', '', '']);
-  ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD', 'SPS_BUILD', 'CHANGESUM_BUILD'].forEach(function(v){
+  ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD', 'SPS_BUILD', 'CHANGESUM_BUILD', 'SIMFILL_BUILD'].forEach(function(v){
     rows.push([v, has(v) ? eval(v) : 'NOT IN THIS PROJECT', '', has(v) ? '' : 'NO']);
   });
 
