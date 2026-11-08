@@ -20,8 +20,12 @@
 // Read-out on (21) at 300 players, album 1 by day 22, all cells: measured 3.4% of album players;
 // run 1 1.0%, run 2 6.6%, run 3 3.0%. Run 2 over-shoots because the cell's activity is the wrong
 // population's (0-9 NONPAYER: 7.3 active days of 22, p25 1 / p90 21, against 14.8 for the album pull).
+// Read-out on (23) (--data v3s, D97 engine, 300 players, --redesign), per album player: day 22 measured
+// 3.41% | run 1 1.03% | run 2 4.72% | run 3 1.97%; current season end 2.21% | 8.98% | 4.31%; REDESIGN
+// season end 2.76% | 12.98% | 6.09% (x q, of the whole pull: 1.29% | 6.05% | 2.84% - run 1 is the
+// sheet's 1.11%). The measured day 22 sits between runs 2 and 3, as on (21).
 //
-//   node harness/_probe_album_participation.js [--data v3q|<path>] [--n 300]
+//   node harness/_probe_album_participation.js [--data v3q|<path>] [--n 300] [--redesign]
 const fs = require('fs'), path = require('path');
 if (process.argv.indexOf('--data') < 0) process.argv.push('--data', 'v3q');
 const CARDS = fs.readFileSync(path.join(__dirname, '_mock_cards.js'), 'utf8');
@@ -84,17 +88,28 @@ function PROBE(){
     }
     data[ALBUM_BEH_SHEET] = { values: out, merges: [] };
   };
+  // --redesign: also play the redesign season (cal_new, _v2) on the k table the current season computed,
+  // exactly as the menu run does (the table is written, then read back by the redesign's set-up)
+  const RED = process.argv.indexOf('--redesign') >= 0;
   const run = (mutators) => {
     const snap = { s: clone(data[ALBUM_SEASON_SHEET]), e: clone(data[ALBUM_ENV_SHEET]), b: data[ALBUM_BEH_SHEET] };
     try {
       mutators.forEach(f => f());
       resetSheetCache_mock(); Context.get();
-      const prep = albumPrepare_('current', SEED, D, { calibrate: { meas: albumMeasured_(), nCal: Math.min(N, ALBUM_CALIB_PLAYERS) } });
-      return { res: albumRunPrepared_(prep, N, SEED, D, {}), ms: albumMeasuredSeason_(),
+      const meas = albumMeasured_(), nCal = Math.min(N, ALBUM_CALIB_PLAYERS);
+      const prep = albumPrepare_('current', SEED, D, { calibrate: { meas: meas, nCal: nCal } });
+      const out = { res: albumRunPrepared_(prep, N, SEED, D, {}), ms: albumMeasuredSeason_(),
                src: perms.map(p => cardBeh_(p.seg, p.payer, Context.get()).source.split(' (')[0]).filter((x, i, a) => a.indexOf(x) === i).join(' + ') };
+      if (RED){
+        albumWriteCalib_(SpreadsheetApp.getActiveSpreadsheet(), prep._calRows, albumFingerprint_(), D, nCal, meas._carriedNames);
+        resetSheetCache_mock(); Context.get();
+        out.red = albumRunPrepared_(albumPrepare_('redesign', SEED, D, {}), N, SEED, D, {});
+      }
+      return out;
     } finally {
       data[ALBUM_SEASON_SHEET] = snap.s; data[ALBUM_ENV_SHEET] = snap.e;
       if (snap.b) data[ALBUM_BEH_SHEET] = snap.b; else delete data[ALBUM_BEH_SHEET];
+      delete data[ALBUM_CALIB_SHEET];
       resetSheetCache_mock(); Context.get();
     }
   };
@@ -106,7 +121,7 @@ function PROBE(){
   console.log('each group: measured | 1 as pulled | 2 album sheets | 3 + attendance');
   console.log('cell               q    active days of ' + D + '      album 1 by day ' + D + '                    new cards                     sets                        envelopes opened            album 1 at the season end (1 | 2 | 3)');
   console.log('                        cell | album pull');
-  let W = 0; const a = [0, 0, 0, 0, 0, 0, 0];
+  let W = 0, WR = 0, WQ = 0; const a = [0, 0, 0, 0, 0, 0, 0], rb = [0, 0, 0], rd = [];
   perms.forEach(p => {
     const qq = qOf(p), m = r2.ms[p.label] || {}, x1 = r1.res[p.label], x2 = r2.res[p.label], x3 = r3.res[p.label];
     if (!x1 || !x2 || !x3) return;
@@ -117,7 +132,23 @@ function PROBE(){
     const w = num(m.players);
     W += w; a[0] += w * num(m.album1); a[1] += w * x1.d.album1 / qq; a[2] += w * x2.d.album1; a[3] += w * x3.d.album1;
     a[4] += w * x1.full.album1 / qq; a[5] += w * x2.full.album1; a[6] += w * x3.full.album1;
+    if (RED){
+      const y1 = (r1.red || {})[p.label], y2 = (r2.red || {})[p.label], y3 = (r3.red || {})[p.label];
+      if (y1 && y2 && y3){
+        rd.push(p.label.padEnd(18) + qq.toFixed(2) + '   ' + [y1.full.album1 / qq, y2.full.album1, y3.full.album1].map(pc).join(' ') +
+                '      ' + [y1.full.album1, y2.full.album1 * qq, y3.full.album1 * qq].map(pc).join(' ') +
+                '      ' + [y1.full.packs / qq, y2.full.packs, y3.full.packs].map(f1).join(' '));
+        WR += w; rb[0] += w * y1.full.album1 / qq; rb[1] += w * y2.full.album1; rb[2] += w * y3.full.album1;
+        WQ += w / qq;                                    // the whole pull's players of the cell
+      }
+    }
   });
   console.log('All (album players)                      ' + [a[0], a[1], a[2], a[3]].map(x => pc(x / W)).join(' ') + '   season end: ' + [a[4], a[5], a[6]].map(x => pc(x / W)).join(' '));
+  if (RED){
+    console.log('\nREDESIGN season (cal_new, _v2), album 1 at the season end, on each run\'s own k table');
+    console.log('cell               q     per album player (1 | 2 | 3)      of the whole pull, x q (1 | 2 | 3)      envelopes per album player (1 | 2 | 3)');
+    rd.forEach(x => console.log(x));
+    console.log('All                       ' + rb.map(x => pc(x / WR)).join(' ') + '      ' + rb.map(x => pc(x / WQ)).join(' '));
+  }
 }
 eval(PRELUDE + '\n(' + PROBE.toString() + ')();\n');
