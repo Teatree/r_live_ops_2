@@ -24,6 +24,10 @@
 // 3.41% | run 1 1.03% | run 2 4.72% | run 3 1.97%; current season end 2.21% | 8.98% | 4.31%; REDESIGN
 // season end 2.76% | 12.98% | 6.09% (x q, of the whole pull: 1.29% | 6.05% | 2.84% - run 1 is the
 // sheet's 1.11%). The measured day 22 sits between runs 2 and 3, as on (21).
+// Read-out on (24) (--data v3t: the REAL data_col_beh, album sheets still the old pull), run 3 = album
+// sheets per album player + the real rows: day 22 2.94% against 3.41% measured; current season end 5.83%;
+// REDESIGN season end 8.66% per album player (4.04% of the whole pull). The sheet itself read 0.33%: the
+// real rows on the UNfiltered album sheets cut every envelope to a third (k 0.34 at 0-9 NONPAYER).
 //
 //   node harness/_probe_album_participation.js [--data v3q|<path>] [--n 300] [--redesign]
 const fs = require('fs'), path = require('path');
@@ -40,6 +44,10 @@ function PROBE(){
   global.HtmlService = undefined;
   // a dump can carry album tables written under labels the pull no longer uses: start clean
   delete data[ALBUM_CALIB_SHEET]; delete data[ALBUM_SUMMARY_SHEET]; delete data[ALBUM_GAINS_SHEET];
+  // a dump that already carries the pulled data_col_beh (LIVE_OPS_V3 (24) on): runs 1 and 2 play without it
+  // (as on (21)), run 3 plays the REAL rows instead of the stand-in built from active_days_mean
+  const REAL_BEH = data[ALBUM_BEH_SHEET] ? clone(data[ALBUM_BEH_SHEET]) : null;
+  delete data[ALBUM_BEH_SHEET];
   resetSheetCache_mock(); Context.get();
   const D = albumDataDays_(), perms = cloudPermutations_();
   const sv0 = data[ALBUM_SEASON_SHEET].values, sh = sv0[0].map(String), si = (k) => sh.indexOf(k);
@@ -113,7 +121,8 @@ function PROBE(){
       resetSheetCache_mock(); Context.get();
     }
   };
-  const r1 = run([]), r2 = run([albumOnly]), r3 = run([albumOnly, albumBeh]);
+  const realBeh = () => { data[ALBUM_BEH_SHEET] = clone(REAL_BEH); };
+  const r1 = run([]), r2 = run([albumOnly]), r3 = run(REAL_BEH ? [albumOnly, realBeh] : [albumOnly, albumBeh]);
 
   const pc = (x) => (100 * num(x)).toFixed(2).padStart(6) + '%', f1 = (x) => num(x).toFixed(1).padStart(6), f2 = (x) => num(x).toFixed(2).padStart(5);
   console.log('album day ' + D + ', ' + N + ' players per cell. Every figure is per ALBUM PLAYER (at least one envelope by day ' + D + '); x q gives the share of the whole pull.');
