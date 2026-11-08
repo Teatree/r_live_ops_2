@@ -126,6 +126,8 @@ SHEETS = [
     # anchor sheets above, FAKE rows here are READ (the lane feeds no simulated value), so the
     # overlay can be seen working before real data lands.
     'data_col_daily',
+    # D97 (2026-11-06): the album players' own behaviour rows, read by the card sim's attendance (cardBeh_)
+    'data_col_beh',
     # D87-D89 (2026-11-02): the small tables the menu runs write and the engine READS back (the pooled
     # by-source feed, the album calibration and the album run's seasons), and the two outputs the
     # harness compares against the engine (staleness, D88)
