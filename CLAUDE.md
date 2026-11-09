@@ -126,6 +126,9 @@ python builders/_build_calbal.py    # -> display/Calendar_Rebalance_v1.xlsx (Sum
 python builders/_build_rm_localsim.py   # -> display/RM_LocalSim_v1.xlsx: the RM local sim block at AI1:AS13, counts milestones like the engine
 python builders/_build_rm_sheets.py     # -> display/RM_Sheets_v1.xlsx: the four RM sheets of the newest LIVE_OPS_V3 workbook, copied cell for cell
                                         #    (formulas, array formulas, styles, CF; DUMMYFUNCTION wrappers unwrapped) with that block already in AI1:AS13
+python builders/_build_ki_sheets.py     # -> display/Ki_Sheets_v1.xlsx: Ki_v2 + Ki_2d_v2 of 'LIVE_OPS_V3 - Kite Festival.xlsx', cell for cell, with the
+                                        #    progression block's score cells (AJ/AL/AN/AP/AR 17..23) rewritten: a festival shorter than Ki!B6 = its first
+                                        #    B6 days at the same pace (balance x MEAN share by min(day, B6)); segment from the row-16 header, "100" = "100*"
 node harness/_probe_jigsaw_flock.js [--data v3n]   # 2026-11-03 evidence: Jigsaw / Flock instances per calendar, whole-window vs 7-day
                                         #    CURRENT -> NEW per cell, Jigsaw's E_base / E_v2 / R (R missing = carried x T)
 node harness/_mock_window.js     # D70-D74: the counted window (day-number row), the measured rescale, Rainbow Maker halves + cut-off

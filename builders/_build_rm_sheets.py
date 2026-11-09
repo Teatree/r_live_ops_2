@@ -69,11 +69,12 @@ def in_block(r, c):
     return BLOCK[1] <= r <= BLOCK[3] and CI(BLOCK[0]) <= c <= CI(BLOCK[2])
 
 
-def copy_sheet(src, dst):
+def copy_sheet(src, dst, skip=in_block):
+    """skip(row, col) -> True leaves that cell out (the caller rewrites it). _build_ki_sheets.py copies whole sheets."""
     n_unwrapped = 0
     for row in src.iter_rows():
         for c in row:
-            if in_block(c.row, c.column):
+            if skip(c.row, c.column):
                 continue                              # the old block: rewritten below
             v = c.value
             if isinstance(v, ArrayFormula):
