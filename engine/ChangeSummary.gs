@@ -363,7 +363,7 @@ function csLayout_(){
  *  in their own columns): two fills on the same inputs print the same tag. */
 function csFingerprint_(){
   var names = (typeof REFRESH_WATCH !== 'undefined') ? REFRESH_WATCH.filter(function(n){ return !/^data_/i.test(n); }) : [];
-  names = names.concat(['PackConfig', 'PackConfig_v2', 'AlbumConfig', 'AlbumConfig_v2', 'ToF_v2', 'Ki_2d_v2']);
+  names = names.concat(['PackConfig', 'PackConfig_v2', 'AlbumConfig', 'AlbumConfig_v2', 'ToF_v2', 'Ki_2d_v2', 'Ki_2d_v2_weekend']);
   var h = 0x811c9dc5, seen = {};
   names.forEach(function(n){
     if (seen[n]) return; seen[n] = 1;

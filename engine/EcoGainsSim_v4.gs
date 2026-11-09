@@ -5907,7 +5907,12 @@ var CAL_ALIAS = { 'Mystery Puzzle':'Jigsaw Puzzle', 'Mystery Box':'Jigsaw Puzzle
 // cadence ratio, the daily view, CalStats and the card sim see ONE event with more instances, and
 // pricing reads each instance's own sheet (variantSpec_). Only a label whose stem is a lane the
 // engine prices is folded, and never a label that is itself a lane.
-var CAL_VARIANT_RE = /^(.*\S)\s*\(\s*([^()]*\S)\s*\)\s*$/;
+// D99 (2026-11-09): a QUALIFIER may follow the parenthesis - 'Kite Festival (2d) weekend' is the
+// '2d' variant's 'weekend' config. x.variant then reads '2d|weekend' (VARIANT_QUAL_SEP), so every
+// reader keyed on x.variant (laneVariantE_'s E cache, packRungs_, the play-by-play) prices the
+// qualified instances apart; variantSpec_ maps it to <base>_<v>_v2_<q> (see there).
+var CAL_VARIANT_RE = /^(.*\S)\s*\(\s*([^()]*\S)\s*\)\s*([^()]*?)\s*$/;
+var VARIANT_QUAL_SEP = '|';
 var _calLaneSet = null;
 function calLaneKnown_(lab){
   if (!_calLaneSet){
@@ -5924,7 +5929,7 @@ function calFoldVariants_(cal){
     if (calLaneKnown_(lab)) return;
     var m = CAL_VARIANT_RE.exec(lab);
     if (!m || !calLaneKnown_(m[1])) return;
-    var lane = m[1], v = m[2];
+    var lane = m[1], v = m[2] + (m[3] ? VARIANT_QUAL_SEP + m[3].replace(/\s+/g, '_') : '');   // D99
     (cal[lab] || []).forEach(function(x){ x.variant = v; });
     cal[lane] = (cal[lane] || []).concat(cal[lab] || []);
     delete cal[lab];
@@ -5940,7 +5945,10 @@ function hasVariant_(list){
   return false;
 }
 /** The pricing spec of one variant: '<base>_<v>_v2' on the redesign side, '<base>_<v>' then '<base>'
- *  on the anchor side; a sheet that does not exist falls back to the lane's own (logged once). */
+ *  on the anchor side; a sheet that does not exist falls back to the lane's own (logged once).
+ *  D99: a qualified variant '<v>|<q>' ('Kite Festival (2d) weekend') reads '<base>_<v>_v2_<q>'
+ *  (Ki_2d_v2_weekend), else '<base>_<v>_<q>_v2', else the unqualified variant's '<base>_<v>_v2', else
+ *  the lane's own; the anchor side '<base>_<v>_<q>', else '<base>_<v>', else '<base>'. */
 var _variantSpecCache = {};
 function variantSpec_(spec, variant){
   if (!spec || !variant) return spec;
@@ -5949,9 +5957,14 @@ function variantSpec_(spec, variant){
   var b = spec.base || spec.sheet, key = b + '|' + variant;
   var nm = _variantSpecCache[key];
   if (!nm){
-    var v2n = b + '_' + variant + '_v2', bvn = b + '_' + variant;
-    nm = _variantSpecCache[key] = { v2: v2n, bv: bvn, hasV2: sheetVals_(v2n).length > 0, hasB: sheetVals_(bvn).length > 0 };
-    if (!nm.hasV2){ try { Logger.log('D73: no sheet ' + v2n + ' - variant (' + variant + ') of ' + b + ' priced on ' + (spec.v2 || spec.sheet)); } catch(e){} }
+    var parts = String(variant).split(VARIANT_QUAL_SEP), v = parts[0], q = parts.slice(1).join('_');
+    var v2c = q ? [b + '_' + v + '_v2_' + q, b + '_' + v + '_' + q + '_v2', b + '_' + v + '_v2'] : [b + '_' + v + '_v2'];
+    var bvc = q ? [b + '_' + v + '_' + q, b + '_' + v] : [b + '_' + v];
+    var pick = function(c){ for (var i = 0; i < c.length; i++) if (sheetVals_(c[i]).length > 0) return c[i]; return null; };
+    var v2n = pick(v2c), bvn = pick(bvc);
+    nm = _variantSpecCache[key] = { v2: v2n, bv: bvn, hasV2: !!v2n, hasB: !!bvn };
+    if (!v2n || (q && v2n !== v2c[0])){ try { Logger.log('D73/D99: no sheet ' + v2c[0] + ' - variant (' + variant + ') of ' + b +
+      ' priced on ' + (v2n || spec.v2 || spec.sheet)); } catch(e){} }
   }
   var o = {};
   for (var k in spec) o[k] = spec[k];
@@ -6114,7 +6127,7 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   // any of them has to re-run the spill like any other config edit.
   'ToF','MD','item_vals',
   // D88: every other sheet a sim reads - so the change summary / album summary STALE mark sees an edit to them
-  'Ki_2d_v2','Ki_Tr','Ki_Tr_v2','ToF_v2','PackConfig','PackConfig_v2','AlbumConfig','AlbumConfig_v2',
+  'Ki_2d_v2','Ki_2d_v2_weekend','Ki_Tr','Ki_Tr_v2','ToF_v2','PackConfig','PackConfig_v2','AlbumConfig','AlbumConfig_v2',
   'export_scale','data_econ_daily_by_source','data_rm_pace','data_col_daily','data_col_envelopes','data_col_season',
   'data_col_beh'];   // D97: the album players' own behaviour rows (the card sim's attendance)
 

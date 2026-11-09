@@ -55,7 +55,9 @@ var V2DIFF_PAIRS = [
 // lists the base candidates in order of preference; the first one the workbook has wins.
 var V2DIFF_TWINS = { 'NS_v2_weekday': ['NS_weekday', 'NS'],
                      // D73: the 2-day Kite Festival's base is Ki until a Ki_2d sheet exists
-                     'Ki_2d_v2': ['Ki_2d', 'Ki'] };
+                     'Ki_2d_v2': ['Ki_2d', 'Ki'],
+                     // D99: the weekend 2-day Kite ('Kite Festival (2d) weekend') - same anchor chain
+                     'Ki_2d_v2_weekend': ['Ki_2d_weekend', 'Ki_2d', 'Ki'] };
 
 // [ [base, base_v2], ... ]: the CONFIG_PAIRED registry when present; else every `X_v2` sheet in
 // the workbook whose `X` exists, plus the hand-mapped twins, plus the static list (deduplicated,

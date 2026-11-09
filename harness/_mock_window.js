@@ -409,6 +409,73 @@ function GATES() {
     }
   }
 
+  // ================================================================ D99: A QUALIFIED VARIANT - THE WEEKEND 2-DAY KITE
+  console.log('\n================ D99: "Kite Festival (2d) weekend" READS Ki_2d_v2_weekend ================');
+  {
+    const seg = '20-39', payer = 'PAYER', lane = 'Kite Festival', WK = 'Kite Festival (2d) weekend';
+    const cp = data['cal_parsed'], h = cp ? cp.values[0] : [];
+    const iCal = h.indexOf('calendar'), iEv = h.indexOf('event');
+    const rows2d = cp ? cp.values.slice(1).filter(r => String(r[iCal]) === 'cal_new' && String(r[iEv]) === 'Kite Festival (2d)') : [];
+    if (rows2d.length < 2) console.log('SKIP D99: fewer than two "(2d)" instances on cal_new');
+    else {
+      const snapCP = JSON.stringify(cp), snapW = data['Ki_2d_v2_weekend'];
+      const c0 = fresh(), kn0 = c0.calNew[lane], sim0 = resultRow_(lane, seg, payer, c0);
+      rows2d.forEach((r, k) => { if (k % 2 === 1) r[iEv] = WK; });            // every second 2-day instance -> weekend
+      delete data['Ki_2d_v2_weekend'];
+      const c1 = fresh(), kn = c1.calNew[lane];
+      const nW = rows2d.filter((r, k) => k % 2 === 1).length;
+      check('D99: "Kite Festival (2d) weekend" is folded into Kite Festival, tagged variant 2d|weekend',
+        !c1.calNew[WK] && (c1.calNewFull[lane] || []).filter(i => i.variant === '2d|weekend').length === nW &&
+        (c1.calNewFull[lane] || []).filter(i => i.variant === '2d').length === rows2d.length - nW,
+        nW + ' weekend, ' + (rows2d.length - nW) + ' weekday; ' + kn.map(i => i.start + '+' + i.dur + (i.variant ? '(' + i.variant + ')' : '')).join(' '));
+      const sim1 = resultRow_(lane, seg, payer, c1);
+      check('D99: with no Ki_2d_v2_weekend sheet the weekend instances read Ki_2d_v2 (Kite row bit-identical to all "(2d)")',
+        RESOURCES.every(r => sim1[r] === sim0[r]), 'HC ' + sim0.HC + ' / ' + sim1.HC);
+      check('D99: variantSpec_ resolves 2d|weekend to Ki_2d_v2_weekend, then Ki_2d_v2, and the anchor to Ki',
+        (() => { data['Ki_2d_v2_weekend'] = JSON.parse(JSON.stringify(data['Ki_2d_v2'])); fresh();
+                 const a = variantSpec_({ base: 'Ki', v2: 'Ki_v2' }, '2d|weekend');
+                 delete data['Ki_2d_v2_weekend']; fresh();
+                 const b = variantSpec_({ base: 'Ki', v2: 'Ki_v2' }, '2d|weekend');
+                 return a.v2 === 'Ki_2d_v2_weekend' && a.base === 'Ki' && b.v2 === 'Ki_2d_v2'; })());
+      // the weekend sheet = Ki_2d_v2 with HC doubled + 1 on every rank: only the weekend instances move
+      data['Ki_2d_v2_weekend'] = JSON.parse(JSON.stringify(data['Ki_2d_v2']));
+      const spec = LB_R_SPECS[lane], hdrRow = data['Ki_2d_v2_weekend'].values[spec.hdr];
+      const hcCol = hdrRow.findIndex((x, j) => j >= spec.c0 && j <= spec.c1 && /^(HC|Coins)$/.test(String(x).trim()));
+      const c2 = fresh(), simSame = resultRow_(lane, seg, payer, c2);
+      check('D99: a Ki_2d_v2_weekend identical to Ki_2d_v2 changes nothing', RESOURCES.every(r => Math.abs(simSame[r] - sim0[r]) < 1e-9 * Math.max(1, Math.abs(sim0[r]))));
+      data['Ki_2d_v2_weekend'].values.forEach((row, ri) => { if (ri >= spec.r0 && ri <= spec.r1) row[hcCol] = (Number(row[hcCol]) || 0) * 2 + 1; });
+      const c3 = fresh(), sim3 = resultRow_(lane, seg, payer, c3);
+      const b = c3.ds.beh(seg, payer), pWd = Number(b.weekday_active_rate), pWe = Number(b.weekend_active_rate);
+      const E0 = rewardE_(lane, seg, payer, c3.ds), E2 = rewardE_(lane, seg, payer, c3.ds, '2d'), EW = rewardE_(lane, seg, payer, c3.ds, '2d|weekend');
+      const meas = measuredRow_(lane, seg, payer, c3.ds), rc = c3.calCur[lane].reduce((a, i) => a + reachOne_(i, pWd, pWe), 0);
+      const dW = c3.calNew[lane].filter(i => i.variant === '2d|weekend').reduce((a, i) => a + reachOne_(i, pWd, pWe), 0) * (EW.eV2.HC - E2.eV2.HC);
+      const want = meas.HC * dW / (Number(E0.eBase.HC) * rc);
+      check('D99: an HC edit on Ki_2d_v2_weekend moves Kite HC by measured x (weekend reach x dE) / (E_base x reach on cal_curr), nothing else',
+        hcCol >= 0 && want > 0 && Math.abs((sim3.HC - sim0.HC) - want) < 1e-6 * Math.max(1, want) &&
+        RESOURCES.filter(r => r !== 'HC').every(r => Math.abs(sim3[r] - sim0[r]) < 1e-9 * Math.max(1, Math.abs(sim0[r]))),
+        (sim3.HC - sim0.HC).toFixed(4) + ' vs ' + want.toFixed(4));
+      // the card sim: a pack on the weekend sheet pays on the weekend instances only
+      const one = (cx) => cx.calNew[lane].map((inst, k) => { const pr = packRungs_(lane, seg, payer, cx, k);
+        return pr ? pr.groups.reduce((a, g) => a + g.rungs.filter(x => x.packs && x.packs['1-star Pack'] > 0).length, 0) : 0; });
+      const rb = one(c3);
+      const pc = hdrRow.findIndex((x, j) => j >= spec.c0 && j <= spec.c1 && /1-star/i.test(String(x)));
+      data['Ki_2d_v2_weekend'].values.forEach((row, ri) => { if (ri >= spec.r0 && ri <= spec.r1) row[pc] = (Number(row[pc]) || 0) + 1; });
+      const c4 = fresh(), ra = one(c4), kn4 = c4.calNew[lane];
+      const movedW = kn4.filter((i, k) => i.variant === '2d|weekend' && ra[k] > rb[k]).length, movedO = kn4.filter((i, k) => i.variant !== '2d|weekend' && ra[k] !== rb[k]).length;
+      check('D99: the card sim gains a Ki_2d_v2_weekend pack rung on every weekend 2-day instance and on no other',
+        movedW === kn4.filter(i => i.variant === '2d|weekend').length && movedW > 0 && movedO === 0, movedW + ' weekend moved, ' + movedO + ' other');
+      // the play-by-play view
+      eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
+      let got = '';
+      try { got = pbpEventState_(PBP_EVENTS[lane], lane, { start: 1, dur: 2, days: [1, 2], variant: '2d|weekend' },
+              { day: 1, seg: seg, payer: payer, luck: 'p50', cal: CAL_NEW }, c4, {}, 1).spec.cfg; } catch (e) { got = 'threw ' + e.message; }
+      check('D99: the play-by-play view reads Ki_2d_v2_weekend for a weekend 2-day instance', got === 'Ki_2d_v2_weekend', got);
+      data['cal_parsed'] = JSON.parse(snapCP);
+      if (snapW) data['Ki_2d_v2_weekend'] = snapW; else delete data['Ki_2d_v2_weekend'];
+      fresh();
+    }
+  }
+
   // ================================================================ D74: THE DAILY VIEW'S DATA DAYS
   console.log('\n================ D74: WHICH FEED DAY IS WINDOW DAY d ================');
   {
