@@ -1130,18 +1130,24 @@ function kiteJoin_(seg, payer){
 }
 /** Reach of one instance of `lane` for a cell: the D100 joiner curve for a short Kite festival, the
  *  plain reach otherwise. */
-function laneReach_(lane, x, pWd, pWe, seg, payer){
-  if (!KITE_JOIN || lane !== KITE_JOIN_LANE || seg == null || !x) return reachOne_(x, pWd, pWe);
+function laneReach_(lane, x, pWd, pWe, seg, payer){ return laneReachDetail_(lane, x, pWd, pWe, seg, payer).reach; }
+/** laneReach_ with its parts, for the Kite explainer (KiteExplain.gs): {reach, plain, applied, K, keep,
+ *  refReach, L0}. applied = false -> reach is the plain reach (K / keep / refReach null). */
+function laneReachDetail_(lane, x, pWd, pWe, seg, payer){
+  var plain = reachOne_(x, pWd, pWe), out = { reach: plain, plain: plain, applied: false, K: null, keep: null, refReach: null, L0: null };
+  if (!KITE_JOIN || lane !== KITE_JOIN_LANE || seg == null || !x) return out;
   var J = kiteJoin_(seg, payer), L0 = J ? J.u.length : 0;
-  if (!J || x.clipStart || x.clipEnd || !(num(x.dur) < L0)) return reachOne_(x, pWd, pWe);
+  out.L0 = L0 || null;
+  if (!J || x.clipStart || x.clipEnd || !(num(x.dur) < L0)) return out;
   var all = 0, kept = 0;
   for (var i = 0; i < L0; i++){
     var w = num(J.u[i]) * (isWeekend_(num(x.start) + i) ? pWe : pWd);
     all += w; if (i < num(x.dur)) kept += w;
   }
-  if (!(all > 0)) return reachOne_(x, pWd, pWe);
-  var K = kept / all;
-  return reachOne_(mkInst_(num(x.start), L0), pWd, pWe) * (K + KITE_JOIN_SHIFT * (1 - K));
+  if (!(all > 0)) return out;
+  var K = kept / all, keep = K + KITE_JOIN_SHIFT * (1 - K), ref = reachOne_(mkInst_(num(x.start), L0), pWd, pWe);
+  out.applied = true; out.K = K; out.keep = keep; out.refReach = ref; out.reach = ref * keep;
+  return out;
 }
 function laneReachSum_(lane, list, pWd, pWe, seg, payer){
   var s = 0;
@@ -6238,7 +6244,7 @@ function ECOGAINS_BUILD(nonce){
   }
 
   rows.push(['--- build stamps (which COPY of each file won) ---', '', '', '']);
-  ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD', 'SPS_BUILD', 'CHANGESUM_BUILD', 'SIMFILL_BUILD'].forEach(function(v){
+  ['ENGINE_BUILD', 'CARDSIM_BUILD', 'DAILY_BUILD', 'SPS_BUILD', 'CHANGESUM_BUILD', 'SIMFILL_BUILD', 'KITEX_BUILD'].forEach(function(v){
     rows.push([v, has(v) ? eval(v) : 'NOT IN THIS PROJECT', '', has(v) ? '' : 'NO']);
   });
 
@@ -6378,7 +6384,8 @@ function onEdit(e){
 // (checked segment by segment: 15.273 / 23.723 / 26.661 / 19.054 against the grid's ToF_Ticket sum).
 // Listing it also means a deliberately deleted ToF anchor comes back on the next refresh, same as
 // every other sim anchor.
-var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'EcoGainsSim_HC_7d', 'cal_new', 'ToF', 'MD'];
+var REFRESH_SHEETS = [SHEET, 'EcoGainsSim_Daily', 'EcoGainsSim_HC_7d', 'cal_new', 'ToF', 'MD',
+                      'Kite_Explainer'];   // D101: ECOGAINS_KITE (KiteExplain.gs)
 var SIM_NONCE_SHEET = 'sim_refresh';
 var SIM_NONCE_REF = SIM_NONCE_SHEET + '!$A$1';
 

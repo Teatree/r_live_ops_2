@@ -151,6 +151,34 @@ function GATES(){
        'max |DIFF on - DIFF off| ' + worst.toExponential(2) + '  (max |DIFF| ' + level.toFixed(3) + ' = the config edits)');
   data['cal_new'] = savedNew; if (savedParsed) data['cal_parsed'] = savedParsed; reset();
 
+  // ---- 10 the explainer (D101): ECOGAINS_KITE agrees with the change summary and with itself
+  eval(fs.readFileSync(ENGINE('ChangeSummary.gs'), 'utf8'));
+  eval(fs.readFileSync(ENGINE('KiteExplain.gs'), 'utf8'));
+  reset();
+  const K = {}; ['PARAMS', 'RESULT', 'FESTIVALS', 'RANKS'].forEach(b => { K[b] = ECOGAINS_KITE(PAY, SEG, b, 0); });
+  gate('10 every explainer block spills a table', Object.keys(K).every(b => K[b].length > 2 && K[b][0].length > 2));
+  const cs = csCellRows_(Context.get(), [], csPopulation_(Context.get()))
+    .find(c => segCanon_(c.seg) === segCanon_(SEG) && c.payer === PAY);
+  const rh = K.RESULT[0];
+  let csGap = 0, fsGap = 0;
+  rh.slice(2).forEach((name, j) => {
+    const r = RES_MAP[name];
+    if (!r) return;
+    csGap = Math.max(csGap, Math.abs(num(K.RESULT[1][2 + j]) - num(cs.rows[KC].cur[r])), Math.abs(num(K.RESULT[2][2 + j]) - num(cs.rows[KC].nw[r])));
+    const ci = K.FESTIVALS[0].indexOf(name + ' (per player)');
+    ['Today', 'Redesign'].forEach((side, si) => {
+      const s = K.FESTIVALS.slice(1).filter(x => x[0] === side).reduce((a, x) => a + num(x[ci]), 0);
+      fsGap = Math.max(fsGap, Math.abs(s - num(K.RESULT[1 + si][2 + j])));
+    });
+  });
+  gate('10 today / redesign per player = the change summary\'s Kite row', csGap < 1e-9, 'max gap ' + csGap.toExponential(2));
+  gate('10 the festival rows add up to the totals', fsGap < 1e-9, 'max gap ' + fsGap.toExponential(2));
+  const pv = {}; K.PARAMS.slice(1).forEach(x => { pv[x[0]] = x[1]; });
+  gate('10 coins: today x R x T x D = redesign', close(num(pv['Coins today per player']) * num(K.RESULT[4][2]) * num(K.RESULT[5][2]), num(pv['Coins redesign per player']), 1e-3));
+  gate('10 the columns are the reward sheet\'s own header', rh.slice(2).join('|') === kxCols_().map(c => c.name).join('|'), rh.slice(2, 5).join(', ') + ' ...');
+  const rs = K.RANKS.slice(1).reduce((a, x) => a + num(x[1]), 0);
+  gate('10 the place chances add up to 1', close(rs, 1, 1e-9));
+
   say('\n' + pass + ' pass, ' + fail + ' fail');
   if (fail) process.exitCode = 1;
 }
