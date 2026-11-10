@@ -430,7 +430,9 @@ function placeWeights_(cat, insts, pWd, pWe, ds, seg, payer){
     return normalize_(w);
   }
   // timed: split the total across instances prop reach, then place within each instance
-  var reaches = insts.map(function(inst){ return reachOne_(inst, pWd, pWe); });
+  var reaches = insts.map(function(inst){
+    return (typeof laneReach_ === 'function') ? laneReach_(DAILY_CAL_LABEL[cat], inst, pWd, pWe, seg, payer)   // D100
+                                              : reachOne_(inst, pWd, pWe); });
   var sumR = 0; reaches.forEach(function(x){ sumR += x; });
   insts.forEach(function(inst, i){
     var instShare = sumR > 0 ? reaches[i]/sumR : 1/insts.length;

@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D96  2026-11-05';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D100  2026-11-10';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -909,7 +909,7 @@ function timedCore_(cat, calLabel, seg, payer, ctx, dFn){
   if (!nw.length && !cur.length) return meas;
   if (!nw.length) return zeroRow_();                     // removed from the new calendar (packs too)
   if (!cur.length) return meas;
-  var T = timingRatio_(cur, nw, seg, payer, ctx.ds);
+  var T = timingRatio_(cur, nw, seg, payer, ctx.ds, calLabel);   // D100: lane-aware reach
   var D = dFn(modalDur_(cur), modalDur_(nw));
   // D81: a collection lane takes D through the players' balance (the redesign side's survival) instead
   // of as a reward multiplier - when its progress distribution exists to carry it
@@ -960,7 +960,7 @@ function addBase0_(out, calLabel, seg, payer, ctx, E, VE, cat){
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   var part = packParticipation_(cat, E.inst);
   all.forEach(function(x){
-    var e = VE ? VE.perInst(x, 'eV2') : E.eV2, q = reachOne_(x, pWd, pWe);
+    var e = VE ? VE.perInst(x, 'eV2') : E.eV2, q = laneReach_(calLabel, x, pWd, pWe, seg, payer);
     res.forEach(function(r){ out[r] = num(out[r]) + part * q * num(e && e[r]); });
   });
   return out;
@@ -983,7 +983,7 @@ function laneVariantE_(cat, cur, nw, seg, payer, ctx, E, pace){
     if (!hasVariant_(list)) return E[side];
     var acc = zeroRow_(), w = 0;
     list.forEach(function(x){
-      var r = reachOne_(x, pWd, pWe), e = eOf(x.variant || '')[side];
+      var r = laneReach_(CAL_LABEL[cat], x, pWd, pWe, seg, payer), e = eOf(x.variant || '')[side];
       w += r;
       RESOURCES.forEach(function(res){ acc[res] = num(acc[res]) + r * num(e[res]); });
     });
@@ -1046,9 +1046,107 @@ function packParticipation_(cat, inst){
     var x = parseFloat(raw);
     if (raw !== null && raw !== '' && isFinite(x) && x >= 0) return x;
   }
+  // D100: Kite's opt-in among ACTIVE players, measured off the join grant (kite_joiners)
+  if (KITE_JOIN && cat === KITE_JOIN_CAT && inst){
+    var kj = kiteJoin_(inst.segment, inst.payer_flag);
+    if (kj && kj.optinActive > 0) return kj.optinActive;
+  }
   if (PACK_PARTICIPATION[cat] != null) return num(PACK_PARTICIPATION[cat]);
   var p = inst ? num(inst.participation_rate) : 0;
   return (p > 0) ? p : 1;                                // no telemetry -> full participation
+}
+
+// ---- KITE JOINERS (D100, 2026-11-10, user decisions) ----------------------------------------
+// Kite is opt-in, and the model had no measurement of who opts in: the pack lane priced it at the
+// D25 guess 0.35, and a shorter festival lost exactly the players the WHOLE segment's daily activity
+// says would miss its missing day (reach = 1 - PROD(1 - p_day)) - joiners or not. data_event_inst's
+// opt_in_rate reads 2.5% in every cell (another denominator) and cannot be used.
+// The by-source feed measures both. Kite pays its Unlimited Lives grant once per festival, at score
+// 100 - the moment a player joins - so its daily recipients ARE the joiners by join day. The menu run
+// (fillKiteJoiners_, inside Compute export scale) pools them over cal_curr's complete Kite festivals
+// into the small KITE_JOIN_SHEET table; the engine reads only that table.
+//   opt-in among active players = joiners per festival / players_in_cell / the festival's reach
+//       (the pack lane multiplies by reach itself, so the measured rate is divided by it once)
+//   join weights u_1..u_L0 = each day's share of joiners divided by that day's activity rate
+//       (activity-free, so a festival on other weekdays re-weights them by its own days - user
+//        decision: weekend festivals adjust by weekend activity)
+// A festival SHORTER than the measured length L0 reaches
+//     reach(the L0-day festival from the same start) x (K + KITE_JOIN_SHIFT x (1 - K))
+//     K = SUM_{i<=dur} u_i p_day(i) / SUM_{i<=L0} u_i p_day(i)
+// i.e. it keeps the joiners who would have joined by its last day, plus half of the rest (user
+// decision: half of the late joiners join earlier when the festival is shorter - an assumption).
+// A festival as long as L0 or longer, or cut by the window edge, keeps the plain reach (bit-identical
+// to D99 on a calendar of measured-length festivals). Lost joiners take an average share of every
+// rank's rewards (user decision: the rank distribution is unchanged). A cell with fewer than
+// KITE_JOIN_MIN joiners per festival reads its parent's row (250+ -> 100-249); a 'Participation' label
+// on Ki_v2 still overrides the measured opt-in. No table, or KITE_JOIN = false -> D99 exactly.
+// NOT applied: the card sim's own attendance draw (D48) - its per-player reach of a short festival is
+// still activity-based; only its Kite opt-in moves.
+var KITE_JOIN = true;
+var KITE_JOIN_SHEET = 'kite_joiners';
+var KITE_JOIN_CAT = 'Kite Festival', KITE_JOIN_LANE = 'Kite Festival';
+var KITE_JOIN_RES = 'Unlimited Lives';      // the score-100 join grant
+var KITE_JOIN_SHIFT = 0.5;
+var KITE_JOIN_MIN = 30;
+var _kiteJoinTab;                           // undefined = not read yet (resetModuleCaches_)
+function kiteJoinTab_(){
+  if (_kiteJoinTab !== undefined) return _kiteJoinTab;
+  _kiteJoinTab = null;
+  var v = sheetVals_(KITE_JOIN_SHEET);
+  if (!v || !v.length) return null;
+  var hr = -1, h = {};
+  for (var r = 0; r < v.length && hr < 0; r++){
+    var hh = {};
+    (v[r] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim(); if (k && hh[k] == null) hh[k] = i; });
+    if (hh['segment'] != null && hh['payer_flag'] != null && hh['opt_in_active'] != null){ hr = r; h = hh; }
+  }
+  if (hr < 0) return null;
+  var uCols = [];
+  Object.keys(h).forEach(function(k){ var m = /^u(\d+)$/.exec(k); if (m) uCols.push([+m[1], h[k]]); });
+  uCols.sort(function(a, b){ return a[0] - b[0]; });
+  if (!uCols.length) return null;
+  var rows = {};
+  for (var i = hr + 1; i < v.length; i++){
+    var x = v[i] || [], sg = segCanon_(x[h['segment']]), py = String(x[h['payer_flag']] == null ? '' : x[h['payer_flag']]).trim().toUpperCase();
+    if (!sg || !py) break;
+    rows[sg + '|' + py] = { joiners: num(x[h['joiners_per_instance']]), optin: num(x[h['opt_in']]),
+                            reach: num(x[h['reach_measured']]), optinActive: num(x[h['opt_in_active']]),
+                            u: uCols.map(function(c){ return num(x[c[1]]); }) };
+  }
+  return (_kiteJoinTab = { rows: rows, L0: uCols.length });
+}
+/** The kite_joiners row a cell reads: its own when it has KITE_JOIN_MIN joiners per festival, else its
+ *  parent's (SEG_PARENT); null without a table. */
+function kiteJoin_(seg, payer){
+  var tab = kiteJoinTab_();
+  if (!KITE_JOIN || !tab) return null;
+  var c = segCanon_(seg), py = String(payer == null ? '' : payer).trim().toUpperCase(), hops = 0;
+  while (c && hops++ < 4){
+    var row = tab.rows[c + '|' + py];
+    if (row && row.joiners >= KITE_JOIN_MIN) return row;
+    c = SEG_PARENT[c];
+  }
+  return null;
+}
+/** Reach of one instance of `lane` for a cell: the D100 joiner curve for a short Kite festival, the
+ *  plain reach otherwise. */
+function laneReach_(lane, x, pWd, pWe, seg, payer){
+  if (!KITE_JOIN || lane !== KITE_JOIN_LANE || seg == null || !x) return reachOne_(x, pWd, pWe);
+  var J = kiteJoin_(seg, payer), L0 = J ? J.u.length : 0;
+  if (!J || x.clipStart || x.clipEnd || !(num(x.dur) < L0)) return reachOne_(x, pWd, pWe);
+  var all = 0, kept = 0;
+  for (var i = 0; i < L0; i++){
+    var w = num(J.u[i]) * (isWeekend_(num(x.start) + i) ? pWe : pWd);
+    all += w; if (i < num(x.dur)) kept += w;
+  }
+  if (!(all > 0)) return reachOne_(x, pWd, pWe);
+  var K = kept / all;
+  return reachOne_(mkInst_(num(x.start), L0), pWd, pWe) * (K + KITE_JOIN_SHIFT * (1 - K));
+}
+function laneReachSum_(lane, list, pWd, pWe, seg, payer){
+  var s = 0;
+  (list || []).forEach(function(x){ s += laneReach_(lane, x, pWd, pWe, seg, payer); });
+  return s;
 }
 
 // ---- SEASON CUTOFF for ENVELOPES (D26, 2026-09-01) -------------------------------------------
@@ -1109,17 +1207,17 @@ function packLane_(calLabel, seg, payer, ctx, eV2, inst, cat){
   var nw = seasonInsts_(all, calLabel);
   var beh = ctx.ds.beh(seg, payer);
   var pWd = num(beh.weekday_active_rate), pWe = num(beh.weekend_active_rate);
-  var reachPack = nw.length ? reachSum_(nw, pWd, pWe) : 0;
-  var reachAll  = reachSum_(all, pWd, pWe);
+  var reachPack = nw.length ? laneReachSum_(calLabel, nw, pWd, pWe, seg, payer) : 0;   // D100
+  var reachAll  = laneReachSum_(calLabel, all, pWd, pWe, seg, payer);
   if (!(reachAll > 0)) return out;
   var part = packParticipation_(cat, inst);
   if (typeof eV2 === 'function'){
     // D73: instances on different configs - each pays its own E at its own reach
     var accP = {}, accA = {};
     BOTTOMUP_RES.forEach(function(r){ accP[r] = 0; accA[r] = 0; });
-    nw.forEach(function(x){ var e = eV2(x) || {}, q = reachOne_(x, pWd, pWe);
+    nw.forEach(function(x){ var e = eV2(x) || {}, q = laneReach_(calLabel, x, pWd, pWe, seg, payer);
       BOTTOMUP_RES.forEach(function(r){ accP[r] += num(e[r]) * q; }); });
-    all.forEach(function(x){ var e = eV2(x) || {}, q = reachOne_(x, pWd, pWe);
+    all.forEach(function(x){ var e = eV2(x) || {}, q = laneReach_(calLabel, x, pWd, pWe, seg, payer);
       BOTTOMUP_RES.forEach(function(r){ accA[r] += num(e[r]) * q; }); });
     BOTTOMUP_RES.forEach(function(r){ out[r] = part * (isPackRes_(r) ? accP[r] : accA[r]); });
     return out;
@@ -2316,6 +2414,7 @@ function resetModuleCaches_(){
   _tofBalCache = {}; _tofCfgCache = {}; _itemValsCache = null; _calDowCache = null; _calWinCache = null;
   _calGridDaysCache = null;                              // D79
   _expScaleTab = undefined;                              // D87: the export_scale table
+  _kiteJoinTab = undefined;                              // D100: the kite_joiners table
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
@@ -4813,10 +4912,12 @@ function readSPLbLadder_(sheetName){
 
 // ============================== SHARED MATH ==================================================
 // T = Σ_new reach / Σ_cur reach. Both 0 (no rate data) -> 1 (fail-safe: carry, don't zero).
-function timingRatio_(cur, nw, seg, payer, ds){
+function timingRatio_(cur, nw, seg, payer, ds, lane){
   var b = ds.beh(seg, payer);
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
-  var sc = reachSum_(cur, pWd, pWe), sn = reachSum_(nw, pWd, pWe);
+  // D100: `lane` (optional) prices each instance's reach by laneReach_ - the Kite joiner curve
+  var sc = lane ? laneReachSum_(lane, cur, pWd, pWe, seg, payer) : reachSum_(cur, pWd, pWe);
+  var sn = lane ? laneReachSum_(lane, nw, pWd, pWe, seg, payer) : reachSum_(nw, pWd, pWe);
   if (sc <= 0 && sn <= 0) return 1;
   return sc > 0 ? sn/sc : 1;
 }
@@ -5743,9 +5844,106 @@ function fillExportScale(){
   var w2 = rep.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
   sh.getRange(r0, 1, rep.length, w2).setValues(pad(rep, w2));
   var n = rep.filter(function(r){ return r[2] === 'per event'; }).length;
+  var kj = null;
+  try { kj = fillKiteJoiners_(); } catch (e){ Logger.log('Kite joiners not computed (' + e + ') - Kite keeps its plain reach and the 0.35 opt-in.'); }
   try { ss.toast(n + ' of ' + (rep.length - 1) + ' source x resource amounts scaled per event; the rest keep the activity scale ' +
-                 '(reasons on ' + EXPORT_SCALE_SHEET + ').', 'Compute export scale', 10); } catch (e){}
+                 '(reasons on ' + EXPORT_SCALE_SHEET + ').' + (kj ? ' ' + kj : ''), 'Compute export scale', 10); } catch (e){}
   return rep;
+}
+
+// ---- D100: the kite_joiners table -------------------------------------------------------------
+/** The KITE_JOIN_SHEET grid off the by-source feed (pure: no sheet writes), or null with the reason in
+ *  .why. Measured festivals = cal_curr's Kite instances of the modal length that lie wholly inside the
+ *  feed's days and are not cut by the grid's first column. */
+function kiteJoinGrid_(ctx){
+  ctx = ctx || Context.get();
+  var fail = function(why){ var g = null; kiteJoinGrid_.why = why; return g; };
+  kiteJoinGrid_.why = '';
+  var d1 = calDay1Date_();
+  if (d1 == null) return fail('no date above day 1 on the calendars');
+  var v = sheetVals_(EXPORT_SCALE_FEED);
+  if (!v || v.length < 2) return fail('no ' + EXPORT_SCALE_FEED + ' sheet');
+  var h = headerIndex_(v[0] || []);
+  var need = ['segment', 'payer_flag', 'source', 'currency', 'calendar_date', 'recipients_day', 'players_in_cell'];
+  for (var k = 0; k < need.length; k++) if (h[need[k]] == null) return fail(EXPORT_SCALE_FEED + ' has no ' + need[k] + ' column');
+  var rec = {}, players = {}, fMin = null, fMax = null;
+  for (var i = 1; i < v.length; i++){
+    var r = v[i], dd = dateDays_(r[h['calendar_date']]);
+    if (dd == null) continue;
+    var day = dd - d1 + 1;
+    if (fMin == null || day < fMin) fMin = day;
+    if (fMax == null || day > fMax) fMax = day;
+    if (String(r[h['source']]).trim() !== KITE_JOIN_CAT || String(r[h['currency']]).trim() !== KITE_JOIN_RES) continue;
+    var key = segCanon_(r[h['segment']]) + '|' + String(r[h['payer_flag']]).trim().toUpperCase();
+    rec[key] = rec[key] || {};
+    rec[key][day] = num(rec[key][day]) + num(r[h['recipients_day']]);
+    players[key] = num(r[h['players_in_cell']]);
+  }
+  if (!Object.keys(rec).length) return fail('the feed has no ' + KITE_JOIN_CAT + ' / ' + KITE_JOIN_RES + ' rows');
+  var gridFirst = 1 - num(ctx.window.offset);
+  var cand = ((ctx.calCurFull || {})[KITE_JOIN_LANE] || []).filter(function(x){
+    return !x.variant && num(x.start) > gridFirst && num(x.start) >= fMin && num(x.start) + num(x.dur) - 1 <= fMax; });
+  var L0 = modalDur_(cand);
+  var insts = cand.filter(function(x){ return num(x.dur) === L0; }).sort(function(a, b){ return a.start - b.start; });
+  if (!insts.length || !(L0 > 1)) return fail('no complete ' + KITE_JOIN_LANE + ' festival of cal_curr inside the feed days ' + fMin + '..' + fMax);
+  // the alignment the D78 lead rule gives is CHECKED: the join grant must peak on an instance's own days
+  var shiftMass = function(s){ var m = 0; for (var kk in rec) insts.forEach(function(x){
+    for (var j = 0; j < L0; j++) m += num(rec[kk][num(x.start) + j + s]); }); return m; };
+  var shift = 0;
+  [-1, 1].forEach(function(s){ if (shiftMass(s) > 1.05 * shiftMass(shift)) shift = s; });
+  var ds = ctx.ds, rows = [];
+  var order = (ds.segs ? ds.segs() : []).slice();
+  Object.keys(rec).forEach(function(kk){ var s = kk.split('|')[0]; if (order.indexOf(s) < 0) order.push(s); });
+  order.forEach(function(sg){
+    ['NONPAYER', 'PAYER'].forEach(function(py){
+      var kk = sg + '|' + py, rr = rec[kk];
+      if (!rr) return;
+      var b = ds.beh(sg, py) || {}, pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+      var J = 0, sh = [], pm = [], reach = 0, j;
+      for (j = 0; j < L0; j++){ sh.push(0); pm.push(0); }
+      insts.forEach(function(x){
+        var n = [], t = 0;
+        for (j = 0; j < L0; j++){ var c = num(rr[num(x.start) + j + shift]); n.push(c); t += c; }
+        J += t / insts.length;
+        for (j = 0; j < L0; j++){
+          if (t > 0) sh[j] += n[j] / t / insts.length;
+          pm[j] += (isWeekend_(num(x.start) + j) ? pWe : pWd) / insts.length;
+        }
+        reach += reachOne_(x, pWd, pWe) / insts.length;
+      });
+      var u = sh.map(function(s, jj){ return (pm[jj] > 0) ? s / pm[jj] : 0; }), us = 0;
+      u.forEach(function(x){ us += x; });
+      u = u.map(function(x){ return (us > 0) ? x / us : 0; });
+      var optin = (players[kk] > 0) ? J / players[kk] : 0;
+      var act = (reach > 0) ? Math.min(1, optin / reach) : 0;
+      var r6 = function(x){ return Math.round(x * 1e6) / 1e6; };
+      rows.push([segLabel_(sg, ds), py, players[kk], insts.length, r6(J), r6(optin), r6(reach), r6(act)]
+                .concat(sh.map(r6), u.map(r6), [J >= KITE_JOIN_MIN ? 'own' : 'parent (fewer than ' + KITE_JOIN_MIN + ' joiners)']));
+    });
+  });
+  var hdr = ['segment', 'payer_flag', 'players_in_cell', 'festivals', 'joiners_per_instance', 'opt_in', 'reach_measured', 'opt_in_active'];
+  for (var a = 1; a <= L0; a++) hdr.push('s' + a);
+  for (var b2 = 1; b2 <= L0; b2++) hdr.push('u' + b2);
+  hdr.push('read as');
+  return [['KITE JOINERS - ' + KITE_JOIN_CAT + ' ' + KITE_JOIN_RES + ' recipients (the score-100 join grant) per festival day, off ' +
+           EXPORT_SCALE_FEED + ' (D100). s = share of joiners by festival day; u = s / that day\'s activity rate, normalised; ' +
+           'opt_in_active = opt_in / reach_measured. Written by EcoGainsSim > Compute export scale.'],
+          ['festivals (window days)', insts.map(function(x){ return x.start + '..' + (x.start + L0 - 1); }).join(', '),
+           'length', L0, 'feed days', fMin + '..' + fMax, 'day shift', shift, 'written', stampNow_(), 'build', ENGINE_BUILD],
+          [], hdr].concat(rows);
+}
+/** Writes KITE_JOIN_SHEET; returns a one-line summary (or the reason it could not). */
+function fillKiteJoiners_(){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  _kiteJoinTab = undefined; Context.reset();
+  var grid = kiteJoinGrid_(Context.get());
+  if (!grid) return 'Kite joiners not computed: ' + kiteJoinGrid_.why + '.';
+  var sh = ss.getSheetByName(KITE_JOIN_SHEET) || ss.insertSheet(KITE_JOIN_SHEET);
+  sh.clear();
+  var w = grid.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
+  sh.getRange(1, 1, grid.length, w).setValues(grid.map(function(r){ var x = r.slice(); while (x.length < w) x.push(''); return x; }));
+  delete _sheetValsCache[KITE_JOIN_SHEET]; _kiteJoinTab = undefined; Context.reset();
+  return 'Kite opt-in and join days measured on ' + grid[1][1] + ' (' + (grid.length - 4) + ' cells, ' + KITE_JOIN_SHEET + ').';
 }
 
 // ---- missing event telemetry (D79, 2026-10-30) ---------------------------------------------------
@@ -6129,7 +6327,8 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   // D88: every other sheet a sim reads - so the change summary / album summary STALE mark sees an edit to them
   'Ki_2d_v2','Ki_2d_v2_weekend','Ki_Tr','Ki_Tr_v2','ToF_v2','PackConfig','PackConfig_v2','AlbumConfig','AlbumConfig_v2',
   'export_scale','data_econ_daily_by_source','data_rm_pace','data_col_daily','data_col_envelopes','data_col_season',
-  'data_col_beh'];   // D97: the album players' own behaviour rows (the card sim's attendance)
+  'data_col_beh',    // D97: the album players' own behaviour rows (the card sim's attendance)
+  'kite_joiners'];   // D100: Kite opt-in and join days
 
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){
