@@ -149,11 +149,15 @@ def main():
         def V(sheet, col, event=None, seg_ref=A):
             idx = lambda n: f'INDEX({sheet}!$A$2:$ZZ,0,MATCH("{n}",{sheet}!$1:$1,0))'
             conds = [f'{idx("payer_flag")}={B}',
-                     f'(({idx("segment")}={seg_ref})+(({seg_ref}="100-249")*({idx("segment")}="100+")))>0',
-                     f'IF(ISNA(MATCH("ab_variant",{sheet}!$1:$1,0)),ROW({sheet}!$A$2:$A)>0,{idx("ab_variant")}="Variant A")']
+                     f'(({idx("segment")}={seg_ref})+(({seg_ref}="100-249")*({idx("segment")}="100+")))>0']
             if event:
                 conds.append(f'{idx("event_name")}={event}')
-            one = f'IFERROR(AVERAGE(FILTER({idx(col)},{",".join(conds)})),"")'
+            # A pull with both A/B arms is read for Variant A only. The choice is a SCALAR IF between two
+            # FILTERs: an IF inside FILTER's condition is not array-expanded everywhere in Sheets, and the
+            # condition then has the wrong size (the cell errors before IFERROR can help on some builds).
+            plain = f'AVERAGE(FILTER({idx(col)},{",".join(conds)}))'
+            armed = f'AVERAGE(FILTER({idx(col)},{",".join(conds)},{idx("ab_variant")}="Variant A"))'
+            one = f'IFERROR(IF(ISNA(MATCH("ab_variant",{sheet}!$1:$1,0)),{plain},{armed}),"")'
             if seg == '250+':                             # no rows of its own -> its parent's (SEG_PARENT)
                 par = one.replace(seg_ref, '"100-249"')
                 return f'IF({one}="",{par},{one})'
