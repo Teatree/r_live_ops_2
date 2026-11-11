@@ -9,9 +9,14 @@ Layout = one block of the 'Race' sheet (builders/_build_race.py), so the engine'
     row 8       'Mighty Ice Cream - Goals and Rewards' bar
     row 9       header  Position | Coins | SPT | SPT x2 | Red .. 6-star Dly | ToF_Ticket   (Race_v2's 23 columns, A..W)
     rows 10-34  places 1..25
-    row 36+     'Simulation inputs': Places from = Red (the data_event_inst event whose measured places it borrows)
+    row 36+     'Simulation inputs': Places from (Red), Participation (0.3, design value), the bird challenge length,
+                Bomb birds as a share of Chuck's
+    row 42+     'Player behaviour (Wager)' (D103): per segment x payer - Submit after (wins), Red / Chuck / Bomb birds
+                per win, Opponent weight; every cell a FORMULA holding the measured default, overwritable by typing a
+                number (the engine reads what the cell holds and computes the same default when it is blank)
     then        the server config fields the sim does not read, and the item mapping
-    AI1:AM14    the LOCAL SIM: pick a percentile and a payer, see each segment's place out of 60 and what it pays
+    AI1         the LOCAL SIM: =ECOGAINS_MIC(payer) - per segment the bank chance, the place p25 / p50 / p75 out of
+                60, the chance of a paid place and the payout per festival entered; it re-runs on any edit here
 
 Engine wiring (EcoGainsSim_v4.gs LB_R_SPECS['Mighty Ice Cream']): hdr row 9 -> 0-based 8, ladder rows 10..34 -> 9..33,
 columns B..W -> 1..22. Change any of those here and the spec must move with it (harness/_mock_mic.js gates it).
@@ -38,6 +43,9 @@ OUT = os.path.join(ROOT, 'display', 'Mic_v2.xlsx')
 NAME, SHEET = 'Mighty Ice Cream', 'Mic_v2'
 PLACES_FROM = 'Red'               # data_event_inst event whose measured places Mighty Ice Cream borrows (user, 2026-11-11)
 DURATION = 2                      # days, as Red's Challenge (the calendar's merge decides the length anyway)
+PARTICIPATION = 0.3               # DESIGN VALUE (user, 2026-11-11) - to be replaced
+BIRD_LEN = 2                      # days of the Red's / Chuck's Challenge the bird balances were measured on
+BOMB_SHARE = 0.5                  # Bomb birds per win = this x Chuck's (user, 2026-11-11: no Bomb rows)
 COLS = ['Position', 'Coins', 'SPT', 'SPT x2', 'Red', 'Chuck', 'Bomb', 'Slingshot', 'Shuffle', 'Comet',
         'Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb', 'COOP Token', 'Avatar',
         '1-star Dly', '2-star Dly', '3-star Dly', '4-star Dly', '5-star Dly', '6-star Dly', 'ToF_Ticket']
@@ -117,13 +125,69 @@ def main():
     r = last + 2                                          # 36
     bar(r, 'Simulation inputs (read by the engine)')
     label(r + 1, 'Places from', PLACES_FROM,
-          "data_event_inst event whose measured places (position_p25/p50/p75) and participation_rate this event "
-          "borrows while data_event_inst has no 'Mighty Ice Cream' rows; type another event name to switch")
-    ws.cell(r + 2, 1, "Participation: not set here, so the borrowed event's measured participation_rate is used. "
-                      "To override, add a cell 'Participation' with the rate in the cell to its right.").font = AR(9, color='FF808080')
-    PLACES_CELL = f'$B${r + 1}'
+          "data_event_inst event whose participants per festival weight the league (Opponent weight); its measured "
+          "places price the event only if the behaviour table below is removed (D102). Real 'Mighty Ice Cream' rows win")
+    label(r + 2, 'Participation', PARTICIPATION,
+          'DESIGN VALUE (user, 2026-11-11): share of the players online on a festival\'s days who take part - replace later')
+    label(r + 3, 'Bird challenge length (days)', BIRD_LEN,
+          "length of the Red's / Chuck's Challenge the bird counts were measured on (2-day weekday events)")
+    label(r + 4, 'Bomb birds per win (share of Chuck)', BOMB_SHARE,
+          "no Bomb's Challenge rows in the pull: Bomb birds per win = this x Chuck birds per win (user decision)")
+    PLACES_CELL, LEN_CELL, SHARE_CELL = f'$B${r + 1}', f'$B${r + 3}', f'$B${r + 4}'
 
-    r += 4                                                # 40
+    r += 6                                                # 42: the behaviour table
+    bar(r, 'Player behaviour (Wager) - formulas hold the measured defaults; type a number over any cell to change it')
+    TH = ['Segment', 'Payer', 'Submit after (wins)', 'Red birds per win', 'Chuck birds per win', 'Bomb birds per win',
+          'Opponent weight', 'Points per win', 'Banked score']
+    for i, h in enumerate(TH):
+        x = ws.cell(r + 1, 1 + i, h); x.font = AR(bold=True); x.fill = fill(F_HDR); x.border = BORDER
+        x.alignment = Alignment(horizontal='center', wrap_text=True)
+    mult = {b['item']: b['amount'] for b in cfg['boosterMultipliers']}
+    for i, (seg, pay) in enumerate([(sg, p) for sg in SEGMENTS for p in ('NONPAYER', 'PAYER')]):
+        rr = r + 2 + i
+        A, B = f'$A{rr}', f'$B{rr}'
+        def V(sheet, col, event=None, seg_ref=A):
+            idx = lambda n: f'INDEX({sheet}!$A$2:$ZZ,0,MATCH("{n}",{sheet}!$1:$1,0))'
+            conds = [f'{idx("payer_flag")}={B}',
+                     f'(({idx("segment")}={seg_ref})+(({seg_ref}="100-249")*({idx("segment")}="100+")))>0',
+                     f'IF(ISNA(MATCH("ab_variant",{sheet}!$1:$1,0)),ROW({sheet}!$A$2:$A)>0,{idx("ab_variant")}="Variant A")']
+            if event:
+                conds.append(f'{idx("event_name")}={event}')
+            one = f'IFERROR(AVERAGE(FILTER({idx(col)},{",".join(conds)})),"")'
+            if seg == '250+':                             # no rows of its own -> its parent's (SEG_PARENT)
+                par = one.replace(seg_ref, '"100-249"')
+                return f'IF({one}="",{par},{one})'
+            return one
+        per_win = lambda ev: (f'=IFERROR(LET(bal,{V("data_event_inst", "avg_final_token_balance", ev)},'
+                              f'w,{V("data_streaks", "wins_per_day_mean")},p,{V("data_seg_beh", "weekday_active_rate")},'
+                              f'L,{LEN_CELL},bal/(w*L*p/(1-(1-p)^L))),"")')
+        cells = [seg, pay,
+                 f'={V("data_streaks", "max_streak_per_day_p50")}',
+                 per_win('"Red"'), per_win('"Chuck"'),
+                 f'=IFERROR({SHARE_CELL}*E{rr},"")',
+                 f'={V("data_event_inst", "avg_participants_per_instance", PLACES_CELL)}',
+                 f'=IFERROR(D{rr}*{mult["red"]}+E{rr}*{mult["chuck"]}+F{rr}*{mult["bomb"]},"")',
+                 f'=IFERROR(C{rr}*H{rr},"")']
+        for j, v in enumerate(cells):
+            x = ws.cell(rr, 1 + j, v); x.border = BORDER
+            x.font = AR(bold=(j < 2)); x.alignment = Alignment(horizontal='center')
+            if 2 <= j <= 6: x.fill = fill(F_INP)
+            elif j >= 7: x.fill = fill(F_SIM)
+            if 3 <= j <= 7: x.number_format = '0.00'
+            elif j == 8: x.number_format = '#,##0'
+    tr = r + 2 + 2 * len(SEGMENTS)
+    for i, t in enumerate([
+            'Submit after (wins): the player banks their running score after this many wins in a row (default: the '
+            'measured median of the day\'s longest win streak, data_streaks max_streak_per_day_p50).',
+            'Red / Chuck birds per win: the Red\'s / Chuck\'s Challenge mean final balance / (wins per active day x active '
+            'days in that challenge). Bomb = the share above x Chuck. Points per win = Red x1 + Chuck x2 + Bomb x4 (server '
+            'boosterMultipliers). Banked score = submit-after x points per win (the median player; the engine spreads it '
+            'with Red\'s balance quantiles).',
+            'Opponent weight: participants per festival (the "Places from" event) - who fills the 59 other seats.',
+            'Chance to bank in a festival = 1 - (1 - share of active days whose longest streak reaches "Submit after")^(active '
+            'days in the festival); a player who never banks is not on the board. Place = 1 + the opponents who banked more.']):
+        ws.cell(tr + 1 + i, 1, t).font = AR(9, color='FF808080')
+    r = tr + 6
     bar(r, 'Server config (live JSON, builders/mic_server_config.json) - not read by the sim')
     info = [('eventType', cfg['eventType']), ('configuration', cfg['configuration']),
             ('assetBundle', cfg['assetBundle']), ('requiredPlayerLevel', cfg['requiredPlayerLevel']),
@@ -139,73 +203,44 @@ def main():
         'NOTES',
         'Item mapping (as on the Race sheets, 2026-07-10): HardCoin -> Coins, SeasonPassToken -> SPT, CherryBomb -> Comet, '
         'Hammer -> Slingshot (FLAGGED: Hammer is not a tracked resource), Pre-Red / Pre-Chuck / Pre-Bomb -> Red / Chuck / Bomb.',
-        'Priced like a race (user, 2026-11-11): the measured places of the event named in "Places from" (Red\'s Challenge), '
-        'AS MEASURED, on a league of LBSize players - so places past the measured p75 spread over the rest of the board.',
-        'BOTTOM-UP: no data_gains rows exist for this event. Redesign = expected reward per festival entered (every place '
-        'weighted by its chance) x participation x the share of players online on its days, summed over its cal_new instances. '
-        'Today = the same over cal_curr (0 while cal_curr runs none).',
-        'The Wager mechanic (booster multipliers, booster spend) is NOT modelled: the event is priced as a race.',
+        'Places BOTTOM-UP (D103, design_pdfs/Mighty Ice Cream (Wager).md): every bird created in a won level scores '
+        '(Red 1 / Chuck 2 / Bomb 4); the running score is banked by submitting after a win and lost on a lost level. '
+        'The table above sets when each segment banks and how much a win is worth; the league mixes all segments.',
+        'Redesign = expected reward per festival entered (every place weighted by its chance) x Participation x the '
+        'share of players online on its days, summed over its cal_new festivals. Today = the same over cal_curr '
+        '(0 while cal_curr runs none). No data_gains rows exist for this event.',
+        'NOT modelled: +5 moves bought to save a streak, boosters spent on it (no new spend), bots, a player who keeps '
+        'going past the target (everyone banks at "Submit after").',
     ]
     for i, t in enumerate(notes):
         ws.cell(r + i, 1, t).font = AR(9, bold=(i == 0), color='FF000000' if i == 0 else 'FF808080')
 
-    # ---- local sim (AI..AM) ------------------------------------------------------------------
-    a, b_, c_, d_ = L(LS), L(LS + 1), L(LS + 2), L(LS + 3)
-    for c in range(LS, LS + 4):
-        ws.column_dimensions[L(c)].width = 14 if c < LS + 3 else 70
-    ws.column_dimensions[a].width = 18
-    bar(1, 'Player Place Simulation (measured place percentile -> Mighty Ice Cream reward) - SIMULATED', LS, LS + 3)
-    lab = lambda rr, t: ws.cell(rr, LS, t)
-    for rr, t, v in [(2, 'Percentile', 'p50'), (3, 'Payer', 'NONPAYER')]:
-        x = lab(rr, t); x.font = AR(bold=True); x.fill = fill(F_LBL)
-        y = ws.cell(rr, LS + 1, v); y.font = AR(); y.fill = fill(F_INP)
-    dv1 = DataValidation(type='list', formula1='"p25,p50,p75"', allow_blank=False)
-    dv2 = DataValidation(type='list', formula1='"NONPAYER,PAYER"', allow_blank=False)
-    ws.add_data_validation(dv1); ws.add_data_validation(dv2)
-    dv1.add(f'{b_}2'); dv2.add(f'{b_}3')
-    x = lab(4, 'Places read from'); x.font = AR(bold=True); x.fill = fill(F_LBL)
-    # Mighty Ice Cream's own rows win the moment the pull has them (the engine's rule, EVENT_INST_PROXY)
-    ev_col = 'INDEX(data_event_inst!$A:$ZZ,0,MATCH("event_name",data_event_inst!$1:$1,0))'
-    ws[f'{b_}4'] = f'=IFERROR(IF(COUNTIF({ev_col},"{NAME}")>0,"{NAME}",{PLACES_CELL}),{PLACES_CELL})'
-    ws[f'{b_}4'].font = AR(); ws[f'{b_}4'].fill = fill(F_SIM)
-    ws.cell(4, LS + 2, 'measured places of this event (data_event_inst)').font = AR(9, color='FF808080')
-
-    hdr = ['Segment', 'Place', 'Out of', 'Reward at that place']
-    for i, h in enumerate(hdr):
-        x = ws.cell(6, LS + i, h); x.font = AR(bold=True); x.fill = fill(F_HDR); x.border = BORDER
-    col = lambda n: f'INDEX(data_event_inst!$A$2:$ZZ,0,MATCH("{n}",data_event_inst!$1:$1,0))'
-    for i, seg in enumerate(SEGMENTS):
-        rr = 7 + i
-        s = ws.cell(rr, LS, seg); s.font = AR(bold=True); s.border = BORDER
-        # one row per (event, payer, segment) and arm; '100-249' also matches an older pull's '100+'.
-        # A pull carrying both A/B arms is read for Variant A only, as the engine does (ANCHOR_ARM).
-        segm = (f'IF({a}{rr}="100-249",({col("segment")}="100-249")+({col("segment")}="100+"),'
-                f'{col("segment")}={a}{rr})')
-        arm = f'IF(ISNA(MATCH("ab_variant",data_event_inst!$1:$1,0)),1,{col("ab_variant")}="Variant A")'
-        m = f'({col("event_name")}=${b_}$4)*({col("payer_flag")}=${b_}$3)*({segm})*({arm})'
-        place =(f'=LET(m,{m},n,SUM(m),pc,INDEX(data_event_inst!$A$2:$ZZ,0,MATCH("position_"&${b_}$2,data_event_inst!$1:$1,0)),'
-                 f'IF(n=0,"n/a",ROUND(SUMPRODUCT(m,N(+pc))/n,0)))')
-        ws[f'{b_}{rr}'] = ArrayFormula(f'{b_}{rr}', place)
-        ws[f'{c_}{rr}'] = '=$B$5'
-        reward = (f'=LET(p,{b_}{rr},IF(NOT(ISNUMBER(p)),"n/a",IF(p>$B$4,"(below the "&$B$4&" paid places - pays nothing)",'
-                  f'LET(s,INDEX($B${LAD0}:${lastc}${last},p,0),t,TEXTJOIN(", ",TRUE,IF(s>0,$B${HDR_ROW}:${lastc}${HDR_ROW}&": "&s,"")),'
-                  f'IF(t="","{{}} (place pays nothing)","{{"&t&"}}")))))')
-        ws[f'{d_}{rr}'] = ArrayFormula(f'{d_}{rr}', reward)
-        for c in range(LS + 1, LS + 4):
-            ws.cell(rr, c).font = AR(); ws.cell(rr, c).fill = fill(F_SIM); ws.cell(rr, c).border = BORDER
-    nr = 7 + len(SEGMENTS) + 1
+    # ---- local sim (AI..AT): the engine's own model, one spill ------------------------------------
+    widths = [12, 11, 11, 13, 11, 10, 10, 10, 12, 12, 12, 46]
+    for i, wd in enumerate(widths):
+        ws.column_dimensions[L(LS + i)].width = wd
+    bar(1, 'Player Place Simulation (Wager, bottom-up) - SIMULATED: edit the behaviour table (A42) and this re-runs',
+        LS, LS + len(widths) - 1)
+    x = ws.cell(2, LS, 'Payer'); x.font = AR(bold=True); x.fill = fill(F_LBL)
+    y = ws.cell(2, LS + 1, 'NONPAYER'); y.font = AR(); y.fill = fill(F_INP)
+    dv = DataValidation(type='list', formula1='"NONPAYER,PAYER"', allow_blank=False)
+    ws.add_data_validation(dv); dv.add(f'{L(LS + 1)}2')
+    ws.cell(2, LS + 3, 'one festival of EventDuration days starting on a weekday; places out of LBSize').font = AR(9, color='FF808080')
+    ws[f'{L(LS)}4'] = f'=ECOGAINS_MIC(${L(LS + 1)}$2, sim_refresh!$A$1)'
+    ws[f'{L(LS)}4'].font = AR()
+    nr = 4 + 1 + len(SEGMENTS) + 2
     for i, t in enumerate([
-            'Place = the measured finishing place at the chosen percentile (p25 = a quarter of finishes at this place or better), '
-            'read off data_event_inst for the event in "Places from", AS MEASURED (Red\'s board was ~15 players; here it is one of LBSize).',
-            'The engine prices every place 1..LBSize with its chance (a curve through p25 / p50 / p75), not just this one row; '
-            'this block shows where the typical player of each segment lands.',
-            '"100-249" also reads an older pull\'s "100+". A pull carrying both A/B arms is read for Variant A only.']):
+            'Chance to bank: reaching "Submit after" wins in a row on at least one active day of the festival. Places: '
+            'p25 / p50 / p75 over everyone of the segment who takes part ("not on board" = never banked, paid nothing).',
+            'Coins / SPT per festival entered: what the engine prices (every place x its chance); the redesign row is that '
+            'x Participation x the share of players online on each festival\'s days.']):
         ws.cell(nr + i, LS, t).font = AR(9, color='FF808080')
+    d_ = L(LS + len(widths) - 1)
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     wb.save(OUT)
     print(f'written {OUT}: {SHEET}, {npos} places on a league of {lb}, ladder rows {LAD0}..{last}, columns A..{lastc}; '
-          f'local sim {a}1:{d_}{nr + 2}')
+          f'behaviour table header row {tr - 2 * len(SEGMENTS) - 1}; local sim {L(LS)}1:{d_}{nr + 2}')
     return lad, lb
 
 

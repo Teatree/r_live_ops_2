@@ -16,6 +16,12 @@
 //   9  change summary model = bottom-up; Sim per Segment group = META
 //  10  Fill all sims writes the 'Mighty Ice Cream' label under 'Col - Albums' and maps it
 //  11  play-by-play: the lane is read (no error); calendar stats count it
+// D103 (the wager places, bottom-up):
+//  12  the behaviour table: defaults = the data, a typed number wins, the share label moves Bomb
+//  13  places by hand for one cell (bank chance, spread, league, binomial) = the engine's, every place
+//  14  the redesign row = SUM_festivals E_wager(festival) x Participation x reach, by hand
+//  15  rules: mass = bank chance; a later 'Submit after' trades bank chance for score; WAGER_BOTTOMUP = false = D102
+//  16  the local sim (ECOGAINS_MIC) = the engine's numbers and follows a table edit; the card sim draws the same places
 const fs = require('fs'), path = require('path');
 if (process.argv.indexOf('--data') < 0) process.argv.push('--data', 'v3u');
 const CARDS = fs.readFileSync(path.join(__dirname, '_mock_cards.js'), 'utf8');
@@ -133,7 +139,8 @@ function GATES(){
   const micInst = Context.get().calNew[MIC] || [];
   gate('3  ' + LABEL + ' parsed from cal_new row 14', micInst.length === 2, instList('calNew', MIC));
 
-  // ---- 4 bottom-up by hand ------------------------------------------------------------------------
+  // ---- 4 bottom-up by hand (D102 places: the wager model OFF) --------------------------------------
+  WAGER_BOTTOMUP = false; reset(); precompute();
   let zeroCur = true;
   cells.forEach(c => { if (measuredRow_(MIC, c[0], c[1], Context.get().ds) && rowToArray_(measuredRow_(MIC, c[0], c[1], Context.get().ds)).some(x => x !== 0)) zeroCur = false; });
   gate('4  TODAY = 0 on every cell (cal_curr runs none)', zeroCur);
@@ -144,7 +151,8 @@ function GATES(){
   const dist = rankDist_(ins, 60);
   dist.forEach(d => { const row = micV[8 + d.rank]; if (!row || d.rank > 25) return;
     hdr.forEach((name, ci) => { const res = RES_MAP[String(name).trim()]; if (ci >= 1 && res) E[res] = (E[res] || 0) + d.p * num(row[ci]); }); });
-  const part = num(ins.participation_rate);
+  const pRow = micV.findIndex(r => String(r[0]).trim() === 'Participation');
+  const part = (pRow >= 0 && isFinite(parseFloat(micV[pRow][1]))) ? parseFloat(micV[pRow][1]) : num(ins.participation_rate);
   let reachSum = 0; micInst.forEach(x => { reachSum += reachOne_(x, pWd, pWe); });
   const sim = resultRow_(MIC, SEG, PAY, ctx);
   const nonPack = RESOURCES.filter(r => BOTTOMUP_RES.indexOf(r) < 0);
@@ -158,6 +166,8 @@ function GATES(){
     say('     ' + (c[0] + ' ' + c[1]).padEnd(17) + ([x.position_p25, x.position_p50, x.position_p75].join('/')).padStart(12) +
         (100 * paid).toFixed(0).padStart(6) + '%' + num(s.HC).toFixed(1).padStart(10) + num(s.SPT).toFixed(1).padStart(8) +
         num(s.Slingshot).toFixed(2).padStart(10) + num(s.Shuffle).toFixed(2).padStart(9)); });
+  const d102 = rowsOf(MIC);                              // kept for gate 15
+  WAGER_BOTTOMUP = true; reset(); precompute();
 
   // ---- 5 what else moves ---------------------------------------------------------------------------
   gate("5  Red's rows untouched by Mighty Ice Cream", same(rowsOf(RED), redBefore));
@@ -246,6 +256,134 @@ function GATES(){
   catch (e){ pbpOk = false; pbpErr = String(e); }
   gate('11 play-by-play reads the lane', pbpOk, pbpErr);
   gate('11 calendar stats know the lane', CALSTATS_LABEL[MIC] === MIC && CAL_LABEL[MIC] === MIC && DAILY_CAL_LABEL[MIC] === MIC);
+
+  // ================================ D103: the wager places ================================
+  reset(); precompute();
+  const WS = WAGER_SPECS[MIC], SH2 = spec.v2;
+  const tabRow = micV.findIndex(r => String(r[0]).trim() === 'Segment' && r.indexOf(WS.hdrLabel) >= 0);
+  gate('12 the behaviour table is on Mic_v2', tabRow >= 0, 'header row ' + (tabRow + 1));
+  const th = micV[tabRow] || [], tcol = n => th.indexOf(n);
+  const rowOf = (sg, p) => micV.findIndex((r, i) => i > tabRow && segCanon_(String(r[0])) === segCanon_(sg) && String(r[1]).trim() === p);
+  // offline the defaults are formulas with no cached value - the engine computes them from the data
+  const ds3 = Context.get().ds, st3 = ds3.nsStreak(SEG, PAY), b3 = ds3.beh(SEG, PAY);
+  const pW = num(b3.weekday_active_rate), Lc = 2, act = Lc * pW / (1 - Math.pow(1 - pW, Lc));
+  const red3 = num(ds3.eventInst('Red', SEG, PAY).avg_final_token_balance) / (num(st3.wins_per_day_mean) * act);
+  const chuck3 = num(ds3.eventInst('Chuck', SEG, PAY).avg_final_token_balance) / (num(st3.wins_per_day_mean) * act);
+  const c3 = wagerCell_(MIC, SEG, PAY, SH2);
+  gate('12 defaults: k = max_streak_per_day_p50, Red / Chuck per win off the challenge balances, Bomb = 0.5 x Chuck',
+    c3.k === num(st3.max_streak_per_day_p50) && close(c3.red, red3, 1e-12) && close(c3.chuck, chuck3, 1e-12) &&
+    close(c3.bomb, 0.5 * chuck3, 1e-12) && close(c3.pts, red3 + 2 * chuck3 + 4 * 0.5 * chuck3, 1e-12),
+    'k ' + c3.k + ', red ' + c3.red.toFixed(2) + ', chuck ' + c3.chuck.toFixed(2) + ', points/win ' + c3.pts.toFixed(2));
+  const tr3 = rowOf(SEG, PAY), keep3 = micV[tr3].slice();
+  micV[tr3][tcol(WS.hdrLabel)] = 7; micV[tr3][tcol('Red birds per win')] = 3; reset();
+  const c3b = wagerCell_(MIC, SEG, PAY, SH2);
+  gate('12 a typed number wins over the default (Submit after 7, Red 3)', c3b.k === 7 && c3b.red === 3 && c3b.typed.k && c3b.typed.red);
+  micV[tr3] = keep3; reset();
+  const shRow = micV.findIndex(r => String(r[0]).trim() === 'Bomb birds per win (share of Chuck)'), shKeep = micV[shRow][1];
+  micV[shRow][1] = 1; reset();
+  gate('12 the Bomb share cell moves Bomb birds per win', close(wagerCell_(MIC, SEG, PAY, SH2).bomb, chuck3, 1e-12));
+  micV[shRow][1] = shKeep; reset(); precompute();
+
+  // ---- 13 places by hand ------------------------------------------------------------------------------
+  const lin = (pts, x) => { for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]){ const a = pts[i - 1], z = pts[i];
+    return a[1] + (z[1] - a[1]) * (x - a[0]) / Math.max(1e-9, z[0] - a[0]); } return null; };
+  const handCell = (sg, p) => {
+    const d = Context.get().ds, st = d.nsStreak(sg, p) || {}, bb = d.beh(sg, p) || {};
+    const pw = num(bb.weekday_active_rate), pe = num(bb.weekend_active_rate);
+    const a2 = 2 * pw / (1 - Math.pow(1 - pw, 2)), w = num(st.wins_per_day_mean);
+    const pr = ev => { const e = d.eventInst(ev, sg, p); return (e && w > 0 && a2 > 0) ? num(e.avg_final_token_balance) / (w * a2) : 0; };
+    const r = pr('Red'), ch = pr('Chuck'), k = num(st.max_streak_per_day_p50);
+    // streak survival: piecewise linear through the four percentiles, the last slope continued
+    const sp = [[0, 0]]; [[st.max_streak_per_day_p25, .25], [st.max_streak_per_day_p50, .5], [st.max_streak_per_day_p75, .75], [st.max_streak_per_day_p90, .9]]
+      .forEach(q => { if (num(q[0]) > sp[sp.length - 1][0]) sp.push([num(q[0]), q[1]]); });
+    const sl = (sp[sp.length - 1][1] - sp[sp.length - 2][1]) / (sp[sp.length - 1][0] - sp[sp.length - 2][0]);
+    const cdf = x => { const v = lin(sp, x); return v !== null ? v : Math.min(1, sp[sp.length - 1][1] + (x - sp[sp.length - 1][0]) * sl); };
+    // spread: Red's balance quantiles, mean 1
+    const re = d.eventInst('Red', sg, p) || {}, bp = [[0, 0]];
+    [[re.final_balance_p25, .25], [re.final_balance_p50, .5], [re.final_balance_p75, .75]].forEach(q => { if (num(q[0]) > bp[bp.length - 1][0] && q[1] > bp[bp.length - 1][1]) bp.push([num(q[0]), q[1]]); });
+    let f = Array(40).fill(1);
+    if (bp.length >= 2){
+      const za = bp[bp.length - 2], zz = bp[bp.length - 1], s2 = (zz[1] - za[1]) / (zz[0] - za[0]);
+      if (zz[1] < 1 && s2 > 0) bp.push([zz[0] + (1 - zz[1]) / s2, 1]);
+      const Q = u => { for (let i = 1; i < bp.length; i++) if (u <= bp[i][1]){ const a = bp[i - 1], z = bp[i]; return a[0] + (z[0] - a[0]) * (u - a[1]) / (z[1] - a[1]); } return bp[bp.length - 1][0]; };
+      const qs = Array.from({ length: 40 }, (_, i) => Q((i + 0.5) / 40)), m = qs.reduce((x, y) => x + y, 0) / 40;
+      f = qs.map(x => x / m);
+    }
+    const wt = num((d.eventInst('Red', sg, p) || {}).avg_participants_per_instance);
+    return { k, pts: r + 2 * ch + 4 * 0.5 * ch, Sk: Math.max(0, 1 - cdf(k)), f, pw, pe, wt };
+  };
+  const handSide = (c, x) => { let q = 1, spd = 0; x.days.forEach(dd => { const pd = isWeekend_(dd) ? c.pe : c.pw; q *= 1 - pd; spd += pd; });
+    const reach = 1 - q, D = reach > 0 ? spd / reach : 0; return { q: D > 0 ? 1 - Math.pow(1 - c.Sk, D) : 0, sc: c.f.map(fi => c.k * c.pts * fi) }; };
+  const x13 = micInst[0];
+  const opp = []; let W = 0;
+  segMembers_(Context.get().ds).forEach(sg => ['NONPAYER', 'PAYER'].forEach(p => { const c = handCell(sg, p); if (c.wt > 0){ opp.push({ w: c.wt, s: handSide(c, x13) }); W += c.wt; } }));
+  const me = handSide(handCell(SEG, PAY), x13), hand = Array(60).fill(0);
+  const choose = (n, k) => { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return r; };
+  me.sc.forEach(sv => {
+    let B = 0; opp.forEach(o => { let g = 0; o.s.sc.forEach(y => { g += y > sv ? 1 : (y === sv ? 0.5 : 0); }); B += (o.w / W) * o.s.q * g / o.s.sc.length; });
+    for (let k = 0; k < 60; k++) hand[k] += me.q * choose(59, k) * Math.pow(B, k) * Math.pow(1 - B, 59 - k) / me.sc.length;
+  });
+  const eng = wagerRankDist_(MIC, SEG, PAY, x13, SH2);
+  const gap = Math.max(...hand.map((h, i) => Math.abs(h - eng.dist[i].p)));
+  gate('13 places by hand = the engine, every place (' + SEG + ' ' + PAY + ', festival 1)', gap < 1e-12 && close(eng.q, me.q, 1e-12),
+    'bank chance ' + me.q.toFixed(4) + ', worst place gap ' + gap.toExponential(2));
+
+  // ---- 14 the redesign row by hand -------------------------------------------------------------------
+  const lad14 = lbLadder_(SH2, spec), b14 = Context.get().ds.beh(SEG, PAY);
+  const part14 = parseFloat(micV[pRow][1]);
+  gate('14 Participation = the design cell (0.3) on both sides', part14 === 0.3 && packParticipation_(MIC, Context.get().ds.eventInst(spec.inst, SEG, PAY)) === 0.3);
+  const want14 = {};
+  micInst.forEach(x => { const wd = wagerRankDist_(MIC, SEG, PAY, x, SH2), q = reachOne_(x, num(b14.weekday_active_rate), num(b14.weekend_active_rate));
+    wd.dist.forEach(dd => { const rw = lad14[dd.rank] || {}; for (const r in rw) want14[r] = (want14[r] || 0) + part14 * q * dd.p * rw[r]; }); });
+  const got14 = resultRow_(MIC, SEG, PAY, Context.get());
+  const g14 = Math.max(...RESOURCES.filter(r => BOTTOMUP_RES.indexOf(r) < 0).map(r => Math.abs(num(got14[r]) - num(want14[r])) / Math.max(1e-6, Math.abs(num(want14[r])))));
+  gate('14 redesign = SUM_festivals E_wager x Participation x reach, by hand', g14 < 1e-9, 'worst rel gap ' + g14.toExponential(2));
+  say('     cell              k   pts/win  bank%   p25    p50    p75   paid%   coins/entry  SPT/entry   coins   SPT (window)');
+  cells.forEach(c => { const wd = wagerRankDist_(MIC, c[0], c[1], x13, SH2), cc = wd.cell, we = wagerE_(MIC, c[0], c[1], x13, SH2).e;
+    let cum = 0, paid = 0; const pl = {}; wd.dist.forEach(dd => { cum += dd.p; if (dd.rank <= 25) paid += dd.p; [.25, .5, .75].forEach(t => { if (pl[t] === undefined && cum >= t) pl[t] = dd.rank; }); });
+    const s = resultRow_(MIC, c[0], c[1], Context.get()), P = t => String(pl[t] === undefined ? '-' : pl[t]).padStart(6);
+    say('     ' + (c[0] + ' ' + c[1]).padEnd(17) + String(cc.k).padStart(3) + cc.pts.toFixed(1).padStart(9) + (100 * wd.q).toFixed(0).padStart(6) + '%' +
+        P(.25) + ' ' + P(.5) + ' ' + P(.75) + (100 * paid).toFixed(0).padStart(7) + '%' + num(we.HC).toFixed(1).padStart(13) + num(we.SPT).toFixed(1).padStart(11) +
+        num(s.HC).toFixed(1).padStart(8) + num(s.SPT).toFixed(1).padStart(7)); });
+
+  // ---- 15 rules ---------------------------------------------------------------------------------------
+  let massOk = true;
+  cells.forEach(c => { const wd = wagerRankDist_(MIC, c[0], c[1], x13, SH2); let m = 0; wd.dist.forEach(dd => m += dd.p);
+    if (!close(m, wd.q, 1e-9) || wd.q < 0 || wd.q > 1) massOk = false; });
+  gate('15 place mass = bank chance (never banked = not on the board), every cell', massOk);
+  const keep15 = micV[tr3].slice(), q0 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).q, k0 = wagerCell_(MIC, SEG, PAY, SH2).k;
+  micV[tr3][tcol(WS.hdrLabel)] = k0 + 5; reset();
+  const q1 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).q, s1 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).side.scores[20];
+  micV[tr3] = keep15; reset();
+  const s0 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).side.scores[20];
+  gate('15 submitting later: lower bank chance, higher banked score', q1 < q0 && s1 > s0, 'k ' + k0 + ' -> ' + (k0 + 5) + ': bank ' + q0.toFixed(3) + ' -> ' + q1.toFixed(3));
+  WAGER_BOTTOMUP = false; reset(); precompute();
+  const off = rowsOf(MIC);
+  WAGER_BOTTOMUP = true; reset(); precompute();
+  gate('15 WAGER_BOTTOMUP = false = the D102 pricing exactly', same(off, d102));
+  const tKeep = micV[tabRow][0]; micV[tabRow][0] = 'Segments (renamed)'; reset(); precompute();
+  gate('15 no behaviour table = the D102 pricing exactly', same(rowsOf(MIC), d102));
+  micV[tabRow][0] = tKeep; reset(); precompute();
+
+  // ---- 16 local sim + card sim -----------------------------------------------------------------------
+  const ls = ECOGAINS_MIC(PAY, 0), lh = ls[0], lrow = ls.find(r => segCanon_(String(r[0])) === segCanon_(SEG));
+  const dur16 = Math.round(num(readSPLabel_(SH2, 'EventDuration'))) || 2;
+  let st16 = 1; for (let dd = 1; dd <= 14; dd++){ let ok = true; for (let j = 0; j < dur16; j++) if (isWeekend_(dd + j)) ok = false; if (ok){ st16 = dd; break; } }
+  const we16 = wagerE_(MIC, SEG, PAY, mkInst_(st16, dur16), SH2);
+  gate('16 local sim: one row per segment, coins / SPT per festival entered = the engine', ls.length === 1 + segMembers_(Context.get().ds).length + 1 &&
+    close(lrow[lh.indexOf('Coins per festival entered')], num(we16.e.HC), 1e-12) && close(lrow[lh.indexOf('SPT per festival entered')], num(we16.e.SPT), 1e-12));
+  const keep16 = micV[tr3].slice(); micV[tr3][tcol(WS.hdrLabel)] = 3; reset();
+  const lrow2 = ECOGAINS_MIC(PAY, 1).find(r => segCanon_(String(r[0])) === segCanon_(SEG));
+  micV[tr3] = keep16; reset();
+  gate('16 local sim follows a table edit (Submit after 3)', lrow2[lh.indexOf('Submit after (wins)')] === 3 && lrow2[lh.indexOf('Chance to bank')] > lrow[lh.indexOf('Chance to bank')]);
+  // an envelope on place 1: the card sim's rung at rank 1 has the wager's probability
+  const env = th.length ? micV[9] : null, eCol = micV[8].indexOf('1-star Dly'), keepE = micV[9][eCol];
+  micV[9][eCol] = 1; reset(); precompute();
+  const rg = packRungs_(MIC, SEG, PAY, Context.get(), 0, null), r1 = rg && rg.groups[0].rungs.find(x => x.label === 'rank 1');
+  const wd16 = wagerRankDist_(MIC, SEG, PAY, (Context.get().calNew[MIC] || []).slice().sort((a, z) => a.start - z.start)[0], SH2);
+  gate('16 the card sim draws the wager places (rank-1 rung = the wager chance)', !!r1 && close(r1.p, wd16.dist[0].p, 1e-12),
+    r1 ? r1.p.toFixed(5) + ' vs ' + wd16.dist[0].p.toFixed(5) : 'no rung');
+  micV[9][eCol] = keepE; reset(); precompute();
 
   say('\n' + pass + ' pass, ' + fail + ' fail');
   if (fail) process.exitCode = 1;

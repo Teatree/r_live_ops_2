@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D102  2026-11-11';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D103  2026-11-11';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -861,11 +861,15 @@ function newLbWalk_(cat, seg, payer, ctx){
   var b = ctx.ds.beh(seg, payer), pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   if (!(pWd > 0) && !(pWe > 0)) return out;              // no activity telemetry (A. 0): nothing to price
   var part = packParticipation_(cat, E.inst);
+  // D103: a wager event's places are built per festival (its length and days set each player's bank chance)
+  var spec = LB_R_SPECS[cat], sheet = _baseSide ? lbBaseSheet_(spec) : spec.v2;
+  var eOf = (WAGER_SPECS[cat] && WAGER_BOTTOMUP && wagerTable_(sheet, WAGER_SPECS[cat]))
+    ? function(x){ var wx = wagerE_(cat, seg, payer, x, sheet); return wx ? wx.e : e; } : null;
   all.forEach(function(x){
-    var q = laneReach_(lane, x, pWd, pWe, seg, payer);
-    RESOURCES.forEach(function(r){ if (BOTTOMUP_RES.indexOf(r) < 0) out[r] += part * q * num(e[r]); });
+    var q = laneReach_(lane, x, pWd, pWe, seg, payer), ex = eOf ? eOf(x) : e;
+    RESOURCES.forEach(function(r){ if (BOTTOMUP_RES.indexOf(r) < 0) out[r] += part * q * num(ex[r]); });
   });
-  return overlayPacks_(out, packLane_(lane, seg, payer, ctx, e, E.inst, cat));
+  return overlayPacks_(out, packLane_(lane, seg, payer, ctx, eOf || e, E.inst, cat));
 }
 /** TODAY's side: the same walk over cal_curr on the base config, memoised per cell. */
 function newLbAnchor_(cat, seg, payer){
@@ -880,6 +884,233 @@ function newLbAnchor_(cat, seg, payer){
   return (_newLbAnchorCache[key] = row);
 }
 
+// ---- D103 (2026-11-11, user decisions): MIGHTY ICE CREAM's PLACES BOTTOM-UP (the wager) -------------
+// design_pdfs/Mighty Ice Cream (Wager).md: every bird created in a level WON scores (Red 1, Chuck 2,
+// Bomb 4 - the server's boosterMultipliers); after each win the player SUBMITS the running score or KEEPS
+// GOING; a lost level resets it to 0; the leaderboard holds the submitted score; places pay at the close.
+// D102 borrowed Red's Challenge's measured places; now the place is built from what decides it:
+//   submit after k wins      k = the cell's measured max_streak_per_day_p50 (data_streaks) - the user's
+//                            choice: players bank at their typical natural streak
+//   bank chance in a festival  1 - (1 - S_day(k))^D, S_day = the measured share of active days whose
+//                            longest win streak reaches k (data_streaks p25/p50/p75/p90), D = the
+//                            participant's expected active days in THAT festival (SUM p_day / reach).
+//                            Measured streaks, not a coin-flip model: at a 0.70 win rate an 18-win run
+//                            would be ~0.2% per try, yet it is the 40-99 median daily maximum
+//   points per win           Red + 2 x Chuck + 4 x Bomb birds per win; Red / Chuck = the Red's / Chuck's
+//                            Challenge mean final balance / (wins per day x active days in that 2-day
+//                            weekday challenge); Bomb = half of Chuck's (user decision; no Bomb rows)
+//   spread between players   the banked score k x points x f, f = Red's balance quantiles / their mean
+//                            (p25 / p50 / p75 + the linear tail) - FLAGGED: also carries activity spread
+//   league                   59 opponents drawn from the member cells in proportion to their measured
+//                            participants per festival (Red's avg_participants_per_instance); an opponent
+//                            beats a score s with P(it banked and its score > s) (+ half the ties); the
+//                            player's place = 1 + Binomial(LBSize - 1, that). A player who never banks is
+//                            not on the board and is paid nothing.
+// Every input is a cell on Mic_v2's 'Player behaviour (Wager)' table (formulas holding the measured
+// defaults, overwritable). A blank or non-numeric cell (a formula with no cached value offline) reads the
+// same default from the data here (wagerCell_), so the sheet and the engine compute one number.
+// WAGER_BOTTOMUP = false (or no table) restores D102's measured-places pricing exactly.
+var WAGER_BOTTOMUP = true;
+var WAGER_SPECS = { 'Mighty Ice Cream': { hdrLabel: 'Submit after (wins)', redEv: 'Red', chuckEv: 'Chuck',
+                    bombShare: 0.5, mult: { red: 1, chuck: 2, bomb: 4 },
+                    lenLabel: 'Bird challenge length (days)', lenDefault: 2, nq: 40 } };
+var _wagerTabCache = {}, _wagerCellCache = {}, _wagerDistCache = {};
+/** The behaviour table of a wager sheet: { 'seg|PAYER': {k, red, chuck, bomb, weight} } (raw cells) or null. */
+function wagerTable_(sheet, ws){
+  if (_wagerTabCache[sheet] !== undefined) return _wagerTabCache[sheet];
+  var v = sheetVals_(sheet) || [], hr = -1, h = {};
+  for (var r = 0; r < v.length && hr < 0; r++){
+    var row = v[r] || [];
+    // the table starts in column A ('Segment'); the local sim's spill repeats some headers further right
+    if (String(row[0] == null ? '' : row[0]).trim() !== 'Segment') continue;
+    for (var c = 0; c < row.length; c++) if (String(row[c]).trim() === ws.hdrLabel){ hr = r; break; }
+  }
+  if (hr < 0) return (_wagerTabCache[sheet] = null);
+  (v[hr] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim(); if (k && h[k] === undefined) h[k] = i; });
+  var need = ['Segment', 'Payer', ws.hdrLabel, 'Red birds per win', 'Chuck birds per win', 'Bomb birds per win', 'Opponent weight'];
+  for (var i = 0; i < need.length; i++) if (h[need[i]] === undefined) return (_wagerTabCache[sheet] = null);
+  var tab = {};
+  for (var r2 = hr + 1; r2 < v.length; r2++){
+    var x = v[r2] || [], sg = String(x[h['Segment']] == null ? '' : x[h['Segment']]).trim();
+    if (!sg) break;
+    tab[segCanon_(sg) + '|' + String(x[h['Payer']]).trim().toUpperCase()] = {
+      k: x[h[ws.hdrLabel]], red: x[h['Red birds per win']], chuck: x[h['Chuck birds per win']],
+      bomb: x[h['Bomb birds per win']], weight: x[h['Opponent weight']] };
+  }
+  return (_wagerTabCache[sheet] = tab);
+}
+function wagerNum_(raw){
+  if (raw === '' || raw == null || typeof raw === 'boolean') return null;
+  var x = Number(raw);
+  return (isFinite(x) && x >= 0) ? x : null;
+}
+/** One cell's wager inputs: the table's value where it holds a number, else the measured default. */
+function wagerCell_(cat, seg, payer, sheet){
+  var key = cat + '|' + sheet + '|' + segCanon_(seg) + '|' + payer;
+  if (_wagerCellCache[key] !== undefined) return _wagerCellCache[key];
+  var ws = WAGER_SPECS[cat], ds = Context.get().ds, tab = wagerTable_(sheet, ws);
+  if (!tab) return (_wagerCellCache[key] = null);
+  var row = tab[segCanon_(seg) + '|' + payer] || {};
+  var st = ds.nsStreak(seg, payer) || {}, b = ds.beh(seg, payer) || {};
+  var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  var L = num(readSPLabel_(sheet, ws.lenLabel)) || ws.lenDefault;
+  var act = (pWd > 0) ? L * pWd / (1 - Math.pow(1 - pWd, L)) : 0;       // active days in a 2-day weekday challenge
+  var wins = num(st.wins_per_day_mean);
+  var perWin = function(ev){
+    var e = ds.eventInst(ev, seg, payer);
+    return (e && wins > 0 && act > 0) ? num(e.avg_final_token_balance) / (wins * act) : 0;
+  };
+  var typed = {};
+  var pick = function(name, dflt){ var t = wagerNum_(row[name]); if (t !== null){ typed[name] = 1; return t; } return dflt(); };
+  var k = pick('k', function(){ return num(st.max_streak_per_day_p50); });
+  var red = pick('red', function(){ return perWin(ws.redEv); });
+  var chuck = pick('chuck', function(){ return perWin(ws.chuckEv); });
+  var share = wagerNum_(readSPLabel_(sheet, 'Bomb birds per win (share of Chuck)'));
+  var bomb = pick('bomb', function(){ return ((share !== null) ? share : ws.bombShare) * chuck; });
+  var ev = eventInstProxy_(cat) || ws.redEv, pe = ds.eventInst(ev, seg, payer) || {};
+  var weight = pick('weight', function(){ return num(pe.avg_participants_per_instance); });
+  var pts = ws.mult.red * red + ws.mult.chuck * chuck + ws.mult.bomb * bomb;
+  // streak survival per active day (measured percentiles), the between-player spread (Red's balances)
+  var Sday = survival_([[num(st.max_streak_per_day_p25), .25], [num(st.max_streak_per_day_p50), .5],
+                        [num(st.max_streak_per_day_p75), .75], [num(st.max_streak_per_day_p90), .9]]);
+  var re = ds.eventInst(ws.redEv, seg, payer) || {};
+  var f = wagerSpread_([[num(re.final_balance_p25), .25], [num(re.final_balance_p50), .5], [num(re.final_balance_p75), .75]], ws.nq);
+  return (_wagerCellCache[key] = { k: k, red: red, chuck: chuck, bomb: bomb, pts: pts, weight: weight,
+    Sday: Sday, f: f, pWd: pWd, pWe: pWe, typed: typed });
+}
+/** nq multiplicative factors with mean 1: the quantiles of a distribution given as (value, cdf) points, the
+ *  tail continued at the last segment's slope to cdf 1 (survival_'s shape). [1 x nq] when unusable. */
+function wagerSpread_(points, nq){
+  var pts = [[0, 0]];
+  points.forEach(function(p){ if (p[0] > pts[pts.length - 1][0] && p[1] > pts[pts.length - 1][1]) pts.push(p); });
+  var flat = []; for (var i = 0; i < nq; i++) flat.push(1);
+  if (pts.length < 2) return flat;
+  var a = pts[pts.length - 2], z = pts[pts.length - 1], slope = (z[1] - a[1]) / Math.max(1e-9, z[0] - a[0]);
+  if (z[1] < 1 && slope > 0) pts.push([z[0] + (1 - z[1]) / slope, 1]);
+  var Q = function(u){
+    for (var j = 1; j < pts.length; j++) if (u <= pts[j][1]){
+      var lo = pts[j - 1], hi = pts[j];
+      return lo[0] + (hi[0] - lo[0]) * (u - lo[1]) / Math.max(1e-12, hi[1] - lo[1]);
+    }
+    return pts[pts.length - 1][0];
+  };
+  var q = [], m = 0;
+  for (var i2 = 0; i2 < nq; i2++){ var x = Q((i2 + 0.5) / nq); q.push(x); m += x; }
+  m /= nq;
+  return (m > 0) ? q.map(function(x){ return x / m; }) : flat;
+}
+/** Banked-score model of one cell in one festival: { q: bank chance, scores: [nq], D }. */
+function wagerSide_(c, x){
+  if (!c || !x || !x.days || !x.days.length) return { q: 0, scores: [], D: 0 };
+  var reach = reachOne_(x, c.pWd, c.pWe), sp = 0;
+  x.days.forEach(function(d){ sp += isWeekend_(d) ? c.pWe : c.pWd; });
+  var D = (reach > 0) ? sp / reach : 0;
+  var s = (c.Sday && c.k > 0) ? Math.min(1, Math.max(0, c.Sday(c.k))) : 0;
+  var q = (D > 0) ? 1 - Math.pow(1 - s, D) : 0;
+  return { q: q, D: D, scores: c.f.map(function(fi){ return c.k * c.pts * fi; }) };
+}
+/** Place distribution of a (seg, payer) player in festival x: { dist: [{rank, p}] (mass = bank chance),
+ *  q, n } or null when the table is missing. */
+function wagerRankDist_(cat, seg, payer, x, sheet){
+  var ws = WAGER_SPECS[cat];
+  if (!ws || !WAGER_BOTTOMUP) return null;
+  var dkey = (x.days || []).map(function(d){ return isWeekend_(d) ? 'e' : 'd'; }).join('');
+  var key = cat + '|' + sheet + '|' + segCanon_(seg) + '|' + payer + '|' + dkey;
+  if (_wagerDistCache[key] !== undefined) return _wagerDistCache[key];
+  var me = wagerCell_(cat, seg, payer, sheet);
+  if (!me) return (_wagerDistCache[key] = null);
+  var ds = Context.get().ds, spec = LB_R_SPECS[cat];
+  var N = Math.max(2, lbSize_(sheet, spec.hdr) || 60), n = N - 1;
+  var opp = [], wsum = 0;
+  segMembers_(ds).forEach(function(sg){ ['NONPAYER', 'PAYER'].forEach(function(p){
+    var c = wagerCell_(cat, sg, p, sheet);
+    if (!c || !(c.weight > 0)) return;
+    opp.push({ w: c.weight, side: wagerSide_(c, x) }); wsum += c.weight;
+  }); });
+  if (!(wsum > 0)) return (_wagerDistCache[key] = null);
+  var mine = wagerSide_(me, x), M = mine.scores.length, acc = [];
+  for (var k = 0; k < N; k++) acc.push(0);
+  var beat = function(s){
+    var t = 0;
+    opp.forEach(function(o){
+      var g = 0, sc = o.side.scores;
+      for (var j = 0; j < sc.length; j++){ if (sc[j] > s) g += 1; else if (sc[j] === s) g += 0.5; }
+      t += (o.w / wsum) * o.side.q * (sc.length ? g / sc.length : 0);
+    });
+    return Math.min(1, Math.max(0, t));
+  };
+  mine.scores.forEach(function(s){
+    var B = beat(s), pm = binomPmf_(n, B);
+    for (var k2 = 0; k2 <= n; k2++) acc[k2] += pm[k2] / M;
+  });
+  var dist = acc.map(function(p, i){ return { rank: i + 1, p: mine.q * p }; });
+  return (_wagerDistCache[key] = { dist: dist, q: mine.q, n: N, cell: me, side: mine });
+}
+function binomPmf_(n, p){
+  var out = [], i;
+  if (p <= 0){ for (i = 0; i <= n; i++) out.push(i === 0 ? 1 : 0); return out; }
+  if (p >= 1){ for (i = 0; i <= n; i++) out.push(i === n ? 1 : 0); return out; }
+  var lq = Math.log(1 - p), lp = Math.log(p), lc = 0;      // log C(n, i), built up
+  for (i = 0; i <= n; i++){
+    if (i > 0) lc += Math.log(n - i + 1) - Math.log(i);
+    out.push(Math.exp(lc + i * lp + (n - i) * lq));
+  }
+  return out;
+}
+/** Expected reward per festival ENTERED from the wager place distribution: { e: row, dist } or null. */
+function wagerE_(cat, seg, payer, x, sheet){
+  var wd = wagerRankDist_(cat, seg, payer, x, sheet);
+  if (!wd) return null;
+  var ladder = lbLadder_(sheet, LB_R_SPECS[cat]), E = zeroRow_();
+  wd.dist.forEach(function(d){
+    var rew = ladder[d.rank];
+    if (!rew || !(d.p > 0)) return;
+    for (var r in rew) E[r] = num(E[r]) + rew[r] * d.p;
+  });
+  return { e: E, dist: wd };
+}
+
+/** @customfunction
+ *  Mighty Ice Cream's local sim (Mic_v2): one row per segment for `payer`, a festival of Mic_v2's
+ *  EventDuration starting on a weekday - inputs, bank chance, places, paid share and payout per festival
+ *  entered. Re-runs when the behaviour table is edited (Mic_v2 is a watched sheet). */
+function ECOGAINS_MIC(payer, nonce){
+  var cat = 'Mighty Ice Cream', spec = LB_R_SPECS[cat];
+  var p = String(payer || 'NONPAYER').trim().toUpperCase();
+  try {
+    var ctx = Context.get(), ds = ctx.ds, sheet = spec.v2;
+    if (!wagerTable_(sheet, WAGER_SPECS[cat])) return [["No 'Player behaviour (Wager)' table on " + sheet]];
+    var dur = Math.max(1, Math.round(num(readSPLabel_(sheet, 'EventDuration')) || 2)), start = 1;
+    for (var d = 1; d <= 14; d++){ var ok = true; for (var j = 0; j < dur; j++) if (isWeekend_(d + j)) ok = false; if (ok){ start = d; break; } }
+    var x = mkInst_(start, dur), ladder = lbLadder_(sheet, spec), npaid = 0;
+    for (var kk in ladder) if (+kk > npaid) npaid = +kk;
+    var out = [['Segment', 'Submit after (wins)', 'Points per win', 'Banked score (median player)', 'Chance to bank',
+                'Place p25', 'Place p50', 'Place p75', 'Chance of a paid place', 'Coins per festival entered',
+                'SPT per festival entered', 'Reward at the p50 place']];
+    var segs = segMembers_(ds).concat(ds.segs().indexOf(SEG_ALL) >= 0 ? [SEG_ALL] : []);
+    segs.forEach(function(sg){
+      var w = wagerE_(cat, sg, p, x, sheet);
+      if (!w){ out.push([segLabel_(sg, ds), 'n/a']); return; }
+      var c = w.dist.cell, dist = w.dist.dist, cum = 0, pl = {}, paid = 0;
+      dist.forEach(function(dd){
+        cum += dd.p; if (dd.rank <= npaid) paid += dd.p;
+        [.25, .5, .75].forEach(function(t){ if (pl[t] === undefined && cum >= t - 1e-12) pl[t] = dd.rank; });
+      });
+      var place = function(t){ return (pl[t] === undefined) ? 'not on board' : pl[t]; };
+      var p50 = pl[.5], rw = (p50 !== undefined) ? (ladder[p50] || {}) : null, txt = '';
+      if (!rw) txt = 'nothing (not on the board)';
+      else {
+        var parts = [];
+        for (var r in rw) if (num(rw[r]) > 0) parts.push(r + ' ' + rw[r]);
+        txt = parts.length ? parts.join(', ') : 'nothing (place ' + p50 + ' pays nothing)';
+      }
+      var med = w.dist.side.scores.length ? w.dist.side.scores[Math.floor(w.dist.side.scores.length / 2)] : 0;
+      out.push([segLabel_(sg, ds), c.k, c.pts, med, w.dist.q, place(.25), place(.5), place(.75), paid,
+                num(w.e['HC']), num(w.e['SPT']), txt]);
+    });
+    return out;
+  } catch (e){ return [['ECOGAINS_MIC error: ' + e.message]]; }
+}
 
 // ---- D86 (2026-11-02, user decision): Chuck's Challenge stands in for two of Red's ----------------
 // The redesign runs Red's Challenge twice instead of four times and adds Chuck's Challenge twice
@@ -1129,7 +1360,7 @@ var PACK_PARTICIPATION = { 'Kite Festival': 0.35 };   // redesign assumption (me
 function packParticipation_(cat, inst){
   var spec = LB_R_SPECS[cat] || COLL_R_SPECS[cat] || PACK_ONLY_SPECS[cat];
   // D61: the authored 'Participation' label is read off the BASE sheet on the anchor side.
-  var sheet = spec && (_baseSide ? (spec.base || spec.sheet) : (spec.v2 || spec.sheet));
+  var sheet = spec && (_baseSide ? ((spec.newEvent ? lbBaseSheet_(spec) : spec.base) || spec.sheet) : (spec.v2 || spec.sheet));   // D103
   if (sheet){
     var raw = readSPLabel_(sheet, 'Participation');     // generic label scan, any sheet
     var x = parseFloat(raw);
@@ -1428,6 +1659,10 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     // The SAME ladder + rank CDF lbE_ prices E from, so the card sim's discrete draw and the gains
     // model's expectation reconcile by construction (see lbRankDist_).
     var rdk = lbRankDist_(lbSheet, lb, inst), ladder = rdk.ladder;
+    if (WAGER_SPECS[cat] && WAGER_BOTTOMUP && lbI){                 // D103: the wager's own places
+      var wdk = wagerRankDist_(cat, seg, payer, lbI, lbSheet);
+      if (wdk) rdk = { ladder: ladder, dist: wdk.dist };
+    }
     var rungs;
     if (prof && prof.rankTop){
       // FIRST PLACE, every time. The ladder's TOP AUTHORED rank at probability 1 - deliberately not
@@ -2512,6 +2747,7 @@ function resetModuleCaches_(){
   _expScaleTab = undefined;                              // D87: the export_scale table
   _kiteJoinTab = undefined;                              // D100: the kite_joiners table
   _newLbAnchorCache = {};                                // D102: a new leaderboard's TODAY walk
+  _wagerTabCache = {}; _wagerCellCache = {}; _wagerDistCache = {};   // D103: the wager places
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
@@ -6116,9 +6352,10 @@ var DataStore = (function(){
     var th = headerIndex_((streaksVals || [])[0] || []), tMap = {};
     for (var t = 1; t < (streaksVals || []).length; t++){ var s = streaksVals[t];
       if (!s[th['segment']]) continue;
-      tMap[[segCanon_(s[th['segment']]), s[th['payer_flag']]].join('|')] = {
-        p25: num(s[th['max_streak_per_day_p25']]), p50: num(s[th['max_streak_per_day_p50']]),
-        p75: num(s[th['max_streak_per_day_p75']]), p90: num(s[th['max_streak_per_day_p90']]) }; }
+      var to = { p25: num(s[th['max_streak_per_day_p25']]), p50: num(s[th['max_streak_per_day_p50']]),
+        p75: num(s[th['max_streak_per_day_p75']]), p90: num(s[th['max_streak_per_day_p90']]) };
+      for (var tn in th) if (to[tn] === undefined) to[tn] = s[th[tn]];   // D103: every column too (the wager reads them)
+      tMap[[segCanon_(s[th['segment']]), s[th['payer_flag']]].join('|')] = to; }
     var eh = headerIndex_((instVals || [])[0] || []), eMap = {};
     for (var e = 1; e < (instVals || []).length; e++){ var x = instVals[e];
       if (!x[eh['event_name']]) continue;
