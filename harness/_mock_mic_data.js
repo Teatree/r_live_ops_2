@@ -51,7 +51,9 @@ function GATES(){
   const hr = micV.findIndex(r => String(r[0]).trim() === 'Segment' && r.indexOf(WS.scoreLabel) >= 0), th = micV[hr] || [];
   const need = ['Participation (share of active)', 'Avg top score', 'Opponent share'].concat(MIC_SCORE_COLS.map(c => c[0]));
   gate('1  every column the engine reads is on the sheet', need.every(n => th.indexOf(n) >= 0), need.filter(n => th.indexOf(n) < 0).join(', '));
-  const lab = n => micV.findIndex(r => String(r[0]).trim() === n);
+  // the engine's rule (wagerLabel_): the exact label, else the label's first words before ' ('
+  const lab = n => { const ex = micV.findIndex(r => String(r[0]).trim() === n); if (ex >= 0) return ex;
+    const st = n.split(' (')[0].toLowerCase(); return micV.findIndex(r => { const a = String(r[0]).trim().toLowerCase(); return a === st || a.indexOf(st + ' (') === 0; }); };
   gate('1  the override and league cells are on the sheet', lab(WS.partLabel) >= 0 && lab(WS.leagueLabel) >= 0);
   gate("1  no plain 'Participation' label (it would override every source's pack lane)", lab('Participation') < 0);
 
@@ -96,7 +98,12 @@ function GATES(){
   micV[lr][1] = 21; reset();
   const d21 = wagerRankDist_(MIC, SEG, PAY, x0, SH);
   micV[lr][1] = lKeep; reset();
-  const mix = d2025.dist.map((d, i) => 0.75 * ((d20.dist[i] || { p: 0 }).p) + 0.25 * d21.dist[i].p);
+  // D105b: the label reworded inside its brackets (the user's 'League size (players per lb)') still reads the cell
+  const lLab = micV[lr][0], pr0 = lab(WS.partLabel), pLab = micV[pr0][0], pK = micV[pr0][1];
+  micV[lr][0] = 'League size (players per lb)'; micV[lr][1] = 20; micV[pr0][0] = 'Participation override (every cell)'; micV[pr0][1] = 0.55; reset();
+  gate('4  a reworded label still reads its cell (league 20, override 0.55)', wagerLeague_(MIC, SH) === 20 && wagerPart_(MIC, SEG, PAY, SH) === 0.55);
+  micV[lr][0] = lLab; micV[lr][1] = lKeep; micV[pr0][0] = pLab; micV[pr0][1] = pK; reset();
+  const mix =d2025.dist.map((d, i) => 0.75 * ((d20.dist[i] || { p: 0 }).p) + 0.25 * d21.dist[i].p);
   gate('4  the cell wins: 20 seats -> places 1..20', d20.dist.length === 20 && d21.dist.length === 21);
   gate('4  20.25 seats = 75% boards of 20 + 25% of 21, every place', d2025.dist.every((d, i) => close(d.p, mix[i], 1e-12)));
 
@@ -183,12 +190,16 @@ function GATES(){
   data[SH] = newSheet; reset(); precompute();
   // no numbers anywhere (formulas offline AND no data_mic): the cells have no scores -> D102's borrowed places
   const dmSave = data['data_mic'];
+  // a workbook export carries the formulas' NUMBERS in the table: then the cells price the event on their own
+  const tabNums = micV.slice(hr + 1, hr + 15).some(r => r.slice(2, 11).some(x => typeof x === 'number'));
+  const withData = cells.map(([s, p]) => rowToArray_(resultRow_(MIC, s, p, Context.get())));
   delete data['data_mic']; reset(); precompute();
   const noData = cells.map(([s, p]) => rowToArray_(resultRow_(MIC, s, p, Context.get())));
   WAGER_BOTTOMUP = false; reset(); precompute();
   const d102 = cells.map(([s, p]) => rowToArray_(resultRow_(MIC, s, p, Context.get())));
   WAGER_BOTTOMUP = true; data['data_mic'] = dmSave; reset(); precompute();
-  gate('9  no data_mic and no typed numbers -> the D102 pricing exactly', same(noData, d102));
+  if (tabNums) gate('9  the table holds numbers: without data_mic the cells price the event unchanged', same(noData, withData));
+  else gate('9  no data_mic and no typed numbers -> the D102 pricing exactly', same(noData, d102));
 
   say('\n     cell              part   p50 top   place p50  coins/window  SPT/window  value/window');
   cells.forEach(([s, p]) => { const r = resultRow_(MIC, s, p, Context.get()), c = wagerCell_(MIC, s, p, SH), d = wagerRankDist_(MIC, s, p, insts[0], SH);

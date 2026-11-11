@@ -80,6 +80,7 @@ SHEETS = [
     'EcoGainsSim', 'EcoGainsSim_HC', 'EcoGainsSim_so_far',   # so_far: the 8-day window view (D65 fill rule)
     'EcoGainsSim_Daily', 'EcoGainsSim_PlybyPly',   # D68: the fill is tested on the workbook's own layouts
     'Ki_Tr', 'Ki_Tr_v2',   # D66: a _v2 pair V2Diff derives from the workbook
+    'kite_joiners',                         # D100: Kite opt-in + join days (written by Compute export scale)
     'data_mic',                             # D105: the live Mighty Ice Cream results (three stacked tables)
     'Mic', 'Mic_v2',                        # D102: Mighty Ice Cream (a new event: Mic_v2 only, until a base 'Mic' exists)
     'Ki_2d', 'Ki_2d_v2', 'Ki_2d_v2_weekend', 'Ki_2d_weekend', 'cal_new_%NEW',   # 2026-10-28: the 2-day Kite Festival config pair and the staged new calendar

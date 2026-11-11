@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D105  2026-11-11';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D105b  2026-11-11';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -1016,9 +1016,22 @@ function micScoreQuantiles_(pcts, avg, n){
   for (var k = 0; k < n; k++) q.push(Q((k + 0.5) / n));
   return q;
 }
+/** D105b (2026-11-11): an input cell found by its label's FIRST WORDS - the text before ' (' - in column A,
+ *  so a reworded note in the brackets ('League size (players per lb)', the user's edit of the sheet) still
+ *  reads the cell. The exact label wins when present. Value = the cell to its right; null when absent. */
+function wagerLabel_(sheet, label){
+  var exact = readSPLabel_(sheet, label);
+  if (exact !== null) return exact;
+  var stem = String(label).split(' (')[0].trim().toLowerCase(), v = sheetVals_(sheet) || [];
+  for (var r = 0; r < v.length; r++){
+    var a = String((v[r] || [])[0] == null ? '' : v[r][0]).trim().toLowerCase();
+    if (a === stem || a.indexOf(stem + ' (') === 0) return (v[r][1] == null ? '' : v[r][1]);
+  }
+  return null;
+}
 /** Players per board in the measured mode: the sheet's cell, else data_mic's average, else LBSize. */
 function wagerLeague_(cat, sheet){
-  var ws = WAGER_SPECS[cat], t = wagerNum_(readSPLabel_(sheet, ws.leagueLabel));
+  var ws = WAGER_SPECS[cat], t = wagerNum_(wagerLabel_(sheet, ws.leagueLabel));
   if (t !== null && t >= 2) return t;
   var d = micData_(ws.dataSheet);
   if (d && d.league >= 2) return d.league;
@@ -1030,7 +1043,7 @@ function wagerPart_(cat, seg, payer, sheet){
   if (!ws || !WAGER_BOTTOMUP || !sheet) return null;
   var tab = wagerTable_(sheet, ws);
   if (!tab || tab.mode !== 'scores') return null;
-  var o = wagerNum_(readSPLabel_(sheet, ws.partLabel));
+  var o = wagerNum_(wagerLabel_(sheet, ws.partLabel));
   if (o !== null) return o;
   var c = wagerCell_(cat, seg, payer, sheet);
   return (c && c.part !== null) ? c.part : null;
