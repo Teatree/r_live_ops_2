@@ -67,7 +67,8 @@ var SPS_GROUPS = {
   'META': ['Bomb Challenge',"Bomb's Ballet",'Chuck Challenge','Daily Night Sky Prize','Flock Flurry',
            'Hatchling Hideaway','Jigsaw','Kite Festival','Level Race','Other','Photoshoot',
            'Red Challenge','River Rush','Season Pass (Free)','Target Day','Team Event','Team Race',
-           'Flash Race','FlowerCoop','Rainbow Maker','ToF','Col - Sets','Col - Albums']
+           'Flash Race','FlowerCoop','Rainbow Maker','ToF','Col - Sets','Col - Albums',
+           'Mighty Ice Cream']   // D102
 };
 var SPS_GROUP_ORDER = ['PAID','ADS','CORE','META'];
 // Which group any category NOT named above falls into. A partition that has to be maintained by

@@ -430,9 +430,12 @@ const baseline = ECOGAINS_SIM('NONPAYER', '40-99');
   const regionEq = (spec) => {
     const sub = (sheet, hdr, r0, r1, c0, c1) => {
       const rows = [hdr].concat(Array.from({ length: r1 - r0 + 1 }, (_, i) => r0 + i));
-      return rows.map(r => ((data[sheet].values[r - 1]) || []).slice(c0 - 1, c1));
+      // D102: a sheet the dump does not have is empty (Mic_v2 before it is imported)
+      return rows.map(r => (((data[sheet] || { values: [] }).values[r - 1]) || []).slice(c0 - 1, c1));
     };
-    let eq = JSON.stringify(sub(spec.base, spec.hdr, spec.r0, spec.r1, spec.c0, spec.c1)) ===
+    // D102: a NEW event has no base sheet - its anchor side reads the redesign's (lbBaseSheet_)
+    const base = (spec.newEvent && typeof lbBaseSheet_ === 'function') ? lbBaseSheet_(spec) : spec.base;
+    let eq = JSON.stringify(sub(base,      spec.hdr, spec.r0, spec.r1, spec.c0, spec.c1)) ===
              JSON.stringify(sub(spec.v2,   spec.hdr, spec.r0, spec.r1, spec.c0, spec.c1));
     if (eq && spec.ms)                                     // Kite score-milestone rows too
       eq = JSON.stringify(sub(spec.base, spec.ms.hdr, spec.ms.r0, spec.ms.r1, spec.ms.c0, spec.ms.c1)) ===

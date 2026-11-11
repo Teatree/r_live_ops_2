@@ -130,6 +130,10 @@ var PBP_EVENTS = {
     lb:{posCol:0, r0:81, r1:90, c0:1, c1:21, hdr:80}},
   'Flock Flurry':      {cat:'Flock Flurry',    family:'lb', inst:'Flock Flurry', cfg:'F_v2',
     joinUL:true, lb:{posCol:0, r0:10, r1:14, c0:1, c1:21, hdr:9}},
+  // D102: a new race (Mic_v2). Its places come from the event in Mic_v2's 'Places from' cell
+  // (Red's Challenge) through the engine's eventInstProxy_, as in the gains model.
+  'Mighty Ice Cream':  {cat:'Mighty Ice Cream', family:'lb', inst:'Mighty Ice Cream', cfg:'Mic_v2',
+    lb:{posCol:0, r0:9, r1:33, c0:1, c1:22, hdr:8}},
   'Night Sky':         {cat:'Daily Night Sky Prize', family:'nightsky'}
 };
 

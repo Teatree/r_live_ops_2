@@ -79,7 +79,8 @@ var DAILY_ALWAYS  = { 'Core':1, 'Saga':1, 'Daily Gift':1 };
 // the per-day distribution: flat-over-33 -> placed on their actual calendar instances.
 var DAILY_LASTDAY = { 'Bomb Challenge':1, 'Chuck Challenge':1, 'Red Challenge':1, 'Level Race':1,
                       'Flash Race':1, 'Target Day':1, 'Kite Festival':1,
-                      'Team Event':1, 'Team Race':1, 'Flock Flurry':1 };
+                      'Team Event':1, 'Team Race':1, 'Flock Flurry':1,
+                      'Mighty Ice Cream':1 };   // D102: a race - pays by place at the close
 var DAILY_MARGINAL = { 'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":'Bombs Ballet',
                        'Jigsaw':'Jigsaw', 'Photoshoot':'Photoshoot' };
 var DAILY_PDAY_INST = { 'Rainbow Maker':1, 'Daily Night Sky Prize':1 };
@@ -144,7 +145,8 @@ var DAILY_CAL_LABEL = {
   // still right, only the placement is wrong.
   'Season Pass (Free)':'Season Pass', 'Season Pass (Paid)':'Season Pass',
   'Team Event':'Team Event', 'Team Race':'Team Race', 'Flock Flurry':'Flock Flurry',   // D19
-  'ToF':'ToF'                       // always-on: one merged 33-day instance on cal_new row 22
+  'ToF':'ToF',                      // always-on: one merged 33-day instance on cal_new row 22
+  'Mighty Ice Cream':'Mighty Ice Cream'   // D102
 };
 
 /** @customfunction */

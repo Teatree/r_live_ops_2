@@ -70,7 +70,7 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // (100-249, 250+, ALL), 19 currencies (envelopes and ToF tickets back), the ToF / Col sources, 22 days
                        // to Nov 3 like data_gains. Nothing else differs bar AlbumConfig's random helper block (Q:V). The
                        // engine in the workbook is still D93 (no 250+ / ALL tables filled yet)
-                       v3q: '_mockdata_v3q.json', v3r: '_mockdata_v3r.json', v3s: '_mockdata_v3s.json', v3t: '_mockdata_v3t.json' };
+                       v3q: '_mockdata_v3q.json', v3r: '_mockdata_v3r.json', v3s: '_mockdata_v3s.json', v3t: '_mockdata_v3t.json', v3u: '_mockdata_v3u.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
@@ -338,10 +338,15 @@ function resetSheetCache_mock(){
     if (v === '') break;
     labels.push(v);
   }
+  // D102: the sheet's labels are CATEGORY_ORDER row for row; a TRAILING engine label the sheet does not have
+  // yet is allowed - Fill all sims writes it under the table itself (simFillAppendSources_, gated in
+  // _mock_mic.js) - but a missing label in the middle, a reordering or an extra sheet label is not.
   const badCat = labels.findIndex((l, i) => l !== CATEGORY_ORDER[i]);
-  check('EcoGainsSim source labels == CATEGORY_ORDER, row for row',
-    labels.length === CATEGORY_ORDER.length && badCat === -1,
+  const tail = CATEGORY_ORDER.slice(labels.length);
+  check('EcoGainsSim source labels == CATEGORY_ORDER, row for row (trailing engine labels: the fill appends them)',
+    labels.length <= CATEGORY_ORDER.length && badCat === -1,
     `${labels.length} sheet vs ${CATEGORY_ORDER.length} engine` +
+    (tail.length && badCat === -1 ? ` (appended by the fill: ${tail.join(', ')})` : '') +
     (badCat === -1 ? '' : ` — first mismatch at row ${hdrRow + 2 + badCat}: sheet "${labels[badCat]}"` +
                           ` vs engine "${CATEGORY_ORDER[badCat]}"`));
 }

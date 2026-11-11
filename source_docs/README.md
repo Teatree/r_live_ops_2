@@ -9,6 +9,7 @@ One .md per resource source in the ABDB economy simulation (see `../HAND_OFF.md`
 | bomb-challenge.md | Bomb Challenge | leaderboard | thin PDF (2p) + Race config block |
 | chuck-challenge.md | Chuck Challenge | leaderboard | INFERRED from Bomb doc + Race config block |
 | red-challenge.md | Red Challenge | leaderboard | INFERRED from Bomb doc + Race config block |
+| mighty-ice-cream.md | Mighty Ice Cream | leaderboard (Wager, league of 60, 25 paid places) | server JSON only; places + participation borrowed from Red (D102, 2026-11-11) |
 | flash-race.md | Flash Race | leaderboard | redesign deck p36 + Race config block |
 | flock-flurry.md | Flock Flurry (Flock Rush) | leaderboard (1-hour sprint) | full PDF + F configs + inst/gains data (added 2026-07-03) |
 | level-race.md | Level Race | leaderboard | redesign deck p25-26 + Race config block |

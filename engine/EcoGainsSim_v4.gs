@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D100  2026-11-10';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D102  2026-11-11';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -162,7 +162,10 @@ var CATEGORY_ORDER = [
   // three were all wrong: ToF showed Col - Sets' numbers, Col - Sets showed Col - Albums', and
   // Col - Albums was blank. Nothing errored - exactly the 2026-08-21 failure described above.
   'ToF',
-  'Col - Sets','Col - Albums'
+  'Col - Sets','Col - Albums',
+  // D102 (2026-11-11): a NEW event, appended at the end (user decision) so every existing row keeps its
+  // position. Fill all sims writes by label (D68) and adds this label under 'Col - Albums' itself (D102).
+  'Mighty Ice Cream'
 ];
 
 // display segment -> data_gains label (D8: '0-9' anchors to B. 1-9; A. 0 = appendix, own label).
@@ -357,7 +360,8 @@ var SOURCES = {
   'Season Pass (Free)'    : simSeasonPass,
   'Season Pass (Paid)'    : simSeasonPassPaid,   // the PAID track, split out 2026-08-21
   'Col - Sets'            : simColSets,          // card-collection SET completion rewards
-  'Col - Albums'          : simColAlbums         // card-collection ALBUM completion rewards
+  'Col - Albums'          : simColAlbums,        // card-collection ALBUM completion rewards
+  'Mighty Ice Cream'      : simMightyIceCream    // D102: a new leaderboard, priced bottom-up
 };
 
 // config/ladder column header -> engine resource name (shared by RM + NS readers)
@@ -388,7 +392,8 @@ var CAL_LABEL = {
   'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky',
   'Season Pass (Free)':'Season Pass',   // season-long lane; T from cadence x reach, D pinned 1
   'Flock Flurry':'Flock Flurry',   // a simulated leaderboard since D91 (carried + a pack overlay before)
-  'ToF':'ToF'                      // one merged 33-day instance: the event is always-on
+  'ToF':'ToF',                     // one merged 33-day instance: the event is always-on
+  'Mighty Ice Cream':'Mighty Ice Cream'   // D102
 };
 
 // ============================== CUSTOM FUNCTIONS =============================================
@@ -483,6 +488,12 @@ function measuredRow_(cat, seg, payer, ds){
     var walkC = (cat === 'Col - Sets') ? cs.sets : cs.albums, outC = zeroRow_();
     RESOURCES.forEach(function(r){ outC[r] = (num(row[r]) > 0) ? num(row[r]) : num(walkC[r]); });
     return outC;
+  }
+  // D102: a NEW leaderboard - TODAY is its own walk over cal_curr wherever the export is silent
+  if (NEW_LB[cat]){
+    if (anyAmount_(row)) return row;
+    var nl = newLbAnchor_(cat, seg, payer);
+    return nl || row;
   }
   if (!PACK_ANCHORED || cat === 'Rainbow Maker' || bottomUpHasData_(row)) return row;
   var pk = (cat === 'Season Pass (Free)') ? spFreePacksSynth_(seg, payer, ds) : packAnchorRow_(cat, seg, payer);
@@ -791,6 +802,84 @@ function simFlockFlurry   (seg, payer, ctx){ return leaderboardSim_('Flock Flurr
 function leaderboardSim_(cat, calLabel, seg, payer, ctx){
   return timedCore_(cat, calLabel, seg, payer, ctx, function(){ return 1; });
 }
+
+// ---- D102 (2026-11-11, user decisions): MIGHTY ICE CREAM, a NEW leaderboard priced bottom-up ---------
+// A league of 60 paying 25 places (config sheet Mic_v2, builders/_build_mic.py, from the live server JSON).
+// It has never run, so there is no data_gains row to anchor on and no data_event_inst row of its own:
+//   * places: the measured places of the event named in Mic_v2's 'Places from' cell (Red's Challenge),
+//     AS MEASURED (user decision: not rescaled to the 60-player board) - the rank CDF through Red's
+//     p25 / p50 / p75 runs to LBSize 60, so the top quarter's tail spreads over the rest of the board.
+//     Real 'Mighty Ice Cream' rows in data_event_inst take over by themselves (eventInstProxy_).
+//   * every resource BOTTOM-UP (user decision): per instance on the calendar,
+//         E[r] x participation x reach(instance)
+//     E = SUM_k P(place k) x Mic_v2[k][r] (lbE_, the same pricing as every leaderboard's E), participation
+//     = the borrowed event's measured participation_rate unless Mic_v2 carries a 'Participation' cell
+//     (packParticipation_), reach = 1 - PROD(1 - p_day) (laneReach_). Envelopes / ToF tickets go through
+//     packLane_ (the album cutoff applies). No D: a race pays by place, not by tokens.
+//   * TODAY is the same walk over cal_curr on the base config ('Mic' if it exists, else Mic_v2), which is
+//     0 while cal_curr runs none - and identical calendars + configs give DIFF 0, as for every source.
+//   * once data_gains carries the event, the export is the level and the model the change (anchorOne_,
+//     the D61 / D82 rule): redesign = export x walk(cal_new) / walk(cal_curr).
+// Red's Challenge is NOT touched: it keeps its own lane, wherever its merges sit on the grid.
+// The Wager mechanic (booster multipliers, booster spend) is not modelled.
+var NEW_LB = { 'Mighty Ice Cream': { placesLabel: 'Places from', placesDefault: 'Red' } };
+var _newLbAnchorCache = {};
+function simMightyIceCream(seg, payer, ctx){ return newLbSim_('Mighty Ice Cream', seg, payer, ctx); }
+/** The data_event_inst event a NEW leaderboard borrows its places from (null for any other event). */
+function eventInstProxy_(ev){
+  var n = NEW_LB[ev];
+  if (!n) return EVENT_INST_PROXY[ev] || null;
+  var spec = LB_R_SPECS[ev], raw = spec ? readSPLabel_(spec.v2, n.placesLabel) : null;
+  var t = String(raw == null ? '' : raw).trim();
+  return t || n.placesDefault;
+}
+/** The base-side sheet of a leaderboard spec: its own base, or - for a NEW event with no base sheet - the
+ *  redesign's sheet (so a calendar that runs the event on both sides prices one config). */
+function lbBaseSheet_(spec){
+  if (!spec || !spec.newEvent) return spec && spec.base;
+  var v = sheetVals_(spec.base);
+  return (v && v.length) ? spec.base : spec.v2;
+}
+function newLbSim_(cat, seg, payer, ctx){
+  var meas = measuredRowCore_(cat, seg, payer, ctx.ds);
+  if (!ctx.calNewOk) return meas;
+  var walk = newLbWalk_(cat, seg, payer, ctx);
+  if (_baseSide || !anyAmount_(meas)) return walk;
+  var cur = newLbAnchor_(cat, seg, payer);            // the export carries it: level from the data
+  if (!cur) return walk;
+  var out = zeroRow_();
+  RESOURCES.forEach(function(r){ out[r] = anchorOne_(num(meas[r]), num(cur[r]), num(walk[r])); });
+  return out;
+}
+/** Bottom-up payout of a NEW leaderboard over ctx.calNew (cal_curr on the anchor side). */
+function newLbWalk_(cat, seg, payer, ctx){
+  var out = zeroRow_(), lane = CAL_LABEL[cat] || cat, all = (ctx.calNewOk && ctx.calNew[lane]) || [];
+  if (!all.length) return out;
+  var E = rewardE_(cat, seg, payer, ctx.ds);
+  if (!E) return out;
+  var e = _baseSide ? E.eBase : E.eV2;
+  var b = ctx.ds.beh(seg, payer), pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
+  if (!(pWd > 0) && !(pWe > 0)) return out;              // no activity telemetry (A. 0): nothing to price
+  var part = packParticipation_(cat, E.inst);
+  all.forEach(function(x){
+    var q = laneReach_(lane, x, pWd, pWe, seg, payer);
+    RESOURCES.forEach(function(r){ if (BOTTOMUP_RES.indexOf(r) < 0) out[r] += part * q * num(e[r]); });
+  });
+  return overlayPacks_(out, packLane_(lane, seg, payer, ctx, e, E.inst, cat));
+}
+/** TODAY's side: the same walk over cal_curr on the base config, memoised per cell. */
+function newLbAnchor_(cat, seg, payer){
+  var key = cat + '|' + seg + '|' + payer;
+  if (_newLbAnchorCache[key] !== undefined) return _newLbAnchorCache[key];
+  var ctx;
+  try { ctx = Context.get(); } catch (e){ return null; }
+  if (!ctx || !ctx.calCurOk) return (_newLbAnchorCache[key] = null);
+  var bctx = baseCtx_(ctx), row = null, was = _baseSide;
+  _baseSide = true;
+  try { row = newLbWalk_(cat, seg, payer, bctx); } finally { _baseSide = was; }
+  return (_newLbAnchorCache[key] = row);
+}
+
 
 // ---- D86 (2026-11-02, user decision): Chuck's Challenge stands in for two of Red's ----------------
 // The redesign runs Red's Challenge twice instead of four times and adds Chuck's Challenge twice
@@ -1334,7 +1423,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     var lbInsts = ((ctx.calNew && ctx.calNew[lbLane]) || []).slice().sort(function(x, y){ return x.start - y.start; });
     var lbI = lbInsts[Math.max(0, Math.min(instOrdinal || 0, lbInsts.length - 1))];
     if (lbI && lbI.variant) lb = variantSpec_(lb, lbI.variant);
-    var lbSheet = (baseRungs && lb.base) ? lb.base : lb.v2;     // D90
+    var lbSheet = (baseRungs && lb.base) ? lbBaseSheet_(lb) : lb.v2;     // D90; D102: a new event's base
     var v = sheetVals_(lbSheet);
     // The SAME ladder + rank CDF lbE_ prices E from, so the card sim's discrete draw and the gains
     // model's expectation reconcile by construction (see lbRankDist_).
@@ -1617,7 +1706,8 @@ var _packAnchorCache = {};
 // Sources anchored their own way (RM: D29/D61 merge; ToF: tofSynth_; Season Pass: the track up to
 // the measured tier) or that pay no pack at all.
 var PACK_ANCHOR_SKIP = { 'Rainbow Maker':1, 'ToF':1, 'Season Pass (Free)':1, 'Season Pass (Paid)':1,
-                         'Core':1, 'Saga':1, 'River Rush':1, 'Col - Sets':1, 'Col - Albums':1 };
+                         'Core':1, 'Saga':1, 'River Rush':1, 'Col - Sets':1, 'Col - Albums':1,
+                         'Mighty Ice Cream':1 };   // D102: anchors itself (newLbSim_)
 
 /** ctx with cal_curr on BOTH calendar slots, its own SPT memo, flagged as the anchor side. */
 function baseCtx_(ctx){
@@ -2421,6 +2511,7 @@ function resetModuleCaches_(){
   _calGridDaysCache = null;                              // D79
   _expScaleTab = undefined;                              // D87: the export_scale table
   _kiteJoinTab = undefined;                              // D100: the kite_joiners table
+  _newLbAnchorCache = {};                                // D102: a new leaderboard's TODAY walk
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
@@ -2779,7 +2870,12 @@ var LB_R_SPECS = {
   'Target Day'      : {base:'TaD',  v2:'TaD_v2',  hdr:34, r0:35, r1:54, c0:2, c1:22, inst:'Target Day'},
   'Kite Festival'   : {base:'Ki',   v2:'Ki_v2',   hdr:25, r0:26, r1:85, c0:2, c1:22, inst:'Kite Festival',
                        ms:{hdr:21, r0:22, r1:22, reqC:1, c0:2, c1:22}},
-  'Flock Flurry'    : {base:'F',    v2:'F_v2',    hdr:9,  r0:10, r1:14, c0:1, c1:21, inst:'Flock Flurry'}   // D91
+  'Flock Flurry'    : {base:'F',    v2:'F_v2',    hdr:9,  r0:10, r1:14, c0:1, c1:21, inst:'Flock Flurry'},  // D91
+  // D102: one Race-style block (builders/_build_mic.py), 25 places, columns Coins..ToF_Ticket. No base
+  // sheet: lbBaseSheet_ reads Mic_v2 on the anchor side until a 'Mic' sheet exists. Places borrowed
+  // (eventInstProxy_), priced bottom-up (newLbSim_).
+  'Mighty Ice Cream': {base:'Mic',  v2:'Mic_v2',  hdr:8,  r0:9,  r1:33, c0:1, c1:22, inst:'Mighty Ice Cream',
+                       newEvent:true}
 };
 
 // ---- D91 (2026-11-02): Flock Flurry is a simulated leaderboard ----------------------------------
@@ -2834,7 +2930,7 @@ function rewardE_(cat, seg, payer, ds, variant, pace){
     var pos = inst ? [inst.position_p25, inst.position_p50, inst.position_p75]
                        .map(function(p){ return Math.max(1, Math.round(num(p))); })
                        .filter(function(p){ return p > 0; }) : [];
-    return { inst: inst, eBase: lbE_(lb.base, lb, pos, inst), eV2: lbE_(lb.v2, lb, pos, inst) };
+    return { inst: inst, eBase: lbE_(lbBaseSheet_(lb), lb, pos, inst), eV2: lbE_(lb.v2, lb, pos, inst) };   // D102
   }
   var S = inst ? survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
                             [num(inst.final_balance_p75),.75]]) : null;
@@ -5470,7 +5566,7 @@ var EXPORT_SCALE_REF = ['20-39', 'PAYER'];      // the cell the payout-day check
 // tokens accrue, 'rm' = Rainbow Maker's claim pace. Always-on and track lanes stay on activity.
 var EXPORT_SCALE_FAMILY = { 'Bomb Challenge':'last', 'Chuck Challenge':'last', 'Red Challenge':'last',
   'Level Race':'last', 'Flash Race':'last', 'Target Day':'last', 'Kite Festival':'last',
-  'Team Event':'last', 'Team Race':'last', 'Flock Flurry':'last',
+  'Team Event':'last', 'Team Race':'last', 'Flock Flurry':'last', 'Mighty Ice Cream':'last',
   'Hatchling Hideaway':'marg', "Bomb's Ballet":'marg', 'Jigsaw':'marg', 'Photoshoot':'marg',
   'River Rush':'marg', 'Rainbow Maker':'rm' };
 var _expScaleTab;                               // undefined = not read yet (resetModuleCaches_)
@@ -6063,7 +6159,7 @@ var DataStore = (function(){
         var x = withParent(eMap, function(c){ return [ev, c, payer].join('|'); }, seg);
         if (x) return x;
         // D79: an event the pull has no rows for borrows a sibling's rank/progress distribution
-        var px = EVENT_INST_PROXY[ev];
+        var px = eventInstProxy_(ev);                     // D102: a NEW leaderboard's 'Places from'
         return (px && withParent(eMap, function(c){ return [px, c, payer].join('|'); }, seg)) || null; },
       rmPct: function(seg, payer){ return withParent(rMap, function(c){ return [c, payer].join('|'); }, seg) || null; },
       accrualCurve: function(ev, seg, payer, kite){ var m = kite ? kMap : aMap;
@@ -6104,6 +6200,12 @@ var DataStore = (function(){
 var CAL_FIRST_ROW = 5, CAL_LAST_ROW = 25, CAL_FIRST_COL = 2, CAL_LAST_COL = 35;   // readable B5:AI25 (D79)
 var CAL_ALIAS = { 'Mystery Puzzle':'Jigsaw Puzzle', 'Mystery Box':'Jigsaw Puzzle',
                   "Chuck's Flash Race":'Flash Race' };
+// D102: labels matched LOOSELY - case, spaces and emoji ignored (only letters and digits compared) - so
+// the calendar can carry 'MiC 🍦' (the user's label for Mighty Ice Cream, 2026-11-11), 'MIC' or
+// 'Mighty Ice Cream' and every one is the same lane. Only the keys listed here; every other label is
+// matched exactly, as before.
+var CAL_ALIAS_LOOSE = { 'mic': 'Mighty Ice Cream', 'mightyicecream': 'Mighty Ice Cream' };
+function calLooseKey_(s){ return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 // ---- calendar VARIANTS (D73, 2026-10-28) ----------------------------------------------------
 // A calendar label '<lane> (<variant>)' - 'Kite Festival (2d)' - is an instance of <lane> running
@@ -6213,7 +6315,10 @@ function parseCalendarLive_(sheetName){
   }
   return inst;
 }
-function calNorm_(v){ var s = String(v).replace(/\n/g, ' ').trim(); return CAL_ALIAS[s] || s; }
+function calNorm_(v){
+  var s = String(v).replace(/\n/g, ' ').trim();
+  return CAL_ALIAS[s] || CAL_ALIAS_LOOSE[calLooseKey_(s)] || s;   // D102: the loose aliases
+}
 function mkInst_(start, dur){
   var days = []; for (var d = start; d < start + dur; d++) days.push(d);
   return { start: start, dur: dur, days: days };
@@ -6265,7 +6370,7 @@ function ECOGAINS_BUILD(nonce){
   row('ToF reward block is split (D37)', has('tofLadderRow_'), true);
   row('Sim per Segment partition is total (D36)', has('spsGroupOf_'), true);
   row('ToF is in the refresh list (D35)', REFRESH_SHEETS.indexOf('ToF') >= 0, true);
-  row('categories (D28)', CATEGORY_ORDER.length, 29);
+  row('categories (D102: Mighty Ice Cream appended)', CATEGORY_ORDER.length, 30);
 
   rows.push(['--- if any row says NO ---', '', '', '']);
   rows.push(['1. re-paste that file, then reload the spreadsheet tab', '', '', '']);
@@ -6318,7 +6423,7 @@ function onOpen(){
 
 // ---- auto-refresh (AUTO_REFRESH switch) ----
 // Every sheet the engine reads; a user edit on any of them re-touches the sim formulas.
-var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','RM_1st_v2','RM_2nd_v2','NS','NS_weekday','NS_v2','NS_v2_weekday','Race','Race_v2',
+var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2nd','RM_1st_v2','RM_2nd_v2','NS','NS_weekday','NS_v2','NS_v2_weekday','Race','Race_v2','Mic','Mic_v2',
   'J','J_v2','HH','HH_v2','BB','BB_v2','Ki','Ki_v2','Ph','Ph_v2','TaD','TaD_v2','RR','RR_v2',
   'F','F_v2','TE','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,   // TE: D19 pack lane
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
@@ -6499,7 +6604,7 @@ function readPrecomputedCal_(calName){
   for (var i = 1; i < v.length; i++){
     if (String(v[i][h['calendar']]) !== calName) continue;
     found = true;
-    var ev = String(v[i][h['event']]);
+    var ev = calNorm_(v[i][h['event']]);          // D102: a cal_parsed written before an alias existed
     (inst[ev] = inst[ev] || []).push(mkInst_(num(v[i][h['start']]), num(v[i][h['dur']])));
   }
   return found ? inst : null;

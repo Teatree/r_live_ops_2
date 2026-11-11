@@ -345,6 +345,56 @@ function simFillAddSegBlocks_(ss, sheetName){
   }
   return added;
 }
+// ---- D102 (2026-11-11, user decision): a source appended to CATEGORY_ORDER gets its row by itself -----
+// A new source ('Mighty Ice Cream') is appended at the END of the engine's row order so no existing row
+// moves. On the grid sheets each segment table ends with 'Col - Albums' followed by one blank spacer row;
+// the fill writes the new label into that spacer (the format of the row above copied first), so the table
+// reads one row longer and the label run D68 maps by includes it. Only labels that come AFTER the last
+// engine label the table already has, in engine order; only into a row that is blank across the sheet's
+// used width and above the next table's tag. A table with no blank row under it (the A. 0 appendix, with
+// the legend directly below) is left as it is - the pop-up lists the source as not on the sheet there.
+// Nothing is inserted, nothing moves. SIMFILL_APPEND_SOURCES = false turns it off.
+var SIMFILL_APPEND_SOURCES = true;
+/** Writes the missing trailing engine labels under each table of a grid sheet; returns what it added. */
+function simFillAppendSources_(ss, sheetName){
+  var added = [];
+  try {
+    var fam = SIMFILL_FAMILIES[sheetName];
+    if (!SIMFILL_APPEND_SOURCES || !fam || fam.kind !== 'grid' || typeof CATEGORY_ORDER === 'undefined') return added;
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return added;
+    var v = sh.getDataRange().getValues(), tags = simFillSegTags_(v);
+    var w = v.reduce(function(m, row){ return Math.max(m, row.length); }, 0);
+    var blank = function(r){ return !((v[r - 1] || []).some(function(x){ return simFillTxt_(x) !== ''; })); };
+    tags.forEach(function(t, i){
+      var lim = (i + 1 < tags.length) ? tags[i + 1].r - 1 : Infinity;   // never onto the next table's tag
+      var seen = {}, r = t.r + 2;
+      while (r <= v.length && simFillTxt_((v[r - 1] || [])[t.c - 1]) !== ''){ seen[simFillTxt_(v[r - 1][t.c - 1])] = r; r++; }
+      // the table ends at its last ENGINE label - text under it without a blank row (the legend under
+      // the last table) is not part of it, so nothing is ever written past it
+      var end = -1, lastIdx = -1;
+      CATEGORY_ORDER.forEach(function(c, k){ if (seen[c] !== undefined){ lastIdx = k; end = Math.max(end, seen[c]); } });
+      if (lastIdx < 0) return;                                     // not an engine table
+      CATEGORY_ORDER.slice(lastIdx + 1).forEach(function(lab){
+        var nr = end + 1;
+        if (seen[lab] !== undefined || nr > lim || !blank(nr)) return;
+        var src = sh.getRange(end, 1, 1, w), dst = sh.getRange(nr, 1, 1, w);
+        try {
+          if (typeof src.copyTo === 'function' && typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp.CopyPasteType)
+            src.copyTo(dst, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+        } catch (e){}
+        sh.getRange(nr, t.c).setValue(lab);
+        v[nr - 1] = v[nr - 1] || [];
+        v[nr - 1][t.c - 1] = lab;
+        seen[lab] = nr; end = nr;
+        added.push(t.tag + ': ' + lab);
+      });
+    });
+  } catch (e){
+    try { Logger.log('SimFill: could not append source rows to ' + sheetName + ' (' + e + ') - filled as it stands.'); } catch (e2){}
+  }
+  return added;
+}
 var SIMFILL_NONCE_REF = 'sim_refresh!$A$1';
 // The daily view's bars -> the ECOGAINS_DAILY block key. Matched in THIS order: 'NEW NET' must not
 // be read as 'NET', and the two delta bars ('GAINS data - sim', 'NET data - sim') come last.
@@ -694,12 +744,16 @@ function fillAllSims(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var props = PropertiesService.getDocumentProperties();
   var sheets = simFillSheets_(ss);
-  var jobs = [], skipped = [], stoppedAt = '', notes = [], derived = 0, present = [], dropped = [], grown = [];
+  var jobs = [], skipped = [], stoppedAt = '', notes = [], derived = 0, present = [], dropped = [], grown = [], grownSrc = [];
 
   // ---- 1. collect every anchor, and snapshot the formulas BEFORE anything is replaced --------
   sheets.forEach(function(name){
     if (!ss.getSheetByName(name)) return;
     present.push(name);
+    // D102: a source appended to the engine's row order gets its row under each table (before D94's
+    // copy below, so a table copied from the last one carries it too)
+    var addedSrc = simFillAppendSources_(ss, name);
+    if (addedSrc.length) grownSrc.push(name + ' (' + addedSrc.join(', ') + ')');
     // D94: a table for every segment the pull carries, on the sheets that grow (EcoGainsSim_so_far)
     var addedSeg = simFillAddSegBlocks_(ss, name);
     if (addedSeg.length) grown.push(name + ': ' + addedSeg.join(', '));
@@ -844,6 +898,8 @@ function fillAllSims(){
   var lines = [done.length + ' of ' + jobs.length + ' sim blocks filled as values in ' + secs + 's.'];
   Object.keys(perSheet).forEach(function(n){ lines.push('   ' + n + ': ' + perSheet[n] + ' block(s)'); });
   if (derived) lines.push(derived + ' anchor(s) were located from the sheet labels (no formula, no snapshot).');
+  if (grownSrc.length) lines.push('', 'Source rows ADDED under the last row of a table (new engine sources, D102):',
+                                  '   ' + grownSrc.join('\n   '));
   if (grown.length) lines.push('', 'Segment tables ADDED under the last table (the pull carries these segments, the sheet had no table for them):',
                                '   ' + grown.join('\n   '));
   if (dropped.length) lines.push('', 'Remembered from an older layout of the sheet and NOT filled (the labels place the blocks elsewhere now):',

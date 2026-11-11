@@ -44,7 +44,8 @@ var CALSTATS_LABEL = {
   'Target Day':'Target Day', 'Kite Festival':'Kite Festival',
   'Hatchling Hideaway':'Hatchling Hideaway', "Bomb's Ballet":"Bomb's Ballet Show",
   'Jigsaw':'Jigsaw Puzzle', 'Photoshoot':'Photoshoot', 'Rainbow Maker':'Rainbow Maker',
-  'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky', 'Flock Flurry':'Flock Flurry'
+  'River Rush':'River Rush', 'Daily Night Sky Prize':'Night Sky', 'Flock Flurry':'Flock Flurry',
+  'Mighty Ice Cream':'Mighty Ice Cream'   // D102
 };
 
 /**
