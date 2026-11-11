@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D104  2026-11-11';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D105  2026-11-11';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -860,16 +860,26 @@ function newLbWalk_(cat, seg, payer, ctx){
   var e = _baseSide ? E.eBase : E.eV2;
   var b = ctx.ds.beh(seg, payer), pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   if (!(pWd > 0) && !(pWe > 0)) return out;              // no activity telemetry (A. 0): nothing to price
-  var part = packParticipation_(cat, E.inst);
   // D103: a wager event's places are built per festival (its length and days set each player's bank chance)
   var spec = LB_R_SPECS[cat], sheet = _baseSide ? lbBaseSheet_(spec) : spec.v2;
+  // D105: the instance row carries the cell, so the pack lane reads the same participation
+  var instP = wagerInstFor_(cat, E.inst, seg, payer, sheet);
+  var part = packParticipation_(cat, instP);
   var eOf = (WAGER_SPECS[cat] && WAGER_BOTTOMUP && wagerTable_(sheet, WAGER_SPECS[cat]))
     ? function(x){ var wx = wagerE_(cat, seg, payer, x, sheet); return wx ? wx.e : e; } : null;
   all.forEach(function(x){
     var q = laneReach_(lane, x, pWd, pWe, seg, payer), ex = eOf ? eOf(x) : e;
     RESOURCES.forEach(function(r){ if (BOTTOMUP_RES.indexOf(r) < 0) out[r] += part * q * num(ex[r]); });
   });
-  return overlayPacks_(out, packLane_(lane, seg, payer, ctx, eOf || e, E.inst, cat));
+  return overlayPacks_(out, packLane_(lane, seg, payer, ctx, eOf || e, instP, cat));
+}
+/** D105: the data_event_inst row of a wager event with the cell attached (packParticipation_ reads it). */
+function wagerInstFor_(cat, inst, seg, payer, sheet){
+  if (!WAGER_SPECS[cat]) return inst;
+  var o = {};
+  for (var k in (inst || {})) o[k] = inst[k];
+  o._wagerSeg = seg; o._wagerPayer = payer; o._wagerSheet = sheet;
+  return o;
 }
 /** TODAY's side: the same walk over cal_curr on the base config, memoised per cell. */
 function newLbAnchor_(cat, seg, payer){
@@ -913,7 +923,118 @@ function newLbAnchor_(cat, seg, payer){
 var WAGER_BOTTOMUP = true;
 var WAGER_SPECS = { 'Mighty Ice Cream': { hdrLabel: 'Submit after (wins)', redEv: 'Red', chuckEv: 'Chuck',
                     bombShare: 0.5, mult: { red: 1, chuck: 2, bomb: 4 },
-                    lenLabel: 'Bird challenge length (days)', lenDefault: 2, nq: 40 } };
+                    lenLabel: 'Bird challenge length (days)', lenDefault: 2, nq: 40,
+                    // D105: the MEASURED mode (see below)
+                    scoreLabel: 'Top score p50', dataSheet: 'data_mic', nqScores: 100,
+                    leagueLabel: 'League size (players per board)',
+                    partLabel: 'Participation override (all segments)' } };
+
+// ---- D105 (2026-11-11, user decisions): MIGHTY ICE CREAM ON ITS OWN DATA -------------------------------
+// The event ran, and data_mic carries it (three stacked tables, each under its own 'Segment' header row):
+// per segment the participation (participants / players ACTIVE during the event - user), the distribution
+// of each participant's HIGHEST submitted score (avg, p25 / p50 / p75 / p90 / p95 / p98), and the
+// segment's share of the participants on a leaderboard (pooled) with the average leaderboard size (16.3
+// players - not the 60 of leagueGroupSize). No payer split: both payer rows read the segment.
+// When Mic_v2's behaviour table carries 'Top score p50' (the D105 layout) the places are built from those
+// MEASURED scores instead of the streak model of D103 / D104:
+//   a participant's score     the cell's measured top-score distribution (piecewise linear through the
+//                             percentiles from 0, the tail past the last one ending where the mean is the
+//                             measured average), WAGER_SPECS.nqScores equal-weight quantiles; every
+//                             participant is on the board (a participant is someone who submitted)
+//   the league                LEAGUE seats - 1 opponents drawn by the member cells' opponent share; place =
+//                             1 + Binomial(seats - 1, P(an opponent scored more)); a non-integer league
+//                             size (16.3) is that mixture of the two whole sizes around it
+//   participation             the cell's measured share (per festival, of the players online on its days),
+//                             or the 'Participation override (all segments)' cell when it holds a number
+// Every input is a cell on the table (formulas holding data_mic, overwritable); a blank cell reads the
+// same number from data_mic here, so the sheet and the engine compute one thing. FLAGGED: the scores were
+// measured on the festival as it ran (its length and days); every festival on cal_new uses them as they
+// are. Not modelled: payer differences (none in the data), the boosters / +5 moves a streak sells.
+var _micDataCache;
+/** data_mic, by canonical segment: { seg: { 'participation': x, 'p50': x, 'pooled share': x, ... } } plus
+ *  .league (the first 'Avg LB size'). Each stacked table is a 'Segment' header row and the rows under it;
+ *  a value is taken from the FIRST table that has that column. null without the sheet. */
+function micData_(sheetName){
+  if (_micDataCache !== undefined) return _micDataCache;
+  var v = sheetVals_(sheetName || 'data_mic');
+  _micDataCache = null;
+  if (!v || !v.length) return null;
+  var out = { segs: {}, league: null };
+  for (var r = 0; r < v.length; r++){
+    if (String((v[r] || [])[0] == null ? '' : v[r][0]).trim().toLowerCase() !== 'segment') continue;
+    var hdr = (v[r] || []).map(function(x){ return String(x == null ? '' : x).trim().toLowerCase(); });
+    for (var r2 = r + 1; r2 < v.length; r2++){
+      var row = v[r2] || [], sg = String(row[0] == null ? '' : row[0]).trim();
+      if (!sg) break;
+      var key = segCanon_(sg), o = (out.segs[key] = out.segs[key] || {});
+      hdr.forEach(function(h, c){
+        if (!h || c === 0 || o[h] !== undefined) return;
+        var x = parseFloat(row[c]);
+        if (isFinite(x)) o[h] = x;
+        if (h === 'avg lb size' && isFinite(x) && out.league == null) out.league = x;
+      });
+      r = r2;
+    }
+  }
+  return (_micDataCache = out);
+}
+/** One cell's data_mic row (its parent's when the segment has none). */
+function micDataRow_(seg, sheetName){
+  var d = micData_(sheetName);
+  if (!d) return {};
+  var c = segCanon_(seg), hops = 0;
+  while (c && hops++ < 4){ if (d.segs[c]) return d.segs[c]; c = SEG_PARENT[c]; }
+  return {};
+}
+/** n equal-weight quantiles of a top-score distribution given as percentiles + the mean. */
+function micScoreQuantiles_(pcts, avg, n){
+  var pts = [[0, 0]], mean = 0;
+  pcts.forEach(function(p){
+    var last = pts[pts.length - 1];
+    if (p[0] > last[0] && p[1] > last[1]) pts.push(p);
+  });
+  if (pts.length < 2) return [];
+  for (var i = 1; i < pts.length; i++) mean += (pts[i][1] - pts[i - 1][1]) * (pts[i][0] + pts[i - 1][0]) / 2;
+  var z = pts[pts.length - 1], rest = 1 - z[1];
+  if (rest > 1e-9){
+    var top;
+    if (avg > 0) top = Math.max(z[0], 2 * (avg - mean) / rest - z[0]);      // the tail ends where mean = avg
+    else {
+      var a = pts[pts.length - 2], slope = (z[1] - a[1]) / Math.max(1e-9, z[0] - a[0]);
+      top = (slope > 0) ? z[0] + rest / slope : z[0];
+    }
+    pts.push([top, 1]);
+  }
+  var Q = function(u){
+    for (var j = 1; j < pts.length; j++) if (u <= pts[j][1]){
+      var lo = pts[j - 1], hi = pts[j];
+      return lo[0] + (hi[0] - lo[0]) * (u - lo[1]) / Math.max(1e-12, hi[1] - lo[1]);
+    }
+    return pts[pts.length - 1][0];
+  };
+  var q = [];
+  for (var k = 0; k < n; k++) q.push(Q((k + 0.5) / n));
+  return q;
+}
+/** Players per board in the measured mode: the sheet's cell, else data_mic's average, else LBSize. */
+function wagerLeague_(cat, sheet){
+  var ws = WAGER_SPECS[cat], t = wagerNum_(readSPLabel_(sheet, ws.leagueLabel));
+  if (t !== null && t >= 2) return t;
+  var d = micData_(ws.dataSheet);
+  if (d && d.league >= 2) return d.league;
+  return Math.max(2, lbSize_(sheet, LB_R_SPECS[cat].hdr) || 60);
+}
+/** Participation of one cell in the measured mode (null in any other mode, or with no number at all). */
+function wagerPart_(cat, seg, payer, sheet){
+  var ws = WAGER_SPECS[cat];
+  if (!ws || !WAGER_BOTTOMUP || !sheet) return null;
+  var tab = wagerTable_(sheet, ws);
+  if (!tab || tab.mode !== 'scores') return null;
+  var o = wagerNum_(readSPLabel_(sheet, ws.partLabel));
+  if (o !== null) return o;
+  var c = wagerCell_(cat, seg, payer, sheet);
+  return (c && c.part !== null) ? c.part : null;
+}
 // D104 (2026-11-11, user decision): a player who never reaches 'Submit after' in a festival does not go
 // home empty-handed - they bank their BEST streak of the festival instead, so everyone who wins a level
 // is on the board. Streak level j (1 <= j < k) carries P(best streak over the festival = j)
@@ -925,27 +1046,60 @@ var _wagerTabCache = {}, _wagerCellCache = {}, _wagerDistCache = {}, _wagerPoolC
 /** The behaviour table of a wager sheet: { 'seg|PAYER': {k, red, chuck, bomb, weight} } (raw cells) or null. */
 function wagerTable_(sheet, ws){
   if (_wagerTabCache[sheet] !== undefined) return _wagerTabCache[sheet];
-  var v = sheetVals_(sheet) || [], hr = -1, h = {};
+  var v = sheetVals_(sheet) || [], hr = -1, h = {}, mode = null;
   for (var r = 0; r < v.length && hr < 0; r++){
     var row = v[r] || [];
     // the table starts in column A ('Segment'); the local sim's spill repeats some headers further right
     if (String(row[0] == null ? '' : row[0]).trim() !== 'Segment') continue;
-    for (var c = 0; c < row.length; c++) if (String(row[c]).trim() === ws.hdrLabel){ hr = r; break; }
+    for (var c = 0; c < row.length; c++){
+      var t = String(row[c]).trim();
+      if (ws.scoreLabel && t === ws.scoreLabel){ hr = r; mode = 'scores'; break; }   // D105
+      if (t === ws.hdrLabel){ hr = r; mode = 'streak'; break; }
+    }
   }
   if (hr < 0) return (_wagerTabCache[sheet] = null);
   (v[hr] || []).forEach(function(x, i){ var k = String(x == null ? '' : x).trim(); if (k && h[k] === undefined) h[k] = i; });
-  var need = ['Segment', 'Payer', ws.hdrLabel, 'Red birds per win', 'Chuck birds per win', 'Bomb birds per win', 'Opponent weight'];
+  var need = (mode === 'scores')
+    ? ['Segment', 'Payer', ws.scoreLabel]
+    : ['Segment', 'Payer', ws.hdrLabel, 'Red birds per win', 'Chuck birds per win', 'Bomb birds per win', 'Opponent weight'];
   for (var i = 0; i < need.length; i++) if (h[need[i]] === undefined) return (_wagerTabCache[sheet] = null);
   var tab = {};
   for (var r2 = hr + 1; r2 < v.length; r2++){
     var x = v[r2] || [], sg = String(x[h['Segment']] == null ? '' : x[h['Segment']]).trim();
     if (!sg) break;
-    tab[segCanon_(sg) + '|' + String(x[h['Payer']]).trim().toUpperCase()] = {
+    var key = segCanon_(sg) + '|' + String(x[h['Payer']]).trim().toUpperCase();
+    if (mode === 'scores'){
+      var o = {};
+      for (var hn in h) o[hn] = x[h[hn]];
+      tab[key] = o;
+    } else tab[key] = {
       k: x[h[ws.hdrLabel]], red: x[h['Red birds per win']], chuck: x[h['Chuck birds per win']],
       bomb: x[h['Bomb birds per win']], weight: x[h['Opponent weight']] };
   }
+  Object.defineProperty(tab, 'mode', { value: mode, enumerable: false });
   return (_wagerTabCache[sheet] = tab);
 }
+/** D105: the cell of the MEASURED layout - each input the table's number, else data_mic's. */
+var MIC_SCORE_COLS = [['Top score p25', 'p25', .25], ['Top score p50', 'p50', .5], ['Top score p75', 'p75', .75],
+                      ['Top score p90', 'p90', .9], ['Top score p95', 'p95', .95], ['Top score p98', 'p98', .98]];
+function wagerScoreCell_(cat, seg, payer, sheet, ws, row){
+  var d = micDataRow_(seg, ws.dataSheet), typed = {};
+  var pick = function(col, keys){
+    var t = wagerNum_(row[col]);
+    if (t !== null){ typed[col] = 1; return t; }
+    for (var i = 0; i < keys.length; i++) if (d[keys[i]] !== undefined) return d[keys[i]];
+    return null;
+  };
+  var part = pick('Participation (share of active)', ['participation']);
+  var avg = pick('Avg top score', ['avg top score', 'avg']);
+  var pcts = [];
+  MIC_SCORE_COLS.forEach(function(sc){ var x = pick(sc[0], [sc[1]]); if (x !== null) pcts.push([x, sc[2]]); });
+  var weight = pick('Opponent share', ['pooled share', 'share of a typical leaderboard (avg)']);
+  var scores = micScoreQuantiles_(pcts, avg, ws.nqScores);
+  return { measured: true, part: part, avg: avg, pcts: pcts, weight: num(weight), scores: scores,
+           p50: (pcts.filter(function(p){ return p[1] === .5; })[0] || [null])[0], typed: typed };
+}
+
 function wagerNum_(raw){
   if (raw === '' || raw == null || typeof raw === 'boolean') return null;
   var x = Number(raw);
@@ -958,6 +1112,7 @@ function wagerCell_(cat, seg, payer, sheet){
   var ws = WAGER_SPECS[cat], ds = Context.get().ds, tab = wagerTable_(sheet, ws);
   if (!tab) return (_wagerCellCache[key] = null);
   var row = tab[segCanon_(seg) + '|' + payer] || {};
+  if (tab.mode === 'scores') return (_wagerCellCache[key] = wagerScoreCell_(cat, seg, payer, sheet, ws, row));   // D105
   var st = ds.nsStreak(seg, payer) || {}, b = ds.beh(seg, payer) || {};
   var pWd = num(b.weekday_active_rate), pWe = num(b.weekend_active_rate);
   var L = num(readSPLabel_(sheet, ws.lenLabel)) || ws.lenDefault;
@@ -1011,6 +1166,10 @@ function wagerSpread_(points, nq){
 /** Banked-score model of one cell in one festival: { q: chance on the board, qk: chance to reach
  *  'Submit after', scores: [..], w: [..] (weights of the scores among those on the board, sum 1), D }. */
 function wagerSide_(c, x){
+  if (c && c.measured){                                // D105: a participant is someone who submitted
+    var nm = c.scores.length;
+    return { q: nm ? 1 : 0, qk: nm ? 1 : 0, D: 0, scores: c.scores, w: c.scores.map(function(){ return 1 / nm; }) };
+  }
   if (!c || !x || !x.days || !x.days.length) return { q: 0, qk: 0, scores: [], w: [], D: 0 };
   var reach = reachOne_(x, c.pWd, c.pWe), sp = 0;
   x.days.forEach(function(d){ sp += isWeekend_(d) ? c.pWe : c.pWd; });
@@ -1074,13 +1233,26 @@ function wagerRankDist_(cat, seg, payer, x, sheet){
   if (!me) return (_wagerDistCache[key] = null);
   var spec = LB_R_SPECS[cat];
   var N = Math.max(2, lbSize_(sheet, spec.hdr) || 60), n = N - 1;
+  // D105: the measured league size (16.3 on the live event), a mixture of the two whole sizes around it
+  var nLo = n, nHi = n, fHi = 0;
+  if (me.measured){
+    var L = wagerLeague_(cat, sheet) - 1;
+    nLo = Math.floor(L); nHi = Math.ceil(L); fHi = L - nLo; N = nHi + 1;
+  }
   var pool = wagerPool_(cat, sheet, x);
   if (!pool) return (_wagerDistCache[key] = null);
   var mine = wagerSide_(me, x), acc = [];
   for (var k = 0; k < N; k++) acc.push(0);
   mine.scores.forEach(function(s, i){
-    var pm = binomPmf_(n, pool.beat(s));
-    for (var k2 = 0; k2 <= n; k2++) acc[k2] += pm[k2] * mine.w[i];
+    var B = pool.beat(s), k2;
+    if (!me.measured){
+      var pm = binomPmf_(n, B);
+      for (k2 = 0; k2 <= n; k2++) acc[k2] += pm[k2] * mine.w[i];
+      return;
+    }
+    var pl = binomPmf_(nLo, B), ph = (fHi > 0) ? binomPmf_(nHi, B) : null;
+    for (k2 = 0; k2 <= nLo; k2++) acc[k2] += (1 - fHi) * pl[k2] * mine.w[i];
+    if (ph) for (k2 = 0; k2 <= nHi; k2++) acc[k2] += fHi * ph[k2] * mine.w[i];
   });
   var dist = acc.map(function(p, i){ return { rank: i + 1, p: mine.q * p }; });
   return (_wagerDistCache[key] = { dist: dist, q: mine.q, n: N, cell: me, side: mine });
@@ -1123,6 +1295,7 @@ function ECOGAINS_MIC(payer, nonce){
     for (var d = 1; d <= 14; d++){ var ok = true; for (var j = 0; j < dur; j++) if (isWeekend_(d + j)) ok = false; if (ok){ start = d; break; } }
     var x = mkInst_(start, dur), ladder = lbLadder_(sheet, spec), npaid = 0;
     for (var kk in ladder) if (+kk > npaid) npaid = +kk;
+    if (wagerTable_(sheet, WAGER_SPECS[cat]).mode === 'scores') return micLocalSim_(cat, p, sheet, x, ladder, npaid, ds);   // D105
     var out = [['Segment', 'Submit after (wins)', 'Points per win', 'Banked score (median on the board)',
                 'Chance to reach Submit after', 'Chance on the board', 'Place p25', 'Place p50', 'Place p75',
                 'Chance of a paid place', 'Coins per festival entered', 'SPT per festival entered', 'Reward at the p50 place']];
@@ -1151,6 +1324,44 @@ function ECOGAINS_MIC(payer, nonce){
     });
     return out;
   } catch (e){ return [['ECOGAINS_MIC error: ' + e.message]]; }
+}
+
+/** D105: the local sim of the MEASURED layout - per segment, one festival: participation, the measured top
+ *  score, the places on a board of the league size, the paid share, coins / SPT and the item_vals VALUE per
+ *  festival entered, the value per player online (x participation), the reward at the median place. */
+function micLocalSim_(cat, p, sheet, x, ladder, npaid, ds){
+  var out = [['Segment', 'Participation (share of active)', 'Top score p50', 'Avg top score', 'Place p25', 'Place p50',
+              'Place p75', 'Chance of a paid place', 'Coins per festival entered', 'SPT per festival entered',
+              'Value per festival entered (item_vals)', 'Value per player online (x Participation)', 'Reward at the p50 place']];
+  var segs = segMembers_(ds).concat(ds.segs().indexOf(SEG_ALL) >= 0 ? [SEG_ALL] : []);
+  segs.forEach(function(sg){
+    var w = wagerE_(cat, sg, p, x, sheet);
+    if (!w){ out.push([segLabel_(sg, ds), 'n/a']); return; }
+    var c = w.dist.cell, cum = 0, pl = {}, paid = 0;
+    w.dist.dist.forEach(function(dd){
+      cum += dd.p; if (dd.rank <= npaid) paid += dd.p;
+      [.25, .5, .75].forEach(function(t){ if (pl[t] === undefined && cum >= t - 1e-12) pl[t] = dd.rank; });
+    });
+    var place = function(t){ return (pl[t] === undefined) ? 'not on board' : pl[t]; };
+    var p50 = pl[.5], rw = (p50 !== undefined) ? (ladder[p50] || {}) : null, txt = '';
+    if (!rw) txt = 'nothing (not on the board)';
+    else {
+      var parts = [];
+      for (var r in rw) if (num(rw[r]) > 0) parts.push(r + ' ' + rw[r]);
+      txt = parts.length ? parts.join(', ') : 'nothing (place ' + p50 + ' pays nothing)';
+    }
+    var val = micValue_(w.e), part = wagerPart_(cat, sg, p, sheet);
+    out.push([segLabel_(sg, ds), (part === null) ? '' : part, (c.p50 === null) ? '' : c.p50, (c.avg === null) ? '' : c.avg,
+              place(.25), place(.5), place(.75), paid, num(w.e['HC']), num(w.e['SPT']), val,
+              (part === null) ? '' : val * part, txt]);
+  });
+  return out;
+}
+/** Coin value of a reward row at item_vals row 3 (envelopes priced; ToF tickets at the 'ToF_Value' cell). */
+function micValue_(row){
+  var vals = itemVals_(), s = 0;
+  RESOURCES.forEach(function(r){ s += num(row[r]) * num(r === TOF_TICKET ? vals['ToF_Value'] : vals[r]); });
+  return s;
 }
 
 // ---- D86 (2026-11-02, user decision): Chuck's Challenge stands in for two of Red's ----------------
@@ -1400,6 +1611,11 @@ var PACK_PARTICIPATION = { 'Kite Festival': 0.35 };   // redesign assumption (me
 
 function packParticipation_(cat, inst){
   var spec = LB_R_SPECS[cat] || COLL_R_SPECS[cat] || PACK_ONLY_SPECS[cat];
+  // D105: a wager event on its own data - the cell's measured participation (or the override cell)
+  if (inst && inst._wagerSeg != null && WAGER_SPECS[cat]){
+    var wp = wagerPart_(cat, inst._wagerSeg, inst._wagerPayer, inst._wagerSheet);
+    if (wp !== null) return wp;
+  }
   // D61: the authored 'Participation' label is read off the BASE sheet on the anchor side.
   var sheet = spec && (_baseSide ? ((spec.newEvent ? lbBaseSheet_(spec) : spec.base) || spec.sheet) : (spec.v2 || spec.sheet));   // D103
   if (sheet){
@@ -1724,7 +1940,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
         return { label: 'rank ' + pp, p: 1 / pos.length, packs: packsOf(rw2), tickets: tkOf(rw2) };
       });
     }
-    var part = profPart_(prof, packParticipation_(cat, inst));
+    var part = profPart_(prof, packParticipation_(cat, wagerInstFor_(cat, inst, seg, payer, lbSheet)));   // D105
     var res = mk(part, true, rungs);    // EXCLUSIVE: one finishing rank per instance
 
     // Kite also pays a SCORE MILESTONE, which lbE_ folds into the same E the pack lane is priced
@@ -2789,6 +3005,7 @@ function resetModuleCaches_(){
   _kiteJoinTab = undefined;                              // D100: the kite_joiners table
   _newLbAnchorCache = {};                                // D102: a new leaderboard's TODAY walk
   _wagerTabCache = {}; _wagerCellCache = {}; _wagerDistCache = {}; _wagerPoolCache = {};   // D103/D104: the wager places
+  _micDataCache = undefined;                             // D105: data_mic
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
@@ -6717,7 +6934,8 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   'Ki_2d_v2','Ki_2d_v2_weekend','Ki_Tr','Ki_Tr_v2','ToF_v2','PackConfig','PackConfig_v2','AlbumConfig','AlbumConfig_v2',
   'export_scale','data_econ_daily_by_source','data_rm_pace','data_col_daily','data_col_envelopes','data_col_season',
   'data_col_beh',    // D97: the album players' own behaviour rows (the card sim's attendance)
-  'kite_joiners'];   // D100: Kite opt-in and join days
+  'kite_joiners',    // D100: Kite opt-in and join days
+  'data_mic'];       // D105: the live Mighty Ice Cream results
 
 // Simple trigger: fires on every USER edit (programmatic edits don't re-trigger it).
 function onEdit(e){
