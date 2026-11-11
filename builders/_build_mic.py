@@ -10,7 +10,8 @@ Layout = one block of the 'Race' sheet (builders/_build_race.py), so the engine'
     row 9       header  Position | Coins | SPT | SPT x2 | Red .. 6-star Dly | ToF_Ticket   (Race_v2's 23 columns, A..W)
     rows 10-34  places 1..25
     row 36+     'Simulation inputs': Places from (Red), Participation (0.3, design value), the bird challenge length,
-                Bomb birds as a share of Chuck's
+                Bomb birds as a share of Chuck's, and (row 41, D104) the fallback switch: 1 = a player who never reaches
+                'Submit after' banks their best streak of the festival
     row 42+     'Player behaviour (Wager)' (D103): per segment x payer - Submit after (wins), Red / Chuck / Bomb birds
                 per win, Opponent weight; every cell a FORMULA holding the measured default, overwritable by typing a
                 number (the engine reads what the cell holds and computes the same default when it is blank)
@@ -46,6 +47,8 @@ DURATION = 2                      # days, as Red's Challenge (the calendar's mer
 PARTICIPATION = 0.3               # DESIGN VALUE (user, 2026-11-11) - to be replaced
 BIRD_LEN = 2                      # days of the Red's / Chuck's Challenge the bird balances were measured on
 BOMB_SHARE = 0.5                  # Bomb birds per win = this x Chuck's (user, 2026-11-11: no Bomb rows)
+FALLBACK = 1                      # D104 (user, 2026-11-11): never reaching 'Submit after' -> bank the best streak
+FALLBACK_LABEL = 'Fallback: bank best streak (1 = on, 0 = off)'   # = WAGER_FALLBACK_LABEL in the engine
 COLS = ['Position', 'Coins', 'SPT', 'SPT x2', 'Red', 'Chuck', 'Bomb', 'Slingshot', 'Shuffle', 'Comet',
         'Unlimited Lives', 'Unlimited Red', 'Unlimited Chuck', 'Unlimited Bomb', 'COOP Token', 'Avatar',
         '1-star Dly', '2-star Dly', '3-star Dly', '4-star Dly', '5-star Dly', '6-star Dly', 'ToF_Ticket']
@@ -133,6 +136,9 @@ def main():
           "length of the Red's / Chuck's Challenge the bird counts were measured on (2-day weekday events)")
     label(r + 4, 'Bomb birds per win (share of Chuck)', BOMB_SHARE,
           "no Bomb's Challenge rows in the pull: Bomb birds per win = this x Chuck birds per win (user decision)")
+    label(r + 5, FALLBACK_LABEL, FALLBACK,
+          "1: a player who never reaches 'Submit after' in a festival banks their best streak instead (everyone who wins "
+          "a level is on the board; assumes they bank it at its peak). 0: submit at 'Submit after' only")
     PLACES_CELL, LEN_CELL, SHARE_CELL = f'$B${r + 1}', f'$B${r + 3}', f'$B${r + 4}'
 
     r += 6                                                # 42: the behaviour table
@@ -188,8 +194,9 @@ def main():
             'boosterMultipliers). Banked score = submit-after x points per win (the median player; the engine spreads it '
             'with Red\'s balance quantiles).',
             'Opponent weight: participants per festival (the "Places from" event) - who fills the 59 other seats.',
-            'Chance to bank in a festival = 1 - (1 - share of active days whose longest streak reaches "Submit after")^(active '
-            'days in the festival); a player who never banks is not on the board. Place = 1 + the opponents who banked more.']):
+            'Chance to reach "Submit after" in a festival = 1 - (1 - share of active days whose longest streak reaches it)^(active '
+            'days in the festival). With the fallback on, a player who never reaches it banks their best streak x points per win, '
+            'so everyone who wins a level is on the board. Place = 1 + the opponents who banked more.']):
         ws.cell(tr + 1 + i, 1, t).font = AR(9, color='FF808080')
     r = tr + 6
     bar(r, 'Server config (live JSON, builders/mic_server_config.json) - not read by the sim')
@@ -214,13 +221,13 @@ def main():
         'share of players online on its days, summed over its cal_new festivals. Today = the same over cal_curr '
         '(0 while cal_curr runs none). No data_gains rows exist for this event.',
         'NOT modelled: +5 moves bought to save a streak, boosters spent on it (no new spend), bots, a player who keeps '
-        'going past the target (everyone banks at "Submit after").',
+        'going past the target (everyone banks at "Submit after"), a player who banks more than once.',
     ]
     for i, t in enumerate(notes):
         ws.cell(r + i, 1, t).font = AR(9, bold=(i == 0), color='FF000000' if i == 0 else 'FF808080')
 
     # ---- local sim (AI..AT): the engine's own model, one spill ------------------------------------
-    widths = [12, 11, 11, 13, 11, 10, 10, 10, 12, 12, 12, 46]
+    widths = [12, 11, 11, 13, 11, 11, 10, 10, 10, 12, 12, 12, 46]
     for i, wd in enumerate(widths):
         ws.column_dimensions[L(LS + i)].width = wd
     bar(1, 'Player Place Simulation (Wager, bottom-up) - SIMULATED: edit the behaviour table (A42) and this re-runs',
@@ -234,7 +241,8 @@ def main():
     ws[f'{L(LS)}4'].font = AR()
     nr = 4 + 1 + len(SEGMENTS) + 2
     for i, t in enumerate([
-            'Chance to bank: reaching "Submit after" wins in a row on at least one active day of the festival. Places: '
+            'Chance to reach Submit after: that many wins in a row on at least one active day of the festival. Chance on the '
+            'board: with the fallback on, at least one win (the best streak is banked); off, = the chance to reach it. Places: '
             'p25 / p50 / p75 over everyone of the segment who takes part ("not on board" = never banked, paid nothing).',
             'Coins / SPT per festival entered: what the engine prices (every place x its chance); the redesign row is that '
             'x Participation x the share of players online on each festival\'s days.']):

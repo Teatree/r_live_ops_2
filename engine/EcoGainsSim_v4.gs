@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D103  2026-11-11';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D104  2026-11-11';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -914,7 +914,14 @@ var WAGER_BOTTOMUP = true;
 var WAGER_SPECS = { 'Mighty Ice Cream': { hdrLabel: 'Submit after (wins)', redEv: 'Red', chuckEv: 'Chuck',
                     bombShare: 0.5, mult: { red: 1, chuck: 2, bomb: 4 },
                     lenLabel: 'Bird challenge length (days)', lenDefault: 2, nq: 40 } };
-var _wagerTabCache = {}, _wagerCellCache = {}, _wagerDistCache = {};
+// D104 (2026-11-11, user decision): a player who never reaches 'Submit after' in a festival does not go
+// home empty-handed - they bank their BEST streak of the festival instead, so everyone who wins a level
+// is on the board. Streak level j (1 <= j < k) carries P(best streak over the festival = j)
+// = G(j) - G(j + 1), G(j) = 1 - (1 - S_day(j))^D; level k keeps G(k). FLAGGED: banking the best streak
+// at its peak assumes the player knows it was their best (an optimistic fallback). The sheet label
+// 'Fallback: bank best streak (1 = on, 0 = off)' overrides WAGER_FALLBACK; off = D103 to rounding.
+var WAGER_FALLBACK = true, WAGER_FALLBACK_LABEL = 'Fallback: bank best streak (1 = on, 0 = off)';
+var _wagerTabCache = {}, _wagerCellCache = {}, _wagerDistCache = {}, _wagerPoolCache = {};
 /** The behaviour table of a wager sheet: { 'seg|PAYER': {k, red, chuck, bomb, weight} } (raw cells) or null. */
 function wagerTable_(sheet, ws){
   if (_wagerTabCache[sheet] !== undefined) return _wagerTabCache[sheet];
@@ -975,8 +982,10 @@ function wagerCell_(cat, seg, payer, sheet){
                         [num(st.max_streak_per_day_p75), .75], [num(st.max_streak_per_day_p90), .9]]);
   var re = ds.eventInst(ws.redEv, seg, payer) || {};
   var f = wagerSpread_([[num(re.final_balance_p25), .25], [num(re.final_balance_p50), .5], [num(re.final_balance_p75), .75]], ws.nq);
+  var fb = wagerNum_(readSPLabel_(sheet, WAGER_FALLBACK_LABEL));
+  var fallback = (fb !== null) ? fb > 0 : WAGER_FALLBACK;
   return (_wagerCellCache[key] = { k: k, red: red, chuck: chuck, bomb: bomb, pts: pts, weight: weight,
-    Sday: Sday, f: f, pWd: pWd, pWe: pWe, typed: typed });
+    Sday: Sday, f: f, pWd: pWd, pWe: pWe, typed: typed, fallback: fallback });
 }
 /** nq multiplicative factors with mean 1: the quantiles of a distribution given as (value, cdf) points, the
  *  tail continued at the last segment's slope to cdf 1 (survival_'s shape). [1 x nq] when unusable. */
@@ -999,15 +1008,59 @@ function wagerSpread_(points, nq){
   m /= nq;
   return (m > 0) ? q.map(function(x){ return x / m; }) : flat;
 }
-/** Banked-score model of one cell in one festival: { q: bank chance, scores: [nq], D }. */
+/** Banked-score model of one cell in one festival: { q: chance on the board, qk: chance to reach
+ *  'Submit after', scores: [..], w: [..] (weights of the scores among those on the board, sum 1), D }. */
 function wagerSide_(c, x){
-  if (!c || !x || !x.days || !x.days.length) return { q: 0, scores: [], D: 0 };
+  if (!c || !x || !x.days || !x.days.length) return { q: 0, qk: 0, scores: [], w: [], D: 0 };
   var reach = reachOne_(x, c.pWd, c.pWe), sp = 0;
   x.days.forEach(function(d){ sp += isWeekend_(d) ? c.pWe : c.pWd; });
   var D = (reach > 0) ? sp / reach : 0;
-  var s = (c.Sday && c.k > 0) ? Math.min(1, Math.max(0, c.Sday(c.k))) : 0;
-  var q = (D > 0) ? 1 - Math.pow(1 - s, D) : 0;
-  return { q: q, D: D, scores: c.f.map(function(fi){ return c.k * c.pts * fi; }) };
+  // G(j): P(the festival's best streak reaches j) - at least one of its D active days does
+  var G = function(j){
+    var s = (c.Sday && j > 0) ? Math.min(1, Math.max(0, c.Sday(j))) : 0;
+    return (D > 0) ? 1 - Math.pow(1 - s, D) : 0;
+  };
+  var qk = (c.k > 0) ? G(c.k) : 0, lv = [];
+  if (c.fallback && c.k > 0)                          // D104: below k, the best streak is banked
+    for (var j = 1; j < c.k; j++){ var m = G(j) - G(Math.min(j + 1, c.k)); if (m > 0) lv.push([j, m]); }
+  if (qk > 0) lv.push([c.k, qk]);
+  var q = 0, scores = [], w = [], nf = c.f.length;
+  lv.forEach(function(l){ q += l[1]; });
+  lv.forEach(function(l){ c.f.forEach(function(fi){ scores.push(l[0] * c.pts * fi); w.push(l[1] / (q * nf)); }); });
+  return { q: q, qk: qk, D: D, scores: scores, w: w };
+}
+/** The league's opponents in festival x, pooled: every banked score of every member cell, ascending, with
+ *  its probability per seat (cell share x on the board x the score's weight). beat(s) = P(a seat beats s). */
+function wagerPool_(cat, sheet, x){
+  var dkey = (x.days || []).map(function(d){ return isWeekend_(d) ? 'e' : 'd'; }).join('');
+  var key = cat + '|' + sheet + '|' + dkey;
+  if (_wagerPoolCache[key] !== undefined) return _wagerPoolCache[key];
+  var ds = Context.get().ds, opp = [], wsum = 0, ent = [];
+  segMembers_(ds).forEach(function(sg){ ['NONPAYER', 'PAYER'].forEach(function(p){
+    var c = wagerCell_(cat, sg, p, sheet);
+    if (!c || !(c.weight > 0)) return;
+    opp.push({ w: c.weight, side: wagerSide_(c, x) }); wsum += c.weight;
+  }); });
+  if (!(wsum > 0)) return (_wagerPoolCache[key] = null);
+  opp.forEach(function(o){
+    var sd = o.side, a = (o.w / wsum) * sd.q;
+    for (var j = 0; j < sd.scores.length; j++) ent.push([sd.scores[j], a * sd.w[j]]);
+  });
+  ent.sort(function(u, v){ return u[0] - v[0]; });
+  var val = [], wt = [];
+  ent.forEach(function(e){
+    if (val.length && val[val.length - 1] === e[0]) wt[wt.length - 1] += e[1];
+    else { val.push(e[0]); wt.push(e[1]); }
+  });
+  var above = new Array(val.length + 1); above[val.length] = 0;     // above[i] = weight of val[i..]
+  for (var i = val.length - 1; i >= 0; i--) above[i] = above[i + 1] + wt[i];
+  var beat = function(s){
+    var lo = 0, hi = val.length;                       // first index with val >= s
+    while (lo < hi){ var mid = (lo + hi) >> 1; if (val[mid] < s) lo = mid + 1; else hi = mid; }
+    var t = (lo < val.length && val[lo] === s) ? above[lo + 1] + 0.5 * wt[lo] : above[lo];
+    return Math.min(1, Math.max(0, t));
+  };
+  return (_wagerPoolCache[key] = { beat: beat });
 }
 /** Place distribution of a (seg, payer) player in festival x: { dist: [{rank, p}] (mass = bank chance),
  *  q, n } or null when the table is missing. */
@@ -1019,29 +1072,15 @@ function wagerRankDist_(cat, seg, payer, x, sheet){
   if (_wagerDistCache[key] !== undefined) return _wagerDistCache[key];
   var me = wagerCell_(cat, seg, payer, sheet);
   if (!me) return (_wagerDistCache[key] = null);
-  var ds = Context.get().ds, spec = LB_R_SPECS[cat];
+  var spec = LB_R_SPECS[cat];
   var N = Math.max(2, lbSize_(sheet, spec.hdr) || 60), n = N - 1;
-  var opp = [], wsum = 0;
-  segMembers_(ds).forEach(function(sg){ ['NONPAYER', 'PAYER'].forEach(function(p){
-    var c = wagerCell_(cat, sg, p, sheet);
-    if (!c || !(c.weight > 0)) return;
-    opp.push({ w: c.weight, side: wagerSide_(c, x) }); wsum += c.weight;
-  }); });
-  if (!(wsum > 0)) return (_wagerDistCache[key] = null);
-  var mine = wagerSide_(me, x), M = mine.scores.length, acc = [];
+  var pool = wagerPool_(cat, sheet, x);
+  if (!pool) return (_wagerDistCache[key] = null);
+  var mine = wagerSide_(me, x), acc = [];
   for (var k = 0; k < N; k++) acc.push(0);
-  var beat = function(s){
-    var t = 0;
-    opp.forEach(function(o){
-      var g = 0, sc = o.side.scores;
-      for (var j = 0; j < sc.length; j++){ if (sc[j] > s) g += 1; else if (sc[j] === s) g += 0.5; }
-      t += (o.w / wsum) * o.side.q * (sc.length ? g / sc.length : 0);
-    });
-    return Math.min(1, Math.max(0, t));
-  };
-  mine.scores.forEach(function(s){
-    var B = beat(s), pm = binomPmf_(n, B);
-    for (var k2 = 0; k2 <= n; k2++) acc[k2] += pm[k2] / M;
+  mine.scores.forEach(function(s, i){
+    var pm = binomPmf_(n, pool.beat(s));
+    for (var k2 = 0; k2 <= n; k2++) acc[k2] += pm[k2] * mine.w[i];
   });
   var dist = acc.map(function(p, i){ return { rank: i + 1, p: mine.q * p }; });
   return (_wagerDistCache[key] = { dist: dist, q: mine.q, n: N, cell: me, side: mine });
@@ -1084,9 +1123,9 @@ function ECOGAINS_MIC(payer, nonce){
     for (var d = 1; d <= 14; d++){ var ok = true; for (var j = 0; j < dur; j++) if (isWeekend_(d + j)) ok = false; if (ok){ start = d; break; } }
     var x = mkInst_(start, dur), ladder = lbLadder_(sheet, spec), npaid = 0;
     for (var kk in ladder) if (+kk > npaid) npaid = +kk;
-    var out = [['Segment', 'Submit after (wins)', 'Points per win', 'Banked score (median player)', 'Chance to bank',
-                'Place p25', 'Place p50', 'Place p75', 'Chance of a paid place', 'Coins per festival entered',
-                'SPT per festival entered', 'Reward at the p50 place']];
+    var out = [['Segment', 'Submit after (wins)', 'Points per win', 'Banked score (median on the board)',
+                'Chance to reach Submit after', 'Chance on the board', 'Place p25', 'Place p50', 'Place p75',
+                'Chance of a paid place', 'Coins per festival entered', 'SPT per festival entered', 'Reward at the p50 place']];
     var segs = segMembers_(ds).concat(ds.segs().indexOf(SEG_ALL) >= 0 ? [SEG_ALL] : []);
     segs.forEach(function(sg){
       var w = wagerE_(cat, sg, p, x, sheet);
@@ -1104,8 +1143,10 @@ function ECOGAINS_MIC(payer, nonce){
         for (var r in rw) if (num(rw[r]) > 0) parts.push(r + ' ' + rw[r]);
         txt = parts.length ? parts.join(', ') : 'nothing (place ' + p50 + ' pays nothing)';
       }
-      var med = w.dist.side.scores.length ? w.dist.side.scores[Math.floor(w.dist.side.scores.length / 2)] : 0;
-      out.push([segLabel_(sg, ds), c.k, c.pts, med, w.dist.q, place(.25), place(.5), place(.75), paid,
+      var sd = w.dist.side, ord = sd.scores.map(function(v, i){ return [v, sd.w[i]]; })
+        .sort(function(u, v){ return u[0] - v[0]; }), med = 0, cw = 0;
+      for (var oi = 0; oi < ord.length; oi++){ cw += ord[oi][1]; if (cw >= 0.5 - 1e-12){ med = ord[oi][0]; break; } }
+      out.push([segLabel_(sg, ds), c.k, c.pts, med, sd.qk, w.dist.q, place(.25), place(.5), place(.75), paid,
                 num(w.e['HC']), num(w.e['SPT']), txt]);
     });
     return out;
@@ -2747,7 +2788,7 @@ function resetModuleCaches_(){
   _expScaleTab = undefined;                              // D87: the export_scale table
   _kiteJoinTab = undefined;                              // D100: the kite_joiners table
   _newLbAnchorCache = {};                                // D102: a new leaderboard's TODAY walk
-  _wagerTabCache = {}; _wagerCellCache = {}; _wagerDistCache = {};   // D103: the wager places
+  _wagerTabCache = {}; _wagerCellCache = {}; _wagerDistCache = {}; _wagerPoolCache = {};   // D103/D104: the wager places
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs

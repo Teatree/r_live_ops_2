@@ -22,6 +22,8 @@
 //  14  the redesign row = SUM_festivals E_wager(festival) x Participation x reach, by hand
 //  15  rules: mass = bank chance; a later 'Submit after' trades bank chance for score; WAGER_BOTTOMUP = false = D102
 //  16  the local sim (ECOGAINS_MIC) = the engine's numbers and follows a table edit; the card sim draws the same places
+// D104 (the fallback: a player who never reaches 'Submit after' banks their best streak of the festival):
+//  17  on the board = P(best streak >= 1); levels below k = G(j) - G(j+1); the switch cell; off = D103's places
 const fs = require('fs'), path = require('path');
 if (process.argv.indexOf('--data') < 0) process.argv.push('--data', 'v3u');
 const CARDS = fs.readFileSync(path.join(__dirname, '_mock_cards.js'), 'utf8');
@@ -310,23 +312,35 @@ function GATES(){
       f = qs.map(x => x / m);
     }
     const wt = num((d.eventInst('Red', sg, p) || {}).avg_participants_per_instance);
-    return { k, pts: r + 2 * ch + 4 * 0.5 * ch, Sk: Math.max(0, 1 - cdf(k)), f, pw, pe, wt };
+    return { k, pts: r + 2 * ch + 4 * 0.5 * ch, S: j => Math.max(0, 1 - cdf(j)), f, pw, pe, wt };
   };
-  const handSide = (c, x) => { let q = 1, spd = 0; x.days.forEach(dd => { const pd = isWeekend_(dd) ? c.pe : c.pw; q *= 1 - pd; spd += pd; });
-    const reach = 1 - q, D = reach > 0 ? spd / reach : 0; return { q: D > 0 ? 1 - Math.pow(1 - c.Sk, D) : 0, sc: c.f.map(fi => c.k * c.pts * fi) }; };
+  // the festival's best streak: G(j) = 1 - (1 - S(j))^D; banked at k if reached, else (fallback) at the best j
+  const handSide = (c, x, fb) => { let q = 1, spd = 0; x.days.forEach(dd => { const pd = isWeekend_(dd) ? c.pe : c.pw; q *= 1 - pd; spd += pd; });
+    const reach = 1 - q, D = reach > 0 ? spd / reach : 0, G = j => D > 0 ? 1 - Math.pow(1 - Math.min(1, c.S(j)), D) : 0;
+    const lv = []; if (fb !== false) for (let j = 1; j < c.k; j++) lv.push([j, G(j) - G(Math.min(j + 1, c.k))]);
+    lv.push([c.k, G(c.k)]);
+    const tot = lv.reduce((a, l) => a + l[1], 0), sc = [];
+    lv.forEach(l => c.f.forEach(fi => sc.push([l[0] * c.pts * fi, l[1] / tot / c.f.length])));
+    return { q: tot, qk: G(c.k), sc }; };
   const x13 = micInst[0];
   const opp = []; let W = 0;
   segMembers_(Context.get().ds).forEach(sg => ['NONPAYER', 'PAYER'].forEach(p => { const c = handCell(sg, p); if (c.wt > 0){ opp.push({ w: c.wt, s: handSide(c, x13) }); W += c.wt; } }));
-  const me = handSide(handCell(SEG, PAY), x13), hand = Array(60).fill(0);
   const choose = (n, k) => { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return r; };
-  me.sc.forEach(sv => {
-    let B = 0; opp.forEach(o => { let g = 0; o.s.sc.forEach(y => { g += y > sv ? 1 : (y === sv ? 0.5 : 0); }); B += (o.w / W) * o.s.q * g / o.s.sc.length; });
-    for (let k = 0; k < 60; k++) hand[k] += me.q * choose(59, k) * Math.pow(B, k) * Math.pow(1 - B, 59 - k) / me.sc.length;
-  });
+  const handPlaces = (sg, p, x, fb) => {
+    const opp = []; let W = 0;
+    segMembers_(Context.get().ds).forEach(s2 => ['NONPAYER', 'PAYER'].forEach(p2 => { const c = handCell(s2, p2); if (c.wt > 0){ opp.push({ w: c.wt, s: handSide(c, x, fb) }); W += c.wt; } }));
+    const me = handSide(handCell(sg, p), x, fb), hand = Array(60).fill(0);
+    me.sc.forEach(([sv, wv]) => {
+      let B = 0; opp.forEach(o => { let g = 0; o.s.sc.forEach(([y, wy]) => { g += wy * (y > sv ? 1 : (y === sv ? 0.5 : 0)); }); B += (o.w / W) * o.s.q * g; });
+      for (let k = 0; k < 60; k++) hand[k] += me.q * wv * choose(59, k) * Math.pow(B, k) * Math.pow(1 - B, 59 - k);
+    });
+    return { hand, me };
+  };
+  const { hand, me } = handPlaces(SEG, PAY, x13);
   const eng = wagerRankDist_(MIC, SEG, PAY, x13, SH2);
   const gap = Math.max(...hand.map((h, i) => Math.abs(h - eng.dist[i].p)));
   gate('13 places by hand = the engine, every place (' + SEG + ' ' + PAY + ', festival 1)', gap < 1e-12 && close(eng.q, me.q, 1e-12),
-    'bank chance ' + me.q.toFixed(4) + ', worst place gap ' + gap.toExponential(2));
+    'on the board ' + me.q.toFixed(4) + ' (reach k ' + me.qk.toFixed(4) + '), worst place gap ' + gap.toExponential(2));
 
   // ---- 14 the redesign row by hand -------------------------------------------------------------------
   const lad14 = lbLadder_(SH2, spec), b14 = Context.get().ds.beh(SEG, PAY);
@@ -338,7 +352,7 @@ function GATES(){
   const got14 = resultRow_(MIC, SEG, PAY, Context.get());
   const g14 = Math.max(...RESOURCES.filter(r => BOTTOMUP_RES.indexOf(r) < 0).map(r => Math.abs(num(got14[r]) - num(want14[r])) / Math.max(1e-6, Math.abs(num(want14[r])))));
   gate('14 redesign = SUM_festivals E_wager x Participation x reach, by hand', g14 < 1e-9, 'worst rel gap ' + g14.toExponential(2));
-  say('     cell              k   pts/win  bank%   p25    p50    p75   paid%   coins/entry  SPT/entry   coins   SPT (window)');
+  say('     cell              k   pts/win board%   p25    p50    p75   paid%   coins/entry  SPT/entry   coins   SPT (window)');
   cells.forEach(c => { const wd = wagerRankDist_(MIC, c[0], c[1], x13, SH2), cc = wd.cell, we = wagerE_(MIC, c[0], c[1], x13, SH2).e;
     let cum = 0, paid = 0; const pl = {}; wd.dist.forEach(dd => { cum += dd.p; if (dd.rank <= 25) paid += dd.p; [.25, .5, .75].forEach(t => { if (pl[t] === undefined && cum >= t) pl[t] = dd.rank; }); });
     const s = resultRow_(MIC, c[0], c[1], Context.get()), P = t => String(pl[t] === undefined ? '-' : pl[t]).padStart(6);
@@ -351,12 +365,14 @@ function GATES(){
   cells.forEach(c => { const wd = wagerRankDist_(MIC, c[0], c[1], x13, SH2); let m = 0; wd.dist.forEach(dd => m += dd.p);
     if (!close(m, wd.q, 1e-9) || wd.q < 0 || wd.q > 1) massOk = false; });
   gate('15 place mass = bank chance (never banked = not on the board), every cell', massOk);
-  const keep15 = micV[tr3].slice(), q0 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).q, k0 = wagerCell_(MIC, SEG, PAY, SH2).k;
+  const keep15 = micV[tr3].slice(), d0 = wagerRankDist_(MIC, SEG, PAY, x13, SH2), k0 = wagerCell_(MIC, SEG, PAY, SH2).k;
   micV[tr3][tcol(WS.hdrLabel)] = k0 + 5; reset();
-  const q1 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).q, s1 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).side.scores[20];
+  const d1 = wagerRankDist_(MIC, SEG, PAY, x13, SH2);
   micV[tr3] = keep15; reset();
-  const s0 = wagerRankDist_(MIC, SEG, PAY, x13, SH2).side.scores[20];
-  gate('15 submitting later: lower bank chance, higher banked score', q1 < q0 && s1 > s0, 'k ' + k0 + ' -> ' + (k0 + 5) + ': bank ' + q0.toFixed(3) + ' -> ' + q1.toFixed(3));
+  const top = d => Math.max(...d.side.scores);
+  gate('15 submitting later: lower chance to reach it, higher top score, same chance on the board',
+    d1.side.qk < d0.side.qk && top(d1) > top(d0) && close(d1.q, d0.q, 1e-12),
+    'k ' + k0 + ' -> ' + (k0 + 5) + ': reach ' + d0.side.qk.toFixed(3) + ' -> ' + d1.side.qk.toFixed(3) + ', on board ' + d0.q.toFixed(3));
   WAGER_BOTTOMUP = false; reset(); precompute();
   const off = rowsOf(MIC);
   WAGER_BOTTOMUP = true; reset(); precompute();
@@ -375,7 +391,9 @@ function GATES(){
   const keep16 = micV[tr3].slice(); micV[tr3][tcol(WS.hdrLabel)] = 3; reset();
   const lrow2 = ECOGAINS_MIC(PAY, 1).find(r => segCanon_(String(r[0])) === segCanon_(SEG));
   micV[tr3] = keep16; reset();
-  gate('16 local sim follows a table edit (Submit after 3)', lrow2[lh.indexOf('Submit after (wins)')] === 3 && lrow2[lh.indexOf('Chance to bank')] > lrow[lh.indexOf('Chance to bank')]);
+  gate('16 local sim follows a table edit (Submit after 3)', lrow2[lh.indexOf('Submit after (wins)')] === 3 &&
+    lrow2[lh.indexOf('Chance to reach Submit after')] > lrow[lh.indexOf('Chance to reach Submit after')] &&
+    close(lrow[lh.indexOf('Chance on the board')], wagerRankDist_(MIC, SEG, PAY, mkInst_(st16, dur16), SH2).q, 1e-12));
   // an envelope on place 1: the card sim's rung at rank 1 has the wager's probability
   const env = th.length ? micV[9] : null, eCol = micV[8].indexOf('1-star Dly'), keepE = micV[9][eCol];
   micV[9][eCol] = 1; reset(); precompute();
@@ -384,6 +402,26 @@ function GATES(){
   gate('16 the card sim draws the wager places (rank-1 rung = the wager chance)', !!r1 && close(r1.p, wd16.dist[0].p, 1e-12),
     r1 ? r1.p.toFixed(5) + ' vs ' + wd16.dist[0].p.toFixed(5) : 'no rung');
   micV[9][eCol] = keepE; reset(); precompute();
+
+  // ---- 17 the fallback (D104) ---------------------------------------------------------------------------
+  const c17 = handCell(SEG, PAY), s17 = handSide(c17, x13), D17 = (() => { let q = 1, spd = 0; x13.days.forEach(dd => {
+    const pd = isWeekend_(dd) ? c17.pe : c17.pw; q *= 1 - pd; spd += pd; }); return spd / (1 - q); })();
+  gate('17 on the board = P(the festival\'s best streak >= 1 win)', close(s17.q, 1 - Math.pow(1 - Math.min(1, c17.S(1)), D17), 1e-12) && s17.q >= s17.qk,
+    'on board ' + s17.q.toFixed(4) + ' vs reach k ' + s17.qk.toFixed(4));
+  let fbOk = true;
+  cells.forEach(c => { const a = wagerRankDist_(MIC, c[0], c[1], x13, SH2); if (!(a.q >= a.side.qk - 1e-12) || (a.cell.k > 1 && !(a.q > a.side.qk))) fbOk = false; });
+  gate('17 every cell: on the board >= reaches Submit after (strictly, where Submit after > 1)', fbOk);
+  const fbRow = micV.findIndex(r => String(r[0]).trim() === WAGER_FALLBACK_LABEL);
+  gate('17 the switch is a cell on Mic_v2 (1 = on)', fbRow >= 0 && Number(micV[fbRow][1]) === 1);
+  const fbKeep = micV[fbRow][1]; micV[fbRow][1] = 0; reset();
+  const off17 = wagerRankDist_(MIC, SEG, PAY, x13, SH2), h17 = handPlaces(SEG, PAY, x13, false);
+  const gap17 = Math.max(...h17.hand.map((h, i) => Math.abs(h - off17.dist[i].p)));
+  gate('17 switch 0 = submit at k only (D103), places by hand', gap17 < 1e-12 && close(off17.q, off17.side.qk, 1e-12),
+    'on board ' + off17.q.toFixed(4) + ', worst gap ' + gap17.toExponential(2));
+  micV[fbRow][1] = fbKeep; reset();
+  const on17 = wagerE_(MIC, SEG, PAY, x13, SH2).e; micV[fbRow][1] = 0; reset();
+  const of17 = wagerE_(MIC, SEG, PAY, x13, SH2).e; micV[fbRow][1] = fbKeep; reset(); precompute();
+  say('     ' + SEG + ' ' + PAY + ' per festival entered, fallback off -> on: coins ' + num(of17.HC).toFixed(1) + ' -> ' + num(on17.HC).toFixed(1) + ', SPT ' + num(of17.SPT).toFixed(1) + ' -> ' + num(on17.SPT).toFixed(1));
 
   say('\n' + pass + ' pass, ' + fail + ' fail');
   if (fail) process.exitCode = 1;

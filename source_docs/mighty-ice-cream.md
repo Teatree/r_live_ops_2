@@ -31,9 +31,10 @@ SPT over the 25 places: 2,955.
 
 ## How the sim prices it (D103 - places bottom-up)
 
-- A player banks **k x points per win** when they reach **k wins in a row**; k = the measured median of the day's longest win streak (`max_streak_per_day_p50`). Bank chance in a festival = 1 - (1 - share of active days reaching k)^(active days in the festival) - measured streaks, not a coin-flip model.
+- A player banks **k x points per win** when they reach **k wins in a row**; k = the measured median of the day's longest win streak (`max_streak_per_day_p50`). Chance to reach k in a festival = 1 - (1 - share of active days reaching k)^(active days in the festival) - measured streaks, not a coin-flip model.
+- **Fallback (D104):** a player who never reaches k banks their best streak of the festival instead, so everyone who wins a level is on the board (81-99% of participants by cell). Assumes they bank it at its peak (optimistic). Switch on Mic_v2 row 41.
 - Points per win = Red + 2 x Chuck + 4 x Bomb birds per win (Red / Chuck from those challenges' balances per win; Bomb = half of Chuck's), spread across players by Red's balance quantiles.
-- League: 59 opponents drawn from all segments by participants per festival; place = 1 + the opponents who banked more. Never banking = not on the board, no reward.
+- League: 59 opponents drawn from all segments by participants per festival (user, 2026-11-11: keep mixed - Red's measured places fall steeply with segment, which is what mixed boards produce; the design doc says nothing about matchmaking); place = 1 + the opponents who banked more. Never banking (no win in the festival) = not on the board, no reward.
 - Participation = 0.3 (design value), every input editable on Mic_v2's `Player behaviour (Wager)` table; the local sim (`ECOGAINS_MIC`) re-runs on edit.
 
 ## How the sim prices it (D102 - the fallback, `WAGER_BOTTOMUP = false`)
