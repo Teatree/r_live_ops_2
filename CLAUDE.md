@@ -105,6 +105,8 @@ node harness/_mock_mic.js [--data v3u]            # D102-D104: Mighty Ice Cream 
 python builders/_build_mic.py                     # -> display/Mic_v2.xlsx (D102/D105): the Mighty Ice Cream config (from builders/mic_server_config.json), the data_mic behaviour table + its local sim
 node harness/_mock_mic_data.js [--data v3v]       # D105: Mighty Ice Cream on data_mic - defaults, quantiles, league mix, places / redesign by hand, the local sim's VALUE
 node harness/_probe_mic_data.js [--data v3v] [--part 0.6]   # D105: the local sim per payer + the MiC row per cell on a dump (cal_parsed rebuilt)
+node harness/_probe_mic_league.js [--data v3w] [--sizes 8,16.3,60]   # Mic_v2 'League size' swept through change_summary's own pass: the MiC row per band
+                                                  #   and resource, which other rows move (the Col rows), the TOTAL row's % change (~25 s per size)
 python builders/_build_kite_explainer.py          # -> display/Kite_Explainer_v1.xlsx (D101): the designer-facing Kite sheet - segment/payer dropdowns, live sentences
                                                   #    (VLOOKUP into the ECOGAINS_KITE PARAMS spill), RESULT / RANKS / FESTIVALS spills, three charts
 python builders/_build_localsim_segments.py       # -> display/LocalSims_100-249_v1.xlsx: the 13 local-sim sheets of the newest workbook, their
