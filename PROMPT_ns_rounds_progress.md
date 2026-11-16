@@ -124,9 +124,14 @@ One row per (`ab_variant`, segment, payer_flag, `config_segment`, `day_type`), `
 | keys | as above |
 | `player_days`, `players` | |
 | `progress_mean` | |
-| `progress_p10`, `progress_p25`, `progress_p50`, `progress_p75`, `progress_p90`, `progress_p95`, `progress_p99` | percentiles over player-days |
+| `progress_p10`, `progress_p25`, `progress_p50`, `progress_p75`, `progress_p90`, `progress_p95`, `progress_p99`, `progress_p99.5`, `progress_p99.9` | percentiles over player-days |
 | `share_zero` | share of player-days with progress 0 |
-| `share_ge_<X>` for X = 2, 5, 10, 20, 40, 60, 100, 150, 200, 300, 400, 500 | share of player-days whose progress reached at least X |
+| `share_ge_<X>` for X = 2, 5, 10, 20, 40, 60, 100, 150, 200, 300, 400, 500, 600, 800, 1000 | share of player-days whose progress reached at least X |
+
+The redesign has rounds up to a cumulative 765 at 100+, so the top of the curve matters most: deliver
+the high percentiles and the `share_ge` columns past 500 even where only a handful of player-days
+reach them (give the count behind each in your notes). More `share_ge_<X>` or `progress_p<Q>` columns
+than listed are welcome: the model reads every column of these two shapes by its header.
 | `share_cleared_final` | share of player-days that cleared the last round of their ladder |
 
 If you cannot rebuild progress past the final round, deliver the sheet anyway with the censoring
