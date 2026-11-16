@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D105b  2026-11-11';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D106  2026-11-16';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -2031,10 +2031,7 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
     return allRungs.length ? { participation: 1, groups: [{ exclusive: false, rungs: allRungs }] } : null;
   }
   if (cat === 'Daily Night Sky Prize'){
-    var st = ds.nsStreak(seg, payer);
-    var Sn = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
-                             [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
-    if (!Sn) return null;
+    if (!nsCurve_(seg, payer, ds, 'all')) return null;
     // D23: each NS instance is ONE day, so it runs exactly one of the two variants — resolve the
     // ladder off that day rather than off the blend. Averaged over the 33 instances the card sim
     // therefore draws the same packs the blended packLane_ prices.
@@ -2042,10 +2039,11 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
                     .sort(function(x, y){ return x.start - y.start; });
     var nsDay = nsInsts.length
       ? nsInsts[Math.max(0, Math.min(instOrdinal || 0, nsInsts.length - 1))].start : 1;
-    var nsLad = baseRungs ? nsBaseLadderForDay_(seg, nsDay) : nsLadderForDay_(seg, nsDay);   // D90
+    // D90: the base ladder on the anchor side; D106: each round at the chance the gains model prices it
+    var nsDR = nsDayRounds_(seg, payer, ds, nsDay, baseRungs), nsLad = nsDR.ladder;
     var nrungs = nsLad.map(function(ms, k){
       return { label: 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')' +
-                      (isWeekend_(nsDay) ? ' [weekend]' : ' [weekday]'), p: profP_(prof, Sn(ms.req)),
+                      (isWeekend_(nsDay) ? ' [weekend]' : ' [weekday]'), p: profP_(prof, nsDR.p[k]),
                req: ms.req, packs: packsOf(ms.rew), tickets: tkOf(ms.rew) };
     });
     var ni = ds.eventInst('Night Sky', seg, payer);
@@ -2139,17 +2137,14 @@ function packProvFor_(cat, seg, payer, ctx){
     return prov;
   }
   if (cat === 'Daily Night Sky Prize'){
-    var st = ds.nsStreak(seg, payer);
-    var Sn = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
-                             [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
-    if (Sn){
+    var Ep = segIsAll_(seg) ? null : nsE_(seg, payer, ds, ctx);
+    if (Ep && Ep.ladders){
       // D23: describe BOTH variants, each at its share of the window's active days, so the log
       // says which day type paid a pack rather than attributing all of them to one ladder.
-      var nsSh = nsDayTypeSplit_(seg, payer, ds, ctx);
-      var nsWd = nsWeekdayLadder_(seg);
-      nsEDayProv_(readNSLadder_(seg, NS_V2_SHEET), Sn, prov, nsWd ? nsSh.we : 1,
-                  nsWd ? ' [weekend]' : '');
-      if (nsWd) nsEDayProv_(nsWd, Sn, prov, nsSh.wd, ' [weekday]');
+      // D106: each round at the chance nsE_ priced it (a day-typed pull splits one ladder too).
+      var Lp = Ep.ladders, two = Ep.hasWeekdayVariant || Ep.dayTyped;
+      nsEDayProv_(Lp.vWe, Lp.pvWe, prov, two ? Lp.sh.we : 1, two ? ' [weekend]' : '');
+      if (two) nsEDayProv_(Lp.vWd, Lp.pvWd, prov, Lp.sh.wd, ' [weekday]');
     }
     return prov;
   }
@@ -3019,6 +3014,7 @@ function resetModuleCaches_(){
   _newLbAnchorCache = {};                                // D102: a new leaderboard's TODAY walk
   _wagerTabCache = {}; _wagerCellCache = {}; _wagerDistCache = {}; _wagerPoolCache = {};   // D103/D104: the wager places
   _micDataCache = undefined;                             // D105: data_mic
+  _nsDataCache = undefined; _nsCurveCache = {}; _nsNoteSet = {}; _nsNotes = [];   // D106: Night Sky round data
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
@@ -3914,31 +3910,43 @@ function simNightSky(seg, payer, ctx){
 // (either way there is nothing to anchor on -> callers carry measured).
 function nsE_(seg, payer, ds, ctx){
   if (segIsAll_(seg)) return nsEAll_(payer, ds, ctx);      // D94
-  var st = ds.nsStreak(seg, payer);
-  var S = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
-                          [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
-  if (!S) return null;
+  // D106: each round's completion chance comes from nsRoundP_ (the measured claims of data_ns_rounds,
+  // changes priced on data_ns_progress), else from the streak survival exactly as before.
+  var C = nsCurve_(seg, payer, ds, 'all');
+  if (!C) return null;
   var base = readNSLadder_(seg, 'NS');
   if (!base.length) return null;
-  var we = nsEDay_(readNSLadder_(seg, NS_V2_SHEET), S);        // 'NS_v2' = the WEEKEND ladder
+  var vWeLad = readNSLadder_(seg, NS_V2_SHEET);                // 'NS_v2' = the WEEKEND ladder
   var wdLad = nsWeekdayLadder_(seg);                           // null -> no weekday variant
-  var wd = wdLad ? nsEDay_(wdLad, S) : we;
+  var vWdLad = wdLad || vWeLad;
+  var bWdLad = nsBaseWeekdayLadder_(seg);                      // D61d: the base weekday ladder
+  var bWdL = bWdLad || base;
+  // the redesign's weekend ladder replaces the base weekend one, its weekday ladder the base weekday one
+  var pbWe = nsRoundP_(seg, payer, ds, base, null, 'weekend', 'base');
+  var pbWd = nsRoundP_(seg, payer, ds, bWdL, null, 'weekday', 'base');
+  var pvWe = nsRoundP_(seg, payer, ds, vWeLad, base, 'weekend', 'v2');
+  var pvWd = nsRoundP_(seg, payer, ds, vWdLad, bWdL, 'weekday', 'v2');
+  // a day-typed pull prices a weekday and a weekend differently even on one ladder
+  var dayTyped = !!(pbWe.dayTyped || pbWd.dayTyped || pvWe.dayTyped || pvWd.dayTyped);
+  var we = nsEDay_(vWeLad, pvWe.p);
+  var wd = (wdLad || dayTyped) ? nsEDay_(vWdLad, pvWd.p) : we;
   var sh = nsDayTypeSplit_(seg, payer, ds, ctx);
   var eV2 = zeroRow_();
   RESOURCES.forEach(function(r){ eV2[r] = num(wd[r]) * sh.wd + num(we[r]) * sh.we; });
   // D61d: the base side blends the same way, over cal_curr's day types, when NS_weekday exists.
-  var bWe = nsEDay_(base, S);
-  var bWdLad = nsBaseWeekdayLadder_(seg);
-  var bWd = bWdLad ? nsEDay_(bWdLad, S) : bWe;
-  var bsh = bWdLad ? nsDayTypeSplit_(seg, payer, ds, ctx, 'cur') : sh;
+  var bWe = nsEDay_(base, pbWe.p);
+  var bWd = (bWdLad || dayTyped) ? nsEDay_(bWdL, pbWd.p) : bWe;
+  var bsh = (bWdLad || dayTyped) ? nsDayTypeSplit_(seg, payer, ds, ctx, 'cur') : sh;
   var eBase = zeroRow_();
   RESOURCES.forEach(function(r){ eBase[r] = num(bWd[r]) * bsh.wd + num(bWe[r]) * bsh.we; });
-  var vWeLad = readNSLadder_(seg, NS_V2_SHEET);
   return { eBase: eBase, eV2: eV2, eV2Weekday: wd, eV2Weekend: we,
            eBaseWeekday: bWd, eBaseWeekend: bWe,
            split: sh, baseSplit: bsh, hasWeekdayVariant: !!wdLad, hasBaseWeekdayVariant: !!bWdLad,
-           // D92: the rounds themselves, for pricing a reward added to one of them (nsRungAdd_)
-           ladders: { S: S, bWe: base, bWd: bWdLad || base, vWe: vWeLad, vWd: wdLad || vWeLad, sh: sh, bsh: bsh } };
+           dayTyped: dayTyped, source: C.src,
+           // D92: the rounds themselves, for pricing a reward added to one of them (nsRungAdd_);
+           // D106: with each round's completion chance on each side (p*)
+           ladders: { S: C.S, bWe: base, bWd: bWdL, vWe: vWeLad, vWd: vWdLad, sh: sh, bsh: bsh,
+                      pbWe: pbWe.p, pbWd: pbWd.p, pvWe: pvWe.p, pvWd: pvWd.p } };
 }
 
 /** D94: ALL has no Night Sky ladder. Its per-active-day E is the member segments' E, each on its own
@@ -3988,7 +3996,10 @@ var NS_RUNG_ANCHOR = true;
 function nsRungE_(L, side, k, r){
   var we = (side === 'v2') ? L.vWe[k] : L.bWe[k], wd = (side === 'v2') ? L.vWd[k] : L.bWd[k];
   var sh = (side === 'v2') ? L.sh : L.bsh;
-  return (we ? L.S(we.req) * num(we.rew[r]) : 0) * sh.we + (wd ? L.S(wd.req) * num(wd.rew[r]) : 0) * sh.wd;
+  // D106: the round's own completion chance on that side and day type (nsRoundP_), else the curve
+  var pWe = (side === 'v2') ? L.pvWe : L.pbWe, pWd = (side === 'v2') ? L.pvWd : L.pbWd;
+  var p = function(arr, ms){ return (arr && arr[k] != null) ? arr[k] : L.S(ms.req); };
+  return (we ? p(pWe, we) * num(we.rew[r]) : 0) * sh.we + (wd ? p(pWd, wd) * num(wd.rew[r]) : 0) * sh.wd;
 }
 /** The measured claim factor of base round k (measured[s] / E_base,k[s], the mean over the round's
  *  exclusive export-carried siblings), or null when the round has none. */
@@ -4091,7 +4102,7 @@ function nsLadderForDay_(seg, day){
 // the E value itself always comes from nsEDay_, so the two can never disagree on the number.
 function nsEDayProv_(ladder, S, prov, w, tag){
   (ladder || []).forEach(function(ms, k){
-    var s = S(ms.req) * num(w);
+    var s = (Array.isArray(S) ? num(S[k]) : S(ms.req)) * num(w);   // D106: an array = each round's chance
     for (var res in ms.rew)
       provAdd_(prov, res, 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')' + (tag || ''),
                ms.rew[res] * s);
@@ -4100,13 +4111,300 @@ function nsEDayProv_(ladder, S, prov, w, tag){
 function nsEDay_(ladder, S, prov){
   var E = zeroRow_();
   ladder.forEach(function(ms, k){
-    var s = S(ms.req);
+    var s = Array.isArray(S) ? num(S[k]) : S(ms.req);     // D106: an array = each round's chance
     for (var res in ms.rew){
       E[res] = num(E[res]) + ms.rew[res] * s;
       provAdd_(prov, res, 'round ' + (k + 1) + ' (cum streak req ' + ms.req + ')', ms.rew[res] * s);
     }
   });
   return E;
+}
+
+// ---- D106 (2026-11-16): Night Sky ROUND BY ROUND on the event's own data ---------------------------
+// A segment's block on NS / NS_weekday / NS_v2 / NS_v2_weekday may hold any number of rounds (the reader
+// takes every numbered row under the block's header, so 0-9 can keep 3 while 100+ has 10; a round can be
+// added or removed per segment). What each round pays per Night Sky day is P(clear round k) x its reward,
+// and P now comes from the pull when it has it (user decisions 2026-11-16):
+//   base side    P_k = the round's MEASURED claim rate (data_ns_rounds, claims per NS-active player-day,
+//                      for the day type), else the curve below at the round's Cum Streak Req
+//   redesign     P'_k = P_k x S(req'_k) / S(req_k) against the base round k of the ladder it replaces
+//                      (weekend NS_v2 -> NS, weekday NS_v2_weekday -> NS_weekday, else NS); = P_k when the
+//                      requirement did not change; a round the base does not have (a NEW round) is S(req')
+//   curve S      data_ns_progress: the share of NS-active player-days whose streak progress (as the event
+//                counts it) reached x - its share_ge_X points, its progress_pQ percentiles past the last X,
+//                linear between points, and past the last measured point the slope EXTENDED log-linearly
+//                off the last two points (user: 'if p99 is not enough, extend the slope' - flagged, every
+//                round priced there is named on the change summary). No progress sheet -> the streak
+//                survival (data_streaks max streak x NS_STREAK_N), the pre-D106 curve.
+// Each segment reads the rows of its OWN config block (config_segment = its block, else the pooled ALL
+// rows, else rows with no config column; user decision: a segment is priced on its own block). Still
+// anchored: the Night Sky row is measured x E_v2 / E_base x T, so NS_v2 == NS gives DIFF 0 with or
+// without the data. A data_ns_rounds without cum_streak_req (the pull before PROMPT_ns_rounds_progress.md,
+// whose rounds were attributed by coin amount) is not read. No data sheets, or NS_ROUND_DATA = false =
+// the D92 engine bit for bit. data_ns_dayend and data_ns_streak_session are not model inputs: the probe
+// (harness/_probe_ns_rounds.js) reconciles them against these numbers.
+var NS_ROUND_DATA = true;
+var NS_ROUNDS_SHEET = 'data_ns_rounds', NS_PROGRESS_SHEET = 'data_ns_progress';
+var _nsDataCache = undefined, _nsCurveCache = {}, _nsNoteSet = {}, _nsNotes = [];
+/** A note for the change summary / the fill's pop-up / the log, kept once per key per execution. */
+function nsNote_(key, text){
+  if (_nsNoteSet[key]) return;
+  _nsNoteSet[key] = 1; _nsNotes.push(text);
+  try { Logger.log('Night Sky: ' + text); } catch (e){}
+}
+/** Every Night Sky note of this execution: the ladder audit first, then what the pricing ran into. */
+function nsNotes_(){
+  return nsLadderAudit_().concat(_nsNotes.slice());
+}
+function nsHdr_(row){
+  var h = {}; (row || []).forEach(function(x, i){ if (x != null && x !== '') h[String(x).trim().toLowerCase()] = i; });
+  return h;
+}
+function nsNumOrNull_(x){
+  if (x == null || x === '') return null;
+  var n = parseFloat(x); return isNaN(n) ? null : n;
+}
+/** The pull's two Night Sky sheets, indexed: { rounds, progress } (either null when absent / unusable). */
+function nsData_(){
+  if (_nsDataCache !== undefined) return _nsDataCache;
+  var out = { rounds: null, progress: null };
+  if (NS_ROUND_DATA){
+    out.rounds = nsReadRounds_(sheetVals_(NS_ROUNDS_SHEET));
+    out.progress = nsReadProgress_(sheetVals_(NS_PROGRESS_SHEET));
+  }
+  return (_nsDataCache = out);
+}
+/** data_ns_rounds -> { 'seg|payer': { cfg: { ver: { k: {all, we, wd, req} } } } }, or null. */
+function nsReadRounds_(v){
+  if (!v || v.length < 2) return null;
+  var h = nsHdr_(v[0]);
+  if (h['segment'] == null || h['payer_flag'] == null || h['round'] == null) return null;
+  var hasRate = h['claim_rate_per_player_day'] != null || (h['claims_total'] != null && h['player_days'] != null);
+  if (!hasRate) return null;
+  var reqC = h['cum_streak_req'], filled = false;
+  for (var i = 1; i < v.length && !filled; i++) if (reqC != null && nsNumOrNull_(v[i][reqC]) != null) filled = true;
+  if (!filled){
+    nsNote_('rounds-old', NS_ROUNDS_SHEET + ' has no cum_streak_req - it is the pull before PROMPT_ns_rounds_progress.md ' +
+            '(rounds attributed by coin amount) and is not read; rounds are priced on the curve.');
+    return null;
+  }
+  var out = {}, n = 0;
+  var cell = function(r, c){ return (c == null) ? null : nsNumOrNull_(r[c]); };
+  for (var j = 1; j < v.length; j++){
+    var r = v[j];
+    if (!r[h['segment']] || !r[h['payer_flag']]) continue;
+    var k = Math.round(num(r[h['round']]));
+    if (!(k >= 1)) continue;
+    var key = segCanon_(r[h['segment']]) + '|' + String(r[h['payer_flag']]).trim();
+    var cfg = (h['config_segment'] != null && String(r[h['config_segment']] || '').trim()) ? segCanon_(r[h['config_segment']]) : '*';
+    var ver = (h['ladder_version'] != null) ? String(r[h['ladder_version']] == null ? '' : r[h['ladder_version']]).trim() : '';
+    var pd = cell(r, h['player_days']), cl = cell(r, h['claims_total']);
+    var all = (pd > 0 && cl != null) ? cl / pd : cell(r, h['claim_rate_per_player_day']);
+    if (all == null) continue;
+    var pdWe = cell(r, h['player_days_weekend']), clWe = cell(r, h['claims_weekend']);
+    var pdWd = cell(r, h['player_days_weekday']), clWd = cell(r, h['claims_weekday']);
+    var o = (((out[key] = out[key] || {})[cfg] = out[key][cfg] || {})[ver] = out[key][cfg][ver] || {});
+    o[k] = { all: all, we: (pdWe > 0 && clWe != null) ? clWe / pdWe : null, wd: (pdWd > 0 && clWd != null) ? clWd / pdWd : null,
+             req: cell(r, reqC), pd: pd || 0 };
+    n++;
+  }
+  return n ? out : null;
+}
+/** data_ns_progress -> { 'seg|payer': { cfg: { dayType: [{x, s}] } } } (sorted, non-increasing), or null. */
+function nsReadProgress_(v){
+  if (!v || v.length < 2) return null;
+  var h = nsHdr_(v[0]);
+  if (h['segment'] == null || h['payer_flag'] == null) return null;
+  var ge = [], pc = [];
+  for (var nm in h){
+    var m = /^share_ge_(\d+(?:\.\d+)?)$/.exec(nm); if (m){ ge.push({ x: parseFloat(m[1]), c: h[nm] }); continue; }
+    var q = /^progress_p(\d+(?:\.\d+)?)$/.exec(nm); if (q) pc.push({ q: parseFloat(q[1]) / 100, c: h[nm] });
+  }
+  if (!ge.length && !pc.length) return null;
+  var out = {}, n = 0;
+  for (var j = 1; j < v.length; j++){
+    var r = v[j];
+    if (!r[h['segment']] || !r[h['payer_flag']]) continue;
+    var key = segCanon_(r[h['segment']]) + '|' + String(r[h['payer_flag']]).trim();
+    var cfg = (h['config_segment'] != null && String(r[h['config_segment']] || '').trim()) ? segCanon_(r[h['config_segment']]) : '*';
+    var dt = (h['day_type'] != null) ? String(r[h['day_type']] || '').trim().toLowerCase() : 'all';
+    if (dt !== 'weekday' && dt !== 'weekend') dt = 'all';
+    var cens = (h['censored_at'] != null) ? nsNumOrNull_(r[h['censored_at']]) : null;
+    var pts = nsCurvePoints_(r, ge, pc, (h['share_zero'] != null) ? nsNumOrNull_(r[h['share_zero']]) : null, cens);
+    if (pts.length < 2) continue;
+    ((out[key] = out[key] || {})[cfg] = out[key][cfg] || {})[dt] = pts;
+    n++;
+  }
+  return n ? out : null;
+}
+/** One progress row's curve points: (0, 1), (1, 1 - share_zero), every share_ge_X; the percentiles only
+ *  past the last X (or all of them when the row has no share_ge_X); nothing past censored_at; then kept
+ *  non-increasing (a point above an earlier one is dropped - a percentile before a share_ge point). */
+function nsCurvePoints_(r, ge, pc, zero, cens){
+  var pts = [], maxGe = -1, sMaxGe = 1;
+  ge.forEach(function(g){
+    var s = nsNumOrNull_(r[g.c]);
+    if (s == null) return;
+    pts.push({ x: g.x, s: Math.max(0, Math.min(1, s)), ge: 1 });
+    if (g.x > maxGe){ maxGe = g.x; sMaxGe = s; }
+  });
+  if (zero != null && !pts.some(function(p){ return p.x === 1; })) pts.push({ x: 1, s: Math.max(0, Math.min(1, 1 - zero)), ge: 1 });
+  pc.forEach(function(p){
+    var x = nsNumOrNull_(r[p.c]);
+    if (x == null || !(x > 0)) return;
+    if (maxGe >= 0 && !(x > maxGe && 1 - p.q < sMaxGe)) return;
+    pts.push({ x: x, s: 1 - p.q, ge: 0 });
+  });
+  if (cens != null && cens > 0) pts = pts.filter(function(p){ return p.x <= cens; });
+  pts.sort(function(a, b){ return (a.x - b.x) || (b.ge - a.ge); });
+  var out = [{ x: 0, s: 1 }], last = 1;
+  pts.forEach(function(p){
+    if (p.x <= out[out.length - 1].x) return;            // one point per x (share_ge first)
+    if (p.s > last + 1e-12) return;                      // never rising
+    out.push({ x: p.x, s: p.s }); last = p.s;
+  });
+  return out;
+}
+/** The curve through the points: linear between them, past the last the slope extended log-linearly off
+ *  the last two points with distinct shares (a 0 at the last point stays 0). `tag` names the cell for
+ *  the note an extension writes. */
+function nsCurveFn_(pts, tag){
+  var n = pts.length, last = pts[n - 1];
+  var prev = null;
+  for (var i = n - 2; i >= 0; i--) if (pts[i].s > last.s + 1e-12){ prev = pts[i]; break; }
+  var lam = (prev && last.s > 0) ? Math.log(prev.s / last.s) / Math.max(1e-9, last.x - prev.x) : null;
+  return function(x){
+    if (!(x > 0)) return 1;
+    for (var j = 1; j < n; j++){
+      if (x <= pts[j].x){
+        var a = pts[j - 1], b = pts[j];
+        return a.s + (b.s - a.s) * (x - a.x) / Math.max(1e-9, b.x - a.x);
+      }
+    }
+    if (!(last.s > 0) || lam == null) return 0;
+    nsNote_('ext|' + tag + '|' + x, tag + ': a round at cum streak ' + x + ' is past the last measured point (' + last.x +
+            ', ' + (100 * last.s).toFixed(1) + '% of player-days) - priced on the extended slope (' +
+            (100 * last.s * Math.exp(-lam * (x - last.x))).toFixed(2) + '%), an assumption.');
+    return last.s * Math.exp(-lam * (x - last.x));
+  };
+}
+/** The rows of a cell's map for `seg`: its own segment, else its parent (250+ -> 100-249). */
+function nsCellRows_(map, seg, payer){
+  var c = segCanon_(seg), hops = 0;
+  while (c && hops++ < 4){ var v = map[c + '|' + payer]; if (v) return v; c = SEG_PARENT[c]; }
+  return null;
+}
+/** The config_segment key a segment reads: its own block's (segCfgKeys_, canonical), else the pooled ALL
+ *  rows, else rows with no config column; null when the pull has only other blocks' rows. */
+function nsCfgPick_(byCfg, seg){
+  var keys = segCfgKeys_(seg).map(segCanon_).concat([SEG_ALL, '*']);
+  for (var i = 0; i < keys.length; i++) if (byCfg[keys[i]]) return keys[i];
+  return null;
+}
+/** The completion curve of a cell for a day type: { S, src: 'progress' | 'streak', dayTyped }, or null. */
+function nsCurve_(seg, payer, ds, dayType){
+  var key = segCanon_(seg) + '|' + payer + '|' + (dayType || 'all');
+  if (_nsCurveCache[key] !== undefined) return _nsCurveCache[key];
+  var out = null, D = nsData_().progress, cellR = D && nsCellRows_(D, seg, payer);
+  var cfg = cellR ? nsCfgPick_(cellR, seg) : null;
+  if (cfg){
+    var byDt = cellR[cfg], dt = (dayType && byDt[dayType]) ? dayType : (byDt['all'] ? 'all' : Object.keys(byDt)[0]);
+    out = { S: nsCurveFn_(byDt[dt], segLabel_(seg, ds) + ' ' + payer + (dt === 'all' ? '' : ' ' + dt)),
+            src: 'progress', dayTyped: !!(dayType && dayType !== 'all' && dt === dayType) };
+  } else {
+    var st = ds.nsStreak(seg, payer);
+    var S = st ? survival_([[st.p25*NS_STREAK_N,.25],[st.p50*NS_STREAK_N,.50],
+                            [st.p75*NS_STREAK_N,.75],[st.p90*NS_STREAK_N,.90]]) : null;
+    if (S) out = { S: S, src: 'streak', dayTyped: false };
+  }
+  return (_nsCurveCache[key] = out);
+}
+/** The measured claim rate of each round of a cell's base ladder for a day type: { rates: [k-1 -> rate],
+ *  dayTyped } or null. A pull with several ladder versions reads the one whose requirements match the
+ *  base ladder best; a round whose measured requirement differs from the sheet's is noted. */
+function nsMeasRates_(seg, payer, dayType, baseLadder){
+  var D = nsData_().rounds, cellR = D && nsCellRows_(D, seg, payer);
+  var cfg = cellR ? nsCfgPick_(cellR, seg) : null;
+  if (!cfg) return null;
+  var vers = cellR[cfg], best = null, bestScore = -1, bestPd = -1;
+  Object.keys(vers).forEach(function(vk){
+    var rounds = vers[vk], score = 0, pd = 0;
+    (baseLadder || []).forEach(function(ms, k){ var o = rounds[k + 1];
+      if (o && o.req != null && Math.abs(o.req - ms.req) < 1e-9) score++; });
+    for (var kk in rounds) pd += num(rounds[kk].pd);
+    if (score > bestScore || (score === bestScore && pd > bestPd)){ best = vk; bestScore = score; bestPd = pd; }
+  });
+  var rounds = vers[best], typed = false;
+  var rates = (baseLadder || []).map(function(ms, k){
+    var o = rounds[k + 1];
+    if (!o) return null;
+    if (o.req != null && Math.abs(o.req - ms.req) > 1e-9)
+      nsNote_('req|' + segCanon_(seg) + '|' + payer + '|' + (k + 1), segLabel_(seg) + ' ' + payer + ' round ' + (k + 1) + ': ' +
+              NS_ROUNDS_SHEET + ' measured it at cum streak ' + o.req + ', the base sheet says ' + ms.req +
+              ' - the measured claims are read as the base round (the sheet is taken as the config that ran).');
+    var dv = (dayType === 'weekend') ? o.we : (dayType === 'weekday') ? o.wd : null;
+    if (dv != null){ typed = true; return dv; }
+    return o.all;
+  });
+  return { rates: rates, dayTyped: typed };
+}
+/** P(clear round k) per Night Sky day for every round of `ladder` (see the D106 header): { p: [...], dayTyped }.
+ *  side 'base' = the ladder that ran (measured claims), 'v2' = a redesign ladder replacing `pairBase`. */
+function nsRoundP_(seg, payer, ds, ladder, pairBase, dayType, side){
+  var C = nsCurve_(seg, payer, ds, dayType);
+  if (!C) return { p: (ladder || []).map(function(){ return 0; }), dayTyped: false };
+  var M = nsMeasRates_(seg, payer, dayType, side === 'base' ? ladder : pairBase);
+  var p = (ladder || []).map(function(ms, k){
+    var m = M ? M.rates[k] : null;
+    if (side === 'base') return (m != null) ? m : C.S(ms.req);
+    var bk = pairBase && pairBase[k];
+    if (m == null || !bk) return C.S(ms.req);
+    if (Math.abs(ms.req - bk.req) < 1e-9) return m;
+    var sb = C.S(bk.req);
+    return (sb > 1e-12) ? Math.min(1, m * C.S(ms.req) / sb) : C.S(ms.req);
+  });
+  return { p: p, dayTyped: !!(C.dayTyped || (M && M.dayTyped)) };
+}
+/** One Night Sky DAY's ladder and its rounds' chances (the card sim's rungs, the play-by-play view):
+ *  the redesign's weekend / weekday ladder against the base one it replaces, or the base ladder. */
+function nsDayRounds_(seg, payer, ds, day, baseSide){
+  var dt = isWeekend_(day) ? 'weekend' : 'weekday';
+  var lad = baseSide ? nsBaseLadderForDay_(seg, day) : nsLadderForDay_(seg, day);
+  var pair = baseSide ? null : ((dt === 'weekday' && nsBaseWeekdayLadder_(seg)) || nsLadderOn_('NS', seg));
+  var rp = nsRoundP_(seg, payer, ds, lad, pair, dt, baseSide ? 'base' : 'v2');
+  return { ladder: lad, p: rp.p, dayType: dt };
+}
+/** true when the pull carries Night Sky round or progress rows for the cell (its own or its parent's). */
+function nsDataFor_(seg, payer){
+  var D = nsData_();
+  return !!((D.rounds && nsCellRows_(D.rounds, seg, payer)) || (D.progress && nsCellRows_(D.progress, seg, payer)));
+}
+/** The ladder audit (user decision 2026-11-16: the engine reads Cum Streak Req as typed and says where it
+ *  disagrees with Streak Req): every round, on every Night Sky sheet, whose Cum Streak Req is not above
+ *  the previous round's, or is not the previous Cum + its Streak Req. One line per round. */
+function nsLadderAudit_(){
+  var out = [];
+  ['NS', NS_WEEKDAY_SHEET, NS_V2_SHEET, NS_V2_WEEKDAY_SHEET].forEach(function(nm){
+    var v = sheetVals_(nm);
+    for (var r = 0; r < v.length; r++){
+      var h = nsHdr_(v[r]);
+      if (h['cum streak req'] == null) continue;
+      var label = '';
+      for (var u = r - 1; u >= 0; u--){ var a = String((v[u] || [])[0] == null ? '' : v[u][0]).trim(); if (a){ label = a; break; } }
+      var prev = 0;
+      for (var q = r + 1; q < v.length; q++){
+        var row = v[q] || [];
+        if (!/^\s*\d+(\.\d+)?\s*$/.test(String(row[0] == null ? '' : row[0]))) break;
+        var cum = num(row[h['cum streak req']]), st = (h['streak req'] != null) ? nsNumOrNull_(row[h['streak req']]) : null;
+        var why = [];
+        if (!(cum > prev)) why.push('not above the previous round\'s ' + prev);
+        if (st != null && Math.abs(cum - (prev + st)) > 1e-9) why.push('the previous Cum + Streak Req would be ' + prev + ' + ' + st + ' = ' + (prev + st));
+        if (why.length) out.push(nm + ' ' + label + ' round ' + row[0] + ': Cum Streak Req ' + cum + ' - ' + why.join('; '));
+        prev = cum;
+      }
+    }
+  });
+  return out;
 }
 
 // ============================== RAINBOW MAKER (D6/D7 — bottom-up, survival-weighted) =========
@@ -6936,6 +7234,7 @@ var REFRESH_WATCH = ['c_saga','c_saga_v2','c_day','c_day_v2','RM','RM_1st','RM_2
   'F','F_v2','TE','SP','SP_v2','SP_lb','SP_lb_v2','cal_curr','cal_new',CAL_PARSED_SHEET,   // TE: D19 pack lane
   'data_gains','data_seg_beh','data_event_accrual','data_event_kite_accrual','data_RM',
   'data_streaks','data_event_inst',
+  'data_ns_rounds','data_ns_progress',   // D106: Night Sky round claims and the streak-progress curve
   // NET inputs: data_econ_daily feeds ECOGAINS_DAILY's NET blocks (live custom function);
   // data_econ only feeds the menu-run Sim per Segment fill — watching it is harmless, but an edit
   // there still needs menu > Fill Sim per Segment to re-run.
@@ -7240,12 +7539,14 @@ function nsLadderOn_(sheetName, seg){
   var v = sheetVals_(sheetName);
   // D94: the block the segment's config labels name (segCfgKeys_: own spelling, alias, parent)
   var r = segCfgPick_(v.map(function(row){ return (row || [])[0]; }), seg);
-  return (r >= 0) ? readLadder_(v.slice(r + 1), 'Cum Streak Req') : [];
+  // D106: strict - a round is a row whose first cell is a plain number, so a segment label ('100+',
+  // '250+' read as 100 / 250 by parseFloat) is never taken for a round when the blank spacer row is gone
+  return (r >= 0) ? readLadder_(v.slice(r + 1), 'Cum Streak Req', true) : [];
 }
 
 // Generic ladder reader: finds the header row containing reqCol, maps reward columns through
 // RES_MAP, reads rows until the first blank first-cell. Returns [{req, rew:{res:amount}}].
-function readLadder_(v, reqCol){
+function readLadder_(v, reqCol, strict){
   var hr = -1, h = {};
   for (var r = 0; r < v.length; r++){
     var idx = {};
@@ -7257,6 +7558,7 @@ function readLadder_(v, reqCol){
   for (var r2 = hr + 1; r2 < v.length; r2++){
     var row = v[r2];
     if (!row || row[0] == null || row[0] === '' || isNaN(parseFloat(row[0]))) break;
+    if (strict && !/^\s*\d+(\.\d+)?\s*$/.test(String(row[0]))) break;
     var rew = {};
     for (var col in RES_MAP){
       if (h[col] != null && num(row[h[col]])) rew[RES_MAP[col]] = num(row[h[col]]);

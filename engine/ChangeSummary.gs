@@ -423,6 +423,11 @@ function csHeadRows_(L, ctx, days, extras, ss, popInfo, standIn, allCmp){
   if (standIn['Chuck Challenge'])
     red.push('CHUCK\'S CHALLENGE (user rule, D86): CURRENT = 0, NEW = what Red\'s Challenge loses on the redesign (Red\'s 4 -> 2, Chuck\'s 0 -> 2, ' +
              'same rewards). The export\'s own Chuck\'s payout (Oct 28, from the Oct 26-27 instance cal_curr draws as Bomb\'s) is counted on neither side.');
+  // D106: the Night Sky ladder audit and every round priced past the measured progress curve
+  if (typeof nsNotes_ === 'function'){
+    var nsn = nsNotes_();
+    if (nsn.length) red.push('NIGHT SKY (D106): ' + nsn.join(' / '));
+  }
   red.push('The sheet holds values: an edit to any input sheet after this run turns row 2 red (STALE) until the next fill.');
   r4[0] = red.join('   |   ');
   L.cols.forEach(function(col, c){

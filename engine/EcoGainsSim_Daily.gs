@@ -338,7 +338,8 @@ function nsDayTypeRows_(W, seg, payer, ctx, isNew){
   var ds = ctx.ds;
   var E = nsE_(seg, payer, ds, ctx);
   if (isNew === undefined) isNew = true;
-  if (!E || !(isNew ? E.hasWeekdayVariant : E.hasBaseWeekdayVariant)) return null;
+  // D106: a day-typed Night Sky pull prices a weekday and a weekend differently even on one ladder
+  if (!E || !((isNew ? E.hasWeekdayVariant : E.hasBaseWeekdayVariant) || E.dayTyped)) return null;
   var eWd = isNew ? E.eV2Weekday : E.eBaseWeekday, eWe = isNew ? E.eV2Weekend : E.eBaseWeekend;
   var insts = (isNew ? (ctx.calNewOk && ctx.calNew['Night Sky']) : (ctx.calCurOk && ctx.calCur['Night Sky'])) || [];
   if (!insts.length) return null;

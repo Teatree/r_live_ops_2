@@ -92,7 +92,7 @@ var V2DIFF_RED = '#FF0000';
 // ---- menu entry point: mark the diffs ----
 function markV2ConfigDiffs(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var total = 0, changed = [], zero = [], missing = [], unauthored = [], skipped = [];
+  var total = 0, changed = [], zero = [], missing = [], unauthored = [], skipped = [], blockNotes = [];
   v2diffPairs_().forEach(function(pair){
     var base = pair[0], v2 = pair[1];
     if (V2DIFF_STRUCTURAL_SKIP.indexOf(base) !== -1){ skipped.push(base); return; }
@@ -101,20 +101,21 @@ function markV2ConfigDiffs(){
     if (!bs){ missing.push(base + '/' + v2); return; }
 
     var brange = bs.getDataRange();                       // OLD sheet's used extent
-    var rows = Math.min(brange.getNumRows(), vs.getMaxRows());
     var cols = Math.min(brange.getNumColumns(), vs.getMaxColumns());
     var bv = brange.getValues(), bf = brange.getFormulas();
-    var vrange = vs.getRange(1, 1, rows, cols);
+    // D106: the _v2 sheet may be LONGER than its base (a segment block with more rounds), so its own used
+    // rows are read too; a sheet of the same shape reads exactly the rows it always did
+    var vLast = vs.getLastRow ? vs.getLastRow() : brange.getNumRows();
+    var vRows = Math.min(vs.getMaxRows(), Math.max(brange.getNumRows(), vLast));
+    var vrange = vs.getRange(1, 1, vRows, cols);
     var vv = vrange.getValues(), vf = vrange.getFormulas();
     var colors = vrange.getFontColors();                  // keep existing colours; only diffs -> red
 
-    var n = 0;
-    for (var r = 0; r < rows; r++){
-      for (var c = 0; c < cols; c++){
-        if (bf[r][c] !== '' || vf[r][c] !== '') continue; // ignore local sims / helpers (formulas)
-        if (!v2diffEqual_(bv[r][c], vv[r][c])){ colors[r][c] = V2DIFF_RED; n++; }
-      }
-    }
+    var mk = v2diffMarks_(bv, bf, vv, vf, cols);
+    mk.cells.forEach(function(rc){ colors[rc[0]][rc[1]] = V2DIFF_RED; });
+    var n = mk.cells.length;
+    if (mk.added.length) blockNotes.push(v2 + ' - rounds ADDED (the whole row is red): ' + mk.added.join(', '));
+    if (mk.removed.length) blockNotes.push(v2 + ' - rounds REMOVED against ' + base + ': ' + mk.removed.join(', '));
     if (n){ vrange.setFontColors(colors); changed.push([v2, n]); total += n; }
     else zero.push(v2);
   });
@@ -130,6 +131,7 @@ function markV2ConfigDiffs(){
   if (unauthored.length) lines.push('No _v2 twin (unauthored): ' + unauthored.join(', '));
   if (skipped.length)    lines.push('Skipped (structural rewrite): ' + skipped.join(', '));
   if (missing.length)    lines.push('Missing base sheet(s): ' + missing.join(', '));
+  if (blockNotes.length) lines.push('', 'Segment blocks of a different length (compared block by block, D106):', '  ' + blockNotes.join('\n  '));
 
   lines.push('', 'Pairs are derived from the workbook: every X_v2 with a base X' +
              (typeof V2DIFF_TWINS !== 'undefined' ? ', NS_v2_weekday against ' +
@@ -146,12 +148,78 @@ function clearV2ConfigDiffs(){
     var bs = ss.getSheetByName(pair[0]), vs = ss.getSheetByName(pair[1]);
     if (!bs || !vs) return;
     var brange = bs.getDataRange();
-    var rows = Math.min(brange.getNumRows(), vs.getMaxRows());
+    var vLast = vs.getLastRow ? vs.getLastRow() : brange.getNumRows();     // D106: a longer _v2 sheet
+    var rows = Math.min(vs.getMaxRows(), Math.max(brange.getNumRows(), vLast));
     var cols = Math.min(brange.getNumColumns(), vs.getMaxColumns());
     vs.getRange(1, 1, rows, cols).setFontColor('#000000');
     cleared++;
   });
   ss.toast('Reset config-region text to black on ' + cleared + ' _v2 sheet(s).', 'v2 config diff', 6);
+}
+
+// ---- D106 (2026-11-16): segment blocks of different lengths ---------------------------------------
+// A config sheet laid out as segment blocks (a segment label in column A - '0-9', '40-99', '100+' ... -
+// over its own header and rows: the Night Sky sheets) may give one segment more rounds on _v2 than on the
+// base, which pushes every block under it down: a cell-by-cell compare then reads every cell below as
+// changed. When the two sheets carry the same segment labels at DIFFERENT rows, each _v2 row is compared
+// with the row at the same offset inside the same segment's block on the base; a row past the end of the
+// base block is a NEW round and every hand-typed cell of it is marked; a base block longer than the _v2
+// one is reported (nothing on _v2 to mark). Labels at the same rows (every sheet before D106) = the plain
+// cell-by-cell compare, bit for bit. Pure: { cells: [[r, c]], added: ['40-99 rounds 4, 5'], removed: [...] }.
+var V2DIFF_SEG_LABEL = /^(\d+\s*-\s*\d+|\d+\s*\+|ALL|A\.\s*0)$/i;
+function v2diffMarks_(bv, bf, vv, vf, cols){
+  var cells = [], added = [], removed = [];
+  var labels = function(v){
+    var out = [];
+    for (var r = 0; r < v.length; r++){
+      var a = String((v[r] || [])[0] == null ? '' : v[r][0]).trim();
+      if (V2DIFF_SEG_LABEL.test(a)) out.push({ label: a, row: r });
+    }
+    return out;
+  };
+  var lb = labels(bv), lv = labels(vv), shifted = false, bAt = {};
+  lb.forEach(function(x){ bAt[x.label] = x.row; });
+  lv.forEach(function(x){ if (bAt[x.label] !== x.row) shifted = true; });
+  var diffRow = function(rv, rb){
+    for (var c = 0; c < cols; c++){
+      var bfc = (rb != null && bf[rb]) ? bf[rb][c] : '', vfc = (vf[rv] || [])[c];
+      if ((bfc != null && bfc !== '') || (vfc != null && vfc !== '')) continue;   // ignore local sims / helpers (formulas)
+      var bval = (rb != null && bv[rb]) ? bv[rb][c] : '';
+      if (!v2diffEqual_(bval, (vv[rv] || [])[c])) cells.push([rv, c]);
+    }
+  };
+  if (!shifted || !lb.length){
+    var rows = Math.min(bv.length, vv.length);
+    for (var r = 0; r < rows; r++) diffRow(r, r);
+    return { cells: cells, added: added, removed: removed };
+  }
+  var used = function(row){ return (row || []).some(function(z){ return z !== '' && z != null; }); };
+  // a block runs from its label to the next label; its trailing blank rows are spacing, not rounds
+  var blockEnd = function(v, list, i){
+    var e = (i + 1 < list.length) ? list[i + 1].row : v.length;
+    while (e > list[i].row && !used(v[e - 1])) e--;
+    return e;
+  };
+  var bEndOf = {};
+  lb.forEach(function(x, i){ bEndOf[x.label] = blockEnd(bv, lb, i); });
+  var first = lv.length ? lv[0].row : vv.length;
+  for (var r0 = 0; r0 < Math.min(first, bv.length); r0++) diffRow(r0, r0);     // above the first block: positional
+  lv.forEach(function(x, i){
+    var vEnd = blockEnd(vv, lv, i), base = bAt[x.label];
+    var bEnd = (base != null) ? bEndOf[x.label] : null, newRows = [];
+    for (var rv = x.row; rv < vEnd; rv++){
+      var off = rv - x.row;
+      if (base != null && base + off < bEnd) diffRow(rv, base + off);
+      else { diffRow(rv, null); newRows.push(String((vv[rv] || [])[0])); }
+    }
+    if (newRows.length) added.push(x.label + ' rounds ' + newRows.join(', '));
+    if (base != null && (bEnd - base) > (vEnd - x.row)){
+      var gone = [];
+      for (var rb = base + (vEnd - x.row); rb < bEnd; rb++) gone.push(String((bv[rb] || [])[0]));
+      removed.push(x.label + ' rounds ' + gone.join(', '));
+    }
+  });
+  return { cells: cells, added: added, removed: removed };
 }
 
 // two cell values are "equal" for config purposes: numeric compare with tolerance, else trimmed

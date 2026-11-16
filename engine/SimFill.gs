@@ -913,6 +913,9 @@ function fillAllSims(){
   if (stoppedAt) lines.push('', 'STOPPED EARLY on the time budget: ' + stoppedAt + '. Run it again to finish.');
   if (notes.length) lines.push('', 'Not located:', '   ' + notes.join('\n   '));
   if (spsLine) lines.push('', spsLine);
+  // D106: the Night Sky ladder audit (Cum Streak Req as typed vs Streak Req) and rounds priced past the data
+  if (typeof nsNotes_ === 'function'){ var nsn = nsNotes_();
+    if (nsn.length) lines.push('', 'NIGHT SKY - read these before trusting the Night Sky rows:', '   ' + nsn.join('\n   ')); }
   lines.push('', 'These blocks no longer follow a config edit - re-run this after every edit.');
   simFillPopup_('Fill all sims', lines.join('\n'));
   return done.length;

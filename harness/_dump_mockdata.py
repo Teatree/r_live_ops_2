@@ -138,6 +138,8 @@ SHEETS = [
     # 2026-11-05, LIVE_OPS_V3 (18): the Night Sky round-claim feed and the Core SPT by-difficulty feed
     # (both re-pulled with the corrected filters; (18) adds the 250+ and ALL segments to every data_* sheet)
     'data_ns_rounds', 'data_core_spt',
+    # D106: the Night Sky pull of PROMPT_ns_rounds_progress.md (progress = the engine's curve; dayend / streak_session = the probe's checks)
+    'data_ns_progress', 'data_ns_dayend', 'data_ns_streak_session',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The

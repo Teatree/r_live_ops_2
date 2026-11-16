@@ -88,6 +88,19 @@ Shipped values, workbook (14), NONPAYER (sim == measured, diff 0, because `NS_v2
 tends to land roughly a second streak of similar size within the day, and the factor absorbs resets.
 INFERRED-from-study, uniform across segments and payer types.
 
+## Any number of rounds, priced on the event's own data (D106, 2026-11-16)
+
+- **Rows.** A segment block may hold any number of rounds, per segment (the redesign draft `LIVE_OPS_V3 - NS_test`: 0-9 / 10-19 / 20-39 keep 3, 40-99 has 7, 100+ has 10). The engine reads every numbered row under the block's header until a row whose first cell is not a plain number.
+- **Requirement.** `Cum Streak Req`, read as typed. A round whose Cum is not above the previous one, or is not the previous Cum + `Streak Req`, is named on change_summary row 4 and in Fill all sims' pop-up.
+- **Completion chance per round** (`nsRoundP_`):
+  - base round k: its measured claim rate per NS-active player-day (`data_ns_rounds`, weekday / weekend rows for the day type);
+  - redesign round k: measured x S(new req) / S(old req), against the base round it replaces (weekend `NS_v2` -> `NS`, weekday -> `NS_weekday`, else `NS`); unchanged requirement = measured;
+  - a new round (beyond the base ladder): S(req);
+  - S = `data_ns_progress`: share of NS-active player-days whose streak progress (as the event counts it) reached x; past the last measured point the slope is extended log-linearly (named on the sheet).
+- **Without the pull** S is the streak survival (`data_streaks` x 1.25), and its linear tail ends near 1.25 x p90, so rounds above ~140 at 100-249 price at 0.
+- **Population.** A segment reads its own config block's rows (`config_segment`), else the pooled ALL rows. The 2026-11 `data_ns_rounds` paid coins per claim that match no ladder (40-99 round 3: 89 vs 225), see `PROMPT_ns_rounds_progress.md` §0.
+- **Checks, not inputs:** `data_ns_dayend`, `data_ns_streak_session` (`harness/_probe_ns_rounds.js`).
+
 ## Flags / open questions
 
 1. **The overestimate was never diagnosed.** The pre-D22 bottom-up model produced absolute totals

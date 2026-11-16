@@ -317,6 +317,19 @@ function pbpSimulate_(a){
     // D22 behaviour). cal_curr is unaffected: the live game runs one Night Sky.
     var nsSeg = (typeof segCfgRep_ === 'function') ? segCfgRep_(a.seg, a.payer, ctx.ds) : a.seg;   // D94
     var nsLad = (a.cal === CAL_NEW) ? nsLadderForDay_(nsSeg, a.day) : readNSLadder_(nsSeg, 'NS');
+    // D106: with the pull's Night Sky round data, Expected mode is the median player-day: a round pays when
+    // at least half of the cell's player-days clear it, at the chance the window sim prices that round
+    // (measured claims, changes on the progress curve). Sampled mode keeps the trace's best run below.
+    if (!a.sampled && typeof nsDataFor_ === 'function' && nsDataFor_(nsSeg, a.payer)){
+      var nsDR = nsDayRounds_(nsSeg, a.payer, ctx.ds, a.day, a.cal !== CAL_NEW);   // base side: NS / NS_weekday
+      nsDR.ladder.forEach(function(ms, mi){
+        if (num(nsDR.p[mi]) >= 0.5)
+          grantsE.push({ cat: 'Daily Night Sky Prize', rew: ms.rew,
+            note: 'm' + (mi + 1) + ' @ ' + ms.req + ' (P(clear) ' + (Math.round(num(nsDR.p[mi]) * 1000) / 10) +
+                  '% >= 50% of ' + nsDR.dayType + ' player-days)' });
+      });
+      nsLad = [];
+    }
     nsLad.forEach(function(ms, mi){
       if (ms.req <= effStreak + 1e-9)
         grantsE.push({ cat: 'Daily Night Sky Prize', rew: ms.rew,
