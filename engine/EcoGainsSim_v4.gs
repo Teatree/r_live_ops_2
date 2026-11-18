@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D108  2026-11-18';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D109  2026-11-18';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -2289,8 +2289,14 @@ function anchorOne_(m, c, n){
   if (m > 0) return m + n;                  // the base walk never paid it: the export plus the addition
   return n;                                 // neither the data nor the base: an addition
 }
+// D109 (2026-11-18): while the CARD SIM reads its inflow (cardSeasonPre_ sets _cardModelLevel), the export anchoring
+// stands down on the redesign side as it always has on the measured side (_baseSide). The card sim's envelopes are put
+// on the data's level by the album calibration (k = measured / the core's own MODEL grants), so an export-anchored
+// redesign side was scaled twice and the two sides were on different levels: identical calendars and configs gave
+// 0-9 NONPAYER Daily Gift envelopes 0.33 (current) vs 1.66 (redesign) per season and Col - Sets 18.5 -> 42 coins.
+var _cardModelLevel = false;
 function exportAnchorBottomUp_(cat, seg, payer, ctx, row){
-  if (!EXPORT_ANCHORED || _baseSide || !row || seg === 'A. 0' || seg === 'A.0') return row;
+  if (!EXPORT_ANCHORED || _baseSide || _cardModelLevel || !row || seg === 'A. 0' || seg === 'A.0') return row;
   if (PACK_ANCHOR_SKIP[cat] && cat !== 'Season Pass (Free)') return row;
   var exp = measuredRowCore_(cat, seg, payer, ctx.ds);
   if (!bottomUpHasData_(exp)) return row;

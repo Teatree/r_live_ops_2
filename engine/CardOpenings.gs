@@ -950,7 +950,16 @@ function reachHet_(days, pWd, pWe, curve, nDays){
  *  Season Pass track, and the behaviour rates. packGrantPlan_ and spPackTiers_ walk the calendar and
  *  every config sheet, so calling them per simulated player would multiply the cost of a 50-player
  *  sweep by 50 for an identical result. Nothing in the core mutates what this returns. */
+// D109: the season core reads every inflow at the MODEL level on both sides (see _cardModelLevel in EcoGainsSim_v4.gs);
+// the album calibration puts it on the data's level. CARD_MODEL_LEVEL = false restores the export-anchored redesign side.
+var CARD_MODEL_LEVEL = true;
 function cardSeasonPre_(seg, payer, ctx, prof){
+  if (!CARD_MODEL_LEVEL || typeof _cardModelLevel === 'undefined' || _cardModelLevel) return cardSeasonPreCore_(seg, payer, ctx, prof);
+  _cardModelLevel = true;
+  try { return cardSeasonPreCore_(seg, payer, ctx, prof); }
+  finally { _cardModelLevel = false; }
+}
+function cardSeasonPreCore_(seg, payer, ctx, prof){
   ctx = ctx || Context.get();
   // D97: the album players' own behaviour row when the workbook has one (data_col_beh), else the cell's
   var bSrc = cardBeh_(seg, payer, ctx), b = bSrc.row;
