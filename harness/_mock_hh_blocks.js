@@ -157,6 +157,17 @@ function GATES(){
       L ? L.reqs.map(x => x.toFixed(1)).join(' ') : 'no ladder');
   }
   {
+    // H5b: a 'Cum tokens req' column with no number in it (formulas that errored / not cached) falls back to Tiles / accuracy
+    data['HH'] = blockLayout(false);
+    data['HH_v2'] = blockLayout(true, { cumCol: true });
+    data['HH_v2'].values.forEach(r => { if (/^Gate \d+$/.test(String(r[0]))) r[25] = '#REF!'; });
+    const c = fresh(), L = collBlockLadder_('HH_v2', coll, '10-19', 'HH');
+    let cum = 0; const want = TILES.map(t => (cum += t) / ACC);
+    restore(SNAP0);
+    gate('H5b: a Cum tokens column with no number in it falls back to Tiles / accuracy (no silent carry)', L && L.src === 'tiles' && L.reqs.every((q, i) => close(q, want[i], 1e-12)),
+      L ? L.src + ' ' + L.reqs.map(x => x.toFixed(1)).join(' ') : 'no ladder');
+  }
+  {
     // H6: a block without its own header reads the first one (same ladder as with every header written); 250+ reads 100+
     data['HH'] = blockLayout(false); data['HH_v2'] = blockLayout(true);
     fresh();

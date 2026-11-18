@@ -574,6 +574,21 @@ function GATES(){
       'S(150) uncensored ' + handSt(mu, 150).toFixed(5) + ' / censored ' + C2.S(150).toFixed(5));
   }
   {
+    // E6c: a 'censored_at' column wins over the old final round: blank = read every point, a value = cut there
+    const snap = snapAll();
+    both();
+    const addCens = (val) => { const v = data['data_ns_streak_dist'].values; v[0].push('censored_at'); for (let i = 1; i < v.length; i++) v[i].push(val); };
+    addCens('');
+    let c = fresh(); const Cb = nsCurve_('40-99', 'PAYER', c.ds, 'weekend'), mu = muS('40-99', 'weekend', 'PAYER');
+    const okBlank = [64, 150, 300, 700].every(x => close(Cb.S(x), handSt(mu, x), 1e-12));
+    both(); addCens(30);
+    c = fresh(); const C64 = nsCurve_('40-99', 'PAYER', c.ds, 'weekend'), C100 = handSt(mu, 20, 100);
+    const ok64 = [8, 16, 20, 100, 300].every(x => close(C64.S(x), handSt(mu, x, 30), 1e-12)) && !close(C64.S(20), C100, 1e-6);
+    restore(snap);
+    gate('E6c: a censored_at column says where the curve stops - blank reads every point, 30 cuts at 30 (not at the old final round 100)',
+      okBlank && ok64, 'S(150) blank ' + Cb.S(150).toFixed(5) + '; S(20) cut at 30 ' + C64.S(20).toFixed(5) + ' / at the old final ' + C100.toFixed(5));
+  }
+  {
     // E7: a changed requirement = per-day claims x S(new) / S(old); a NEW round = S(req) on the streak curve
     const snap = snapAll();
     both();

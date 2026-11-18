@@ -3789,6 +3789,17 @@ function collBlockLadder_(sheetName, spec, seg, other){
           if (tilesC < 0 && spec.tilesLabel && t === String(spec.tilesLabel).toLowerCase()) tilesC = c;
         }
         var reqs = [], rews = [], labels = [], cum = 0, acc = null;
+        // a 'Cum tokens' column that holds no positive number (a formula that errored, cleared cells) is not read:
+        // the Tiles take over rather than the block pricing as 'no requirements' (and the source being carried)
+        if (cumC >= 0){
+          var anyCum = false;
+          for (var r1 = g0; r1 < v.length && collIsGate_((v[r1] || [])[0]) && !anyCum; r1++) if (num((v[r1] || [])[cumC]) > 0) anyCum = true;
+          if (!anyCum && tilesC >= 0){
+            nsNote_('cum|' + sheetName + '|' + segCanon_(seg), sheetName + ' ' + segLabel_(seg) + ': the "' + spec.reqLabel +
+                    '" column holds no number - requirements read from Tiles / accuracy.');
+            cumC = -1;
+          }
+        }
         if (cumC < 0 && tilesC >= 0){
           acc = collLabelValue_(sheetName, spec.accLabel || 'accuracy');
           if (acc == null && other) acc = collLabelValue_(other, spec.accLabel || 'accuracy');
@@ -4393,13 +4404,14 @@ function nsReadStreakDist_(v, bad, finals){
   for (var nm in h){ var m = /^players_ge_(\d+(?:\.\d+)?)$/.exec(nm); if (m) ge.push({ x: parseFloat(m[1]), c: h[nm] }); }
   if (!ge.length) return null;
   ge.sort(function(a, b){ return a.x - b.x; });
-  var acc = {}, n = 0, dropped = 0;
+  var acc = {}, n = 0, dropped = 0, cens = {};
   for (var j = 1; j < v.length; j++){
     var r = v[j];
     if (!r || r[h['ladder']] == null || r[h['ladder']] === '') continue;
     if (ANCHOR_ARM && h['config_arm'] != null && String(r[h['config_arm']] || '').trim().indexOf(ANCHOR_ARM) !== 0) continue;
     if (h['event_date'] != null && bad && bad[nsDateKey_(r[h['event_date']])]){ dropped++; continue; }
     var lad = segCanon_(r[h['ladder']]);
+    if (h['censored_at'] != null){ var cz = num(r[h['censored_at']]); if (cz > 0 && !(cens[lad] >= cz)) cens[lad] = cz; }
     var pay = (h['payer_flag'] != null) ? String(r[h['payer_flag']] || '').trim() : 'ALL';
     var t = (h['day_type'] != null) ? String(r[h['day_type']] || '').trim().toLowerCase() : '';
     var a = num(r[h['players_active']]);
@@ -4420,7 +4432,9 @@ function nsReadStreakDist_(v, bad, finals){
   var out = {};
   for (var lad in acc) for (var p in acc[lad]) for (var d in acc[lad][p]){
     var o = acc[lad][p][d], pts = [{ x: 0, s: 1 }], last = 1;
-    var fin = (NS_STREAK_CENSOR && finals && finals[lad] > 0) ? finals[lad] : null;
+    // a sheet carrying 'censored_at' says itself where it stops (blank / 0 = not censored): it wins over the old finals
+    var fin = !NS_STREAK_CENSOR ? null : (h['censored_at'] != null) ? ((cens[lad] > 0) ? cens[lad] : null)
+            : (finals && finals[lad] > 0) ? finals[lad] : null;
     ge.forEach(function(g, k){
       if (fin != null && g.x > fin + 1e-9) return;                          // D107c: censored past the final round
       var sv = Math.max(0, Math.min(1, o.c[k] / o.W));

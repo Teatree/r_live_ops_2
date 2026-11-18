@@ -129,3 +129,23 @@ For a ladder and day type, `S(X) = SUM players_ge_X / SUM players_active` over t
 pooled, or one payer). A round with requirement X then completes on `c x S(X)` of active player-days, where
 `c` = claims / S at today's rounds (close to 1 if §4.2 holds). The NS_v2 / NS_v2_weekday sheets and the
 economy engine both read the sheet by its headers; until it exists they fall back to `data_ns_progress`.
+
+## 7. Follow-up on the 2026-11-18 delivery
+
+Thank you - `data_ns_streak_dist` reproduces the claims well: claimed / `players_ge_<cum_req>` is 1.01-1.14
+on every ladder and round. One thing is still missing: **the counter stops at each ladder's final round**,
+so nothing above it is measured (§2.5, §4.4):
+
+| ladder | final round | share reaching it | share reaching the next column |
+|---|---|---|---|
+| 0-9 | 10 | 20.1% | 11: 3.4% |
+| 10-19 | 26 | 7.7% | 28: 0.9% |
+| 20-39 | 42 | 7.6% | 50: 0.5% |
+| 40-99 | 100 | 4.4% | 102: 0.36% |
+| 100+ | 280 | 1.6% | 300: 0.12% |
+
+The redesign's new rounds sit above those points (40-99 at 102 / 142 / 197, 100+ at 335 / 440, 20-39 at 62),
+so until then I extend the curve past the final round on its own slope (an assumption). Please re-deliver
+the sheet with the counter **rebuilt past the final round** from the level results, with the same reset
+rule as below it, and add a column `censored_at` = the ladder's final requirement if any part of a row
+still stops there.
