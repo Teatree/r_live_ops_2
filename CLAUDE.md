@@ -107,6 +107,12 @@ node harness/_mock_ns_rounds.js [--data v3x]       # D106: Night Sky with any nu
                                                   #   data_ns_* sheets: measured claims, m x S(new)/S(old), new rounds, the extended slope, config_segment, V2Diff blocks)
 node harness/_probe_ns_rounds.js [--data v3x] [--seg 40-99] [--payer NONPAYER]   # D106: every round's chance per side and day type, the NS row in every
                                                   #   view, the prompt's reconciliations (rounds vs dayend, rounds vs progress), the Night Sky notes
+python builders/_build_ns_localsim.py            # -> display/NS_v2_LocalSim_v1.xlsx (2026-11-18): NS_v2_weekday + NS_v2 copied from the newest
+                                                  #    'LiveOps_cal_NS_completions_increase' workbook with a local sim (AI1:AS12: rounds / rewards per day at a
+                                                  #    percentile) and a round-completion table (AI15: old = data_ns_reach claim_rate_active, new =
+                                                  #    MIN(1, c(X/D) x S(X/D)), S = data_ns_progress pooled, c = claims / S at the OLD requirements, interpolated
+                                                  #    by requirement). NOT the engine's D106 rule for new rounds (raw S, ~2x, unordered) - flagged on the sheet.
+                                                  #    Prints the expected values (same rule in Python) to check the import against
 node harness/_mock_mic_data.js [--data v3v]       # D105: Mighty Ice Cream on data_mic - defaults, quantiles, league mix, places / redesign by hand, the local sim's VALUE
 node harness/_probe_mic_data.js [--data v3v] [--part 0.6]   # D105: the local sim per payer + the MiC row per cell on a dump (cal_parsed rebuilt)
 node harness/_probe_mic_league.js [--data v3w] [--sizes 8,16.3,60]   # Mic_v2 'League size' swept through change_summary's own pass: the MiC row per band
