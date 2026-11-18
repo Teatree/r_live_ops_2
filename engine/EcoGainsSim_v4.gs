@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D106  2026-11-16';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D107  2026-11-18';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -4145,6 +4145,25 @@ function nsEDay_(ladder, S, prov){
 // (harness/_probe_ns_rounds.js) reconciles them against these numbers.
 var NS_ROUND_DATA = true;
 var NS_ROUNDS_SHEET = 'data_ns_rounds', NS_PROGRESS_SHEET = 'data_ns_progress';
+// D107 (2026-11-18, user decisions): the base rounds' claim rates come from data_ns_per_day_reach when it
+// carries the segment's LADDER - one row per event date x ladder x round with players_active / players_claimed
+// and the date's day_type - read as SUM claimed / SUM active per day type (weekday, weekend, all). The sheet has
+// no payer split: NONPAYER and PAYER of a segment read their ladder's rate (250+ the 100+ ladder, segCfgKeys_).
+// Rows of another arm than ANCHOR_ARM (config_arm starts with it) are skipped. A pull whose first day(s) count
+// more claims than active players on a date (Oct 13 on the 2026-11-18 pull: 0-9 round 1, 7,075 claims / 4,761
+// active) leaves that whole date out (a rule, not a date in code; named in the notes; NS_PERDAY_DROP_DEFECT =
+// false keeps it). No sheet, no rows for the ladder, or NS_PERDAY_READ = false: data_ns_rounds as in D106.
+// THE CURVE (same day, PROMPT_ns_streak_curve.md): data_ns_streak_dist = per (date, ladder, payer) counts of active
+// players whose daily peak on the claim's own counter reached X (players_ge_<X>), on data_ns_per_day_reach's
+// denominator. S(X) = SUM players_ge_X / SUM players_active over the kept dates of the day type (the cell's payer,
+// else both pooled), points (0, 1) + every players_ge_X, nsCurveFn_ (linear, slope extended past the last point).
+// COHERENCE RULE: the per-day claim rates are read ONLY together with that curve. data_ns_progress runs ~2x the
+// claims from 20-39 up (it behaves like data_ns_reach's 'reached', not 'reached_streak'); measured claims on the base
+// side with that curve on the redesign side priced Night Sky at 3.7x D106 on 250+ (workbook (2): 4,253 -> 15,884
+// coins), because a NEW round is priced on the raw curve. So until data_ns_streak_dist exists for the ladder, the
+// engine is D106 bit for bit; with it, base = per-day claims, curve = the streak counts.
+var NS_PERDAY_READ = true, NS_PERDAY_DROP_DEFECT = true;
+var NS_PERDAY_SHEET = 'data_ns_per_day_reach', NS_STREAK_SHEET = 'data_ns_streak_dist';
 var _nsDataCache = undefined, _nsCurveCache = {}, _nsNoteSet = {}, _nsNotes = [];
 /** A note for the change summary / the fill's pop-up / the log, kept once per key per execution. */
 function nsNote_(key, text){
@@ -4167,12 +4186,154 @@ function nsNumOrNull_(x){
 /** The pull's two Night Sky sheets, indexed: { rounds, progress } (either null when absent / unusable). */
 function nsData_(){
   if (_nsDataCache !== undefined) return _nsDataCache;
-  var out = { rounds: null, progress: null };
+  var out = { rounds: null, progress: null, perDay: null, streak: null };
   if (NS_ROUND_DATA){
     out.rounds = nsReadRounds_(sheetVals_(NS_ROUNDS_SHEET));
     out.progress = nsReadProgress_(sheetVals_(NS_PROGRESS_SHEET));
+    if (NS_PERDAY_READ){
+      var pdv = sheetVals_(NS_PERDAY_SHEET);
+      out.streak = nsReadStreakDist_(sheetVals_(NS_STREAK_SHEET), nsPerDayBad_(pdv));
+      if (out.streak) out.perDay = nsReadPerDay_(pdv);         // the coherence rule (see NS_STREAK_SHEET)
+    }
   }
   return (_nsDataCache = out);
+}
+/** A date cell as a sortable key (a Date, a serial number or an ISO-like string). */
+function nsDateKey_(x){
+  if (x instanceof Date) return x.getTime();
+  if (typeof x === 'number') return x;
+  var s = String(x == null ? '' : x).trim(), d = Date.parse(s);
+  return isNaN(d) ? s : d;
+}
+/** A date cell as yyyy-mm-dd in LOCAL time (a sheet date is local midnight; toISOString would print the day
+ *  before east of UTC); a string is cut to its date part. */
+function nsDateName_(x){
+  var d = (x instanceof Date) ? x : (typeof x === 'number' ? new Date(x) : null);
+  if (!d){ var s = String(x == null ? '' : x).trim(); return s.slice(0, 10); }
+  var p = function(n){ return (n < 10 ? '0' : '') + n; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+/** D107: the dates of data_ns_per_day_reach on which some round counts more claims than active players, as a
+ *  { dateKey: name } map ({} with NS_PERDAY_DROP_DEFECT = false or no such column). */
+function nsPerDayBad_(v){
+  var out = {};
+  if (!NS_PERDAY_DROP_DEFECT || !v || v.length < 2) return out;
+  var h = nsHdr_(v[0]);
+  if (h['event_date'] == null || h['players_active'] == null || h['players_claimed'] == null) return out;
+  for (var j = 1; j < v.length; j++){
+    var r = v[j];
+    if (r && num(r[h['players_claimed']]) > num(r[h['players_active']])) out[nsDateKey_(r[h['event_date']])] = nsDateName_(r[h['event_date']]);
+  }
+  return out;
+}
+/** D107: data_ns_streak_dist -> { canonical ladder: { payer | 'ALL': { 'weekday' | 'weekend' | 'all': [{x, s}] } } },
+ *  or null. Counts are pooled over the kept dates (ANCHOR_ARM, not a `bad` date) before dividing. */
+function nsReadStreakDist_(v, bad){
+  if (!v || v.length < 2) return null;
+  var h = nsHdr_(v[0]);
+  if (h['ladder'] == null || h['players_active'] == null) return null;
+  var ge = [];
+  for (var nm in h){ var m = /^players_ge_(\d+(?:\.\d+)?)$/.exec(nm); if (m) ge.push({ x: parseFloat(m[1]), c: h[nm] }); }
+  if (!ge.length) return null;
+  ge.sort(function(a, b){ return a.x - b.x; });
+  var acc = {}, n = 0, dropped = 0;
+  for (var j = 1; j < v.length; j++){
+    var r = v[j];
+    if (!r || r[h['ladder']] == null || r[h['ladder']] === '') continue;
+    if (ANCHOR_ARM && h['config_arm'] != null && String(r[h['config_arm']] || '').trim().indexOf(ANCHOR_ARM) !== 0) continue;
+    if (h['event_date'] != null && bad && bad[nsDateKey_(r[h['event_date']])]){ dropped++; continue; }
+    var lad = segCanon_(r[h['ladder']]);
+    var pay = (h['payer_flag'] != null) ? String(r[h['payer_flag']] || '').trim() : 'ALL';
+    var t = (h['day_type'] != null) ? String(r[h['day_type']] || '').trim().toLowerCase() : '';
+    var a = num(r[h['players_active']]);
+    if (!(a > 0)) continue;
+    [pay, 'ALL'].filter(function(p, i, arr){ return arr.indexOf(p) === i; }).forEach(function(p){
+      [t, 'all'].filter(function(d, i, arr){ return (d === 'weekday' || d === 'weekend' || d === 'all') && arr.indexOf(d) === i; })
+        .forEach(function(d){
+          var o = (((acc[lad] = acc[lad] || {})[p] = acc[lad][p] || {})[d] = acc[lad][p][d] || { W: 0, c: ge.map(function(){ return 0; }) });
+          o.W += a;
+          ge.forEach(function(g, k){ o.c[k] += num(r[g.c]); });
+        });
+    });
+    n++;
+  }
+  if (!n) return null;
+  if (dropped) nsNote_('streak-cut', NS_STREAK_SHEET + ': ' + dropped + ' rows on dates ' + NS_PERDAY_SHEET +
+                       ' flags (a round with more claims than active players) are left out.');
+  var out = {};
+  for (var lad in acc) for (var p in acc[lad]) for (var d in acc[lad][p]){
+    var o = acc[lad][p][d], pts = [{ x: 0, s: 1 }], last = 1;
+    ge.forEach(function(g, k){
+      var sv = Math.max(0, Math.min(1, o.c[k] / o.W));
+      if (g.x <= pts[pts.length - 1].x || sv > last + 1e-12) return;        // one point per x, never rising
+      pts.push({ x: g.x, s: sv }); last = sv;
+    });
+    ((out[lad] = out[lad] || {})[p] = out[lad][p] || {})[d] = pts;
+  }
+  return out;
+}
+/** D107: the streak-curve rows of the LADDER a segment plays, or null. */
+function nsStreakLadder_(seg){
+  var D = nsData_().streak;
+  if (!D) return null;
+  var keys = segCfgKeys_(seg).map(segCanon_);
+  for (var i = 0; i < keys.length; i++) if (D[keys[i]]) return D[keys[i]];
+  return null;
+}
+/** D107: data_ns_per_day_reach -> { canonical ladder: { k: {all, we, wd, req, pd} } }, or null. */
+function nsReadPerDay_(v){
+  if (!v || v.length < 2) return null;
+  var h = nsHdr_(v[0]);
+  var need = ['ladder', 'round', 'players_active', 'players_claimed'];
+  for (var i = 0; i < need.length; i++) if (h[need[i]] == null) return null;
+  var rows = [];
+  for (var j = 1; j < v.length; j++){
+    var r = v[j];
+    if (!r || r[h['ladder']] == null || r[h['ladder']] === '') continue;
+    if (ANCHOR_ARM && h['config_arm'] != null && String(r[h['config_arm']] || '').trim().indexOf(ANCHOR_ARM) !== 0) continue;
+    var k = Math.round(num(r[h['round']]));
+    if (!(k >= 1)) continue;
+    rows.push(r);
+  }
+  if (!rows.length) return null;
+  // the defect rule: a date on which some round counts more claims than active players is left out whole
+  var dc = h['event_date'];
+  if (dc != null && NS_PERDAY_DROP_DEFECT){
+    var bad = nsPerDayBad_(v), names = [];
+    for (var bk in bad) names.push(bad[bk]);
+    if (names.length){
+      var before = rows.length;
+      rows = rows.filter(function(r){ return !bad[nsDateKey_(r[dc])]; });
+      nsNote_('perday-cut', NS_PERDAY_SHEET + ': ' + (before - rows.length) + ' rows on ' + names.join(', ') +
+              ' are left out - a round counts more claims than active players that day.');
+    }
+  }
+  var out = {}, n = 0, dt = h['day_type'];
+  rows.forEach(function(r){
+    var lad = segCanon_(r[h['ladder']]), k = Math.round(num(r[h['round']]));
+    var o = ((out[lad] = out[lad] || {})[k] = out[lad][k] || { a: 0, c: 0, aWe: 0, cWe: 0, aWd: 0, cWd: 0, req: null });
+    var a = num(r[h['players_active']]), c = num(r[h['players_claimed']]);
+    var t = (dt != null) ? String(r[dt] || '').trim().toLowerCase() : '';
+    o.a += a; o.c += c;
+    if (t === 'weekend'){ o.aWe += a; o.cWe += c; } else if (t === 'weekday'){ o.aWd += a; o.cWd += c; }
+    if (h['cum_req'] != null && nsNumOrNull_(r[h['cum_req']]) != null) o.req = num(r[h['cum_req']]);
+    n++;
+  });
+  if (!n) return null;
+  for (var lad in out) for (var k in out[lad]){
+    var o = out[lad][k];
+    out[lad][k] = { all: o.a > 0 ? o.c / o.a : null, we: o.aWe > 0 ? o.cWe / o.aWe : null,
+                    wd: o.aWd > 0 ? o.cWd / o.aWd : null, req: o.req, pd: o.a };
+  }
+  return out;
+}
+/** D107: the per-day reach rows of the LADDER a segment plays (its config labels, segCfgKeys_), or null. */
+function nsPerDayLadder_(seg){
+  var D = nsData_().perDay;
+  if (!D) return null;
+  var keys = segCfgKeys_(seg).map(segCanon_);
+  for (var i = 0; i < keys.length; i++) if (D[keys[i]]) return D[keys[i]];
+  return null;
 }
 /** data_ns_rounds -> { 'seg|payer': { cfg: { ver: { k: {all, we, wd, req} } } } }, or null. */
 function nsReadRounds_(v){
@@ -4307,7 +4468,16 @@ function nsCurve_(seg, payer, ds, dayType){
   if (_nsCurveCache[key] !== undefined) return _nsCurveCache[key];
   var out = null, D = nsData_().progress, cellR = D && nsCellRows_(D, seg, payer);
   var cfg = cellR ? nsCfgPick_(cellR, seg) : null;
-  if (cfg){
+  var ST = nsStreakLadder_(seg);
+  if (ST){                                                   // D107: the claim's counter, on the per-day denominator
+    var byP = ST[payer] || ST['ALL'];
+    var sdt = (dayType && byP[dayType]) ? dayType : 'all';
+    if (byP[sdt] && byP[sdt].length >= 2)
+      out = { S: nsCurveFn_(byP[sdt], segLabel_(seg, ds) + ' ' + payer + (sdt === 'all' ? '' : ' ' + sdt)),
+              src: 'streak', dayTyped: !!(dayType && dayType !== 'all' && sdt === dayType) };
+  }
+  if (out){
+  } else if (cfg){
     var byDt = cellR[cfg], dt = (dayType && byDt[dayType]) ? dayType : (byDt['all'] ? 'all' : Object.keys(byDt)[0]);
     out = { S: nsCurveFn_(byDt[dt], segLabel_(seg, ds) + ' ' + payer + (dt === 'all' ? '' : ' ' + dt)),
             src: 'progress', dayTyped: !!(dayType && dayType !== 'all' && dt === dayType) };
@@ -4323,6 +4493,22 @@ function nsCurve_(seg, payer, ds, dayType){
  *  dayTyped } or null. A pull with several ladder versions reads the one whose requirements match the
  *  base ladder best; a round whose measured requirement differs from the sheet's is noted. */
 function nsMeasRates_(seg, payer, dayType, baseLadder){
+  var PD = nsStreakLadder_(seg) ? nsPerDayLadder_(seg) : null;   // the coherence rule (NS_STREAK_SHEET)
+  if (PD){                                                   // D107: the ladder's own per-day claims
+    var typedPD = false;
+    var ratesPD = (baseLadder || []).map(function(ms, k){
+      var o = PD[k + 1];
+      if (!o) return null;
+      if (o.req != null && Math.abs(o.req - ms.req) > 1e-9)
+        nsNote_('preq|' + segCanon_(seg) + '|' + (k + 1), segLabel_(seg) + ' round ' + (k + 1) + ': ' + NS_PERDAY_SHEET +
+                ' measured it at cum streak ' + o.req + ', the base sheet says ' + ms.req +
+                ' - the measured claims are read as the base round (the sheet is taken as the config that ran).');
+      var dv = (dayType === 'weekend') ? o.we : (dayType === 'weekday') ? o.wd : null;
+      if (dv != null){ typedPD = true; return dv; }
+      return o.all;
+    });
+    return { rates: ratesPD, dayTyped: typedPD, src: 'perday' };
+  }
   var D = nsData_().rounds, cellR = D && nsCellRows_(D, seg, payer);
   var cfg = cellR ? nsCfgPick_(cellR, seg) : null;
   if (!cfg) return null;
@@ -4377,7 +4563,8 @@ function nsDayRounds_(seg, payer, ds, day, baseSide){
 /** true when the pull carries Night Sky round or progress rows for the cell (its own or its parent's). */
 function nsDataFor_(seg, payer){
   var D = nsData_();
-  return !!((D.rounds && nsCellRows_(D.rounds, seg, payer)) || (D.progress && nsCellRows_(D.progress, seg, payer)));
+  return !!((D.rounds && nsCellRows_(D.rounds, seg, payer)) || (D.progress && nsCellRows_(D.progress, seg, payer)) ||
+            nsStreakLadder_(seg));
 }
 /** The ladder audit (user decision 2026-11-16: the engine reads Cum Streak Req as typed and says where it
  *  disagrees with Streak Req): every round, on every Night Sky sheet, whose Cum Streak Req is not above

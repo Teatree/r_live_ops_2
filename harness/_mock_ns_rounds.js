@@ -38,7 +38,7 @@ function GATES(){
   const CAT = 'Daily Night Sky Prize';
   eval(fs.readFileSync(ENGINE('EcoGainsSim_PBP.gs'), 'utf8'));
   eval(fs.readFileSync(ENGINE('V2Diff.gs'), 'utf8'));
-  const NSS = ['NS', 'NS_weekday', 'NS_v2', 'NS_v2_weekday', 'data_ns_rounds', 'data_ns_progress'];
+  const NSS = ['NS', 'NS_weekday', 'NS_v2', 'NS_v2_weekday', 'data_ns_rounds', 'data_ns_progress', 'data_ns_per_day_reach', 'data_ns_streak_dist'];
   const snapAll = () => { const o = {}; NSS.forEach(n => { o[n] = data[n] ? JSON.stringify(data[n]) : null; }); return o; };
   const restore = (o) => { NSS.forEach(n => { if (o[n] == null) delete data[n]; else data[n] = JSON.parse(o[n]); }); fresh(); };
   const SNAP0 = snapAll();
@@ -64,7 +64,7 @@ function GATES(){
   say('data: ' + (data._meta ? data._meta.source : '?') + '   engine ' + ENGINE_BUILD);
   // ================================================================ A. STRUCTURE (no data sheets)
   say('\n================ A. ANY NUMBER OF ROUNDS PER SEGMENT (no data_ns_* sheets) ================');
-  delete data['data_ns_rounds']; delete data['data_ns_progress'];
+  delete data['data_ns_rounds']; delete data['data_ns_progress']; delete data['data_ns_per_day_reach']; delete data['data_ns_streak_dist'];
   ctx = fresh();
   {
     // every numbered row of every block is a round
@@ -378,6 +378,182 @@ function GATES(){
     }));
     gate('C11: with the pull read, the daily view sums to the window row on every cell, both sides', worst < 1e-9, 'worst ' + worst.toExponential(2));
   }
+
+  // ================================================================ E. D107: per-day claims + the streak curve
+  say('\n================ E. D107 - data_ns_per_day_reach (base claims) + data_ns_streak_dist (the curve) ================');
+  // synthetic per-day pull: two weekday and two weekend dates per ladder with different actives; claims =
+  // active x rate(ladder, k, day type) x a per-date wobble, so the pooled rate is SUM claimed / SUM active by hand.
+  // Optional: a defect date (round 1 claims > actives); rows of another arm.
+  const LADS = ['0-9', '10-19', '20-39', '40-99', '100+'];
+  const rateOf = (lab, k, dt) => 0.8 * Math.pow(0.55, k) * (dt === 'weekend' ? 1.1 : 0.95) * (1 + 0.1 * LADS.indexOf(lab));
+  const DATES = [['2026-10-14', 'weekday', 1000, 1.0], ['2026-10-15', 'weekday', 3000, 1.2],
+                 ['2026-10-16', 'weekend', 2000, 0.9], ['2026-10-17', 'weekend', 500, 1.3]];
+  const DEFECT = ['2026-10-13', 'weekday', 900, 3.0];
+  const perDaySheet = (opts) => {
+    opts = opts || {};
+    const hdr = ['event_date', 'day_type', 'event_id', 'event_name', 'ladder', 'config_arm', 'round', 'rounds_total', 'round_req',
+                 'cum_req', 'players_eligible', 'players_joined', 'players_active', 'players_reached_streak', 'players_reached_longest',
+                 'players_reached', 'players_claimed'];
+    const rows = [hdr];
+    const dates = (opts.defect ? [DEFECT.concat([true])] : []).concat(DATES.map(d => d.concat([false])));
+    LADS.forEach(lab => {
+      const base = nsLadderOn_('NS', segCanon_(lab));
+      dates.forEach(([d, dt, act, wob, bad]) => base.forEach((ms, k) => {
+        const claimed = bad && k === 0 ? act * 1.5 : act * rateOf(lab, k + 1, dt) * wob;
+        rows.push([d, dt, 'e' + d + lab, 'NS ' + lab, lab, 'Variant A (Dream Album)', k + 1, base.length, 0, ms.req,
+                   act * 5, act * 1.2, act, 0, 0, 0, claimed]);
+        if (opts.otherArm) rows.push([d, dt, 'c' + d + lab, 'NS ' + lab, lab, 'Control', k + 1, base.length, 0, ms.req, 1, 1, 10, 0, 0, 0, 9]);
+      }));
+    });
+    return { values: rows, merges: [] };
+  };
+  const handRate = (lab, k, dt) => {
+    let a = 0, c = 0;
+    DATES.forEach(([d, t, act, wob]) => { if (t === dt){ a += act; c += act * rateOf(lab, k, dt) * wob; } });
+    return c / a;
+  };
+  // synthetic streak sheet (PROMPT_ns_streak_curve.md): per (date, ladder, payer) players_ge_X = active x A2 exp(-X / mu),
+  // mu by ladder, day type and payer - the same on every date, so the pooled per-payer curve is that shape at the points.
+  // The defect date (when asked) carries a very different shape, so reading it would show.
+  const XG = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512], A2 = 0.9;
+  const muS = (lab, dt, pay) => 10 * (1 + LADS.indexOf(lab)) * (dt === 'weekend' ? 1.2 : 1) * (pay === 'PAYER' ? 0.9 : 1);
+  const streakSheet = (opts) => {
+    opts = opts || {};
+    const rows = [['event_date', 'day_type', 'ladder', 'config_arm', 'payer_flag', 'players_active', 'players_zero', 'progress_sum',
+                   'progress_max'].concat(XG.map(x => 'players_ge_' + x))];
+    const dates = (opts.defect ? [DEFECT.concat([true])] : []).concat(DATES.map(d => d.concat([false])));
+    LADS.forEach(lab => dates.forEach(([d, dt, act, wob, bad]) => ['NONPAYER', 'PAYER'].forEach(pay => {
+      const a = act * (pay === 'PAYER' ? 0.4 : 0.6), mu = bad ? 1 : muS(lab, dt, pay);
+      rows.push([d, dt, lab, 'Variant A (Dream Album)', pay, a, a * (1 - A2), 0, 0].concat(XG.map(x => a * A2 * Math.exp(-x / mu))));
+    })));
+    return { values: rows, merges: [] };
+  };
+  const handSt = (mu, x) => {                            // (0,1) then the grid points, linear; extended past 512
+    const pts = [[0, 1]].concat(XG.map(X => [X, A2 * Math.exp(-X / mu)]));
+    if (x <= 0) return 1;
+    for (let j = 1; j < pts.length; j++) if (x <= pts[j][0]) { const a = pts[j - 1], b = pts[j]; return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); }
+    const l = pts[pts.length - 1], pr = pts[pts.length - 2];
+    return l[1] * Math.exp(-Math.log(pr[1] / l[1]) / (l[0] - pr[0]) * (x - l[0]));
+  };
+  const both = (opts) => { data['data_ns_per_day_reach'] = perDaySheet(opts); data['data_ns_streak_dist'] = streakSheet(opts); };
+  {
+    // E0: the coherence rule - data_ns_per_day_reach WITHOUT the streak curve is not read (D106 bit for bit)
+    const R0d = rowsOf();
+    const snap = snapAll();
+    data['data_ns_per_day_reach'] = perDaySheet();
+    const R1 = rowsOf();
+    restore(snap);
+    gate('E0: data_ns_per_day_reach without data_ns_streak_dist is not read - every NS row as D106 (claims on one footing, the curve on another priced 250+ at 3.7x)',
+      cells.every(([s, p]) => sameRow(R1[s + '|' + p], R0d[s + '|' + p])));
+  }
+  {
+    // E1: base rounds = SUM claimed / SUM active per day type, the ladder's rate for BOTH payers (data_ns_rounds present, not read)
+    const snap = snapAll();
+    both();
+    const c = fresh();
+    let bad = 0, n = 0, det = '';
+    [['40-99', '40-99'], ['10-19', '10-19'], ['100-249', '100+']].forEach(([seg, lab]) => ['NONPAYER', 'PAYER'].forEach(p => {
+      const L = nsE_(seg, p, c.ds, c).ladders;
+      L.pbWe.forEach((x, k) => { n++; if (!close(x, handRate(lab, k + 1, 'weekend'), 1e-12)) bad++; });
+      L.pbWd.forEach((x, k) => { n++; if (!close(x, handRate(lab, k + 1, 'weekday'), 1e-12)) bad++; });
+      if (seg === '40-99' && p === 'PAYER') det = L.pbWe.map(x => x.toFixed(4)).join(' ') + ' | ' + L.pbWd.map(x => x.toFixed(4)).join(' ');
+    }));
+    restore(snap);
+    gate('E1: a base round = SUM claimed / SUM active of its ladder for the day type, the same for NONPAYER and PAYER (data_ns_rounds not read)',
+      n > 0 && bad === 0, n + ' rounds, ' + bad + ' off; 40-99 we | wd: ' + det);
+  }
+  {
+    // E2: the defect rule - a date on which a round counts more claims than actives is left out (both sheets), and named
+    const snap = snapAll();
+    both({ defect: true });
+    const c = fresh(), L = nsE_('20-39', 'NONPAYER', c.ds, c).ladders;
+    const ok = L.pbWd.every((x, k) => close(x, handRate('20-39', k + 1, 'weekday'), 1e-12));
+    const S = nsCurve_('20-39', 'NONPAYER', c.ds, 'weekday').S, mu = muS('20-39', 'weekday', 'NONPAYER');
+    const okS = [3, 16, 50].every(x => close(S(x), handSt(mu, x), 1e-12));
+    const noted = nsNotes_().some(x => /more claims than active players/.test(x) && /2026-10-13/.test(x));
+    NS_PERDAY_DROP_DEFECT = false;
+    const c2 = fresh(), L2 = nsE_('20-39', 'NONPAYER', c2.ds, c2).ladders;
+    NS_PERDAY_DROP_DEFECT = true;
+    const r2 = (4000 * handRate('20-39', 2, 'weekday') + 900 * rateOf('20-39', 2, 'weekday') * 3.0) / 4900;
+    restore(snap);
+    gate('E2: a date on which a round counts more claims than actives is left out of the claims AND the streak curve, and named',
+      ok && okS && noted, L.pbWd.map(x => x.toFixed(4)).join(' ') + (okS ? ', curve ok' : ', curve OFF') + (noted ? ' (noted)' : ' (no note)'));
+    gate('E2b: NS_PERDAY_DROP_DEFECT = false keeps that date (round 2 pools it in, by hand)', close(L2.pbWd[1], r2, 1e-12),
+      L2.pbWd[1].toFixed(5) + ' vs ' + r2.toFixed(5));
+  }
+  {
+    // E3: rows of another arm than ANCHOR_ARM are skipped
+    const snap = snapAll();
+    both({ otherArm: true });
+    const c = fresh(), L = nsE_('0-9', 'PAYER', c.ds, c).ladders;
+    const ok = L.pbWe.every((x, k) => close(x, handRate('0-9', k + 1, 'weekend'), 1e-12));
+    restore(snap);
+    gate('E3: rows whose config_arm is not ANCHOR_ARM are skipped', ok, L.pbWe.map(x => x.toFixed(4)).join(' '));
+  }
+  {
+    // E4: 250+ reads the 100+ ladder's claims and curve
+    const snap = snapAll();
+    both();
+    const c = fresh(), L = nsE_('250+', 'NONPAYER', c.ds, c).ladders, S = nsCurve_('250+', 'NONPAYER', c.ds, 'weekend').S;
+    const ok = L.pbWe.every((x, k) => close(x, handRate('100+', k + 1, 'weekend'), 1e-12)) &&
+               close(S(100), handSt(muS('100+', 'weekend', 'NONPAYER'), 100), 1e-12);
+    restore(snap);
+    gate('E4: 250+ reads the claims and the streak curve of the 100+ ladder it plays', ok, L.pbWe.map(x => x.toFixed(4)).join(' '));
+  }
+  {
+    // E5: identical configs -> DIFF 0 with both sheets read
+    const snap = snapAll();
+    both({ defect: true, otherArm: true });
+    identicalConfigs();
+    const c = fresh(); let bad = 0;
+    cells.forEach(([s, p]) => { if (!sameRow(resultRow_(CAT, s, p, c), measuredRow_(CAT, s, p, c.ds))) bad++; });
+    restore(snap);
+    gate('E5: with both sheets read, NS_v2 == NS (and the weekday pair) gives a Night Sky DIFF of 0 on every cell', bad === 0, bad + ' cells differ');
+  }
+  {
+    // E6: the curve = SUM players_ge_X / SUM players_active of the cell's payer and day type (by hand, at a point and between)
+    const snap = snapAll();
+    both();
+    const c = fresh();
+    let bad = 0, n = 0;
+    [['40-99', '40-99'], ['0-9', '0-9']].forEach(([seg, lab]) => ['NONPAYER', 'PAYER'].forEach(p => ['weekday', 'weekend'].forEach(dt => {
+      const C = nsCurve_(seg, p, c.ds, dt), mu = muS(lab, dt, p);
+      [4, 10, 64, 100, 700].forEach(x => { n++; if (!(C && C.src === 'streak' && close(C.S(x), handSt(mu, x), 1e-12))) bad++; });
+    })));
+    const E = nsE_('40-99', 'NONPAYER', c.ds, c);
+    restore(snap);
+    gate('E6: the curve = SUM players_ge_X / SUM players_active for the cell\'s payer and day type, linear between points, extended past the last (by hand)',
+      n > 0 && bad === 0 && E.source === 'streak', n + ' points, ' + bad + ' off; source ' + E.source);
+  }
+  {
+    // E7: a changed requirement = per-day claims x S(new) / S(old); a NEW round = S(req) on the streak curve
+    const snap = snapAll();
+    both();
+    identicalConfigs();
+    const v = data['NS_v2'].values, b = block('NS_v2', SEG), cc = b.col('Cum Streak Req');
+    const oldReq = num(v[b.rows[1]][cc]); v[b.rows[1]][cc] = oldReq + 7;
+    addRound(SEG, 180, 300);
+    const c = fresh(), L = nsE_(SEG, PAY, c.ds, c).ladders, mu = muS(SEG, 'weekend', PAY);
+    const want2 = handRate(SEG, 2, 'weekend') * handSt(mu, oldReq + 7) / handSt(mu, oldReq), wantN = handSt(mu, 180);
+    const p2 = L.pvWe[1], pN = L.pvWe[L.pvWe.length - 1];
+    restore(snap);
+    gate('E7: a changed requirement = per-day claims x S(new) / S(old), a new round = S(req), both on the streak curve (by hand)',
+      close(p2, want2, 1e-9) && close(pN, wantN, 1e-9), p2.toFixed(5) + ' vs ' + want2.toFixed(5) + '; new ' + pN.toFixed(5) + ' vs ' + wantN.toFixed(5));
+  }
+  {
+    // E8: NS_PERDAY_READ = false = D106 bit for bit with both sheets present; true moves the rows
+    const R0d = rowsOf();
+    const snap = snapAll();
+    both();
+    NS_PERDAY_READ = false;
+    const Roff = rowsOf();
+    NS_PERDAY_READ = true;
+    const Ron = rowsOf();
+    restore(snap);
+    const moved = cells.filter(([s, p]) => !sameRow(Ron[s + '|' + p], R0d[s + '|' + p])).length;
+    gate('E8: NS_PERDAY_READ = false reads neither sheet (every NS row as D106); true moves the rows',
+      cells.every(([s, p]) => sameRow(Roff[s + '|' + p], R0d[s + '|' + p])) && moved > 0, moved + ' cells move with the sheets read');
+  }
   restore(SNAP0);
 
   // ================================================================ D. V2DIFF
@@ -395,11 +571,17 @@ function GATES(){
     gate('D1: blocks of a different length are compared block by block - 0-9 / 10-19 (unchanged) carry no mark, 40-99\'s extra rounds are marked whole',
       lowMarks === 0 && addedRows.size === b40.rows.length - b40b.rows.length && mk.added.some(x => /^40-99 rounds/.test(x)) && mk.added.some(x => /^100\+ rounds/.test(x)),
       lowMarks + ' marks in 0-9/10-19, ' + addedRows.size + ' new 40-99 rows');
-    // a same-shape pair is the plain cell-by-cell compare
-    const wv = data['NS_v2_weekday'].values, wb = (data['NS_weekday'] || data['NS']).values;
+    // a same-shape pair is the plain cell-by-cell compare - built here (a clone of the base with three reward
+    // cells edited), not read off the dump: the dump's weekday pair may differ in shape (workbook (2): it does)
+    const wb = (data['NS_weekday'] || data['NS']).values, wv = clone(wb);
+    const hcCol = wb.findIndex(r => r.some(x => String(x).trim() === 'HC Reward')) >= 0
+      ? wb[wb.findIndex(r => r.some(x => String(x).trim() === 'HC Reward'))].findIndex(x => String(x).trim() === 'HC Reward') : 5;
+    const edits = []; wb.forEach((r, i) => { if (edits.length < 3 && /^\s*\d+\s*$/.test(String(r[0]))) edits.push(i); });
+    edits.forEach(i => { wv[i][hcCol] = num(wv[i][hcCol]) + 7; });
     const mk2 = v2diffMarks_(wb, blank(wb), wv, blank(wv), cols);
     let plain = 0; for (let r = 0; r < Math.min(wb.length, wv.length); r++) for (let c = 0; c < cols; c++) if (!v2diffEqual_(wb[r][c], (wv[r] || [])[c])) plain++;
-    gate('D2: a pair of the same shape is the plain cell-by-cell compare (bit for bit)', mk2.cells.length === plain && !mk2.added.length, mk2.cells.length + ' vs ' + plain);
+    gate('D2: a pair of the same shape is the plain cell-by-cell compare (bit for bit)',
+      mk2.cells.length === plain && plain === edits.length && !mk2.added.length, mk2.cells.length + ' vs ' + plain + ' (' + edits.length + ' edited)');
   }
   say('\n' + pass + ' passed, ' + fail + ' failed');
   process.exitCode = fail ? 1 : 0;

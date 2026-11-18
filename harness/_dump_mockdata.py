@@ -140,6 +140,9 @@ SHEETS = [
     'data_ns_rounds', 'data_core_spt',
     # D106: the Night Sky pull of PROMPT_ns_rounds_progress.md (progress = the engine's curve; dayend / streak_session = the probe's checks)
     'data_ns_progress', 'data_ns_dayend', 'data_ns_streak_session',
+    # D107 (2026-11-18): Night Sky claims per event date x ladder x round (day_type) - the base rounds' rates;
+    # data_ns_reach is the same pull summed over the dates (read by the NS local sim sheets, not the engine)
+    'data_ns_per_day_reach', 'data_ns_reach',
 ]
 
 # Sheets that have been REBUILT by a builder but not yet imported into the live workbook. The
