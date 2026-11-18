@@ -10,25 +10,34 @@ added to the right of the ladder (nothing in A:AD changes, so the engine reads t
              edit): Round % (old) = measured, Round % (new) = simulated, diff in pp, plus the columns the
              simulation is built from. The explanation (with the formula) sits next to it from AU15.
 
-THE RULE (user decisions 2026-11-18)
-  old_k   = data_ns_reach claim_rate_active of (ladder segment, round k): claimed / NS-active player-days. 0 when the
-            old ladder had no round k.
-  S(x)    = data_ns_progress: the share of NS-active player-days whose streak progress reached x, pooled over payers
-            (and over 100-249 + 250+ for the 100+ ladder) by player_days. Points (0, 1), (1, 1 - share_zero), every
-            share_ge_X; linear between them; past the last point the slope extended log-linearly (the engine's D106
-            curve).
+THE RULE (user decisions 2026-11-18; the old side re-based on data_ns_per_day_reach the same day)
+  old_k   = data_ns_per_day_reach for (ladder segment, round k): SUM players_claimed / SUM players_active over the
+            dates of the sheet's DAY TYPE (AM3: weekday on NS_v2_weekday, weekend on NS_v2, or all), leaving out every
+            date on which some round counts more claims than active players (AM4 = Yes; Oct 13 on the first pull).
+            0 when the old ladder had no round k. data_ns_reach (the same pull summed over all dates) is not read.
+  S(x)    = the share of active player-days whose daily peak streak reached x. PREFERRED: data_ns_streak_dist
+            (PROMPT_ns_streak_curve.md, requested 2026-11-18): counts per (date, ladder, payer) on the counter the
+            round claim fires on and on data_ns_per_day_reach's own denominator - S = SUM players_ge_X / SUM
+            players_active over the day type's kept dates, points (0, 1) + every players_ge_X. FALLBACK, while the
+            sheet is missing: data_ns_progress pooled over payers (and 100-249 + 250+ for the 100+ ladder) by
+            player_days, points (0, 1), (1, 1 - share_zero), every share_ge_X. Both: linear between points, past the
+            last point the slope extended log-linearly (the engine's D106 curve). data_ns_progress runs ~2x the
+            claims from 20-39 up (it behaves like data_ns_reach's 'reached', not 'reached_streak'), which is what the
+            claim factor below has to undo; on the streak sheet c should sit near 1.
   c(x)    = the claim factor: c_j = old_j / S(O_j) at every OLD round requirement O_j, linear in x between them,
             flat outside them. It absorbs what S does not see (reached-but-not-claimed, and the ladder segments of
-            data_ns_reach counting more player-days than the player segments of data_ns_progress).
+            data_ns_per_day_reach counting more player-days than the player segments of data_ns_progress) - and, since S is
+            all-days, the weekday / weekend difference of the claims.
   new_k   = MIN(1, c(X_k / D) x S(X_k / D))   X_k = the round's Cum Streak Req on this sheet, D = event duration.
             D = 1 and X_k = O_k gives the measured rate exactly. D > 1: progress CARRIES OVER between days (user)
             and a player keeps their daily pace, so reaching X in D days = reaching X / D in one.
   local sim: a player at percentile q has completed round k by day d when new_k(d) >= 1 - q (counting from round 1
             up to the first round that fails); Avg = SUM new_k(d) rounds and SUM new_k(d) x reward_k.
 
-This is NOT the engine's D106 rule for new rounds (it prices a round the base does not have at the raw S(X), which
-runs ~2x the claims from 10-19 up and makes 40-99 round 4 more likely than round 3). The change summary's Night Sky
-row therefore differs from this table on the changed 40-99 / 100+ rounds - flagged in the notes block.
+The engine (D107) reads the same two sheets, but ONLY once data_ns_streak_dist exists (until then it is D106 bit for
+bit: per-day claims against data_ns_progress priced 250+ at 3.7x). It still prices a NEW round at the raw S(X), without
+the claim factor - on the streak curve c should sit near 1, so the two should then agree closely; on today's fallback
+curve they do not (flagged in the notes block).
 
 Formulas are generated from ONE template (curve_bindings / s_expr / reach_bindings) and emulated by emulate() on the
 workbook's cached data, printed as the check table. No LAMBDA / BYROW, so the xlsx import keeps them.
@@ -64,7 +73,9 @@ DATA_FILL = PatternFill('solid', fgColor='FFCFE2F3')
 HDR_FILL = PatternFill('solid', fgColor='FFD9D9D9')
 
 PG_H, PG_T = 'data_ns_progress!$A$1:$BZ$1', 'data_ns_progress!$A$1:$BZ$400'
-RC_H, RC_T = 'data_ns_reach!$A$1:$BZ$1', 'data_ns_reach!$A$1:$BZ$400'
+RC_H, RC_T = 'data_ns_per_day_reach!$A$1:$BZ$1', 'data_ns_per_day_reach!$A$1:$BZ$3000'
+ST_SHEET = 'data_ns_streak_dist'                      # PROMPT_ns_streak_curve.md - the curve on the claim's counter
+ST_H, ST_T = ST_SHEET + '!$A$1:$DZ$1', ST_SHEET + '!$A$1:$DZ$3000'
 COL_A, COL_E = '$A$1:$A$500', '$E$1:$E$500'
 
 
@@ -116,17 +127,85 @@ def s_expr(t, u):
             '+MMULT(' + clamp + ',TRANSPOSE({t}_sl))))').format(t=t, u=u)
 
 
-def reach_bindings():
-    """data_ns_reach for the segment's ladder: the OLD rounds' requirements o_v and measured rates o_m (column
-    vectors, in round order), the claim factor c_j = o_m / S_all(o_v), and the interpolation pieces."""
+def streak_bindings():
+    """data_ns_streak_dist (PROMPT_ns_streak_curve.md): counts per (date, ladder, payer) of active players whose daily
+    peak on the claim's counter reached X (players_ge_<X>). Rows: the segment's ladder, the arm, the day type and -
+    when drop_ - not a date data_ns_per_day_reach flags (a round with more claims than actives). Every binding is
+    IFERROR-wrapped: until the sheet exists the curve falls back to data_ns_progress (s_comb)."""
+    col = lambda n: 'INDEX(t_t,0,MATCH("%s",t_h,0))' % n
+    bc = lambda n: 'INDEX(b_t,0,MATCH("%s",b_h,0))' % n
+    return ('b_h,' + RC_H + ',b_t,' + RC_T + ','
+            'b_a,IFERROR(' + bc('players_active') + ',0),b_c,IFERROR(' + bc('players_claimed') + ',0),'
+            'b_bd,IFERROR(FILTER(' + bc('event_date') + ',IF(ISNUMBER(b_c),b_c,0)>IF(ISNUMBER(b_a),b_a,0)),"none"),'
+            't_h,IFERROR(' + ST_H + ',""),t_t,IFERROR(' + ST_T + ',""),'
+            't_lad,IFERROR(' + col('ladder') + ',""),t_pay,IFERROR(' + col('payer_flag') + ',""),'
+            't_act,IFERROR(' + col('players_active') + ',0),t_dt,IFERROR(' + col('day_type') + ',"all"),'
+            't_dte,IFERROR(' + col('event_date') + ',0),t_arm,IFERROR(' + col('config_arm') + ',""),'
+            't_aok,IF(ISNUMBER(MATCH("config_arm",t_h,0)),IF(LEN(arm_)=0,1,LEFT(t_arm&"",LEN(arm_))=arm_),1),'
+            't_w0,IFERROR(IF(ISNUMBER(t_act),t_act,0)*((t_lad=seg_)+(seg_="100+")*(t_lad="100-249"))*t_aok'
+            '*IF(OR(dt_="all",dt_=""),1,t_dt=dt_)*IF(drop_,ISNA(MATCH(t_dte,b_bd,0)),1),0),'
+            't_ge,IFERROR(LEFT(t_h,11)="players_ge_",FALSE),'
+            't_xs,IFERROR(FILTER(IFERROR(VALUE(MID(t_h,12,12)),0),t_ge),1),'
+            't_cn,IFERROR(FILTER(t_t,t_ge),0),t_cnn,IF(ISNUMBER(t_cn),t_cn,0),'
+            't_n,COLUMNS(t_xs),t_sq,SEQUENCE(1,t_n),'
+            't_xlo,IFERROR(FILTER(t_xs,t_sq<t_n),0),t_dx,IFERROR(FILTER(t_xs,t_sq>1)-t_xlo,1),'
+            't_x1,INDEX(t_xs,1,1),t_xn,INDEX(t_xs,1,t_n),')
+
+
+def streak_curve(t, payer_expr):
+    """One pooled streak curve (tag t, names {t}k_*): S at every players_ge_X = SUM count / SUM players_active over
+    the kept rows (payer filter), piece slopes, the tail; {t}k_use = the sheet has active players for it."""
+    return ('{t}k_w,t_w0*IF({p}="ALL",1,t_pay={p}),{t}k_wt,IFERROR(SUM({t}k_w),0),{t}k_use,{t}k_wt>0,'
+            '{t}k_ss,IFERROR(MMULT(TRANSPOSE(--({t}k_w>0)),t_cnn)/{t}k_wt,0),'
+            '{t}k_sf,IFERROR(INDEX({t}k_ss,1,1),0),{t}k_sn,IFERROR(INDEX({t}k_ss,1,t_n),0),'
+            '{t}k_sl,IFERROR((FILTER({t}k_ss,t_sq>1)-FILTER({t}k_ss,t_sq<t_n))/t_dx,0),'
+            '{t}k_kp,IFERROR(SUM(--({t}k_ss>{t}k_sn+1E-12)),0),'
+            '{t}k_lam,IFERROR(IF(AND({t}k_sn>0,{t}k_kp>0),LN(INDEX({t}k_ss,1,MAX(1,{t}k_kp))/{t}k_sn)'
+            '/(t_xn-INDEX(t_xs,1,MAX(1,{t}k_kp))),0),0),'
+            ).format(t=t, p=payer_expr)
+
+
+def s_cnt(t, u):
+    """S(u) on the streak curve t: (0,1) -> the players_ge points, linear, the tail extended log-linearly."""
+    clamp = 'IF({u}-t_xlo<0,0,IF({u}-t_xlo>t_dx,t_dx,{u}-t_xlo))'.format(u=u)
+    return ('IF({u}<=0,1,IF({u}>t_xn,IF({t}k_sn>0,{t}k_sn*EXP(-{t}k_lam*({u}-t_xn)),0),'
+            '1+({t}k_sf-1)/t_x1*IF({u}>t_x1,t_x1,{u})+MMULT(' + clamp + ',TRANSPOSE({t}k_sl))))').format(t=t, u=u)
+
+
+def s_comb(t, u):
+    """The curve the sheet prices on: data_ns_streak_dist when it has active players for the ladder (and payer),
+    else data_ns_progress."""
+    return 'IF({t}k_use,IFERROR('.format(t=t) + s_cnt(t, u) + ',0),IFERROR(' + s_expr(t, u) + ',0))'
+
+
+def perday_rows():
+    """data_ns_per_day_reach rows the old side reads: the segment's ladder, the arm (AM2), the day type (dt_: weekday /
+    weekend / all) and - when drop_ - not a date on which some round counts more claims than active players."""
     col = lambda n: 'INDEX(r_t,0,MATCH("%s",r_h,0))' % n
     return ('r_h,' + RC_H + ',r_t,' + RC_T + ','
             'r_lad,' + col('ladder') + ',r_rd,' + col('round') + ',r_req,' + col('cum_req') + ','
-            'r_m,' + col('claim_rate_active') + ',r_arm,IFERROR(' + col('config_arm') + ',""),'
+            'r_act,' + col('players_active') + ',r_clm,' + col('players_claimed') + ','
+            'r_dt,IFERROR(' + col('day_type') + ',"all"),r_dte,IFERROR(' + col('event_date') + ',0),'
+            'r_arm,IFERROR(' + col('config_arm') + ',""),'
             'r_aok,IF(ISNUMBER(MATCH("config_arm",r_h,0)),IF(LEN(arm_)=0,1,LEFT(r_arm&"",LEN(arm_))=arm_),1),'
-            'r_ok,((r_lad=seg_)+(seg_="100+")*(r_lad="100-249"))*r_aok*ISNUMBER(r_m)*ISNUMBER(r_req),'
-            'o_k,SUM(r_ok),o_v,IFERROR(FILTER(r_req,r_ok),1),o_m,IFERROR(FILTER(r_m,r_ok),1),'
-            'o_c,IFERROR(o_m/' + s_expr('al', 'o_v') + ',1),'
+            'r_tok,IF(OR(dt_="all",dt_=""),1,r_dt=dt_),'
+            'r_an0,IF(ISNUMBER(r_act),r_act,0),r_cn0,IF(ISNUMBER(r_clm),r_clm,0),'
+            'r_bd,IFERROR(FILTER(r_dte,r_cn0>r_an0),"none"),'
+            'r_dok,IF(drop_,ISNA(MATCH(r_dte,r_bd,0)),1),'
+            'r_ok,((r_lad=seg_)+(seg_="100+")*(r_lad="100-249"))*r_aok*r_tok*r_dok*ISNUMBER(r_act)*ISNUMBER(r_rd),'
+            'r_an,r_an0*r_ok,r_cn,r_cn0*r_ok,')
+
+
+def reach_bindings():
+    """The OLD rounds of the segment's ladder from data_ns_per_day_reach: o_r (round numbers), o_v (their cum_req),
+    o_m (SUM claimed / SUM active over the rows kept), column vectors in round order; the claim factor
+    c_j = o_m / S_all(o_v) and its interpolation pieces."""
+    return (perday_rows() +
+            'o_r,IFERROR(SORT(UNIQUE(FILTER(r_rd,r_ok))),0),o_k,IF(SUM(r_ok)=0,0,ROWS(o_r)),'
+            'o_mx,--(r_rd=TRANSPOSE(o_r)),'
+            'o_m,IFERROR(TRANSPOSE(MMULT(TRANSPOSE(r_cn),o_mx)/MMULT(TRANSPOSE(r_an),o_mx)),1),'
+            'o_v,IFERROR(TRANSPOSE(MMULT(TRANSPOSE(IF(ISNUMBER(r_req),r_req,0)*r_ok),o_mx)/MMULT(TRANSPOSE(r_ok),o_mx)),1),'
+            'o_c,IFERROR(o_m/' + s_comb('al', 'o_v') + ',1),'
             'o_q,SEQUENCE(MAX(1,o_k)),'
             'o_lo,IFERROR(TRANSPOSE(FILTER(o_v,o_q<o_k)),0),o_dx,IFERROR(TRANSPOSE(FILTER(o_v,o_q>1))-o_lo,1),'
             'o_sl,IFERROR((TRANSPOSE(FILTER(o_c,o_q>1))-TRANSPOSE(FILTER(o_c,o_q<o_k)))/o_dx,0),')
@@ -134,7 +213,7 @@ def reach_bindings():
 
 def c_expr(u):
     """c(u): flat at c_1 below the first old requirement, linear between them, flat at c_last past the last one;
-    1 (the raw curve) when data_ns_reach has nothing for the segment."""
+    1 (the raw curve) when data_ns_per_day_reach has nothing for the segment."""
     return ('IF(o_k=0,1,INDEX(o_c,1,1)+IF(o_k<2,0,MMULT(IF({u}-o_lo<0,0,IF({u}-o_lo>o_dx,o_dx,{u}-o_lo)),'
             'TRANSPOSE(o_sl))))').format(u=u)
 
@@ -150,10 +229,11 @@ def ladder_bindings(seg):
 def local_sim_formula(seg, r, reward):
     """AJ6.. (rounds) / AK6.. (rewards) for one segment and day row r."""
     pre = ('=ARRAYFORMULA(IF($AI{r}="","",IFERROR(LET('.format(r=r) + ladder_bindings(seg) +
-           'pay_,$AJ$3,arm_,$AM$2,d_,$AI{r},pc_,$AJ$2,'.format(r=r) +
-           progress_bindings() + curve_bindings('al', '"ALL"') + curve_bindings('py', 'pay_') + reach_bindings() +
+           'pay_,$AJ$3,arm_,$AM$2,dt_,$AM$3,drop_,$AM$4="Yes",d_,$AI{r},pc_,$AJ$2,'.format(r=r) +
+           progress_bindings() + curve_bindings('al', '"ALL"') + curve_bindings('py', 'pay_') +
+           streak_bindings() + streak_curve('al', '"ALL"') + streak_curve('py', 'pay_') + reach_bindings() +
            'u_v,v_/d_,'
-           'p0_,' + c_expr('u_v') + '*' + s_expr('py', 'u_v') + ',p_,IF(p0_>1,1,IF(p0_<0,0,p0_)),'
+           'p0_,' + c_expr('u_v') + '*' + s_comb('py', 'u_v') + ',p_,IF(p0_>1,1,IF(p0_<0,0,p0_)),'
            'q_,SWITCH(pc_,"p10",0.1,"p25",0.25,"p50",0.5,"p75",0.75,"p90",0.9,"p95",0.95,"p99",0.99,0.5),'
            'n_r,IF(nr_<1,0,IF(pc_="Avg",SUM(p_),IFERROR(MATCH(TRUE,p_<1-q_,0)-1,nr_))),')
     if not reward:
@@ -175,8 +255,10 @@ def table_formulas(r):
     head = '=IF({row}="","",'.format(row=row_)
     rng = '$A$1:INDEX({a},{row})'.format(a=COL_A, row=row_)
     start = '(ROW({rng})>IFERROR(MATCH("Goals and Rewards",{a},0),7))'.format(rng=rng, a=COL_A)
-    reach_one = lambda what: ('LET(seg_,{s},arm_,$AM$2,' + reach_bindings_light() +
-                              'INDEX(FILTER({w},r_ok*(r_rd={k})),1,1))').format(s=seg, k=rnd, w=what)
+    lets = 'LET(seg_,{s},arm_,$AM$2,dt_,$AM$3,drop_,$AM$4="Yes",'.format(s=seg)
+    # old % of round k = SUM claimed / SUM active over the rows kept; old cum req = their mean cum_req
+    old_pct = lets + perday_rows() + 'k_m,(r_rd={k}),IF(SUM(r_an*k_m)=0,0,SUM(r_cn*k_m)/SUM(r_an*k_m)))'.format(k=rnd)
+    old_req = lets + perday_rows() + 'k_m,r_ok*(r_rd={k}),IF(SUM(k_m)=0,"",SUM(IF(ISNUMBER(r_req),r_req,0)*k_m)/SUM(k_m)))'.format(k=rnd)
     f = {}
     f['AS'] = ('=IFERROR(INDEX(FILTER(ROW({a}),ISNUMBER({a})),COUNT($AJ${h}:AJ{p})+1),"")'
                .format(a=COL_A, h=T_HDR, p=r - 1))
@@ -184,33 +266,24 @@ def table_formulas(r):
                .format(rng=rng, st=start))
     f['AJ'] = head + 'INDEX({a},{row}))'.format(a=COL_A, row=row_)
     f['AO'] = head + 'INDEX({e},{row}))'.format(e=COL_E, row=row_)
-    f['AN'] = head + 'IFERROR(ARRAYFORMULA(' + reach_one('r_req') + '),""))'
-    f['AK'] = head + 'IFERROR(ARRAYFORMULA(' + reach_one('r_m') + '),0))'
-    f['AP'] = (head + 'ARRAYFORMULA(IFERROR(LET(seg_,{s},arm_,$AM$2,u_v,{x}/$AJ$4,'.format(s=seg, x=req) +
-               progress_bindings() + curve_bindings('al', '"ALL"') + 'INDEX(' + s_expr('al', 'u_v') + ',1,1)),"no data")))')
-    f['AQ'] = (head + 'ARRAYFORMULA(IFERROR(LET(seg_,{s},arm_,$AM$2,u_v,{x}/$AJ$4,'.format(s=seg, x=req) +
-               progress_bindings() + curve_bindings('al', '"ALL"') + reach_bindings() +
-               'INDEX(' + c_expr('u_v') + ',1,1)),"no data")))')
+    f['AN'] = head + 'IFERROR(ARRAYFORMULA(' + old_req + '),""))'
+    f['AK'] = head + 'IFERROR(ARRAYFORMULA(' + old_pct + '),0))'
+    f['AP'] = (head + 'ARRAYFORMULA(IFERROR(LET(seg_,{s},arm_,$AM$2,dt_,$AM$3,drop_,$AM$4="Yes",u_v,{x}/$AJ$4,'.format(s=seg, x=req) +
+               progress_bindings() + curve_bindings('al', '"ALL"') + streak_bindings() + streak_curve('al', '"ALL"') +
+               'INDEX(' + s_comb('al', 'u_v') + ',1,1)),"no data")))')
+    f['AQ'] = (head + 'ARRAYFORMULA(IFERROR(LET(seg_,{s},arm_,$AM$2,dt_,$AM$3,drop_,$AM$4="Yes",u_v,{x}/$AJ$4,'.format(s=seg, x=req) +
+               progress_bindings() + curve_bindings('al', '"ALL"') + streak_bindings() + streak_curve('al', '"ALL"') +
+               reach_bindings() + 'INDEX(' + c_expr('u_v') + ',1,1)),"no data")))')
     f['AL'] = head + 'IFERROR(MIN(1,$AP{r}*$AQ{r}),"no data"))'.format(r=r)
     f['AM'] = head + 'IFERROR(($AL{r}-$AK{r})*100,""))'.format(r=r)
     f['AR'] = (head + 'IF({o}="","new round (old = 0)",IF({o}={x},"requirement unchanged","requirement "&{o}&" -> "&{x}))'
                '&IF($AJ$4>1,", over "&$AJ$4&" days","")'
                '&IF({x}/$AJ$4>MAX(ARRAYFORMULA(IF(LEFT({h},9)="share_ge_",IFERROR(VALUE(MID({h},10,12)),0),0))),'
                '", past the last progress point (extended slope)","")'
-               '&IF(N({o})=0,IF({x}>MAX(ARRAYFORMULA(IFERROR(LET(seg_,{s},arm_,$AM$2,' + reach_bindings_light() +
+               '&IF(N({o})=0,IF({x}>MAX(ARRAYFORMULA(IFERROR(' + lets + perday_rows() +
                'FILTER(r_req,r_ok)),0))),", claim factor held at the last old round",", claim factor interpolated"),""))'
                ).format(o='$AN{r}'.format(r=r), x=req, h=PG_H, s=seg)
     return f
-
-
-def reach_bindings_light():
-    """data_ns_reach row filter only (no curve) - for the old % / old requirement lookups."""
-    col = lambda n: 'INDEX(r_t,0,MATCH("%s",r_h,0))' % n
-    return ('r_h,' + RC_H + ',r_t,' + RC_T + ','
-            'r_lad,' + col('ladder') + ',r_rd,' + col('round') + ',r_req,' + col('cum_req') + ','
-            'r_m,' + col('claim_rate_active') + ',r_arm,IFERROR(' + col('config_arm') + ',""),'
-            'r_aok,IF(ISNUMBER(MATCH("config_arm",r_h,0)),IF(LEN(arm_)=0,1,LEFT(r_arm&"",LEN(arm_))=arm_),1),'
-            'r_ok,((r_lad=seg_)+(seg_="100+")*(r_lad="100-249"))*r_aok*ISNUMBER(r_m)*ISNUMBER(r_req),')
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -222,18 +295,26 @@ NOTES = [
      'column A (every numbered row under a segment\'s "Round" header, down to the first row that is not a number - the '
      'rule the engine uses), so a segment can have any number of rounds and the table follows when rounds are added or '
      'removed. Rows past the last round stay blank (60 rows allocated).', ''),
-    ('Round % (old) - MEASURED. data_ns_reach, column claim_rate_active, for (ladder = Segment, round = Round #): the '
-     'share of Night-Sky-active player-days that claimed that round under the ladder that ran (its requirement is shown '
-     'in "Cum req (old)"). A round the old ladder did not have shows 0. All payers and all days pooled, so the weekday and '
-     'weekend sheets show the same old column. Arm filter: AM2 (rows whose config_arm starts with it).', ''),
-    ('Progress share S(x) - MEASURED CURVE. data_ns_progress: the share of NS-active player-days whose cumulative streak '
-     'progress reached x (columns share_ge_X), pooled over NONPAYER and PAYER by player_days (the 100+ ladder pools the '
-     '100-249 and 250+ rows). The curve runs through (0, 100%), (1, 1 - share_zero) and every share_ge_X point, linear '
-     'between them; past the last point the slope of the last two points is extended log-linearly (the engine\'s D106 '
-     'curve; the row says so when a round lands there).', ''),
+    ('Round % (old) - MEASURED. data_ns_per_day_reach for (ladder = Segment, round = Round #): SUM players_claimed / '
+     'SUM players_active over the dates of the day type in AM3 (weekday on NS_v2_weekday, weekend on NS_v2; "all" pools '
+     'every date) - the share of Night-Sky-active player-days that claimed that round under the ladder that ran (its '
+     'requirement is in "Cum req (old)"). A round the old ladder did not have shows 0. Payers pooled (the sheet has no '
+     'payer split). Arm filter: AM2 (config_arm starts with it). AM4 = Yes leaves out every date on which some round '
+     'counts more claims than active players (Oct 13 on the 2026-11-18 pull: 0-9 round 1, 7,075 claims / 4,761 active); '
+     'No reads every date. data_ns_reach is the same pull summed over all dates and is no longer read.', ''),
+    ('Streak share S(x) - MEASURED CURVE (source in AO4). PREFERRED: data_ns_streak_dist (PROMPT_ns_streak_curve.md): per '
+     'date, ladder and payer, how many active players\' daily peak on the counter the round claim fires on reached at least '
+     'X (players_ge_X), on exactly data_ns_per_day_reach\'s active players. S(X) = SUM players_ge_X / SUM players_active '
+     'over the dates kept by AM3 / AM4, payers pooled; the curve runs through (0, 100%) and every players_ge_X point. '
+     'FALLBACK until that sheet is in the workbook: data_ns_progress (share_ge_X, pooled over payers by player_days, the '
+     '100+ ladder pooling 100-249 and 250+; points (0, 100%), (1, 1 - share_zero), every share_ge_X). Both: linear between '
+     'points; past the last point the slope of the last two is extended log-linearly (the row says so when a round lands '
+     'there). data_ns_progress behaves like data_ns_reach\'s "reached" column, ~2x the claims from 20-39 up; '
+     '"reached_streak" tracks the claims, which is why the streak sheet was requested.', ''),
     ('Claim factor c - CALIBRATION. S counts player-days that REACHED x; the old column counts player-days that CLAIMED '
-     'the round, on data_ns_reach\'s ladder population. The two differ (c 0.89-1.0 at 0-9, 0.5-0.8 at 10-39, ~0.47-0.5 at 40-99, 0.41-0.62 at 100+), '
-     'so the curve alone would show a large fake gain on rounds nobody changed. At every OLD round j: c_j = old_j / S(O_j). '
+     'the round, on data_ns_per_day_reach\'s ladder population, for one day type. On today\'s curve they differ '
+     '(C_RANGES), so the curve alone would show a large fake gain on rounds nobody changed. At every OLD round j: '
+     'c_j = old_j / S(O_j). On data_ns_streak_dist c should sit near 1 (claims vs reached_streak: 0.9-1.3 today). '
      'Between old requirements c is interpolated linearly in the requirement; below the first and above the last it is held '
      'at the nearest one.', ''),
     ('THE FORMULA', 'b'),
@@ -241,9 +322,9 @@ NOTES = [
     ('   X_k = the round\'s Cum Streak Req on this sheet (column E)      D = Event duration, AJ4 (1 today)', 'f'),
     ('   S(x) = data_ns_progress curve, pooled payers      c(x) = interp over the old rounds of  old_j / S(O_j)', 'f'),
     ('   diff (pp) = ( Round % (new) - Round % (old) ) x 100', 'f'),
-    ('In the cells: AL = MIN(1, AP x AQ); AP = S(AO / AJ4); AQ = c(AO / AJ4); AK / AN = the data_ns_reach row of (AI, AJ). '
+    ('In the cells: AL = MIN(1, AP x AQ); AP = S(AO / AJ4); AQ = c(AO / AJ4); AK / AN = the data_ns_per_day_reach rows of (AI, AJ) kept by AM2:AM4. '
      'AP and AQ are one LET formula each: every data column is found by its header, so a re-pull with more columns or '
-     'rows (up to BZ / row 400) needs no edit.', ''),
+     'rows (up to BZ; row 400 of data_ns_progress, row 3000 of data_ns_per_day_reach) needs no edit.', ''),
     ('What follows from it. A round whose requirement did not change shows exactly the measured rate (D = 1). A changed '
      'round moves along the measured curve from the calibrated level. A NEW round (old = 0) gets S at its requirement '
      'times the claim factor of the nearest old rounds - so rounds stay ordered: a harder round never shows more '
@@ -257,17 +338,17 @@ NOTES = [
      'at least 10% complete). The reward cell sums those rounds\' rewards (columns F:AC, HC per streak left out). '
      'Avg = the EXPECTED rounds (SUM P_k) and the expected rewards (SUM P_k x reward_k) per NS-active player-day.', ''),
     ('FLAGS', 'b'),
-    ('- Not the engine\'s rule for new rounds. EcoGainsSim (D106) pairs rounds by NUMBER (new_k = measured_k x '
-     'S(X_k)/S(O_k)) and prices a round the base does not have at the raw S(X), without the claim factor - about 2x this '
-     'table from 10-19 up, and not ordered (40-99: round 4 26% against round 3 24%). The change summary\'s Night Sky row '
-     'is therefore higher than this table implies for 20-39 round 4 and 40-99 / 100+ rounds 2-7.', ''),
-    ('- data_ns_reach has no weekday / weekend split and data_ns_progress carries day_type = all only: both sheets show the '
-     'same numbers until a re-pull splits them (the curve then reads the "all" rows; a pull with weekday / weekend rows '
-     'only is pooled).', ''),
-    ('- data_ns_reach rows are read in sheet order as rounds 1, 2, 3...: keep them sorted by round.', ''),
+    ('- The engine (EcoGainsSim D107) reads data_ns_per_day_reach and data_ns_streak_dist only together: until the streak '
+     'sheet is in the workbook the change summary\'s Night Sky row is priced as before (D106: data_ns_rounds / '
+     'data_ns_progress). Even then it pairs rounds by NUMBER (new_k = measured_k x S(X_k) / S(O_k)) and prices a round the '
+     'base does not have at S(X) without the claim factor; on the streak curve (c near 1) that is close to this table, on '
+     'the data_ns_progress fallback it is ~2x and not ordered.', ''),
+    ('- On the data_ns_progress fallback the curve is all-days (that sheet has day_type = all only), so the day type reaches '
+     'the new column through the claim factor alone; data_ns_streak_dist is split by day type itself.', ''),
+    ('- The claims are per LADDER with no payer split: Payer = NONPAYER / PAYER in the local sim changes the curve only.', ''),
     ('- A round that exists in the old ladder but was removed from this one is not listed (the table lists this sheet\'s '
      'rounds).', ''),
-    ('- data_ns_progress is keyed by PLAYER segment, data_ns_reach by LADDER segment; the claim factor carries the '
+    ('- data_ns_progress is keyed by PLAYER segment, data_ns_per_day_reach by LADDER segment; the claim factor carries the '
      'difference, and it is assumed to stay what it was at the old requirements.', ''),
 ]
 
@@ -319,19 +400,69 @@ def emu_curve(prog, seg, payer='ALL', arm='Variant A'):
     return S, xs[-1]
 
 
-def emu_old(reach, seg, arm='Variant A'):
-    h = {str(x).strip(): i for i, x in enumerate(reach[0]) if x is not None}
-    out = []
-    for r in reach[1:]:
+def emu_bad_dates(perday):
+    h = {str(x).strip(): i for i, x in enumerate(perday[0]) if x is not None}
+    return {r[h['event_date']] for r in perday[1:] if r and r[h['ladder']] is not None
+            and float(r[h['players_claimed']] or 0) > float(r[h['players_active']] or 0)}
+
+
+def emu_curve_streak(stk, seg, payer, day_type, bad, arm='Variant A'):
+    """S on data_ns_streak_dist (counts): SUM players_ge_X / SUM players_active over the kept rows, (0,1) first,
+    linear between points, the tail extended log-linearly. None when the sheet has no active players for it."""
+    h = {str(x).strip(): i for i, x in enumerate(stk[0]) if x is not None}
+    ges = sorted((float(k[11:]), i) for k, i in h.items() if k.startswith('players_ge_'))
+    W, cnt = 0.0, [0.0] * len(ges)
+    for r in stk[1:]:
         if not r or r[h['ladder']] is None:
             continue
         lad = str(r[h['ladder']]).strip()
-        if not (lad == seg or (seg == '100+' and lad == '100-249')):
+        if not (lad == seg or (seg == '100+' and lad == '100-249')) or r[h['event_date']] in bad:
             continue
         if arm and 'config_arm' in h and not str(r[h['config_arm']]).startswith(arm):
             continue
-        out.append((int(r[h['round']]), float(r[h['cum_req']]), float(r[h['claim_rate_active']])))
-    return out
+        if day_type not in ('all', '') and str(r[h['day_type']]).strip() != day_type:
+            continue
+        if payer != 'ALL' and str(r[h['payer_flag']]).strip() != payer:
+            continue
+        W += float(r[h['players_active']] or 0)
+        for j, (_, i) in enumerate(ges):
+            cnt[j] += float(r[i] or 0)
+    if W <= 0:
+        return None
+    xs, ss = [x for x, _ in ges], [c / W for c in cnt]
+    kp = sum(1 for v in ss if v > ss[-1] + 1e-12)
+    lam = math.log(ss[kp - 1] / ss[-1]) / (xs[-1] - xs[kp - 1]) if ss[-1] > 0 and kp > 0 else 0
+
+    def S(u):
+        if u <= 0:
+            return 1.0
+        if u > xs[-1]:
+            return ss[-1] * math.exp(-lam * (u - xs[-1])) if ss[-1] > 0 else 0.0
+        v = 1 + (ss[0] - 1) / xs[0] * min(u, xs[0])
+        for j in range(len(xs) - 1):
+            v += (ss[j + 1] - ss[j]) / (xs[j + 1] - xs[j]) * max(0, min(u - xs[j], xs[j + 1] - xs[j]))
+        return v
+    return S
+
+
+def emu_old(perday, seg, day_type, drop=True, arm='Variant A'):
+    """[(round, cum_req, SUM claimed / SUM active)] for the ladder over the day type's dates, defect dates left out."""
+    h = {str(x).strip(): i for i, x in enumerate(perday[0]) if x is not None}
+    rows = [r for r in perday[1:] if r and r[h['ladder']] is not None
+            and (not arm or 'config_arm' not in h or str(r[h['config_arm']]).startswith(arm))]
+    bad = ({r[h['event_date']] for r in rows if float(r[h['players_claimed']] or 0) > float(r[h['players_active']] or 0)}
+           if drop else set())
+    agg = {}
+    for r in rows:
+        lad = str(r[h['ladder']]).strip()
+        if not (lad == seg or (seg == '100+' and lad == '100-249')) or r[h['event_date']] in bad:
+            continue
+        if day_type not in ('all', '') and str(r[h['day_type']]).strip() != day_type:
+            continue
+        a = agg.setdefault(int(r[h['round']]), [0.0, 0.0, 0.0, 0])
+        a[0] += float(r[h['players_active']]); a[1] += float(r[h['players_claimed']])
+        a[2] += float(r[h['cum_req']]); a[3] += 1
+    return [(k, a[2] / a[3], a[1] / a[0]) for k, a in sorted(agg.items()) if a[0] > 0]
 
 
 def emu_c(old, S_all):
@@ -366,14 +497,17 @@ def emu_ladder(ws_vals, seg):
     return out
 
 
-def emulate(vals, sheet, days=1, payer='ALL', pct='p50'):
-    prog, reach = sheet_rows(vals, 'data_ns_progress'), sheet_rows(vals, 'data_ns_reach')
+def emulate(vals, sheet, days=1, payer='ALL', pct='p50', day_type=None, drop=True):
+    day_type = day_type or ('weekday' if sheet.endswith('weekday') else 'weekend')
+    prog, perday = sheet_rows(vals, 'data_ns_progress'), sheet_rows(vals, 'data_ns_per_day_reach')
+    stk = sheet_rows(vals, ST_SHEET) if ST_SHEET in vals.sheetnames else None
+    bad = emu_bad_dates(perday) if drop else set()
     lad_vals = sheet_rows(vals, sheet)
     table, sim = [], {}
     for seg in SEGS:
-        S_all, xmax = emu_curve(prog, seg)
-        S_pay, _ = emu_curve(prog, seg, payer)
-        old = emu_old(reach, seg)
+        S_all = (stk and emu_curve_streak(stk, seg, 'ALL', day_type, bad)) or emu_curve(prog, seg)[0]
+        S_pay = (stk and emu_curve_streak(stk, seg, payer, day_type, bad)) or emu_curve(prog, seg, payer)[0]
+        old = emu_old(perday, seg, day_type, drop)
         c = emu_c(old, S_all)
         lad = emu_ladder(lad_vals, seg)
         for k, (x, _) in enumerate(lad, 1):
@@ -425,7 +559,22 @@ def style(c, kind):
         c.number_format = '0.000'
 
 
-def write_blocks(ws, day_type):
+def c_ranges(vals, day_type):
+    """'0-9 0.90-0.99, 10-19 ...': the claim factor at the old rounds per ladder, for the notes (from the emulation)."""
+    prog, perday = sheet_rows(vals, 'data_ns_progress'), sheet_rows(vals, 'data_ns_per_day_reach')
+    stk = sheet_rows(vals, ST_SHEET) if ST_SHEET in vals.sheetnames else None
+    bad = emu_bad_dates(perday)
+    out = []
+    for seg in SEGS:
+        S_all = (stk and emu_curve_streak(stk, seg, 'ALL', day_type, bad)) or emu_curve(prog, seg)[0]
+        cs = [m / S_all(o) for _, o, m in emu_old(perday, seg, day_type)]
+        if cs:
+            out.append('%s %.2f-%.2f' % (seg, min(cs), max(cs)))
+    src = ST_SHEET if (stk and emu_curve_streak(stk, SEGS[0], 'ALL', day_type, bad)) else 'data_ns_progress'
+    return day_type + ' on ' + src + ': c = ' + ', '.join(out)
+
+
+def write_blocks(ws, day_type, crange):
     put = lambda cell, val, kind: (ws.__setitem__(cell, val), style(ws[cell], kind))
     # ---- local sim -------------------------------------------------------------------------------------------
     put('AI1', 'LOCAL SIM - how far players get in Night Sky (' + day_type + ' ladder)', 'title')
@@ -433,9 +582,14 @@ def write_blocks(ws, day_type):
     put('AI3', 'Payer', 'label'); put('AJ3', 'ALL', 'input')
     put('AI4', 'Event duration (days)', 'label'); put('AJ4', 1, 'input')
     put('AL2', 'Arm', 'label'); put('AM2', 'Variant A', 'input')
-    put('AL3', 'Rounds completed by the end of each day by a player at the AJ2 percentile (Avg = expected rounds), and '
+    put('AL3', 'Day type', 'label'); put('AM3', day_type, 'input')
+    put('AL4', 'Leave out days with claims > active', 'label'); put('AM4', 'Yes', 'input')
+    put('AO2', 'Rounds completed by the end of each day by a player at the AJ2 percentile (Avg = expected rounds), and '
                'what those rounds pay (Avg = expected rewards per NS-active player-day).', 'note')
-    put('AL4', 'Same simulation as the Round % (new) column below - see the notes at ' + NOTE_COL + str(T_HDR) + '.', 'note')
+    put('AO3', 'Old claims: data_ns_per_day_reach for the AM3 day type. Same simulation as the Round % (new) column '
+               'below - see the notes at ' + NOTE_COL + str(T_HDR) + '.', 'note')
+    put('AO4', '="Streak curve S: "&IF(IFERROR(COUNTA(' + ST_SHEET + '!$A$2:$A$3000)>0,FALSE),"' + ST_SHEET + '",'
+               '"data_ns_progress (' + ST_SHEET + ' not in the workbook yet - PROMPT_ns_streak_curve.md)")', 'note')
     put('AI5', 'Day_of_event', 'header')
     for seg, c in zip(SEGS, RND_COLS):
         put(c + '5', seg + '_rounds', 'header')
@@ -445,7 +599,8 @@ def write_blocks(ws, day_type):
         for seg, c in zip(SEGS, RND_COLS):
             put('%s%d' % (c, r), local_sim_formula(seg, r, False), 'sim')
             put('%s%d' % (openpyxl.utils.get_column_letter(CI(c) + 1), r), local_sim_formula(seg, r, True), 'sim')
-    for cell, opts in (('AJ2', '"Avg,p10,p25,p50,p75,p90,p95,p99"'), ('AJ3', '"ALL,NONPAYER,PAYER"')):
+    for cell, opts in (('AJ2', '"Avg,p10,p25,p50,p75,p90,p95,p99"'), ('AJ3', '"ALL,NONPAYER,PAYER"'),
+                       ('AM3', '"weekday,weekend,all"'), ('AM4', '"Yes,No"')):
         dv = DataValidation(type='list', formula1=opts, allow_blank=False)
         ws.add_data_validation(dv)
         dv.add(cell)
@@ -455,14 +610,14 @@ def write_blocks(ws, day_type):
 
     # ---- completion table (rows T_HDR-2, T_HDR-1 left blank) ------------------------------------------------------
     heads = [('AI', 'Segment'), ('AJ', 'Round #'), ('AK', 'Round % (old)'), ('AL', 'Round % (new)'), ('AM', 'diff'),
-             ('AN', 'Cum req (old)'), ('AO', 'Cum req (new)'), ('AP', 'Progress share S'), ('AQ', 'Claim factor c'),
+             ('AN', 'Cum req (old)'), ('AO', 'Cum req (new)'), ('AP', 'Streak share S'), ('AQ', 'Claim factor c'),
              ('AR', 'How it is priced'), ('AS', 'Sheet row')]
-    tips = {'AK': 'data_ns_reach claim_rate_active of (Segment, Round #): claimed / NS-active player-days. 0 = the old '
-                  'ladder had no such round.',
+    tips = {'AK': 'data_ns_per_day_reach for (Segment, Round #): SUM claimed / SUM active over the AM3 day type\'s dates '
+                  '(AM4 = Yes: days with claims > active left out). 0 = the old ladder had no such round.',
             'AL': 'MIN(1, Progress share S x Claim factor c) - see the notes at ' + NOTE_COL + str(T_HDR) + '.',
             'AM': '(new - old) x 100, percentage points.',
-            'AP': 'data_ns_progress: share of NS-active player-days whose streak progress reached Cum req (new) / AJ4, '
-                  'payers pooled.',
+            'AP': 'Share of active player-days whose daily peak streak reached Cum req (new) / AJ4, payers pooled: '
+                  'data_ns_streak_dist (counts, the claim\'s counter) when the workbook has it, else data_ns_progress.',
             'AQ': 'old / S at the old rounds\' requirements, interpolated to this requirement (held flat outside them).',
             'AS': 'The row of this round on the sheet (column A).'}
     for col, txt in heads:
@@ -484,7 +639,7 @@ def write_blocks(ws, day_type):
     # ---- notes next to the table --------------------------------------------------------------------------------
     for i, (txt, k) in enumerate(NOTES):
         c = ws['%s%d' % (NOTE_COL, T_HDR + i)]
-        c.value = txt
+        c.value = txt.replace('C_RANGES', crange)
         c.font = Font(name='Consolas' if k == 'f' else ARIAL, size=10, bold=(k == 'b'))
         c.alignment = Alignment(wrap_text=(k != 'f'), vertical='top')
     widths = {'AI': 16, 'AJ': 12, 'AK': 13, 'AL': 13, 'AM': 13, 'AN': 13, 'AO': 13, 'AP': 14, 'AQ': 13, 'AR': 30,
@@ -511,7 +666,9 @@ def main():
                    if c.column >= CLEAR_FROM and c.value not in (None, '')]
         ws = wb.create_sheet(name)
         copy_sheet(src[name], ws, skip=lambda r, c: c >= CLEAR_FROM)
-        write_blocks(ws, 'weekday' if name.endswith('weekday') else 'weekend')
+        dtype = 'weekday' if name.endswith('weekday') else 'weekend'
+        write_blocks(ws, dtype, c_ranges(vals, dtype))
+        print('  ' + c_ranges(vals, dtype))
         print('%s: copied A:AH, rewrote AI onwards (%d old cells there replaced: %s)'
               % (name, len(dropped), ', '.join(dropped[:6]) + (' ...' if len(dropped) > 6 else '')))
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
