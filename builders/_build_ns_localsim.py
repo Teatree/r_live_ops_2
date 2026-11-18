@@ -139,13 +139,18 @@ def streak_bindings():
             'b_bd,IFERROR(FILTER(' + bc('event_date') + ',IF(ISNUMBER(b_c),b_c,0)>IF(ISNUMBER(b_a),b_a,0)),"none"),'
             'b_lad,IFERROR(' + bc('ladder') + ',""),b_req,IFERROR(' + bc('cum_req') + ',0),'
             'b_arm,IFERROR(' + bc('config_arm') + ',""),'
-            't_fin,IF(cens_,IFERROR(MAX(FILTER(IF(ISNUMBER(b_req),b_req,0),((b_lad=seg_)+(seg_="100+")*(b_lad="100-249"))'
+            't_fin0,IF(cens_,IFERROR(MAX(FILTER(IF(ISNUMBER(b_req),b_req,0),((b_lad=seg_)+(seg_="100+")*(b_lad="100-249"))'
             '*IF(LEN(arm_)=0,1,LEFT(b_arm&"",LEN(arm_))=arm_))),1E9),1E9),'
             't_h,IFERROR(' + ST_H + ',""),t_t,IFERROR(' + ST_T + ',""),'
             't_lad,IFERROR(' + col('ladder') + ',""),t_pay,IFERROR(' + col('payer_flag') + ',""),'
             't_act,IFERROR(' + col('players_active') + ',0),t_dt,IFERROR(' + col('day_type') + ',"all"),'
             't_dte,IFERROR(' + col('event_date') + ',0),t_arm,IFERROR(' + col('config_arm') + ',""),'
             't_aok,IF(ISNUMBER(MATCH("config_arm",t_h,0)),IF(LEN(arm_)=0,1,LEFT(t_arm&"",LEN(arm_))=arm_),1),'
+            # a sheet carrying 'censored_at' says itself where it stops (blank / 0 = not censored) - it wins over the
+            # old ladder's final round (t_fin0); the engine reads it the same way
+            't_cz,IFERROR(MAX(IF(ISNUMBER(' + col('censored_at') + '),' + col('censored_at') + ',0)'
+            '*((t_lad=seg_)+(seg_="100+")*(t_lad="100-249"))),0),'
+            't_fin,IF(NOT(cens_),1E9,IF(ISNUMBER(MATCH("censored_at",t_h,0)),IF(t_cz>0,t_cz,1E9),t_fin0)),'
             't_w0,IFERROR(IF(ISNUMBER(t_act),t_act,0)*((t_lad=seg_)+(seg_="100+")*(t_lad="100-249"))*t_aok'
             '*IF(OR(dt_="all",dt_=""),1,t_dt=dt_)*IF(drop_,ISNA(MATCH(t_dte,b_bd,0)),1),0),'
             't_gx,IFERROR(VALUE(MID(t_h,12,12)),0),'
@@ -448,6 +453,10 @@ def emu_curve_streak(stk, seg, payer, day_type, bad, arm='Variant A', fin=None):
     linear between points, the tail extended log-linearly. None when the sheet has no active players for it."""
     h = {str(x).strip(): i for i, x in enumerate(stk[0]) if x is not None}
     ges = sorted((float(k[11:]), i) for k, i in h.items() if k.startswith('players_ge_'))
+    if fin is not None and 'censored_at' in h:                    # the sheet says where it stops (blank = nowhere)
+        cz = [float(r[h['censored_at']]) for r in stk[1:] if r and r[h['ladder']] is not None and isinstance(r[h['censored_at']], (int, float))
+              and (str(r[h['ladder']]).strip() == seg or (seg == '100+' and str(r[h['ladder']]).strip() == '100-249'))]
+        fin = max(cz) if cz and max(cz) > 0 else None
     if fin is not None:
         ges = [(x, i) for x, i in ges if x <= fin + 1e-9]           # censored past the old final round
     W, cnt = 0.0, [0.0] * len(ges)
