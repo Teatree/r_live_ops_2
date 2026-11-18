@@ -99,7 +99,7 @@
 
 // Build stamp. Read back by ECOGAINS_BUILD() so "is the pasted code current?"
 // is answerable from the sheet instead of from memory.
-var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D107  2026-11-18';
+var ENGINE_BUILD  = 'EcoGainsSim_v4.gs  D108  2026-11-18';
 
 
 // TRUE: config/data/calendar edits automatically regenerate the simulated gains.
@@ -205,6 +205,14 @@ var SEG_PARENT = { '250+': '100-249' };
 //                             segments never do. Six segments describe the population better than one.
 var SEG_MIX_CATS = { 'Saga': 1, 'Daily Night Sky Prize': 1, 'ToF': 1,
                      'Season Pass (Free)': 1, 'Season Pass (Paid)': 1 };
+/** D108: SEG_MIX_CATS, plus a collection whose sheets carry one block per segment (an ALL player has no block -
+ *  its row is the member segments pooled, as Night Sky's). Static otherwise: an old single-ladder workbook keeps
+ *  ALL's own row, bit for bit. */
+function segMixCat_(cat){
+  if (SEG_MIX_CATS[cat]) return true;
+  var coll = (typeof COLL_R_SPECS !== 'undefined') ? COLL_R_SPECS[cat] : null;
+  return !!(coll && coll.blocks && COLL_SEG_BLOCKS && (collHasBlocks_(coll.v2) || collHasBlocks_(coll.base)));
+}
 /** The engine's one spelling of a segment label: trimmed, data_gains' 'F. ' prefix dropped,
  *  aliases applied. '' for a blank. */
 function segCanon_(x){
@@ -331,7 +339,7 @@ function mixRow_(cat, payer, ctx){
 /** The simulator of (category, segment): the source's own function, or the member mixture for ALL
  *  on a source configured per segment. */
 function simFor_(cat, seg, payer, ctx){
-  if (SEG_MIX_CATS[cat] && segIsAll_(seg)) return mixRow_(cat, payer, ctx);
+  if (segMixCat_(cat) && segIsAll_(seg)) return mixRow_(cat, payer, ctx);
   var fn = SOURCES[cat];
   return fn ? fn(seg, payer, ctx, cat) : null;
 }
@@ -449,7 +457,7 @@ function resultRow_(cat, seg, payer, ctx){
   if (seg === 'A. 0') return appendixRow_(cat, payer, ctx);                    // §3 block
   // D94: ALL on a source configured per segment is the member segments pooled - already final
   // (its members' rows carry the D82 anchoring), so it skips the overlays below
-  if (seg === SEG_ALL && SEG_MIX_CATS[cat]) return mixRow_(cat, payer, ctx) || measuredRow_(cat, seg, payer, ctx.ds);
+  if (seg === SEG_ALL && segMixCat_(cat)) return mixRow_(cat, payer, ctx) || measuredRow_(cat, seg, payer, ctx.ds);
   var fn = SOURCES[cat];
   var row = fn ? (fn(seg, payer, ctx, cat) || measuredRow_(cat, seg, payer, ctx.ds))
                : measuredRow_(cat, seg, payer, ctx.ds);                        // carried
@@ -470,7 +478,7 @@ function resultRow_(cat, seg, payer, ctx){
 // A. 0 stays raw (appendix — no behaviour telemetry, §3).
 function measuredRow_(cat, seg, payer, ds){
   seg = segCanon_(seg);                                  // D94
-  if (seg === SEG_ALL && SEG_MIX_CATS[cat]) return mixMeasured_(cat, payer, ds, _baseSide);   // D94: pooled where the export is silent
+  if (seg === SEG_ALL && segMixCat_(cat)) return mixMeasured_(cat, payer, ds, _baseSide);   // D94: pooled where the export is silent
   var row = measuredRowCore_(cat, seg, payer, ds);
   if (_baseSide || seg === 'A. 0') return row;
   // D61: the bottom-up columns of the MEASURED side (see PACK_ANCHORED). Only where the export is
@@ -513,7 +521,7 @@ function spFreePacksSynth_(seg, payer, ds){
 }
 
 function measuredRowCore_(cat, seg, payer, ds){
-  if (SEG_MIX_CATS[cat] && segIsAll_(seg)) return mixMeasured_(cat, payer, ds, true);         // D94
+  if (segMixCat_(cat) && segIsAll_(seg)) return mixMeasured_(cat, payer, ds, true);         // D94
   // D86: a stand-in lane has no current side (Chuck's: cal_curr runs none - user rule)
   if (LANE_STANDIN[cat] && laneStandInActive_(cat)) return zeroRow_();
   var row = ds.dataRow(cat, seg, payer);
@@ -1991,6 +1999,16 @@ function packRungs_(cat, seg, payer, ctx, instOrdinal, prof){
                             [num(ci.final_balance_p75),.75]]) : null;
     if (!S) return null;
     S = pacedSurv_(S, collPace_(cat, seg, payer, ctx));      // D81: the rungs of the event as it runs
+    var blad = coll.blocks ? collBlockLadder_(baseRungs ? coll.base : coll.v2, coll, seg, baseRungs ? coll.v2 : coll.base) : null;
+    if (blad){                                               // D108: the segment's own block
+      var brungs = [];
+      blad.reqs.forEach(function(req, i){
+        if (!(req > 0)) return;
+        brungs.push({ label: blad.labels[i] + ' (req ' + req + ')', p: profP_(prof, S(req)), req: req,
+                      packs: packsOf(blad.rews[i] || {}), tickets: tkOf(blad.rews[i] || {}) });
+      });
+      return mk(profPart_(prof, packParticipation_(cat, ci)), false, brungs);
+    }
     var reqs = collReqs_(coll);
     if (!reqs.length) return null;
     var vr = baseRungs ? reqs : collReqsV2_(coll, reqs);     // D84; D90: the base axis on the anchor side
@@ -2130,9 +2148,13 @@ function packProvFor_(cat, seg, payer, ctx){
     } else {
       var S = inst ? survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
                                 [num(inst.final_balance_p75),.75]]) : null;
-      var reqs = S ? collReqs_(coll) : [];
-      if (S && reqs.length)
-        collE_(coll.v2, coll, collReqsV2_(coll, reqs), pacedSurv_(S, collPace_(cat, seg, payer, ctx)), prov);   // D84
+      var plad = (S && coll.blocks) ? collBlockLadder_(coll.v2, coll, seg, coll.base) : null;
+      if (plad) collELad_(plad, pacedSurv_(S, collPace_(cat, seg, payer, ctx)), prov);   // D108
+      else {
+        var reqs = S ? collReqs_(coll) : [];
+        if (S && reqs.length)
+          collE_(coll.v2, coll, collReqsV2_(coll, reqs), pacedSurv_(S, collPace_(cat, seg, payer, ctx)), prov);   // D84
+      }
     }
     return prov;
   }
@@ -3015,6 +3037,7 @@ function resetModuleCaches_(){
   _wagerTabCache = {}; _wagerCellCache = {}; _wagerDistCache = {}; _wagerPoolCache = {};   // D103/D104: the wager places
   _micDataCache = undefined;                             // D105: data_mic
   _nsDataCache = undefined; _nsCurveCache = {}; _nsNoteSet = {}; _nsNotes = [];   // D106: Night Sky round data
+  _collBlockCache = {};                                  // D108: per-segment collection blocks
   if (typeof _settleCache !== 'undefined') _settleCache = null;       // EcoGainsSim_Daily.gs
   if (typeof _econPick !== 'undefined') _econPick = null;            // D94 (EcoGainsSim_Daily.gs)
   if (typeof _colDailyCache !== 'undefined') _colDailyCache = null;   // CardOpenings.gs
@@ -3413,7 +3436,8 @@ var COLL_R_SPECS = {
   'Jigsaw'             : {base:'J',  v2:'J_v2',  hdr:9,  r0:10, r1:21, reqC:1,  reqFrom:'own',
                           c0:2, c1:22, inst:'Jigsaw'},
   'Hatchling Hideaway' : {base:'HH', v2:'HH_v2', hdr:10, r0:11, r1:15, reqC:47, reqFrom:'v2',
-                          reqR0:4, reqLabel:'Cum tokens', c0:1, c1:21, inst:'Hatchling Hideaway'},
+                          reqR0:4, reqLabel:'Cum tokens', c0:1, c1:21, inst:'Hatchling Hideaway',
+                          blocks:true, tilesLabel:'Tiles', accLabel:'accuracy'},   // D108
   "Bomb's Ballet"      : {base:'BB', v2:'BB_v2', hdr:7,  r0:8,  r1:22, reqC:1,  reqFrom:'own',
                           c0:2, c1:22, completionRow:23, inst:'Bombs Ballet'},
   'Photoshoot'         : {base:'Ph', v2:'Ph_v2', hdr:23, r0:24, r1:53, reqC:46, reqFrom:'v2',
@@ -3438,6 +3462,15 @@ function rewardE_(cat, seg, payer, ds, variant, pace){
   var S = inst ? survival_([[num(inst.final_balance_p25),.25],[num(inst.final_balance_p50),.5],
                             [num(inst.final_balance_p75),.75]]) : null;
   if (!S) return null;                                     // no progress distribution -> carry
+  if (coll.blocks && (collHasBlocks_(coll.base) || collHasBlocks_(coll.v2))){
+    // D108: each side on the segment's own block (a side without blocks: the old fixed ladder)
+    var lb0 = collBlockLadder_(coll.base, coll, seg, coll.v2), lv0 = collBlockLadder_(coll.v2, coll, seg, coll.base);
+    var r0 = (!lb0 || !lv0) ? collReqs_(coll) : null;
+    var eB = lb0 ? collELad_(lb0, S) : (r0 && r0.length ? collE_(coll.base, coll, r0, S) : null);
+    var eV = lv0 ? collELad_(lv0, pacedSurv_(S, pace)) : (r0 && r0.length ? collE_(coll.v2, coll, collReqsV2_(coll, r0), pacedSurv_(S, pace)) : null);
+    if (!eB || !eV) return null;
+    return { inst: inst, eBase: eB, eV2: eV };
+  }
   var reqs = collReqs_(coll);
   if (!reqs.length) return null;
   return { inst: inst,
@@ -3690,6 +3723,108 @@ function collReqsV2_(coll, reqs){
   if (coll.reqFrom === 'own') return collReqs_(coll, true);
   var v = collReqs_(coll, true);
   return v.length ? v : reqs;
+}
+
+// ---- D108 (2026-11-18, user decisions): a collection configured PER SEGMENT ---------------------------------------
+// HH / HH_v2 hold one block per segment: the segment label in column A ('0-9' ... '100+'), then (optionally) a header
+// row ('Gate number | Coins ... ToF_Ticket | Tiles | Cum tokens req'), then one row per gate ('Gate 1', 'Gate 2' ...).
+// Each block carries its own rewards AND requirements, so every segment can run a different ladder. Read per block:
+//   header       the block's own header row, else the sheet's FIRST one (the user keeps only 0-9's: shared columns)
+//   rewards      every RES_MAP column of the header, row by row
+//   requirement  the 'Cum tokens' column (by header) of the gate row; without one, the 'Tiles' column summed down the
+//                block and divided by the sheet's 'accuracy' cell (the label anywhere, the value to its right; the pair's
+//                other sheet when this one has none; 1 with a note when neither has it)
+// A segment reads its own block, else its parent's (segCfgKeys_: 250+ -> 100-249 -> '100+'); ALL pools the members
+// (segMixCat_). Base HH and HH_v2 are read the same way - identical blocks give DIFF 0. A sheet with no segment
+// blocks is read the old way (the fixed rows of COLL_R_SPECS), so older workbooks are bit-identical.
+// COLL_SEG_BLOCKS = false ignores the blocks (the sheets must then hold the old single ladder).
+var COLL_SEG_BLOCKS = true;
+var _collBlockCache = {};
+function collIsGate_(x){ return /^\s*(gate\s*)?\d+\s*$/i.test(String(x == null ? '' : x)); }
+function collIsSegLabel_(x){ return /^\s*(\d+\s*-\s*\d+|\d+\s*\+|ALL)\s*$/i.test(String(x == null ? '' : x)); }
+/** true when `sheetName` carries at least one segment block (a segment label with a gate row within 3 rows). */
+function collHasBlocks_(sheetName){
+  if (!COLL_SEG_BLOCKS || !sheetName) return false;
+  var key = 'has|' + sheetName;
+  if (_collBlockCache[key] !== undefined) return _collBlockCache[key];
+  var v = sheetVals_(sheetName), ok = false;
+  for (var r = 0; r < v.length && !ok; r++){
+    if (!collIsSegLabel_((v[r] || [])[0])) continue;
+    for (var q = r + 1; q < Math.min(v.length, r + 4); q++) if (collIsGate_((v[q] || [])[0])){ ok = true; break; }
+  }
+  return (_collBlockCache[key] = ok);
+}
+/** The value right of the first cell labelled `label` (case-insensitive, whole text), or null. */
+function collLabelValue_(sheetName, label){
+  var v = sheetVals_(sheetName), want = String(label).trim().toLowerCase();
+  for (var r = 0; r < v.length; r++){
+    var row = v[r] || [];
+    for (var c = 0; c < row.length - 1; c++)
+      if (String(row[c] == null ? '' : row[c]).trim().toLowerCase() === want){ var x = nsNumOrNull_(row[c + 1]); if (x != null) return x; }
+  }
+  return null;
+}
+/** { reqs:[cum req per gate], rews:[{res: amt}], labels:[], hdrRow, own } for `seg`'s block on `sheetName`, or null
+ *  (no blocks on the sheet, or no block for the segment or its parent). `other` = the pair's other sheet (accuracy). */
+function collBlockLadder_(sheetName, spec, seg, other){
+  if (!collHasBlocks_(sheetName)) return null;
+  var key = 'lad|' + sheetName + '|' + segCanon_(seg);
+  if (_collBlockCache[key] !== undefined) return _collBlockCache[key];
+  var v = sheetVals_(sheetName);
+  var lr = segCfgPick_(v.map(function(row){ return (row || [])[0]; }), seg), out = null;
+  if (lr >= 0){
+    var g0 = -1;
+    for (var q = lr + 1; q < Math.min(v.length, lr + 4); q++) if (collIsGate_((v[q] || [])[0])){ g0 = q; break; }
+    if (g0 >= 0){
+      var isHdr = function(row){ var n = 0; (row || []).forEach(function(x){ if (RES_MAP[String(x == null ? '' : x).trim()]) n++; }); return n >= 3; };
+      var hr = -1, own = true;
+      for (var q2 = lr + 1; q2 < g0; q2++) if (isHdr(v[q2])){ hr = q2; break; }
+      if (hr < 0){ own = false; for (var q3 = 0; q3 < v.length; q3++) if (isHdr(v[q3])){ hr = q3; break; } }
+      if (hr >= 0){
+        var cols = rewCols_(v, hr, spec.c0, spec.c1), hrow = v[hr] || [];
+        var cumC = -1, tilesC = -1;
+        for (var c = 0; c < hrow.length; c++){
+          var t = String(hrow[c] == null ? '' : hrow[c]).trim().toLowerCase();
+          if (cumC < 0 && spec.reqLabel && t.indexOf(String(spec.reqLabel).toLowerCase()) === 0) cumC = c;
+          if (tilesC < 0 && spec.tilesLabel && t === String(spec.tilesLabel).toLowerCase()) tilesC = c;
+        }
+        var reqs = [], rews = [], labels = [], cum = 0, acc = null;
+        if (cumC < 0 && tilesC >= 0){
+          acc = collLabelValue_(sheetName, spec.accLabel || 'accuracy');
+          if (acc == null && other) acc = collLabelValue_(other, spec.accLabel || 'accuracy');
+          if (!(acc > 0)){
+            acc = 1;
+            nsNote_('acc|' + sheetName, sheetName + ': no \'' + (spec.accLabel || 'accuracy') + '\' cell - Tiles read as tokens (accuracy 1).');
+          }
+        }
+        for (var r2 = g0; r2 < v.length && collIsGate_((v[r2] || [])[0]); r2++){
+          var row2 = v[r2] || [];
+          if (cumC >= 0) reqs.push(num(row2[cumC]));
+          else if (tilesC >= 0){ cum += num(row2[tilesC]); reqs.push(cum / acc); }
+          else reqs.push(0);
+          rews.push(rewRow_(v, r2, cols));
+          labels.push(String(row2[0]).trim());
+        }
+        if (reqs.some(function(x){ return x > 0; }))
+          out = { reqs: reqs, rews: rews, labels: labels, hdrRow: hr, own: own, src: cumC >= 0 ? 'cum' : 'tiles' };
+      }
+    }
+  }
+  return (_collBlockCache[key] = out);
+}
+/** Survival-weighted payout of one ladder ({reqs, rews}). Same sum as collE_ (no completion row on HH). */
+function collELad_(lad, S, prov){
+  var E = zeroRow_();
+  for (var i = 0; i < lad.reqs.length; i++){
+    var req = lad.reqs[i];
+    if (!(req > 0)) continue;
+    var s = S(req), rew = lad.rews[i] || {};
+    for (var res in rew){
+      E[res] = num(E[res]) + rew[res] * s;
+      provAdd_(prov, res, (lad.labels && lad.labels[i] ? lad.labels[i] : 'milestone #' + (i + 1)) + ' (req ' + req + ')', rew[res] * s);
+    }
+  }
+  return E;
 }
 
 /** {r, c} (0-based) of the first cell on rows 0..maxRow whose text starts with `label`, or null. */
@@ -4192,7 +4327,7 @@ function nsData_(){
     out.progress = nsReadProgress_(sheetVals_(NS_PROGRESS_SHEET));
     if (NS_PERDAY_READ){
       var pdv = sheetVals_(NS_PERDAY_SHEET);
-      out.streak = nsReadStreakDist_(sheetVals_(NS_STREAK_SHEET), nsPerDayBad_(pdv));
+      out.streak = nsReadStreakDist_(sheetVals_(NS_STREAK_SHEET), nsPerDayBad_(pdv), nsPerDayFinals_(pdv));
       if (out.streak) out.perDay = nsReadPerDay_(pdv);         // the coherence rule (see NS_STREAK_SHEET)
     }
   }
@@ -4226,9 +4361,31 @@ function nsPerDayBad_(v){
   }
   return out;
 }
+/** D107c: each ladder's FINAL round requirement in data_ns_per_day_reach (the anchor arm's rows): the point the
+ *  streak counter stops at - the event ends for the day once the last round is claimed. { ladder: cum_req }. */
+function nsPerDayFinals_(v){
+  var out = {};
+  if (!v || v.length < 2) return out;
+  var h = nsHdr_(v[0]);
+  if (h['ladder'] == null || h['cum_req'] == null) return out;
+  for (var j = 1; j < v.length; j++){
+    var r = v[j];
+    if (!r || r[h['ladder']] == null || r[h['ladder']] === '') continue;
+    if (ANCHOR_ARM && h['config_arm'] != null && String(r[h['config_arm']] || '').trim().indexOf(ANCHOR_ARM) !== 0) continue;
+    var lad = segCanon_(r[h['ladder']]), q = num(r[h['cum_req']]);
+    if (q > 0 && !(out[lad] >= q)) out[lad] = q;
+  }
+  return out;
+}
 /** D107: data_ns_streak_dist -> { canonical ladder: { payer | 'ALL': { 'weekday' | 'weekend' | 'all': [{x, s}] } } },
- *  or null. Counts are pooled over the kept dates (ANCHOR_ARM, not a `bad` date) before dividing. */
-function nsReadStreakDist_(v, bad){
+ *  or null. Counts are pooled over the kept dates (ANCHOR_ARM, not a `bad` date) before dividing.
+ *  D107c (2026-11-18): the 2026-11-18 pull is CENSORED at each ladder's final round (the counter stops when the
+ *  last round is claimed: 40-99 S(100) 4.4% -> S(102) 0.36%, 100+ S(280) 1.6% -> S(300) 0.12%), so with `finals`
+ *  every point past the ladder's final requirement is dropped and the curve is EXTENDED log-linearly past it on
+ *  the slope between the final point and the last point at or below half of it (pts.slopeX; two neighbouring
+ *  points such as 40 / 42 give an unstable slope). NS_STREAK_CENSOR = false reads every point as delivered. */
+var NS_STREAK_CENSOR = true;
+function nsReadStreakDist_(v, bad, finals){
   if (!v || v.length < 2) return null;
   var h = nsHdr_(v[0]);
   if (h['ladder'] == null || h['players_active'] == null) return null;
@@ -4263,11 +4420,18 @@ function nsReadStreakDist_(v, bad){
   var out = {};
   for (var lad in acc) for (var p in acc[lad]) for (var d in acc[lad][p]){
     var o = acc[lad][p][d], pts = [{ x: 0, s: 1 }], last = 1;
+    var fin = (NS_STREAK_CENSOR && finals && finals[lad] > 0) ? finals[lad] : null;
     ge.forEach(function(g, k){
+      if (fin != null && g.x > fin + 1e-9) return;                          // D107c: censored past the final round
       var sv = Math.max(0, Math.min(1, o.c[k] / o.W));
       if (g.x <= pts[pts.length - 1].x || sv > last + 1e-12) return;        // one point per x, never rising
       pts.push({ x: g.x, s: sv }); last = sv;
     });
+    if (fin != null){
+      pts.slopeX = fin / 2;
+      nsNote_('censor|' + lad, NS_STREAK_SHEET + ' ' + lad + ': read up to the old final round (cum ' + fin + '); past it ' +
+              'the curve is extended on the slope from ' + (fin / 2) + ' to ' + fin + ' (the counter stops at the last round).');
+    }
     ((out[lad] = out[lad] || {})[p] = out[lad][p] || {})[d] = pts;
   }
   return out;
@@ -4432,6 +4596,10 @@ function nsCurvePoints_(r, ge, pc, zero, cens){
 function nsCurveFn_(pts, tag){
   var n = pts.length, last = pts[n - 1];
   var prev = null;
+  // D107c: a censored streak curve takes its tail slope from the last point at or below pts.slopeX
+  if (pts.slopeX != null)
+    for (var i0 = n - 2; i0 >= 0; i0--) if (pts[i0].x <= pts.slopeX + 1e-9 && pts[i0].s > last.s + 1e-12){ prev = pts[i0]; break; }
+  if (!prev)
   for (var i = n - 2; i >= 0; i--) if (pts[i].s > last.s + 1e-12){ prev = pts[i]; break; }
   var lam = (prev && last.s > 0) ? Math.log(prev.s / last.s) / Math.max(1e-9, last.x - prev.x) : null;
   return function(x){
@@ -4573,13 +4741,22 @@ function nsLadderAudit_(){
   var out = [];
   ['NS', NS_WEEKDAY_SHEET, NS_V2_SHEET, NS_V2_WEEKDAY_SHEET].forEach(function(nm){
     var v = sheetVals_(nm);
+    // D107b: walk the SEGMENT BLOCKS (a segment label in column A, rounds within 3 rows), each read with its own
+    // header or, without one, the sheet's first - a block whose repeated header was cleared is still audited
+    var h0 = null;
+    for (var r0 = 0; r0 < v.length && !h0; r0++){ var hh = nsHdr_(v[r0]); if (hh['cum streak req'] != null) h0 = hh; }
+    if (!h0) return;
+    var isRd = function(row){ return /^\s*\d+(\.\d+)?\s*$/.test(String((row || [])[0] == null ? '' : row[0])); };
     for (var r = 0; r < v.length; r++){
-      var h = nsHdr_(v[r]);
-      if (h['cum streak req'] == null) continue;
-      var label = '';
-      for (var u = r - 1; u >= 0; u--){ var a = String((v[u] || [])[0] == null ? '' : v[u][0]).trim(); if (a){ label = a; break; } }
+      var label = String((v[r] || [])[0] == null ? '' : v[r][0]).trim();
+      if (!/^(\d+\s*-\s*\d+|\d+\s*\+|ALL)$/i.test(label)) continue;
+      var g0 = -1;
+      for (var g = r + 1; g < Math.min(v.length, r + 4); g++) if (isRd(v[g])){ g0 = g; break; }
+      if (g0 < 0) continue;
+      var h = h0;
+      for (var g2 = r + 1; g2 < g0; g2++){ var ho = nsHdr_(v[g2]); if (ho['cum streak req'] != null){ h = ho; break; } }
       var prev = 0;
-      for (var q = r + 1; q < v.length; q++){
+      for (var q = g0; q < v.length; q++){
         var row = v[q] || [];
         if (!/^\s*\d+(\.\d+)?\s*$/.test(String(row[0] == null ? '' : row[0]))) break;
         var cum = num(row[h['cum streak req']]), st = (h['streak req'] != null) ? nsNumOrNull_(row[h['streak req']]) : null;
@@ -7726,9 +7903,28 @@ function nsLadderOn_(sheetName, seg){
   var v = sheetVals_(sheetName);
   // D94: the block the segment's config labels name (segCfgKeys_: own spelling, alias, parent)
   var r = segCfgPick_(v.map(function(row){ return (row || [])[0]; }), seg);
+  if (r < 0) return [];
   // D106: strict - a round is a row whose first cell is a plain number, so a segment label ('100+',
   // '250+' read as 100 / 250 by parseFloat) is never taken for a round when the blank spacer row is gone
-  return (r >= 0) ? readLadder_(v.slice(r + 1), 'Cum Streak Req', true) : [];
+  // D107b (2026-11-18): a block with NO header row of its own (the user cleared the repeated headers on
+  // NS_v2 / NS_v2_weekday: only 0-9 kept one) reads the sheet's FIRST header - the columns are shared. The
+  // header search stops at the block's first round row: it used to run on into the next block and read
+  // THAT block's header and rounds (and with no header anywhere below, an empty ladder, which
+  // readNSLadder_ then replaced by the base NS ladder - the redesign silently priced as no change).
+  var isRound = function(row){ return /^\s*\d+(\.\d+)?\s*$/.test(String((row || [])[0] == null ? '' : row[0])); };
+  var g0 = -1;
+  for (var q = r + 1; q < Math.min(v.length, r + 4); q++) if (isRound(v[q])){ g0 = q; break; }
+  if (g0 < 0) return [];
+  var hasHdr = function(row){ return (row || []).some(function(x){ return String(x == null ? '' : x).trim() === 'Cum Streak Req'; }); };
+  var hr = -1;
+  for (var q2 = r + 1; q2 < g0; q2++) if (hasHdr(v[q2])){ hr = q2; break; }
+  if (hr < 0){
+    for (var q3 = 0; q3 < v.length; q3++) if (hasHdr(v[q3])){ hr = q3; break; }
+    if (hr < 0) return [];
+    nsNote_('hdr|' + sheetName + '|' + segCanon_(seg), sheetName + ' ' + segLabel_(seg) + ': no header row of its own - read with the ' +
+            'sheet\'s first header (row ' + (hr + 1) + ').');
+  }
+  return readLadder_([v[hr]].concat(v.slice(g0)), 'Cum Streak Req', true);
 }
 
 // Generic ladder reader: finds the header row containing reqCol, maps reward columns through

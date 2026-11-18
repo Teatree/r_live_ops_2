@@ -435,7 +435,7 @@ function pbpEventState_(spec, label, inst, a, ctx, st, expWins){
   ev.today = Math.max(0, fb * (share(k) - share(k - 1)));
   ev.cum = ev.start;
   if (spec.family === 'token'){
-    ev.ladder = pbpMsLadder_(spec);
+    ev.ladder = pbpMsLadder_(spec, a.seg);
     if (spec.completion) ev.completionRew = pbpRewRow_(spec, spec.rew.r1);
     if (spec.earn === 'flat')       ev.flatPerWin = PBP_HH_TOKENS_PER_WIN;
     else if (spec.earn === 'firstTry') ev.tokensPerLevel = pbpCfgNum_(spec.cfg, 'tokensPerLevel') || 5;
@@ -524,7 +524,14 @@ function pbpSagaNodes_(cal, seg){
 }
 // milestone ladder: req column rows map 1:1 (in order) onto the reward block rows - the req
 // column may live at a different row offset (the EventReach helper columns on HH_v2 / Ph_v2).
-function pbpMsLadder_(spec){
+function pbpMsLadder_(spec, seg){
+  // D108: a sheet with one block per segment (HH_v2) - the segment's own gates and requirements
+  var coll = (typeof COLL_R_SPECS !== 'undefined') ? COLL_R_SPECS[spec.cat] : null;
+  if (seg && coll && coll.blocks && typeof collBlockLadder_ === 'function'){
+    var bl = collBlockLadder_(spec.cfg, coll, seg, coll.base);
+    if (bl) return bl.reqs.map(function(req, i){ return { req: req, rew: bl.rews[i] || {} }; })
+                          .filter(function(x){ return x.req > 0; });
+  }
   var v = sheetVals_(spec.cfg), out = [];
   for (var r = spec.req.r0; r <= spec.req.r1; r++){
     var req = num(v[r] && v[r][spec.req.c]);

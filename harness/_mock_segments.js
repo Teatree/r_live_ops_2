@@ -95,11 +95,21 @@ function GATES() {
                 sg250: sagaRow('250+', 'PAYER'), sgTop: sagaRow('100-249', 'PAYER'), sg40: sagaRow('40-99', 'PAYER') };
     // Night Sky: the '100+' block of NS_v2 AND NS_v2_weekday pays 3x the coins
     const nsSheets = ['NS_v2', 'NS_v2_weekday'].filter(n => data[n]), nsSnap = {};
-    const nsBlock = (v) => { const r = v.findIndex(row => String(row[0]).trim() === '100+'); const h = (v[r + 1] || []).map(x => String(x).trim()); return { r, hc: h.indexOf('HC Reward') }; };
+    // the '100+' block as the engine reads it (D107b): its own header row, else the sheet's first; rounds from the
+    // first numbered row under the label (a v2 sheet may keep only the 0-9 header - the 2026-11-18 workbook does)
+    const isRd = (x) => x !== '' && x != null && !isNaN(parseFloat(x));
+    const nsBlock = (v) => {
+      const r = v.findIndex(row => String(row[0]).trim() === '100+');
+      let g0 = r + 1; while (g0 < v.length && g0 <= r + 3 && !isRd(v[g0][0])) g0++;
+      const hasHc = (row) => (row || []).some(x => String(x).trim() === 'HC Reward');
+      const own = (g0 - 1 > r && hasHc(v[g0 - 1])) ? g0 - 1 : -1;
+      const hrow = own >= 0 ? v[own] : v.find(hasHc);
+      return { r, g0, own, hc: hrow.map(x => String(x).trim()).indexOf('HC Reward') };
+    };
     nsSheets.forEach(n => {
       nsSnap[n] = snap(n);
       const v = data[n].values, bl = nsBlock(v);
-      for (let r = bl.r + 2; r < v.length && v[r][0] !== '' && !isNaN(parseFloat(v[r][0])); r++) v[r][bl.hc] = num(v[r][bl.hc]) * 3;
+      for (let r = bl.g0; r < v.length && isRd(v[r][0]); r++) v[r][bl.hc] = num(v[r][bl.hc]) * 3;
     });
     fresh();
     const m = { ns250: nsRow('250+', 'PAYER'), nsTop: nsRow('100-249', 'PAYER'), ns40: nsRow('40-99', 'PAYER') };
@@ -111,9 +121,9 @@ function GATES() {
     nsSheets.forEach(n => {
       nsSnap[n] = snap(n);
       const v = data[n].values, bl = nsBlock(v), add = [[]];
-      for (let r = bl.r; r < v.length && (r <= bl.r + 1 || (v[r][0] !== '' && !isNaN(parseFloat(v[r][0])))); r++) {
+      for (let r = bl.r; r < v.length && (r < bl.g0 || isRd(v[r][0])); r++) {
         const row = v[r].slice();
-        if (r === bl.r) row[0] = '250+'; else if (r > bl.r + 1) row[bl.hc] = num(row[bl.hc]) * 3;
+        if (r === bl.r) row[0] = '250+'; else if (r >= bl.g0) row[bl.hc] = num(row[bl.hc]) * 3;
         add.push(row);
       }
       add.forEach(row => v.push(row));

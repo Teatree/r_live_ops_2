@@ -51,9 +51,15 @@ function GATES(){
     const v = data[nm].values;
     const lr = v.findIndex(r => String(r[0]).trim() === label);
     if (lr < 0) return null;
-    let hr = lr + 1; while (hr < v.length && !v[hr].some(x => String(x).trim() === 'Cum Streak Req')) hr++;
-    const rows = []; for (let r = hr + 1; r < v.length && /^\s*\d+(\.\d+)?\s*$/.test(String(v[r][0])); r++) rows.push(r);
-    return { lr, hr, rows, col: (h) => v[hr].findIndex(x => String(x).trim() === h) };
+    // as the engine reads it (D107b): rounds from the first numbered row within 3 rows of the label; the header is the
+    // block's own row between the two, else the sheet's FIRST one (hr < lr then - a v2 sheet may keep only 0-9's)
+    const isRd = (x) => /^\s*\d+(\.\d+)?\s*$/.test(String(x));
+    let g0 = lr + 1; while (g0 < v.length && g0 <= lr + 3 && !isRd(v[g0][0])) g0++;
+    const hasH = (row) => (row || []).some(x => String(x).trim() === 'Cum Streak Req');
+    let hr = -1; for (let q = lr + 1; q < g0; q++) if (hasH(v[q])){ hr = q; break; }
+    if (hr < 0) hr = v.findIndex(hasH);
+    const rows = []; for (let r = g0; r < v.length && isRd(v[r][0]); r++) rows.push(r);
+    return { lr, hr, g0, rows, col: (h) => v[hr].findIndex(x => String(x).trim() === h) };
   };
   // NS_v2 := NS, NS_v2_weekday := NS_weekday (or NS): a redesign identical to the base
   const identicalConfigs = () => {
@@ -91,6 +97,27 @@ function GATES(){
     restore(snap);
     gate('A2: with the blank row before \'100+\' deleted, 40-99 keeps its rounds and the label is not a round', after === before && after === b.rows.length && n100 > 0,
       '40-99 ' + before + ' -> ' + after + ', 100+ ' + n100);
+  }
+  {
+    // A2b (D107b): blocks whose header row was CLEARED (the 2026-11-18 workbook: only 0-9 kept one) read with the
+    // sheet's first header - same ladders, no fallback to NS, and the audit still walks them
+    // Fixture in both directions, whatever the dump holds: WITH = every block after 0-9 carries its own header (the
+    // first header written into the row between label and rounds), WITHOUT = those rows cleared
+    const snap = snapAll(), labs = ['0-9', '10-19', '20-39', '40-99', '100+'];
+    const setHeaders = (on) => {
+      const v = data['NS_v2'].values, h0 = v.find(r => (r || []).some(x => String(x).trim() === 'Cum Streak Req'));
+      let n = 0;
+      labs.slice(1).forEach(l => { const b = block('NS_v2', l); if (!b || b.g0 - b.lr < 2) return;
+        v[b.g0 - 1] = on ? h0.slice() : v[b.g0 - 1].map(() => ''); n++; });
+      fresh(); return n;
+    };
+    const read = () => ({ lad: labs.map(l => JSON.stringify(nsLadderOn_('NS_v2', segCanon_(l)))),
+                          audit: nsLadderAudit_().filter(x => /^NS_v2 /.test(x)).length });
+    const nOn = setHeaders(true), A = read();
+    const nOff = setHeaders(false), B = read();
+    restore(snap);
+    gate('A2b: blocks whose repeated header row is cleared (' + nOff + ' of them) read the same ladders off the first header as with every header written, and the audit still walks them',
+      nOn > 0 && nOn === nOff && A.lad.every((x, i) => x === B.lad[i] && x !== '[]') && A.audit === B.audit, 'audit ' + A.audit + ' / ' + B.audit + ' rounds flagged');
   }
   const R0 = rowsOf();
   // add a round to one segment's weekend block: only that segment moves, by measured x dE / E_base x T
@@ -428,11 +455,18 @@ function GATES(){
     })));
     return { values: rows, merges: [] };
   };
-  const handSt = (mu, x) => {                            // (0,1) then the grid points, linear; extended past 512
-    const pts = [[0, 1]].concat(XG.map(X => [X, A2 * Math.exp(-X / mu)]));
+  // D107c: the curve is read up to the ladder's old FINAL round requirement (fin; the data_ns_per_day_reach
+  // cum_req of its last round) and extended past it on the slope from the last point <= fin / 2 to the last point.
+  // fin = Infinity reads every point (NS_STREAK_CENSOR = false): extended past 512 off the last two points.
+  const finOf = (lab) => { const L = nsLadderOn_('NS', segCanon_(lab)); return L.length ? L[L.length - 1].req : Infinity; };
+  const handSt = (mu, x, fin) => {
+    fin = (fin == null) ? Infinity : fin;
+    const pts = [[0, 1]].concat(XG.filter(X => X <= fin + 1e-9).map(X => [X, A2 * Math.exp(-X / mu)]));
     if (x <= 0) return 1;
     for (let j = 1; j < pts.length; j++) if (x <= pts[j][0]) { const a = pts[j - 1], b = pts[j]; return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); }
-    const l = pts[pts.length - 1], pr = pts[pts.length - 2];
+    const l = pts[pts.length - 1];
+    let pr = pts[pts.length - 2];
+    if (isFinite(fin)) for (let j = pts.length - 2; j >= 0; j--) if (pts[j][0] <= fin / 2 + 1e-9){ pr = pts[j]; break; }
     return l[1] * Math.exp(-Math.log(pr[1] / l[1]) / (l[0] - pr[0]) * (x - l[0]));
   };
   const both = (opts) => { data['data_ns_per_day_reach'] = perDaySheet(opts); data['data_ns_streak_dist'] = streakSheet(opts); };
@@ -469,7 +503,7 @@ function GATES(){
     const c = fresh(), L = nsE_('20-39', 'NONPAYER', c.ds, c).ladders;
     const ok = L.pbWd.every((x, k) => close(x, handRate('20-39', k + 1, 'weekday'), 1e-12));
     const S = nsCurve_('20-39', 'NONPAYER', c.ds, 'weekday').S, mu = muS('20-39', 'weekday', 'NONPAYER');
-    const okS = [3, 16, 50].every(x => close(S(x), handSt(mu, x), 1e-12));
+    const okS = [3, 16, 50].every(x => close(S(x), handSt(mu, x, finOf('20-39')), 1e-12));
     const noted = nsNotes_().some(x => /more claims than active players/.test(x) && /2026-10-13/.test(x));
     NS_PERDAY_DROP_DEFECT = false;
     const c2 = fresh(), L2 = nsE_('20-39', 'NONPAYER', c2.ds, c2).ladders;
@@ -496,7 +530,7 @@ function GATES(){
     both();
     const c = fresh(), L = nsE_('250+', 'NONPAYER', c.ds, c).ladders, S = nsCurve_('250+', 'NONPAYER', c.ds, 'weekend').S;
     const ok = L.pbWe.every((x, k) => close(x, handRate('100+', k + 1, 'weekend'), 1e-12)) &&
-               close(S(100), handSt(muS('100+', 'weekend', 'NONPAYER'), 100), 1e-12);
+               close(S(100), handSt(muS('100+', 'weekend', 'NONPAYER'), 100, finOf('100+')), 1e-12);
     restore(snap);
     gate('E4: 250+ reads the claims and the streak curve of the 100+ ladder it plays', ok, L.pbWe.map(x => x.toFixed(4)).join(' '));
   }
@@ -517,13 +551,27 @@ function GATES(){
     const c = fresh();
     let bad = 0, n = 0;
     [['40-99', '40-99'], ['0-9', '0-9']].forEach(([seg, lab]) => ['NONPAYER', 'PAYER'].forEach(p => ['weekday', 'weekend'].forEach(dt => {
-      const C = nsCurve_(seg, p, c.ds, dt), mu = muS(lab, dt, p);
-      [4, 10, 64, 100, 700].forEach(x => { n++; if (!(C && C.src === 'streak' && close(C.S(x), handSt(mu, x), 1e-12))) bad++; });
+      const C = nsCurve_(seg, p, c.ds, dt), mu = muS(lab, dt, p), fin = finOf(lab);
+      [4, 10, 64, 100, 700].forEach(x => { n++; if (!(C && C.src === 'streak' && close(C.S(x), handSt(mu, x, fin), 1e-12))) bad++; });
     })));
     const E = nsE_('40-99', 'NONPAYER', c.ds, c);
     restore(snap);
-    gate('E6: the curve = SUM players_ge_X / SUM players_active for the cell\'s payer and day type, linear between points, extended past the last (by hand)',
+    gate('E6: the curve = SUM players_ge_X / SUM players_active for the cell\'s payer and day type, read up to the ladder\'s old final round and extended past it on the fin/2 -> fin slope (by hand)',
       n > 0 && bad === 0 && E.source === 'streak', n + ' points, ' + bad + ' off; source ' + E.source);
+  }
+  {
+    // E6b: NS_STREAK_CENSOR = false reads every delivered point (the uncensored hand curve)
+    const snap = snapAll();
+    both();
+    NS_STREAK_CENSOR = false;
+    const c = fresh(), C = nsCurve_('40-99', 'PAYER', c.ds, 'weekend'), mu = muS('40-99', 'weekend', 'PAYER');
+    const ok = [64, 150, 300, 700].every(x => close(C.S(x), handSt(mu, x), 1e-12));
+    NS_STREAK_CENSOR = true;
+    const c2 = fresh(), C2 = nsCurve_('40-99', 'PAYER', c2.ds, 'weekend');
+    const differs = !close(C2.S(150), handSt(mu, 150), 1e-6);
+    restore(snap);
+    gate('E6b: NS_STREAK_CENSOR = false reads every delivered point; true moves the curve past the old final round', ok && differs,
+      'S(150) uncensored ' + handSt(mu, 150).toFixed(5) + ' / censored ' + C2.S(150).toFixed(5));
   }
   {
     // E7: a changed requirement = per-day claims x S(new) / S(old); a NEW round = S(req) on the streak curve
@@ -533,8 +581,8 @@ function GATES(){
     const v = data['NS_v2'].values, b = block('NS_v2', SEG), cc = b.col('Cum Streak Req');
     const oldReq = num(v[b.rows[1]][cc]); v[b.rows[1]][cc] = oldReq + 7;
     addRound(SEG, 180, 300);
-    const c = fresh(), L = nsE_(SEG, PAY, c.ds, c).ladders, mu = muS(SEG, 'weekend', PAY);
-    const want2 = handRate(SEG, 2, 'weekend') * handSt(mu, oldReq + 7) / handSt(mu, oldReq), wantN = handSt(mu, 180);
+    const c = fresh(), L = nsE_(SEG, PAY, c.ds, c).ladders, mu = muS(SEG, 'weekend', PAY), fin = finOf(SEG);
+    const want2 = handRate(SEG, 2, 'weekend') * handSt(mu, oldReq + 7, fin) / handSt(mu, oldReq, fin), wantN = handSt(mu, 180, fin);
     const p2 = L.pvWe[1], pN = L.pvWe[L.pvWe.length - 1];
     restore(snap);
     gate('E7: a changed requirement = per-day claims x S(new) / S(old), a new round = S(req), both on the streak curve (by hand)',
@@ -560,17 +608,23 @@ function GATES(){
   say('\n================ D. V2Diff - segment blocks of different lengths ================');
   {
     const blank = (v) => v.map(r => r.map(() => ''));
+    // fixture (whatever the dump's NS_v2 holds): NS_v2 := NS with two rounds added to 40-99 and one to 100+
+    const snapD = snapAll();
+    data['NS_v2'] = clone(data['NS']);
+    addRound('40-99', 400, 50); addRound('40-99', 500, 60); addRound('100+', 900, 70);
+    fresh();
     const bv = data['NS'].values, vv = data['NS_v2'].values, cols = bv[0].length;
     const mk = v2diffMarks_(bv, blank(bv), vv, blank(vv), Math.max(...bv.map(r => r.length)));
     const inBlock = (lab) => { const b = block('NS_v2', lab); const next = vv.findIndex((r, i) => i > b.lr && /^(\d+\s*-\s*\d+|\d+\s*\+)$/.test(String(r[0]).trim()));
       return (rc) => rc[0] > b.lr && (next < 0 || rc[0] < next); };
     const lowMarks = mk.cells.filter(rc => inBlock('0-9')(rc) || inBlock('10-19')(rc)).length;
     const b40 = block('NS_v2', '40-99'), b40b = block('NS', '40-99');
-    const addedRows = new Set(mk.cells.filter(rc => inBlock('40-99')(rc) && rc[0] > b40.hr + b40b.rows.length).map(rc => rc[0]));
+    const addedRows = new Set(mk.cells.filter(rc => inBlock('40-99')(rc) && rc[0] >= b40.g0 + b40b.rows.length).map(rc => rc[0]));
     say('   ' + mk.cells.length + ' cells marked; added: ' + mk.added.join(' / ') + '; removed: ' + (mk.removed.join(' / ') || 'none'));
     gate('D1: blocks of a different length are compared block by block - 0-9 / 10-19 (unchanged) carry no mark, 40-99\'s extra rounds are marked whole',
       lowMarks === 0 && addedRows.size === b40.rows.length - b40b.rows.length && mk.added.some(x => /^40-99 rounds/.test(x)) && mk.added.some(x => /^100\+ rounds/.test(x)),
       lowMarks + ' marks in 0-9/10-19, ' + addedRows.size + ' new 40-99 rows');
+    restore(snapD);
     // a same-shape pair is the plain cell-by-cell compare - built here (a clone of the base with three reward
     // cells edited), not read off the dump: the dump's weekday pair may differ in shape (workbook (2): it does)
     const wb = (data['NS_weekday'] || data['NS']).values, wv = clone(wb);

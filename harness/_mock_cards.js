@@ -72,7 +72,7 @@ const DATA_ALIASES = { collections: '_mockdata_collections.json', main: '_mockda
                        // engine in the workbook is still D93 (no 250+ / ALL tables filled yet)
                        v3q: '_mockdata_v3q.json', v3r: '_mockdata_v3r.json', v3s: '_mockdata_v3s.json', v3t: '_mockdata_v3t.json', v3u: '_mockdata_v3u.json', v3v: '_mockdata_v3v.json', v3w: '_mockdata_v3w.json',
                        // LIVE_OPS_V3 - NS_test (2026-11-16): NS_v2 (weekend) grows to 7 rounds at 40-99 and 10 at 100+
-                       v3x: '_mockdata_v3x.json', v3y: '_mockdata_v3y.json' };
+                       v3x: '_mockdata_v3x.json', v3y: '_mockdata_v3y.json', v3z: '_mockdata_v3z.json' };
 function dataPath(){
   const i = process.argv.indexOf('--data');
   const pick = (i >= 0 && process.argv[i + 1]) ? process.argv[i + 1] : 'collections';
